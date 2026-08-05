@@ -1,0 +1,7 @@
+-- AlterTable
+ALTER TABLE "Resume" ALTER COLUMN "template" SET DEFAULT 'harvard',
+ALTER COLUMN "accent" SET DEFAULT '#000000',
+ALTER COLUMN "fontFamily" SET DEFAULT 'serif',
+ALTER COLUMN "lineHeight" SET DEFAULT 1.2,
+ALTER COLUMN "pageMargin" SET DEFAULT 48;
+

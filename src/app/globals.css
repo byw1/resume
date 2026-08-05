@@ -375,11 +375,35 @@
   background: color-mix(in srgb, var(--paper-accent) 70%, #4b4f5c);
 }
 
+/* ---------------------------------------------------------------------------
+   Harvard: plain disc bullets indented a quarter inch, exactly as the original
+   template's stylesheet specifies.
+   --------------------------------------------------------------------------- */
+
+.resume-paper--harvard ul {
+  list-style: disc;
+  margin-left: 0.25in;
+  padding-left: 0.25in;
+}
+
+.resume-paper--harvard .rp-bullet {
+  display: list-item;
+  padding-left: 0;
+}
+
+.resume-paper--harvard .rp-bullet::before {
+  content: none;
+}
+
 .font-inter {
   font-family: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
 }
+/* The Harvard template specifies Tinos. Every font in this stack is metrically
+   identical to Times New Roman, so the document lands the same on macOS,
+   Windows and Linux — and with no webfont request to block rendering or fail
+   on a restricted network. */
 .font-serif-resume {
-  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+  font-family: Tinos, "Times New Roman", "Liberation Serif", "Nimbus Roman", Times, serif;
 }
 .font-mono-resume {
   font-family: ui-monospace, "SF Mono", Menlo, monospace;

@@ -6,8 +6,8 @@ yourself, wired into Claude so you can just *talk* to it.
 - **Brain** — dump everything you know about every job you've had. No length limit, no
   structure required. Numbers, projects, stories, praise, screw-ups. This is the raw
   material every resume gets built from.
-- **Resumes** — tailored documents assembled from that material. Four templates, live
-  preview, real PDF export.
+- **Resumes** — tailored documents assembled from that material. Defaults to the Harvard
+  OCS format; four other templates, live preview, real PDF export.
 - **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
   timeline, contacts, tasks, and follow-up dates that schedule themselves.
 - **Claude connection** — one URL turns all of the above into 43 tools Claude can call.
@@ -109,13 +109,42 @@ committing.
 
 ---
 
+## The Harvard template
+
+New resumes use the Harvard OCS format by default — the one Harvard's career office hands
+out, and the one recruiters have read ten thousand times:
+
+- Times-metric serif, everything at one size (10pt body, 11pt name and headings)
+- Name and section headings centred over full-width rules
+- Each entry is two justified lines: **organisation** / location, then **role** / dates
+- Black and white, half-inch margins, disc bullets indented half an inch
+- No accent colours, no columns, nothing an applicant tracking system can trip over
+
+Because it leads with the organisation, fill in **both** company and title on every entry —
+Claude is told to do this. For a *Leadership & Activities* section, add an Experience-kind
+section and just rename the heading; organisation, role, location and dates all lay out
+correctly.
+
+The format is a starting point, not a cage. The Design menu (palette icon in the editor)
+switches template, font, accent, size, leading and margins per resume, and the ⌃/⌄ buttons
+on each section reorder them. Harvard's own convention puts Education first — that's right
+for students and recent graduates, and wrong for most people with real work history, so the
+default order leads with Experience.
+
+The other templates — Classic, Modern, Compact, Editorial — are all still there.
+
 ## Getting a PDF
 
 Open a resume → **PDF** → your browser's print dialog → **Save as PDF**, with margins set
 to **None**.
 
-The page is laid out at exactly 8.5in × 11in, so what you see is what you get. The output
-is real selectable text, not an image, so applicant tracking systems can read it.
+The page is laid out at exactly 8.5in × 11in with the Harvard template's half-inch margins,
+so what you see is what you get. The output is real selectable text, not an image, so
+applicant tracking systems can read it.
+
+No webfont is fetched: the serif stack is Tinos → Times New Roman → Liberation Serif, which
+are metrically identical, so the document renders the same on macOS, Windows and Linux with
+nothing to download.
 
 ---
 

@@ -70,7 +70,7 @@ type Meta = PaperSettings & {
   isFavorite: boolean;
 };
 
-const ACCENTS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#111827"];
+const ACCENTS = ["#000000", "#B30000", "#0C5B97", "#1f2937", "#6366f1", "#0ea5e9"];
 const LINES_PER_PAGE = 46;
 
 export function ResumeEditor({
@@ -1049,6 +1049,7 @@ function DesignPopover({
               <SelectValue />
             </SelectTrigger>
             <SelectContent>
+              <SelectItem value="harvard">Harvard</SelectItem>
               <SelectItem value="classic">Classic</SelectItem>
               <SelectItem value="modern">Modern</SelectItem>
               <SelectItem value="compact">Compact</SelectItem>

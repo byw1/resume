@@ -152,13 +152,14 @@ model Resume {
   name          String
   targetRole    String   @default("")
   targetCompany String   @default("")
-  /// Template identity: "classic" | "modern" | "compact" | "editorial"
-  template      String   @default("classic")
-  accent        String   @default("#6366f1")
-  fontFamily    String   @default("inter")
+  /// Template identity: "harvard" | "classic" | "modern" | "compact" | "editorial"
+  template      String   @default("harvard")
+  accent        String   @default("#000000")
+  fontFamily    String   @default("serif")
   fontSize      Int      @default(10)
-  lineHeight    Float    @default(1.35)
-  pageMargin    Int      @default(44)
+  lineHeight    Float    @default(1.2)
+  /// 48px = the Harvard template's 0.5in page margin
+  pageMargin    Int      @default(48)
   /// The full resume document (see src/lib/resume-schema.ts)
   data          Json
   notes         String   @default("")
