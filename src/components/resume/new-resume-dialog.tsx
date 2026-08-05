@@ -1,0 +1,192 @@
+"use client";
+
+import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState, useTransition } from "react";
+import { BrainIcon, FilePlus2Icon, LoaderCircleIcon, PlusIcon } from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { cn } from "@/lib/utils";
+import { createResumeAction } from "@/server/actions";
+
+const TEMPLATES = [
+  { key: "classic", name: "Classic", hint: "Centred header, ruled sections" },
+  { key: "modern", name: "Modern", hint: "Left-aligned, accent bars" },
+  { key: "compact", name: "Compact", hint: "Tight leading, fits more" },
+  { key: "editorial", name: "Editorial", hint: "Big name, lots of air" },
+];
+
+const ACCENTS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#111827"];
+
+export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
+  const router = useRouter();
+  const params = useSearchParams();
+  const [open, setOpen] = useState(false);
+  const [pending, startTransition] = useTransition();
+  const [form, setForm] = useState({
+    name: "",
+    targetRole: "",
+    targetCompany: "",
+    template: "classic",
+    accent: ACCENTS[0],
+    seedFromBrain: true,
+  });
+
+  useEffect(() => {
+    if (params.get("new")) setOpen(true);
+  }, [params]);
+
+  const submit = () => {
+    startTransition(async () => {
+      const id = await createResumeAction({
+        ...form,
+        name: form.name.trim() || suggestName(form),
+        seedFromBrain: form.seedFromBrain && hasBrain,
+      });
+      setOpen(false);
+      toast.success("Resume created");
+      router.push(`/resumes/${id}`);
+    });
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={setOpen}>
+      <DialogTrigger asChild>
+        <Button variant="gradient">
+          <PlusIcon /> New resume
+        </Button>
+      </DialogTrigger>
+      <DialogContent className="max-w-lg">
+        <DialogHeader>
+          <DialogTitle>New resume</DialogTitle>
+          <DialogDescription>
+            Start from your brain and edit, or start blank and fill it in.
+          </DialogDescription>
+        </DialogHeader>
+
+        <div className="space-y-4">
+          <div className="space-y-1.5">
+            <Label>Name</Label>
+            <Input
+              autoFocus
+              value={form.name}
+              onChange={(event) => setForm({ ...form, name: event.target.value })}
+              placeholder={suggestName(form)}
+            />
+          </div>
+
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>Target role</Label>
+              <Input
+                value={form.targetRole}
+                onChange={(event) => setForm({ ...form, targetRole: event.target.value })}
+                placeholder="Staff Engineer"
+              />
+            </div>
+            <div className="space-y-1.5">
+              <Label>Target company</Label>
+              <Input
+                value={form.targetCompany}
+                onChange={(event) => setForm({ ...form, targetCompany: event.target.value })}
+                placeholder="Stripe"
+              />
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Template</Label>
+            <div className="grid grid-cols-2 gap-2">
+              {TEMPLATES.map((template) => (
+                <button
+                  key={template.key}
+                  onClick={() => setForm({ ...form, template: template.key })}
+                  className={cn(
+                    "rounded-lg border px-3 py-2 text-left transition-all",
+                    form.template === template.key
+                      ? "border-primary bg-primary/8 ring-primary/25 ring-2"
+                      : "hover:border-primary/30 hover:bg-accent/50",
+                  )}
+                >
+                  <div className="text-[13px] font-medium">{template.name}</div>
+                  <div className="text-muted-foreground text-[11px]">{template.hint}</div>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label>Accent</Label>
+            <div className="flex gap-2">
+              {ACCENTS.map((accent) => (
+                <button
+                  key={accent}
+                  onClick={() => setForm({ ...form, accent })}
+                  aria-label={`Accent ${accent}`}
+                  className={cn(
+                    "size-7 rounded-full transition-transform hover:scale-110",
+                    form.accent === accent && "ring-foreground/40 ring-2 ring-offset-2 ring-offset-background",
+                  )}
+                  style={{ background: accent }}
+                />
+              ))}
+            </div>
+          </div>
+
+          {hasBrain && (
+            <button
+              onClick={() => setForm({ ...form, seedFromBrain: !form.seedFromBrain })}
+              className={cn(
+                "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
+                form.seedFromBrain
+                  ? "border-primary bg-primary/8"
+                  : "hover:border-primary/30 hover:bg-accent/50",
+              )}
+            >
+              {form.seedFromBrain ? (
+                <BrainIcon className="text-primary mt-0.5 size-4 shrink-0" />
+              ) : (
+                <FilePlus2Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+              )}
+              <div>
+                <div className="text-[13px] font-medium">
+                  {form.seedFromBrain ? "Build from my brain" : "Start blank"}
+                </div>
+                <div className="text-muted-foreground text-[11px]">
+                  {form.seedFromBrain
+                    ? "Pulls in every role, its strongest highlights, education and skills."
+                    : "An empty document you fill in yourself."}
+                </div>
+              </div>
+            </button>
+          )}
+        </div>
+
+        <DialogFooter>
+          <Button variant="ghost" onClick={() => setOpen(false)}>
+            Cancel
+          </Button>
+          <Button variant="gradient" onClick={submit} disabled={pending}>
+            {pending && <LoaderCircleIcon className="animate-spin" />}
+            Create
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function suggestName(form: { targetCompany: string; targetRole: string }) {
+  const parts = [form.targetCompany, form.targetRole].filter(Boolean);
+  return parts.length ? parts.join(" — ") : "Base resume";
+}

@@ -1,0 +1,290 @@
+// Resume OS — data model
+// Three pillars: BRAIN (everything about you), RESUMES (tailored documents), PIPELINE (application CRM)
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------------------------------------------------------------------------
+// SYSTEM
+// ---------------------------------------------------------------------------
+
+/// Single-row key/value store for app settings (MCP token, onboarding state, etc.)
+model Setting {
+  key       String   @id
+  value     String
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// BRAIN — the knowledge base you dump everything into
+// ---------------------------------------------------------------------------
+
+model Profile {
+  id        String   @id @default("me")
+  fullName  String   @default("")
+  headline  String   @default("")
+  email     String   @default("")
+  phone     String   @default("")
+  location  String   @default("")
+  website   String   @default("")
+  linkedin  String   @default("")
+  github    String   @default("")
+  twitter   String   @default("")
+  /// Long-form "about me" brain dump: values, working style, career narrative,
+  /// what you want next, salary expectations, non-negotiables, etc.
+  summary   String   @default("")
+  brainDump String   @default("")
+  updatedAt DateTime @updatedAt
+}
+
+model Role {
+  id             String     @id @default(cuid())
+  company        String
+  title          String
+  employmentType String     @default("Full-time")
+  location       String     @default("")
+  startDate      String     @default("")
+  endDate        String     @default("")
+  isCurrent      Boolean    @default(false)
+  /// One or two sentences describing the scope of the role.
+  summary        String     @default("")
+  /// THE BRAIN DUMP. Unlimited markdown: projects, metrics, stories, tech,
+  /// politics, wins, failures, praise, numbers. Claude mines this.
+  brainDump      String     @default("")
+  tags           String[]   @default([])
+  sortOrder      Int        @default(0)
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+
+  highlights Highlight[]
+
+  @@index([sortOrder])
+}
+
+/// A reusable, polished achievement line distilled from a role's brain dump.
+model Highlight {
+  id        String   @id @default(cuid())
+  roleId    String?
+  role      Role?    @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  text      String
+  /// Optional quantified impact, e.g. "cut p95 latency 40%"
+  impact    String   @default("")
+  tags      String[] @default([])
+  /// 1-5, how strong this bullet is. Used to auto-rank when tailoring.
+  strength  Int      @default(3)
+  archived  Boolean  @default(false)
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([roleId])
+}
+
+model Education {
+  id        String   @id @default(cuid())
+  school    String
+  degree    String   @default("")
+  field     String   @default("")
+  location  String   @default("")
+  startDate String   @default("")
+  endDate   String   @default("")
+  gpa       String   @default("")
+  details   String   @default("")
+  sortOrder Int      @default(0)
+  createdAt DateTime @default(now())
+}
+
+model Project {
+  id          String   @id @default(cuid())
+  name        String
+  role        String   @default("")
+  url         String   @default("")
+  description String   @default("")
+  brainDump   String   @default("")
+  tags        String[] @default([])
+  startDate   String   @default("")
+  endDate     String   @default("")
+  sortOrder   Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model SkillGroup {
+  id        String   @id @default(cuid())
+  name      String
+  skills    String[] @default([])
+  sortOrder Int      @default(0)
+}
+
+model Certification {
+  id       String @id @default(cuid())
+  name     String
+  issuer   String @default("")
+  date     String @default("")
+  url      String @default("")
+  sortOrder Int   @default(0)
+}
+
+/// Free-floating brain dump not tied to a role: stories, STAR answers,
+/// interview prep, references, compensation history, anything.
+model Note {
+  id        String   @id @default(cuid())
+  title     String
+  body      String   @default("")
+  tags      String[] @default([])
+  pinned    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// ---------------------------------------------------------------------------
+// RESUMES
+// ---------------------------------------------------------------------------
+
+model Resume {
+  id            String   @id @default(cuid())
+  name          String
+  targetRole    String   @default("")
+  targetCompany String   @default("")
+  /// Template identity: "classic" | "modern" | "compact" | "editorial"
+  template      String   @default("classic")
+  accent        String   @default("#6366f1")
+  fontFamily    String   @default("inter")
+  fontSize      Int      @default(10)
+  lineHeight    Float    @default(1.35)
+  pageMargin    Int      @default(44)
+  /// The full resume document (see src/lib/resume-schema.ts)
+  data          Json
+  notes         String   @default("")
+  isFavorite    Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  applications Application[]
+}
+
+// ---------------------------------------------------------------------------
+// PIPELINE — the job-search CRM
+// ---------------------------------------------------------------------------
+
+enum Stage {
+  WISHLIST
+  APPLIED
+  SCREEN
+  INTERVIEW
+  FINAL
+  OFFER
+  ACCEPTED
+  REJECTED
+  WITHDRAWN
+}
+
+enum ActivityType {
+  NOTE
+  STAGE_CHANGE
+  EMAIL_SENT
+  EMAIL_RECEIVED
+  CALL
+  INTERVIEW
+  FOLLOW_UP
+  APPLIED
+  OFFER
+  REJECTION
+  REFERRAL
+}
+
+model Company {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  website   String   @default("")
+  industry  String   @default("")
+  size      String   @default("")
+  location  String   @default("")
+  notes     String   @default("")
+  createdAt DateTime @default(now())
+
+  applications Application[]
+  contacts     Contact[]
+}
+
+model Application {
+  id             String   @id @default(cuid())
+  companyId      String
+  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  roleTitle      String
+  stage          Stage    @default(WISHLIST)
+  jobUrl         String   @default("")
+  jobDescription String   @default("")
+  location       String   @default("")
+  workMode       String   @default("")
+  salaryRange    String   @default("")
+  source         String   @default("")
+  /// 1-5 how much you want this
+  excitement     Int      @default(3)
+  /// 1-5 how strong a fit you are
+  fit            Int      @default(3)
+  notes          String   @default("")
+  appliedAt      DateTime?
+  nextFollowUpAt DateTime?
+  closedAt       DateTime?
+  resumeId       String?
+  resume         Resume?  @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  activities Activity[]
+  contacts   Contact[]
+  tasks      Task[]
+
+  @@index([stage])
+  @@index([nextFollowUpAt])
+}
+
+model Contact {
+  id            String       @id @default(cuid())
+  name          String
+  title         String       @default("")
+  email         String       @default("")
+  phone         String       @default("")
+  linkedin      String       @default("")
+  relationship  String       @default("")
+  notes         String       @default("")
+  companyId     String?
+  company       Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  createdAt     DateTime     @default(now())
+}
+
+model Activity {
+  id            String       @id @default(cuid())
+  applicationId String
+  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  type          ActivityType @default(NOTE)
+  body          String       @default("")
+  occurredAt    DateTime     @default(now())
+  createdAt     DateTime     @default(now())
+
+  @@index([applicationId, occurredAt])
+}
+
+model Task {
+  id            String       @id @default(cuid())
+  title         String
+  detail        String       @default("")
+  dueAt         DateTime?
+  done          Boolean      @default(false)
+  doneAt        DateTime?
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  createdAt     DateTime     @default(now())
+
+  @@index([done, dueAt])
+}

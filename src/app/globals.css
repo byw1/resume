@@ -1,0 +1,418 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
+
+:root {
+  --radius: 0.75rem;
+
+  --background: oklch(0.994 0 0);
+  --foreground: oklch(0.17 0.012 275);
+  --card: oklch(1 0 0);
+  --card-foreground: oklch(0.17 0.012 275);
+  --popover: oklch(1 0 0);
+  --popover-foreground: oklch(0.17 0.012 275);
+  --primary: oklch(0.55 0.21 288);
+  --primary-foreground: oklch(0.99 0.005 285);
+  --secondary: oklch(0.968 0.005 285);
+  --secondary-foreground: oklch(0.25 0.015 280);
+  --muted: oklch(0.967 0.004 285);
+  --muted-foreground: oklch(0.53 0.014 280);
+  --accent: oklch(0.955 0.014 288);
+  --accent-foreground: oklch(0.28 0.05 288);
+  --destructive: oklch(0.58 0.222 27);
+  --destructive-foreground: oklch(0.99 0 0);
+  --success: oklch(0.62 0.15 155);
+  --warning: oklch(0.72 0.16 70);
+  --border: oklch(0.915 0.005 285);
+  --input: oklch(0.915 0.005 285);
+  --ring: oklch(0.55 0.21 288);
+
+  --sidebar: oklch(0.985 0.003 285);
+  --sidebar-foreground: oklch(0.2 0.012 275);
+  --sidebar-border: oklch(0.915 0.005 285);
+
+  --glow-a: oklch(0.62 0.2 288 / 0.28);
+  --glow-b: oklch(0.68 0.17 210 / 0.22);
+  --glow-c: oklch(0.72 0.16 330 / 0.18);
+}
+
+.dark {
+  --background: oklch(0.145 0.012 278);
+  --foreground: oklch(0.965 0.005 285);
+  --card: oklch(0.183 0.014 278);
+  --card-foreground: oklch(0.965 0.005 285);
+  --popover: oklch(0.183 0.014 278);
+  --popover-foreground: oklch(0.965 0.005 285);
+  --primary: oklch(0.7 0.17 291);
+  --primary-foreground: oklch(0.16 0.03 288);
+  --secondary: oklch(0.235 0.016 278);
+  --secondary-foreground: oklch(0.95 0.005 285);
+  --muted: oklch(0.235 0.016 278);
+  --muted-foreground: oklch(0.685 0.014 283);
+  --accent: oklch(0.27 0.03 285);
+  --accent-foreground: oklch(0.95 0.01 285);
+  --destructive: oklch(0.66 0.19 25);
+  --destructive-foreground: oklch(0.15 0.02 25);
+  --success: oklch(0.72 0.16 155);
+  --warning: oklch(0.79 0.15 72);
+  --border: oklch(0.99 0 0 / 10%);
+  --input: oklch(0.99 0 0 / 14%);
+  --ring: oklch(0.7 0.17 291);
+
+  --sidebar: oklch(0.166 0.014 278);
+  --sidebar-foreground: oklch(0.95 0.005 285);
+  --sidebar-border: oklch(0.99 0 0 / 8%);
+
+  --glow-a: oklch(0.6 0.24 291 / 0.34);
+  --glow-b: oklch(0.62 0.2 220 / 0.26);
+  --glow-c: oklch(0.66 0.2 335 / 0.2);
+}
+
+@theme inline {
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-destructive-foreground: var(--destructive-foreground);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-sidebar: var(--sidebar);
+  --color-sidebar-foreground: var(--sidebar-foreground);
+  --color-sidebar-border: var(--sidebar-border);
+
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 10px);
+
+  --font-sans: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
+    Roboto, "Helvetica Neue", sans-serif;
+  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  --animate-shimmer: shimmer 2.4s linear infinite;
+  --animate-float: float 7s ease-in-out infinite;
+  --animate-aurora: aurora 18s ease-in-out infinite alternate;
+  --animate-in-up: inUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-pulse-ring: pulseRing 2.4s ease-out infinite;
+}
+
+@keyframes shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+
+@keyframes float {
+  0%,
+  100% {
+    transform: translateY(0) translateX(0);
+  }
+  50% {
+    transform: translateY(-14px) translateX(6px);
+  }
+}
+
+@keyframes aurora {
+  0% {
+    transform: translate3d(0, 0, 0) scale(1);
+    opacity: 0.75;
+  }
+  50% {
+    transform: translate3d(4%, -3%, 0) scale(1.12);
+    opacity: 1;
+  }
+  100% {
+    transform: translate3d(-3%, 4%, 0) scale(1.05);
+    opacity: 0.8;
+  }
+}
+
+@keyframes inUp {
+  from {
+    opacity: 0;
+    transform: translateY(10px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes pulseRing {
+  0% {
+    box-shadow: 0 0 0 0 var(--glow-a);
+  }
+  70% {
+    box-shadow: 0 0 0 12px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
+}
+
+@layer base {
+  * {
+    border-color: var(--border);
+  }
+
+  html {
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--background);
+    color: var(--foreground);
+    font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 28%, transparent);
+  }
+
+  /* Refined scrollbars */
+  ::-webkit-scrollbar {
+    width: 10px;
+    height: 10px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: color-mix(in oklch, var(--muted-foreground) 26%, transparent);
+    border-radius: 999px;
+    border: 3px solid transparent;
+    background-clip: content-box;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in oklch, var(--muted-foreground) 46%, transparent);
+    background-clip: content-box;
+  }
+
+  input,
+  textarea,
+  select,
+  button {
+    font: inherit;
+  }
+}
+
+@layer utilities {
+  .glass {
+    background: color-mix(in oklch, var(--card) 72%, transparent);
+    backdrop-filter: blur(18px) saturate(160%);
+    -webkit-backdrop-filter: blur(18px) saturate(160%);
+  }
+
+  .surface {
+    background:
+      linear-gradient(
+        to bottom,
+        color-mix(in oklch, var(--card) 100%, transparent),
+        color-mix(in oklch, var(--card) 92%, var(--background))
+      );
+  }
+
+  /* A hairline top highlight — the shadcn/21st "premium card" tell */
+  .ring-highlight {
+    position: relative;
+  }
+  .ring-highlight::before {
+    content: "";
+    position: absolute;
+    inset: 0;
+    border-radius: inherit;
+    padding: 1px;
+    background: linear-gradient(
+      to bottom,
+      color-mix(in oklch, white 22%, transparent),
+      transparent 42%
+    );
+    -webkit-mask:
+      linear-gradient(#000 0 0) content-box,
+      linear-gradient(#000 0 0);
+    -webkit-mask-composite: xor;
+    mask-composite: exclude;
+    pointer-events: none;
+  }
+
+  .text-gradient {
+    background: linear-gradient(
+      100deg,
+      var(--foreground) 0%,
+      color-mix(in oklch, var(--primary) 78%, var(--foreground)) 48%,
+      var(--foreground) 100%
+    );
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+  }
+
+  .shimmer-text {
+    background: linear-gradient(
+      100deg,
+      var(--muted-foreground) 20%,
+      var(--foreground) 46%,
+      var(--muted-foreground) 72%
+    );
+    background-size: 200% 100%;
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+    animation: var(--animate-shimmer);
+  }
+
+  .grid-bg {
+    background-image:
+      linear-gradient(to right, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px),
+      linear-gradient(to bottom, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px);
+    background-size: 44px 44px;
+    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  }
+
+  .no-scrollbar::-webkit-scrollbar {
+    display: none;
+  }
+  .no-scrollbar {
+    -ms-overflow-style: none;
+    scrollbar-width: none;
+  }
+
+  .elev-1 {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 0.05),
+      0 1px 3px oklch(0 0 0 / 0.04);
+  }
+  .elev-2 {
+    box-shadow:
+      0 2px 4px oklch(0 0 0 / 0.04),
+      0 8px 24px oklch(0 0 0 / 0.07);
+  }
+  .elev-3 {
+    box-shadow:
+      0 4px 8px oklch(0 0 0 / 0.05),
+      0 18px 48px oklch(0 0 0 / 0.11);
+  }
+  .dark .elev-2 {
+    box-shadow:
+      0 2px 4px oklch(0 0 0 / 0.3),
+      0 10px 30px oklch(0 0 0 / 0.4);
+  }
+  .dark .elev-3 {
+    box-shadow:
+      0 6px 12px oklch(0 0 0 / 0.35),
+      0 24px 60px oklch(0 0 0 / 0.5);
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Resume paper — shared by the editor preview and the print route
+   --------------------------------------------------------------------------- */
+
+.resume-paper {
+  --paper-accent: #6366f1;
+  background: #ffffff;
+  color: #16181d;
+  width: 8.5in;
+  min-height: 11in;
+  font-size: calc(var(--paper-size, 10) * 1pt);
+  line-height: var(--paper-leading, 1.35);
+}
+
+.resume-paper a {
+  color: inherit;
+  text-decoration: none;
+}
+
+.resume-paper .rp-rule {
+  border-bottom: 1px solid color-mix(in srgb, var(--paper-accent) 42%, #d6d8e0);
+}
+
+.resume-paper .rp-heading {
+  color: var(--paper-accent);
+  letter-spacing: 0.09em;
+  text-transform: uppercase;
+  font-weight: 700;
+}
+
+.resume-paper ul {
+  list-style: none;
+}
+
+.resume-paper .rp-bullet {
+  position: relative;
+  padding-left: 0.95em;
+}
+
+.resume-paper .rp-bullet::before {
+  content: "";
+  position: absolute;
+  left: 0.16em;
+  top: 0.62em;
+  width: 0.28em;
+  height: 0.28em;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--paper-accent) 70%, #4b4f5c);
+}
+
+.font-inter {
+  font-family: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+}
+.font-serif-resume {
+  font-family: "Iowan Old Style", "Palatino Linotype", Palatino, Georgia, "Times New Roman", serif;
+}
+.font-mono-resume {
+  font-family: ui-monospace, "SF Mono", Menlo, monospace;
+}
+
+@media print {
+  @page {
+    size: letter;
+    margin: 0;
+  }
+
+  html,
+  body {
+    background: #fff !important;
+    margin: 0 !important;
+    padding: 0 !important;
+  }
+
+  .no-print {
+    display: none !important;
+  }
+
+  .resume-paper {
+    width: 8.5in !important;
+    min-height: 0 !important;
+    box-shadow: none !important;
+    border: none !important;
+    border-radius: 0 !important;
+    margin: 0 !important;
+  }
+
+  .rp-block {
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+}

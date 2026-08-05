@@ -1,0 +1,1190 @@
+"use client";
+
+import Link from "next/link";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { AnimatePresence, motion } from "framer-motion";
+import {
+  ArrowLeftIcon,
+  ChevronDownIcon,
+  ChevronUpIcon,
+  CopyIcon,
+  DownloadIcon,
+  EyeIcon,
+  EyeOffIcon,
+  MinusIcon,
+  MoreVerticalIcon,
+  PaletteIcon,
+  PlusIcon,
+  StarIcon,
+  Trash2Icon,
+} from "lucide-react";
+import { toast } from "sonner";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
+import { Textarea } from "@/components/ui/textarea";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { SaveIndicator } from "@/components/save-indicator";
+import { useAutosave } from "@/hooks/use-autosave";
+import { cn } from "@/lib/utils";
+import {
+  blankEducation,
+  blankExperience,
+  blankProject,
+  blankSection,
+  SECTION_KINDS,
+  type ResumeDoc,
+  type ResumeSection,
+  type SectionKind,
+} from "@/lib/resume-schema";
+import { estimateLines } from "@/lib/data/resumes";
+import { ResumePaper, type PaperSettings } from "@/components/resume/resume-paper";
+import {
+  deleteResumeAction,
+  duplicateResumeAction,
+  updateResumeAction,
+} from "@/server/actions";
+
+type Meta = PaperSettings & {
+  name: string;
+  targetRole: string;
+  targetCompany: string;
+  notes: string;
+  isFavorite: boolean;
+};
+
+const ACCENTS = ["#6366f1", "#0ea5e9", "#10b981", "#f59e0b", "#ef4444", "#111827"];
+const LINES_PER_PAGE = 46;
+
+export function ResumeEditor({
+  id,
+  doc: initialDoc,
+  meta: initialMeta,
+}: {
+  id: string;
+  doc: ResumeDoc;
+  meta: Meta;
+}) {
+  const router = useRouter();
+  const [doc, setDoc] = useState(initialDoc);
+  const [meta, setMeta] = useState(initialMeta);
+  const [zoom, setZoom] = useState(0.78);
+  const [pending, startTransition] = useTransition();
+
+  const { state, push } = useAutosave<{ doc: ResumeDoc; meta: Meta }>((next) =>
+    updateResumeAction(id, { ...next.meta, data: next.doc }),
+  );
+
+  const commit = (nextDoc: ResumeDoc, nextMeta: Meta = meta) => {
+    setDoc(nextDoc);
+    setMeta(nextMeta);
+    push({ doc: nextDoc, meta: nextMeta });
+  };
+
+  const setMetaValue = <K extends keyof Meta>(key: K, value: Meta[K]) => {
+    const next = { ...meta, [key]: value };
+    setMeta(next);
+    push({ doc, meta: next });
+  };
+
+  const lines = useMemo(() => estimateLines(doc), [doc]);
+  const pages = Math.max(1, Math.ceil(lines / LINES_PER_PAGE));
+  const fill = Math.min(100, Math.round(((lines % LINES_PER_PAGE || LINES_PER_PAGE) / LINES_PER_PAGE) * 100));
+
+  const updateSection = (sectionId: string, patch: Partial<ResumeSection>) => {
+    commit({
+      ...doc,
+      sections: doc.sections.map((section) =>
+        section.id === sectionId ? { ...section, ...patch } : section,
+      ),
+    });
+  };
+
+  const moveSection = (index: number, direction: -1 | 1) => {
+    const target = index + direction;
+    if (target < 0 || target >= doc.sections.length) return;
+    const sections = [...doc.sections];
+    [sections[index], sections[target]] = [sections[target], sections[index]];
+    commit({ ...doc, sections });
+  };
+
+  const addSection = (kind: SectionKind) => {
+    commit({ ...doc, sections: [...doc.sections, blankSection(kind)] });
+  };
+
+  const removeSection = (sectionId: string) => {
+    commit({ ...doc, sections: doc.sections.filter((section) => section.id !== sectionId) });
+  };
+
+  return (
+    <div className="flex h-[calc(100svh-4rem)] flex-col">
+      {/* Toolbar */}
+      <div className="glass flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2.5 md:px-6">
+        <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground">
+          <Link href="/resumes">
+            <ArrowLeftIcon />
+          </Link>
+        </Button>
+
+        <Input
+          value={meta.name}
+          onChange={(event) => setMetaValue("name", event.target.value)}
+          className="h-8 w-auto min-w-[10rem] max-w-[22rem] border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+        />
+
+        <SaveIndicator state={state} />
+
+        <Badge
+          variant={pages > 1 ? "warning" : "success"}
+          className="ml-1 hidden tabular-nums sm:inline-flex"
+          title={`~${lines} rendered lines`}
+        >
+          {pages} page{pages > 1 ? "s" : ""} · {fill}% of last
+        </Badge>
+
+        <div className="ml-auto flex items-center gap-1.5">
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => setMetaValue("isFavorite", !meta.isFavorite)}
+            aria-label="Favourite"
+          >
+            <StarIcon className={cn(meta.isFavorite && "fill-primary text-primary")} />
+          </Button>
+
+          <DesignPopover meta={meta} onChange={setMetaValue} />
+
+          <div className="hidden items-center gap-1 md:flex">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setZoom((z) => Math.max(0.4, +(z - 0.08).toFixed(2)))}
+              aria-label="Zoom out"
+            >
+              <MinusIcon />
+            </Button>
+            <span className="text-muted-foreground w-9 text-center text-xs tabular-nums">
+              {Math.round(zoom * 100)}%
+            </span>
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              onClick={() => setZoom((z) => Math.min(1.4, +(z + 0.08).toFixed(2)))}
+              aria-label="Zoom in"
+            >
+              <PlusIcon />
+            </Button>
+          </div>
+
+          <Button asChild variant="gradient" size="sm">
+            <a href={`/print/${id}`} target="_blank" rel="noreferrer">
+              <DownloadIcon /> PDF
+            </a>
+          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon-sm">
+                <MoreVerticalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem
+                disabled={pending}
+                onSelect={() =>
+                  startTransition(async () => {
+                    const copyId = await duplicateResumeAction(id);
+                    toast.success("Duplicated");
+                    router.push(`/resumes/${copyId}`);
+                  })
+                }
+              >
+                <CopyIcon /> Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuSeparator />
+              <DropdownMenuItem
+                variant="destructive"
+                onSelect={() => {
+                  if (confirm(`Delete "${meta.name}"? This cannot be undone.`)) {
+                    void deleteResumeAction(id);
+                  }
+                }}
+              >
+                <Trash2Icon /> Delete
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+        </div>
+      </div>
+
+      {/* Split pane */}
+      <div className="grid min-h-0 flex-1 lg:grid-cols-[minmax(0,26rem)_minmax(0,1fr)]">
+        <div className="min-h-0 overflow-y-auto border-r px-4 py-5 md:px-5">
+          <div className="space-y-5">
+            <TargetCard meta={meta} onChange={setMetaValue} />
+
+            <HeaderCard doc={doc} onChange={(header) => commit({ ...doc, header })} />
+
+            <div className="space-y-3">
+              {doc.sections.map((section, index) => (
+                <SectionCard
+                  key={section.id}
+                  section={section}
+                  index={index}
+                  total={doc.sections.length}
+                  onChange={(patch) => updateSection(section.id, patch)}
+                  onMove={(direction) => moveSection(index, direction)}
+                  onRemove={() => removeSection(section.id)}
+                />
+              ))}
+            </div>
+
+            <AddSectionMenu onAdd={addSection} existing={doc.sections.map((s) => s.kind)} />
+
+            <div className="space-y-1.5 pt-2">
+              <Label>Private notes</Label>
+              <Textarea
+                value={meta.notes}
+                onChange={(event) => setMetaValue("notes", event.target.value)}
+                placeholder="What you tailored and why. Never printed."
+                className="min-h-20"
+              />
+            </div>
+          </div>
+        </div>
+
+        {/* Preview */}
+        <div className="bg-muted/40 min-h-0 overflow-auto p-6">
+          <motion.div
+            className="mx-auto origin-top"
+            style={{ width: `calc(8.5in * ${zoom})` }}
+            animate={{ scale: 1 }}
+          >
+            <div
+              className="origin-top-left shadow-2xl"
+              style={{ transform: `scale(${zoom})`, width: "8.5in" }}
+            >
+              <ResumePaper doc={doc} settings={meta} />
+            </div>
+          </motion.div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+
+function TargetCard({
+  meta,
+  onChange,
+}: {
+  meta: Meta;
+  onChange: <K extends keyof Meta>(key: K, value: Meta[K]) => void;
+}) {
+  return (
+    <div className="grid grid-cols-2 gap-2">
+      <div className="space-y-1.5">
+        <Label>Target role</Label>
+        <Input
+          value={meta.targetRole}
+          onChange={(event) => onChange("targetRole", event.target.value)}
+          placeholder="Staff Engineer"
+        />
+      </div>
+      <div className="space-y-1.5">
+        <Label>Target company</Label>
+        <Input
+          value={meta.targetCompany}
+          onChange={(event) => onChange("targetCompany", event.target.value)}
+          placeholder="Stripe"
+        />
+      </div>
+    </div>
+  );
+}
+
+function HeaderCard({
+  doc,
+  onChange,
+}: {
+  doc: ResumeDoc;
+  onChange: (header: ResumeDoc["header"]) => void;
+}) {
+  const { header } = doc;
+  const set = (patch: Partial<ResumeDoc["header"]>) => onChange({ ...header, ...patch });
+
+  return (
+    <Collapsible title="Header" defaultOpen>
+      <div className="space-y-2.5">
+        <Input
+          value={header.name}
+          onChange={(event) => set({ name: event.target.value })}
+          placeholder="Full name"
+        />
+        <Input
+          value={header.title}
+          onChange={(event) => set({ title: event.target.value })}
+          placeholder="Headline"
+        />
+        <div className="grid grid-cols-2 gap-2">
+          <Input
+            value={header.email}
+            onChange={(event) => set({ email: event.target.value })}
+            placeholder="Email"
+          />
+          <Input
+            value={header.phone}
+            onChange={(event) => set({ phone: event.target.value })}
+            placeholder="Phone"
+          />
+        </div>
+        <Input
+          value={header.location}
+          onChange={(event) => set({ location: event.target.value })}
+          placeholder="Location"
+        />
+
+        <div className="space-y-2">
+          {header.links.map((link, index) => (
+            <div key={index} className="flex gap-2">
+              <Input
+                value={link.label}
+                onChange={(event) => {
+                  const links = [...header.links];
+                  links[index] = { ...link, label: event.target.value };
+                  set({ links });
+                }}
+                placeholder="Label"
+                className="w-28"
+              />
+              <Input
+                value={link.url}
+                onChange={(event) => {
+                  const links = [...header.links];
+                  links[index] = { ...link, url: event.target.value };
+                  set({ links });
+                }}
+                placeholder="https://…"
+              />
+              <Button
+                variant="ghost"
+                size="icon"
+                className="text-muted-foreground hover:text-destructive shrink-0"
+                onClick={() => set({ links: header.links.filter((_, i) => i !== index) })}
+              >
+                <Trash2Icon />
+              </Button>
+            </div>
+          ))}
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => set({ links: [...header.links, { label: "", url: "" }] })}
+          >
+            <PlusIcon /> Add link
+          </Button>
+        </div>
+      </div>
+    </Collapsible>
+  );
+}
+
+function SectionCard({
+  section,
+  index,
+  total,
+  onChange,
+  onMove,
+  onRemove,
+}: {
+  section: ResumeSection;
+  index: number;
+  total: number;
+  onChange: (patch: Partial<ResumeSection>) => void;
+  onMove: (direction: -1 | 1) => void;
+  onRemove: () => void;
+}) {
+  return (
+    <Collapsible
+      title={section.heading || section.kind}
+      dimmed={!section.visible}
+      badge={countLabel(section)}
+      controls={
+        <>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            onClick={() => onChange({ visible: !section.visible })}
+            aria-label="Toggle visibility"
+          >
+            {section.visible ? <EyeIcon /> : <EyeOffIcon />}
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={index === 0}
+            onClick={() => onMove(-1)}
+            aria-label="Move up"
+          >
+            <ChevronUpIcon />
+          </Button>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            disabled={index === total - 1}
+            onClick={() => onMove(1)}
+            aria-label="Move down"
+          >
+            <ChevronDownIcon />
+          </Button>
+        </>
+      }
+    >
+      <div className="space-y-3">
+        <div className="flex gap-2">
+          <Input
+            value={section.heading}
+            onChange={(event) => onChange({ heading: event.target.value })}
+            placeholder="Section heading"
+          />
+          <Button
+            variant="ghost"
+            size="icon"
+            className="text-muted-foreground hover:text-destructive shrink-0"
+            onClick={onRemove}
+            aria-label="Remove section"
+          >
+            <Trash2Icon />
+          </Button>
+        </div>
+
+        {section.kind === "summary" && (
+          <Textarea
+            value={section.text}
+            onChange={(event) => onChange({ text: event.target.value })}
+            placeholder="Two or three lines that frame you for this specific job."
+            className="min-h-24"
+          />
+        )}
+
+        {section.kind === "experience" && (
+          <ItemList
+            items={section.experience}
+            onAdd={() => onChange({ experience: [...section.experience, blankExperience()] })}
+            addLabel="Add job"
+            onRemove={(i) =>
+              onChange({ experience: section.experience.filter((_, index) => index !== i) })
+            }
+            onMove={(i, dir) => onChange({ experience: moveItem(section.experience, i, dir) })}
+            renderTitle={(item) => item.title || item.company || "New role"}
+            render={(item, i) => {
+              const set = (patch: Partial<typeof item>) => {
+                const experience = [...section.experience];
+                experience[i] = { ...item, ...patch };
+                onChange({ experience });
+              };
+              return (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={item.title}
+                      onChange={(event) => set({ title: event.target.value })}
+                      placeholder="Title"
+                    />
+                    <Input
+                      value={item.company}
+                      onChange={(event) => set({ company: event.target.value })}
+                      placeholder="Company"
+                    />
+                    <Input
+                      value={item.location}
+                      onChange={(event) => set({ location: event.target.value })}
+                      placeholder="Location"
+                    />
+                    <label className="flex items-center gap-2 px-1 text-[13px]">
+                      <input
+                        type="checkbox"
+                        checked={item.isCurrent}
+                        onChange={(event) => set({ isCurrent: event.target.checked })}
+                        className="accent-[var(--primary)]"
+                      />
+                      Current
+                    </label>
+                    <Input
+                      type="month"
+                      value={item.startDate}
+                      onChange={(event) => set({ startDate: event.target.value })}
+                    />
+                    <Input
+                      type="month"
+                      value={item.endDate}
+                      disabled={item.isCurrent}
+                      onChange={(event) => set({ endDate: event.target.value })}
+                    />
+                  </div>
+                  <Textarea
+                    value={item.summary}
+                    onChange={(event) => set({ summary: event.target.value })}
+                    placeholder="Optional scope line"
+                    className="min-h-14"
+                  />
+                  <BulletEditor
+                    bullets={item.bullets}
+                    onChange={(bullets) => set({ bullets })}
+                  />
+                </div>
+              );
+            }}
+          />
+        )}
+
+        {section.kind === "education" && (
+          <ItemList
+            items={section.education}
+            onAdd={() => onChange({ education: [...section.education, blankEducation()] })}
+            addLabel="Add school"
+            onRemove={(i) =>
+              onChange({ education: section.education.filter((_, index) => index !== i) })
+            }
+            onMove={(i, dir) => onChange({ education: moveItem(section.education, i, dir) })}
+            renderTitle={(item) => item.school || "New entry"}
+            render={(item, i) => {
+              const set = (patch: Partial<typeof item>) => {
+                const education = [...section.education];
+                education[i] = { ...item, ...patch };
+                onChange({ education });
+              };
+              return (
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={item.school}
+                    onChange={(event) => set({ school: event.target.value })}
+                    placeholder="School"
+                    className="col-span-2"
+                  />
+                  <Input
+                    value={item.degree}
+                    onChange={(event) => set({ degree: event.target.value })}
+                    placeholder="Degree"
+                  />
+                  <Input
+                    value={item.field}
+                    onChange={(event) => set({ field: event.target.value })}
+                    placeholder="Field"
+                  />
+                  <Input
+                    type="month"
+                    value={item.startDate}
+                    onChange={(event) => set({ startDate: event.target.value })}
+                  />
+                  <Input
+                    type="month"
+                    value={item.endDate}
+                    onChange={(event) => set({ endDate: event.target.value })}
+                  />
+                  <div className="col-span-2">
+                    <BulletEditor
+                      bullets={item.details}
+                      onChange={(details) => set({ details })}
+                      placeholder="Honours, coursework…"
+                    />
+                  </div>
+                </div>
+              );
+            }}
+          />
+        )}
+
+        {section.kind === "projects" && (
+          <ItemList
+            items={section.projects}
+            onAdd={() => onChange({ projects: [...section.projects, blankProject()] })}
+            addLabel="Add project"
+            onRemove={(i) =>
+              onChange({ projects: section.projects.filter((_, index) => index !== i) })
+            }
+            onMove={(i, dir) => onChange({ projects: moveItem(section.projects, i, dir) })}
+            renderTitle={(item) => item.name || "New project"}
+            render={(item, i) => {
+              const set = (patch: Partial<typeof item>) => {
+                const projects = [...section.projects];
+                projects[i] = { ...item, ...patch };
+                onChange({ projects });
+              };
+              return (
+                <div className="space-y-2">
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={item.name}
+                      onChange={(event) => set({ name: event.target.value })}
+                      placeholder="Name"
+                    />
+                    <Input
+                      value={item.role}
+                      onChange={(event) => set({ role: event.target.value })}
+                      placeholder="Your role"
+                    />
+                  </div>
+                  <Input
+                    value={item.url}
+                    onChange={(event) => set({ url: event.target.value })}
+                    placeholder="https://…"
+                  />
+                  <Textarea
+                    value={item.description}
+                    onChange={(event) => set({ description: event.target.value })}
+                    placeholder="One line on what it is"
+                    className="min-h-14"
+                  />
+                  <BulletEditor bullets={item.bullets} onChange={(bullets) => set({ bullets })} />
+                </div>
+              );
+            }}
+          />
+        )}
+
+        {section.kind === "skills" && (
+          <div className="space-y-2">
+            {section.skills.map((group, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={group.name}
+                  onChange={(event) => {
+                    const skills = [...section.skills];
+                    skills[i] = { ...group, name: event.target.value };
+                    onChange({ skills });
+                  }}
+                  placeholder="Group"
+                  className="w-32 shrink-0"
+                />
+                <Input
+                  value={group.skills.join(", ")}
+                  onChange={(event) => {
+                    const skills = [...section.skills];
+                    skills[i] = {
+                      ...group,
+                      skills: event.target.value.split(",").map((s) => s.trim()).filter(Boolean),
+                    };
+                    onChange({ skills });
+                  }}
+                  placeholder="Python, Go, Rust"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() => onChange({ skills: section.skills.filter((_, index) => index !== i) })}
+                >
+                  <Trash2Icon />
+                </Button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => onChange({ skills: [...section.skills, { name: "", skills: [] }] })}
+            >
+              <PlusIcon /> Add group
+            </Button>
+          </div>
+        )}
+
+        {section.kind === "certifications" && (
+          <div className="space-y-2">
+            {section.certifications.map((cert, i) => (
+              <div key={i} className="flex gap-2">
+                <Input
+                  value={cert.name}
+                  onChange={(event) => {
+                    const certifications = [...section.certifications];
+                    certifications[i] = { ...cert, name: event.target.value };
+                    onChange({ certifications });
+                  }}
+                  placeholder="Name"
+                />
+                <Input
+                  value={cert.issuer}
+                  onChange={(event) => {
+                    const certifications = [...section.certifications];
+                    certifications[i] = { ...cert, issuer: event.target.value };
+                    onChange({ certifications });
+                  }}
+                  placeholder="Issuer"
+                  className="w-28"
+                />
+                <Input
+                  value={cert.date}
+                  onChange={(event) => {
+                    const certifications = [...section.certifications];
+                    certifications[i] = { ...cert, date: event.target.value };
+                    onChange({ certifications });
+                  }}
+                  placeholder="2024"
+                  className="w-20"
+                />
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="text-muted-foreground hover:text-destructive shrink-0"
+                  onClick={() =>
+                    onChange({
+                      certifications: section.certifications.filter((_, index) => index !== i),
+                    })
+                  }
+                >
+                  <Trash2Icon />
+                </Button>
+              </div>
+            ))}
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() =>
+                onChange({
+                  certifications: [...section.certifications, { name: "", issuer: "", date: "" }],
+                })
+              }
+            >
+              <PlusIcon /> Add certification
+            </Button>
+          </div>
+        )}
+
+        {section.kind === "custom" && (
+          <ItemList
+            items={section.items}
+            onAdd={() =>
+              onChange({
+                items: [...section.items, { title: "", subtitle: "", meta: "", bullets: [""] }],
+              })
+            }
+            addLabel="Add item"
+            onRemove={(i) => onChange({ items: section.items.filter((_, index) => index !== i) })}
+            onMove={(i, dir) => onChange({ items: moveItem(section.items, i, dir) })}
+            renderTitle={(item) => item.title || "New item"}
+            render={(item, i) => {
+              const set = (patch: Partial<typeof item>) => {
+                const items = [...section.items];
+                items[i] = { ...item, ...patch };
+                onChange({ items });
+              };
+              return (
+                <div className="space-y-2">
+                  <Input
+                    value={item.title}
+                    onChange={(event) => set({ title: event.target.value })}
+                    placeholder="Title"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={item.subtitle}
+                      onChange={(event) => set({ subtitle: event.target.value })}
+                      placeholder="Subtitle"
+                    />
+                    <Input
+                      value={item.meta}
+                      onChange={(event) => set({ meta: event.target.value })}
+                      placeholder="Date / meta"
+                    />
+                  </div>
+                  <BulletEditor bullets={item.bullets} onChange={(bullets) => set({ bullets })} />
+                </div>
+              );
+            }}
+          />
+        )}
+      </div>
+    </Collapsible>
+  );
+}
+
+function BulletEditor({
+  bullets,
+  onChange,
+  placeholder = "Strong verb, specific scope, measurable outcome",
+}: {
+  bullets: string[];
+  onChange: (bullets: string[]) => void;
+  placeholder?: string;
+}) {
+  return (
+    <div className="space-y-1.5">
+      {bullets.map((bullet, index) => (
+        <div key={index} className="flex items-start gap-1.5">
+          <span className="bg-muted-foreground/40 mt-3 size-1 shrink-0 rounded-full" />
+          <Textarea
+            value={bullet}
+            onChange={(event) => {
+              const next = [...bullets];
+              next[index] = event.target.value;
+              onChange(next);
+            }}
+            onKeyDown={(event) => {
+              if (event.key === "Enter" && !event.shiftKey) {
+                event.preventDefault();
+                const next = [...bullets];
+                next.splice(index + 1, 0, "");
+                onChange(next);
+              }
+              if (event.key === "Backspace" && bullet === "" && bullets.length > 1) {
+                event.preventDefault();
+                onChange(bullets.filter((_, i) => i !== index));
+              }
+            }}
+            placeholder={placeholder}
+            className="min-h-0 py-1.5 text-[13px]"
+            rows={1}
+          />
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            className="text-muted-foreground hover:text-destructive mt-0.5 shrink-0"
+            onClick={() => onChange(bullets.filter((_, i) => i !== index))}
+            aria-label="Remove bullet"
+          >
+            <Trash2Icon />
+          </Button>
+        </div>
+      ))}
+      <Button variant="ghost" size="xs" onClick={() => onChange([...bullets, ""])}>
+        <PlusIcon /> Bullet
+      </Button>
+    </div>
+  );
+}
+
+function ItemList<T>({
+  items,
+  render,
+  renderTitle,
+  onAdd,
+  onRemove,
+  onMove,
+  addLabel,
+}: {
+  items: T[];
+  render: (item: T, index: number) => React.ReactNode;
+  renderTitle: (item: T) => string;
+  onAdd: () => void;
+  onRemove: (index: number) => void;
+  onMove: (index: number, direction: -1 | 1) => void;
+  addLabel: string;
+}) {
+  return (
+    <div className="space-y-2">
+      {items.map((item, index) => (
+        <Collapsible
+          key={index}
+          title={renderTitle(item)}
+          nested
+          controls={
+            <>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={index === 0}
+                onClick={() => onMove(index, -1)}
+                aria-label="Move up"
+              >
+                <ChevronUpIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                disabled={index === items.length - 1}
+                onClick={() => onMove(index, 1)}
+                aria-label="Move down"
+              >
+                <ChevronDownIcon />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground hover:text-destructive"
+                onClick={() => onRemove(index)}
+                aria-label="Remove"
+              >
+                <Trash2Icon />
+              </Button>
+            </>
+          }
+        >
+          {render(item, index)}
+        </Collapsible>
+      ))}
+      <Button variant="outline" size="sm" onClick={onAdd}>
+        <PlusIcon /> {addLabel}
+      </Button>
+    </div>
+  );
+}
+
+function Collapsible({
+  title,
+  children,
+  controls,
+  badge,
+  defaultOpen = false,
+  nested = false,
+  dimmed = false,
+}: {
+  title: string;
+  children: React.ReactNode;
+  controls?: React.ReactNode;
+  badge?: string;
+  defaultOpen?: boolean;
+  nested?: boolean;
+  dimmed?: boolean;
+}) {
+  const [open, setOpen] = useState(defaultOpen);
+
+  return (
+    <div
+      className={cn(
+        "rounded-xl border transition-colors",
+        nested ? "bg-background/40" : "surface",
+        dimmed && "opacity-55",
+      )}
+    >
+      <div className="flex items-center gap-1 px-2 py-1.5">
+        <button
+          onClick={() => setOpen((value) => !value)}
+          className="flex min-w-0 flex-1 items-center gap-1.5 px-1 py-1 text-left"
+        >
+          <ChevronDownIcon
+            className={cn(
+              "text-muted-foreground size-3.5 shrink-0 transition-transform",
+              !open && "-rotate-90",
+            )}
+          />
+          <span className="truncate text-[13px] font-medium capitalize">{title}</span>
+          {badge && (
+            <span className="text-muted-foreground shrink-0 text-[11px] tabular-nums">{badge}</span>
+          )}
+        </button>
+        <div className="flex shrink-0 items-center">{controls}</div>
+      </div>
+      <AnimatePresence initial={false}>
+        {open && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: "auto", opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            transition={{ duration: 0.22, ease: [0.16, 1, 0.3, 1] }}
+            className="overflow-hidden"
+          >
+            <div className="px-3 pt-1 pb-3">{children}</div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+}
+
+function AddSectionMenu({
+  onAdd,
+  existing,
+}: {
+  onAdd: (kind: SectionKind) => void;
+  existing: SectionKind[];
+}) {
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="outline" size="sm" className="w-full">
+          <PlusIcon /> Add section
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="start" className="w-56">
+        {SECTION_KINDS.map((kind) => (
+          <DropdownMenuItem key={kind} onSelect={() => onAdd(kind)} className="capitalize">
+            {kind}
+            {existing.includes(kind) && kind !== "custom" && (
+              <span className="text-muted-foreground ml-auto text-[11px]">added</span>
+            )}
+          </DropdownMenuItem>
+        ))}
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}
+
+function DesignPopover({
+  meta,
+  onChange,
+}: {
+  meta: Meta;
+  onChange: <K extends keyof Meta>(key: K, value: Meta[K]) => void;
+}) {
+  return (
+    <Popover>
+      <PopoverTrigger asChild>
+        <Button variant="ghost" size="icon-sm" aria-label="Design">
+          <PaletteIcon />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="end" className="w-72 space-y-4">
+        <div className="space-y-1.5">
+          <Label>Template</Label>
+          <Select value={meta.template} onValueChange={(value) => onChange("template", value)}>
+            <SelectTrigger size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="classic">Classic</SelectItem>
+              <SelectItem value="modern">Modern</SelectItem>
+              <SelectItem value="compact">Compact</SelectItem>
+              <SelectItem value="editorial">Editorial</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Font</Label>
+          <Select value={meta.fontFamily} onValueChange={(value) => onChange("fontFamily", value)}>
+            <SelectTrigger size="sm">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="inter">Sans</SelectItem>
+              <SelectItem value="serif">Serif</SelectItem>
+              <SelectItem value="mono">Mono</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+
+        <div className="space-y-2">
+          <Label>Accent</Label>
+          <div className="flex gap-2">
+            {ACCENTS.map((accent) => (
+              <button
+                key={accent}
+                onClick={() => onChange("accent", accent)}
+                aria-label={`Accent ${accent}`}
+                className={cn(
+                  "size-6 rounded-full transition-transform hover:scale-110",
+                  meta.accent === accent &&
+                    "ring-foreground/40 ring-2 ring-offset-2 ring-offset-popover",
+                )}
+                style={{ background: accent }}
+              />
+            ))}
+          </div>
+        </div>
+
+        <Separator />
+
+        <Slider
+          label="Text size"
+          value={meta.fontSize}
+          min={8}
+          max={13}
+          step={0.5}
+          suffix="pt"
+          onChange={(value) => onChange("fontSize", value)}
+        />
+        <Slider
+          label="Line height"
+          value={meta.lineHeight}
+          min={1.1}
+          max={1.7}
+          step={0.05}
+          onChange={(value) => onChange("lineHeight", value)}
+        />
+        <Slider
+          label="Margins"
+          value={meta.pageMargin}
+          min={24}
+          max={80}
+          step={2}
+          suffix="px"
+          onChange={(value) => onChange("pageMargin", value)}
+        />
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+function Slider({
+  label,
+  value,
+  min,
+  max,
+  step,
+  suffix = "",
+  onChange,
+}: {
+  label: string;
+  value: number;
+  min: number;
+  max: number;
+  step: number;
+  suffix?: string;
+  onChange: (value: number) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <div className="flex items-center justify-between">
+        <Label>{label}</Label>
+        <span className="text-muted-foreground text-xs tabular-nums">
+          {value}
+          {suffix}
+        </span>
+      </div>
+      <input
+        type="range"
+        min={min}
+        max={max}
+        step={step}
+        value={value}
+        onChange={(event) => onChange(Number(event.target.value))}
+        className="accent-[var(--primary)] w-full"
+      />
+    </div>
+  );
+}
+
+function moveItem<T>(items: T[], index: number, direction: -1 | 1) {
+  const target = index + direction;
+  if (target < 0 || target >= items.length) return items;
+  const next = [...items];
+  [next[index], next[target]] = [next[target], next[index]];
+  return next;
+}
+
+function countLabel(section: ResumeSection) {
+  switch (section.kind) {
+    case "experience":
+      return `${section.experience.length}`;
+    case "education":
+      return `${section.education.length}`;
+    case "projects":
+      return `${section.projects.length}`;
+    case "skills":
+      return `${section.skills.length}`;
+    case "certifications":
+      return `${section.certifications.length}`;
+    case "custom":
+      return `${section.items.length}`;
+    default:
+      return undefined;
+  }
+}
