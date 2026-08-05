@@ -2,34 +2,208 @@
 
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
-import type { ActivityType, Stage } from "@prisma/client";
+import { headers } from "next/headers";
+import type { ActivityType, Stage, UserRole } from "@prisma/client";
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
-import { checkPassword, createSession, destroySession, rotateMcpToken } from "@/lib/auth";
+import * as users from "@/lib/data/users";
+import {
+  authenticate,
+  claimInstance,
+  endSession,
+  instanceNeedsSetup,
+  requireAdmin,
+  requireUser,
+  rotateMcpToken,
+  setupKeyMatches,
+  startSession,
+} from "@/lib/auth";
+import { getSettings, updateSettings } from "@/lib/settings";
+import { sendEmail, testEmail } from "@/lib/email";
+
+/**
+ * Every action resolves the caller from their session cookie. No action ever
+ * accepts a userId from the client, so a crafted request cannot act as somebody
+ * else no matter what it sends.
+ */
 
 // ---------------------------------------------------------------------------
 // Auth
 // ---------------------------------------------------------------------------
 
-export async function loginAction(_prev: { error?: string } | undefined, formData: FormData) {
+export async function setupAction(_prev: { error?: string } | undefined, formData: FormData) {
+  if (!(await instanceNeedsSetup())) return { error: "This instance has already been set up." };
+
+  const setupKey = String(formData.get("setupKey") ?? "");
+  const email = String(formData.get("email") ?? "").trim();
+  const name = String(formData.get("name") ?? "").trim();
   const password = String(formData.get("password") ?? "");
-  if (!checkPassword(password)) {
-    return { error: "That password doesn't match." };
-  }
-  await createSession();
+
+  if (!setupKeyMatches(setupKey)) return { error: "That setup key doesn't match APP_PASSWORD." };
+  if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return { error: "Enter a valid email address." };
+  if (password.length < 10) return { error: "Use a password of at least 10 characters." };
+
+  const user = await claimInstance({ email, name, password });
+  await startSession(user.id);
+  redirect("/");
+}
+
+export async function loginAction(_prev: { error?: string } | undefined, formData: FormData) {
+  const email = String(formData.get("email") ?? "");
+  const password = String(formData.get("password") ?? "");
+  const user = await authenticate(email, password);
+  if (!user) return { error: "That email and password don't match." };
+  await startSession(user.id);
   redirect("/");
 }
 
 export async function logoutAction() {
-  await destroySession();
+  await endSession();
   redirect("/login");
 }
 
+export async function acceptInviteAction(
+  _prev: { error?: string } | undefined,
+  formData: FormData,
+) {
+  const token = String(formData.get("token") ?? "");
+  const name = String(formData.get("name") ?? "").trim();
+  const password = String(formData.get("password") ?? "");
+  if (password.length < 10) return { error: "Use a password of at least 10 characters." };
+
+  try {
+    const user = await users.acceptInvite({ token, name, password });
+    await startSession(user.id);
+  } catch (error) {
+    return { error: error instanceof Error ? error.message : "Could not accept that invitation." };
+  }
+  redirect("/");
+}
+
+export async function changeOwnPasswordAction(
+  _prev: { error?: string; ok?: boolean } | undefined,
+  formData: FormData,
+) {
+  const user = await requireUser();
+  const current = String(formData.get("currentPassword") ?? "");
+  const next = String(formData.get("newPassword") ?? "");
+  if (next.length < 10) return { error: "Use a password of at least 10 characters." };
+  if (!(await authenticate(user.email, current))) return { error: "Your current password is wrong." };
+
+  await users.changePassword(user.id, next);
+  await startSession(user.id); // keep this device signed in
+  return { ok: true };
+}
+
+export async function updateOwnAccountAction(patch: { name?: string; email?: string }) {
+  const user = await requireUser();
+  await users.updateOwnAccount(user.id, patch);
+  revalidatePath("/settings");
+}
+
 export async function rotateMcpTokenAction() {
-  const token = await rotateMcpToken();
+  const user = await requireUser();
+  const token = await rotateMcpToken(user.id);
   revalidatePath("/settings");
   return token;
+}
+
+// ---------------------------------------------------------------------------
+// Admin
+// ---------------------------------------------------------------------------
+
+export async function inviteUserAction(input: { email: string; role: UserRole }) {
+  const actor = await requireAdmin();
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+
+  try {
+    const result = await users.createInvite({
+      actor,
+      email: input.email,
+      role: input.role,
+      baseUrl: `${proto}://${host}`,
+    });
+    revalidatePath("/admin");
+    return {
+      ok: true as const,
+      acceptUrl: result.acceptUrl,
+      emailSent: result.emailSent,
+      emailError: result.emailError,
+    };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not invite." };
+  }
+}
+
+export async function revokeInviteAction(id: string) {
+  await requireAdmin();
+  await users.revokeInvite(id);
+  revalidatePath("/admin");
+}
+
+export async function setUserRoleAction(userId: string, role: UserRole) {
+  const actor = await requireAdmin();
+  try {
+    await users.setUserRole(actor, userId, role);
+    revalidatePath("/admin");
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not update." };
+  }
+}
+
+export async function setUserActiveAction(userId: string, isActive: boolean) {
+  const actor = await requireAdmin();
+  try {
+    await users.setUserActive(actor, userId, isActive);
+    revalidatePath("/admin");
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not update." };
+  }
+}
+
+export async function deleteUserAction(userId: string) {
+  const actor = await requireAdmin();
+  try {
+    await users.deleteUser(actor, userId);
+    revalidatePath("/admin");
+    return { ok: true as const };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not delete." };
+  }
+}
+
+export async function saveEmailSettingsAction(patch: {
+  instanceName?: string;
+  resendApiKey?: string;
+  resendFromEmail?: string;
+  resendFromName?: string;
+  publicUrl?: string;
+}) {
+  await requireAdmin();
+  // An empty API key field means "leave it alone", not "clear it".
+  const clean = { ...patch };
+  if (clean.resendApiKey !== undefined && clean.resendApiKey.trim() === "") delete clean.resendApiKey;
+  await updateSettings(clean);
+  revalidatePath("/admin");
+  return { ok: true as const };
+}
+
+export async function sendTestEmailAction(to?: string) {
+  const actor = await requireAdmin();
+  const settings = await getSettings();
+  const result = await sendEmail({
+    to: to?.trim() || actor.email,
+    ...testEmail(settings.instanceName),
+    settings,
+  });
+  return result.ok
+    ? { ok: true as const, to: to?.trim() || actor.email }
+    : { ok: false as const, error: result.error };
 }
 
 // ---------------------------------------------------------------------------
@@ -37,32 +211,36 @@ export async function rotateMcpTokenAction() {
 // ---------------------------------------------------------------------------
 
 export async function saveProfileAction(patch: brain.ProfilePatch) {
-  await brain.updateProfile(patch);
+  const user = await requireUser();
+  await brain.updateProfile(user.id, patch);
   revalidatePath("/brain");
-  revalidatePath("/settings");
   revalidatePath("/");
 }
 
 export async function createRoleAction(input: brain.RoleInput) {
-  const role = await brain.createRole(input);
+  const user = await requireUser();
+  const role = await brain.createRole(user.id, input);
   revalidatePath("/brain");
   return role.id;
 }
 
 export async function updateRoleAction(id: string, patch: Partial<brain.RoleInput>) {
-  await brain.updateRole(id, patch);
+  const user = await requireUser();
+  await brain.updateRole(user.id, id, patch);
   revalidatePath("/brain");
   revalidatePath(`/brain/${id}`);
 }
 
 export async function deleteRoleAction(id: string) {
-  await brain.deleteRole(id);
+  const user = await requireUser();
+  await brain.deleteRole(user.id, id);
   revalidatePath("/brain");
   redirect("/brain");
 }
 
 export async function createHighlightAction(input: brain.HighlightInput) {
-  const highlight = await brain.createHighlight(input);
+  const user = await requireUser();
+  const highlight = await brain.createHighlight(user.id, input);
   revalidatePath("/brain");
   if (input.roleId) revalidatePath(`/brain/${input.roleId}`);
   return highlight;
@@ -72,17 +250,20 @@ export async function updateHighlightAction(
   id: string,
   patch: Partial<brain.HighlightInput> & { archived?: boolean },
 ) {
-  await brain.updateHighlight(id, patch);
+  const user = await requireUser();
+  await brain.updateHighlight(user.id, id, patch);
   revalidatePath("/brain");
 }
 
 export async function deleteHighlightAction(id: string) {
-  await brain.deleteHighlight(id);
+  const user = await requireUser();
+  await brain.deleteHighlight(user.id, id);
   revalidatePath("/brain");
 }
 
 export async function createNoteAction(input: { title: string; body?: string; tags?: string[] }) {
-  const note = await brain.createNote(input);
+  const user = await requireUser();
+  const note = await brain.createNote(user.id, input);
   revalidatePath("/brain");
   return note.id;
 }
@@ -91,57 +272,68 @@ export async function updateNoteAction(
   id: string,
   patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean }>,
 ) {
-  await brain.updateNote(id, patch);
+  const user = await requireUser();
+  await brain.updateNote(user.id, id, patch);
   revalidatePath("/brain");
 }
 
 export async function deleteNoteAction(id: string) {
-  await brain.deleteNote(id);
+  const user = await requireUser();
+  await brain.deleteNote(user.id, id);
   revalidatePath("/brain");
 }
 
-export async function createEducationAction(input: Parameters<typeof brain.createEducation>[0]) {
-  await brain.createEducation(input);
+export async function createEducationAction(input: { school: string }) {
+  const user = await requireUser();
+  await brain.createEducation(user.id, input);
   revalidatePath("/brain");
 }
 
 export async function updateEducationAction(id: string, patch: Record<string, unknown>) {
-  await brain.updateEducation(id, patch);
+  const user = await requireUser();
+  await brain.updateEducation(user.id, id, patch);
   revalidatePath("/brain");
 }
 
 export async function deleteEducationAction(id: string) {
-  await brain.deleteEducation(id);
+  const user = await requireUser();
+  await brain.deleteEducation(user.id, id);
   revalidatePath("/brain");
 }
 
-export async function createProjectAction(input: Parameters<typeof brain.createProject>[0]) {
-  await brain.createProject(input);
+export async function createProjectAction(input: { name: string }) {
+  const user = await requireUser();
+  await brain.createProject(user.id, input);
   revalidatePath("/brain");
 }
 
 export async function updateProjectAction(id: string, patch: Record<string, unknown>) {
-  await brain.updateProject(id, patch);
+  const user = await requireUser();
+  await brain.updateProject(user.id, id, patch);
   revalidatePath("/brain");
 }
 
 export async function deleteProjectAction(id: string) {
-  await brain.deleteProject(id);
+  const user = await requireUser();
+  await brain.deleteProject(user.id, id);
   revalidatePath("/brain");
 }
 
 export async function createSkillGroupAction(input: { name: string; skills?: string[] }) {
-  await brain.createSkillGroup(input);
+  const user = await requireUser();
+  await brain.createSkillGroup(user.id, input);
   revalidatePath("/brain");
 }
 
 export async function updateSkillGroupAction(id: string, patch: { name?: string; skills?: string[] }) {
-  await brain.updateSkillGroup(id, patch);
+  const user = await requireUser();
+  await brain.updateSkillGroup(user.id, id, patch);
   revalidatePath("/brain");
 }
 
 export async function deleteSkillGroupAction(id: string) {
-  await brain.deleteSkillGroup(id);
+  const user = await requireUser();
+  await brain.deleteSkillGroup(user.id, id);
   revalidatePath("/brain");
 }
 
@@ -151,45 +343,45 @@ export async function createCertificationAction(input: {
   date?: string;
   url?: string;
 }) {
-  await brain.createCertification(input);
+  const user = await requireUser();
+  await brain.createCertification(user.id, input);
   revalidatePath("/brain");
 }
 
 export async function deleteCertificationAction(id: string) {
-  await brain.deleteCertification(id);
+  const user = await requireUser();
+  await brain.deleteCertification(user.id, id);
   revalidatePath("/brain");
-}
-
-export async function searchBrainAction(query: string) {
-  return brain.searchBrain(query, 20);
 }
 
 // ---------------------------------------------------------------------------
 // Resumes
 // ---------------------------------------------------------------------------
 
-export async function createResumeAction(
-  input: resumes.ResumeMeta & { seedFromBrain?: boolean },
-) {
-  const resume = await resumes.createResume(input);
+export async function createResumeAction(input: resumes.ResumeMeta & { seedFromBrain?: boolean }) {
+  const user = await requireUser();
+  const resume = await resumes.createResume(user.id, input);
   revalidatePath("/resumes");
   return resume.id;
 }
 
 export async function updateResumeAction(id: string, patch: resumes.ResumeMeta & { data?: unknown }) {
-  await resumes.updateResume(id, patch);
+  const user = await requireUser();
+  await resumes.updateResume(user.id, id, patch);
   revalidatePath("/resumes");
   revalidatePath(`/resumes/${id}`);
 }
 
 export async function deleteResumeAction(id: string) {
-  await resumes.deleteResume(id);
+  const user = await requireUser();
+  await resumes.deleteResume(user.id, id);
   revalidatePath("/resumes");
   redirect("/resumes");
 }
 
 export async function duplicateResumeAction(id: string, name?: string) {
-  const copy = await resumes.duplicateResume(id, name);
+  const user = await requireUser();
+  const copy = await resumes.duplicateResume(user.id, id, name);
   revalidatePath("/resumes");
   return copy.id;
 }
@@ -199,7 +391,8 @@ export async function duplicateResumeAction(id: string, name?: string) {
 // ---------------------------------------------------------------------------
 
 export async function createApplicationAction(input: pipeline.ApplicationInput) {
-  const application = await pipeline.createApplication(input);
+  const user = await requireUser();
+  const application = await pipeline.createApplication(user.id, input);
   revalidatePath("/applications");
   revalidatePath("/");
   return application.id;
@@ -209,28 +402,26 @@ export async function updateApplicationAction(
   id: string,
   patch: Partial<pipeline.ApplicationInput>,
 ) {
-  await pipeline.updateApplication(id, patch);
+  const user = await requireUser();
+  await pipeline.updateApplication(user.id, id, patch);
   revalidatePath("/applications");
   revalidatePath(`/applications/${id}`);
   revalidatePath("/");
 }
 
 export async function moveStageAction(id: string, stage: Stage) {
-  await pipeline.moveApplicationStage(id, stage);
+  const user = await requireUser();
+  await pipeline.moveApplicationStage(user.id, id, stage);
   revalidatePath("/applications");
   revalidatePath(`/applications/${id}`);
   revalidatePath("/");
 }
 
 export async function deleteApplicationAction(id: string) {
-  await pipeline.deleteApplication(id);
+  const user = await requireUser();
+  await pipeline.deleteApplication(user.id, id);
   revalidatePath("/applications");
   revalidatePath("/");
-}
-
-export async function reorderApplicationsAction(ids: string[]) {
-  await pipeline.reorderApplications(ids);
-  revalidatePath("/applications");
 }
 
 export async function addActivityAction(input: {
@@ -238,7 +429,8 @@ export async function addActivityAction(input: {
   type?: ActivityType;
   body: string;
 }) {
-  await pipeline.addActivity(input);
+  const user = await requireUser();
+  await pipeline.addActivity(user.id, input);
   revalidatePath(`/applications/${input.applicationId}`);
   revalidatePath("/");
 }
@@ -249,38 +441,51 @@ export async function createTaskAction(input: {
   dueAt?: string | null;
   applicationId?: string | null;
 }) {
-  await pipeline.createTask(input);
+  const user = await requireUser();
+  await pipeline.createTask(user.id, input);
   revalidatePath("/");
   if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
 }
 
 export async function toggleTaskAction(id: string, done: boolean) {
-  await pipeline.setTaskDone(id, done);
+  const user = await requireUser();
+  await pipeline.setTaskDone(user.id, id, done);
   revalidatePath("/");
   revalidatePath("/applications");
 }
 
 export async function deleteTaskAction(id: string) {
-  await pipeline.deleteTask(id);
+  const user = await requireUser();
+  await pipeline.deleteTask(user.id, id);
   revalidatePath("/");
 }
 
-export async function createContactAction(input: Parameters<typeof pipeline.createContact>[0]) {
-  await pipeline.createContact(input);
+export async function createContactAction(input: {
+  name: string;
+  title?: string;
+  email?: string;
+  relationship?: string;
+  company?: string;
+  applicationId?: string | null;
+}) {
+  const user = await requireUser();
+  await pipeline.createContact(user.id, input);
   if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
   revalidatePath("/applications");
 }
 
 export async function deleteContactAction(id: string, applicationId?: string) {
-  await pipeline.deleteContact(id);
+  const user = await requireUser();
+  await pipeline.deleteContact(user.id, id);
   if (applicationId) revalidatePath(`/applications/${applicationId}`);
 }
 
 export async function snoozeFollowUpAction(id: string, days: number) {
+  const user = await requireUser();
   const next = new Date();
   next.setDate(next.getDate() + days);
   next.setHours(9, 0, 0, 0);
-  await pipeline.updateApplication(id, { nextFollowUpAt: next });
+  await pipeline.updateApplication(user.id, id, { nextFollowUpAt: next });
   revalidatePath("/");
   revalidatePath("/applications");
 }

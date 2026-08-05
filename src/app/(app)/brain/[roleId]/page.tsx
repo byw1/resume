@@ -5,13 +5,15 @@ import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
 import { getRole } from "@/lib/data/brain";
+import { requireUser } from "@/lib/auth";
 import { RoleEditor } from "@/components/brain/role-editor";
 
 export const dynamic = "force-dynamic";
 
 export default async function RolePage({ params }: { params: Promise<{ roleId: string }> }) {
+  const user = await requireUser();
   const { roleId } = await params;
-  const role = await getRole(roleId);
+  const role = await getRole(user.id, roleId);
   if (!role) notFound();
 
   return (

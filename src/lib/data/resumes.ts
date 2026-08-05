@@ -22,28 +22,33 @@ export type ResumeMeta = Partial<{
   isFavorite: boolean;
 }>;
 
-export async function listResumes() {
+export async function listResumes(userId: string) {
   return db.resume.findMany({
+    where: { userId },
     orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
     include: { _count: { select: { applications: true } } },
   });
 }
 
-export async function getResume(id: string) {
-  const resume = await db.resume.findUnique({ where: { id } });
+export async function getResume(userId: string, id: string) {
+  const resume = await db.resume.findFirst({ where: { id, userId } });
   if (!resume) return null;
   return { ...resume, doc: parseResumeDoc(resume.data) };
 }
 
-export async function createResume(input: ResumeMeta & { data?: unknown; seedFromBrain?: boolean }) {
+export async function createResume(
+  userId: string,
+  input: ResumeMeta & { data?: unknown; seedFromBrain?: boolean },
+) {
   const doc = input.data
     ? parseResumeDoc(input.data)
     : input.seedFromBrain
-      ? await buildDocFromBrain()
+      ? await buildDocFromBrain(userId)
       : emptyResumeDoc();
 
   return db.resume.create({
     data: {
+      userId,
       name: input.name?.trim() || "Untitled resume",
       targetRole: input.targetRole ?? "",
       targetCompany: input.targetCompany ?? "",
@@ -59,21 +64,30 @@ export async function createResume(input: ResumeMeta & { data?: unknown; seedFro
   });
 }
 
-export async function updateResume(id: string, patch: ResumeMeta & { data?: unknown }) {
+export async function updateResume(
+  userId: string,
+  id: string,
+  patch: ResumeMeta & { data?: unknown },
+) {
   const data: Record<string, unknown> = { ...patch };
   if (patch.data !== undefined) data.data = parseResumeDoc(patch.data) as unknown as object;
-  return db.resume.update({ where: { id }, data });
+  const { count } = await db.resume.updateMany({ where: { id, userId }, data });
+  if (count === 0) throw new Error(`No resume with id ${id}`);
+  return db.resume.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteResume(id: string) {
-  return db.resume.delete({ where: { id } });
+export async function deleteResume(userId: string, id: string) {
+  const { count } = await db.resume.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No resume with id ${id}`);
+  return { id };
 }
 
-export async function duplicateResume(id: string, name?: string) {
-  const source = await db.resume.findUnique({ where: { id } });
+export async function duplicateResume(userId: string, id: string, name?: string) {
+  const source = await db.resume.findFirst({ where: { id, userId } });
   if (!source) throw new Error(`No resume with id ${id}`);
   return db.resume.create({
     data: {
+      userId,
       name: name ?? `${source.name} (copy)`,
       targetRole: source.targetRole,
       targetCompany: source.targetCompany,
@@ -95,9 +109,9 @@ export async function duplicateResume(id: string, name?: string) {
  * bullets. This is what "New resume from my brain" and the MCP
  * `create_resume(seed_from_brain: true)` call use.
  */
-export async function buildDocFromBrain(): Promise<ResumeDoc> {
+export async function buildDocFromBrain(userId: string): Promise<ResumeDoc> {
   const { profile, roles, highlights, education, projects, skillGroups, certifications } =
-    await getBrainSnapshot();
+    await getBrainSnapshot(userId);
 
   const links = [
     profile.website && { label: "Website", url: profile.website },

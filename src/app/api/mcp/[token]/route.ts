@@ -1,5 +1,5 @@
 import { corsHeaders, handleMcpPost, mcpUnauthorized } from "@/lib/mcp/handler";
-import { mcpTokenIsValid } from "@/lib/auth";
+import { userByMcpToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -7,20 +7,23 @@ export const runtime = "nodejs";
 type Params = { params: Promise<{ token: string }> };
 
 /**
- * The connection URL handed to Claude looks like
+ * Each person gets their own connection URL:
  *   https://<your-app>.up.railway.app/api/mcp/rsm_xxxxxxxx
  * The token lives in the path so the whole thing is a single copy-paste with no
- * headers to configure.
+ * headers to configure, and it resolves to exactly one user — a connector can
+ * never reach anybody else's data.
  */
 export async function POST(request: Request, { params }: Params) {
   const { token } = await params;
-  if (!(await mcpTokenIsValid(token))) return mcpUnauthorized();
-  return handleMcpPost(request);
+  const user = await userByMcpToken(token);
+  if (!user) return mcpUnauthorized();
+  return handleMcpPost(request, user);
 }
 
 export async function GET(_request: Request, { params }: Params) {
   const { token } = await params;
-  if (!(await mcpTokenIsValid(token))) return mcpUnauthorized();
+  const user = await userByMcpToken(token);
+  if (!user) return mcpUnauthorized();
   // No server-initiated stream: clients fall back to POST-only, which is all we need.
   return new Response(null, { status: 405, headers: { Allow: "POST", ...corsHeaders() } });
 }

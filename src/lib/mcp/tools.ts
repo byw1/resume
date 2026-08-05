@@ -1,17 +1,35 @@
-import type { ActivityType, Stage } from "@prisma/client";
+import type { ActivityType, Stage, User, UserRole } from "@prisma/client";
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import * as users from "@/lib/data/users";
+import { getSettings, updateSettings, emailIsConfigured, maskSecret } from "@/lib/settings";
+import { sendEmail, testEmail } from "@/lib/email";
+import { isAdmin } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
 
 type Json = Record<string, unknown>;
+
+/**
+ * Every tool call runs as exactly one user. The token in the connection URL
+ * resolves to them, and `ctx.userId` is threaded into every data call, so a
+ * connector can only ever reach its own owner's data.
+ */
+export type McpContext = {
+  userId: string;
+  user: User;
+  /** Where this instance is reachable, for building invite links. */
+  baseUrl: string;
+};
 
 export type McpTool = {
   name: string;
   title: string;
   description: string;
   inputSchema: Json;
-  handler: (args: Json) => Promise<unknown>;
+  /** Admin-only tools are hidden from tools/list for members, not just refused. */
+  adminOnly?: boolean;
+  handler: (args: Json, ctx: McpContext) => Promise<unknown>;
 };
 
 const str = (description: string) => ({ type: "string", description });
@@ -77,7 +95,7 @@ export const tools: McpTool[] = [
       },
       ["query"],
     ),
-    handler: async (args) => brain.searchBrain(required(args, "query"), n(args, "limit") ?? 25),
+    handler: async (args, ctx) => brain.searchBrain(ctx.userId, required(args, "query"), n(args, "limit") ?? 25),
   },
   {
     name: "get_brain_snapshot",
@@ -89,8 +107,8 @@ export const tools: McpTool[] = [
         "Include the full long-form brain dump text for each role (default true). Set false for a lighter payload.",
       ),
     }),
-    handler: async (args) => {
-      const snapshot = await brain.getBrainSnapshot();
+    handler: async (args, ctx) => {
+      const snapshot = await brain.getBrainSnapshot(ctx.userId);
       if (b(args, "include_brain_dumps") === false) {
         return {
           ...snapshot,
@@ -107,7 +125,7 @@ export const tools: McpTool[] = [
     description:
       "The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables).",
     inputSchema: object({}),
-    handler: async () => brain.getProfile(),
+    handler: async (_args, ctx) => brain.getProfile(ctx.userId),
   },
   {
     name: "update_profile",
@@ -129,8 +147,8 @@ export const tools: McpTool[] = [
         "Long-form personal brain dump. REPLACES the existing text — read it first if you intend to add to it.",
       ),
     }),
-    handler: async (args) =>
-      brain.updateProfile(
+    handler: async (args, ctx) =>
+      brain.updateProfile(ctx.userId, 
         defined({
           fullName: s(args, "fullName"),
           headline: s(args, "headline"),
@@ -152,7 +170,7 @@ export const tools: McpTool[] = [
     description:
       "List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full brain dump — use get_role for that.",
     inputSchema: object({}),
-    handler: async () => brain.listRoles(),
+    handler: async (_args, ctx) => brain.listRoles(ctx.userId),
   },
   {
     name: "get_role",
@@ -160,7 +178,11 @@ export const tools: McpTool[] = [
     description:
       "Full detail for one role including its complete brain dump text and all of its achievement highlights.",
     inputSchema: object({ id: str("Role id") }, ["id"]),
-    handler: async (args) => brain.getRole(required(args, "id")),
+    handler: async (args, ctx) => {
+      const role = await brain.getRole(ctx.userId, required(args, "id"));
+      if (!role) throw new Error(`No role with id ${required(args, "id")}`);
+      return role;
+    },
   },
   {
     name: "create_role",
@@ -184,8 +206,8 @@ export const tools: McpTool[] = [
       },
       ["company", "title"],
     ),
-    handler: async (args) =>
-      brain.createRole({
+    handler: async (args, ctx) =>
+      brain.createRole(ctx.userId, {
         company: required(args, "company"),
         title: required(args, "title"),
         ...defined({
@@ -221,8 +243,8 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
-    handler: async (args) =>
-      brain.updateRole(
+    handler: async (args, ctx) =>
+      brain.updateRole(ctx.userId, 
         required(args, "id"),
         defined({
           company: s(args, "company"),
@@ -251,15 +273,15 @@ export const tools: McpTool[] = [
       },
       ["id", "text"],
     ),
-    handler: async (args) =>
-      brain.appendToRoleBrainDump(required(args, "id"), required(args, "text"), s(args, "heading")),
+    handler: async (args, ctx) =>
+      brain.appendToRoleBrainDump(ctx.userId, required(args, "id"), required(args, "text"), s(args, "heading")),
   },
   {
     name: "delete_role",
     title: "Delete a role",
     description: "Permanently delete a role and all of its highlights.",
     inputSchema: object({ id: str("Role id") }, ["id"]),
-    handler: async (args) => brain.deleteRole(required(args, "id")),
+    handler: async (args, ctx) => brain.deleteRole(ctx.userId, required(args, "id")),
   },
 
   // -------------------------------------------------------------------------
@@ -271,7 +293,7 @@ export const tools: McpTool[] = [
     description:
       "Reusable, polished achievement bullets, strongest first. These are the distilled lines you pull from when assembling a resume.",
     inputSchema: object({ roleId: str("Only return highlights for this role id") }),
-    handler: async (args) => brain.listHighlights(s(args, "roleId")),
+    handler: async (args, ctx) => brain.listHighlights(ctx.userId, s(args, "roleId")),
   },
   {
     name: "create_highlights",
@@ -297,9 +319,9 @@ export const tools: McpTool[] = [
       },
       ["highlights"],
     ),
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const items = Array.isArray(args.highlights) ? (args.highlights as Json[]) : [];
-      return brain.createHighlights(
+      return brain.createHighlights(ctx.userId, 
         items.map((item) => ({
           roleId: s(item, "roleId") ?? null,
           text: required(item, "text"),
@@ -325,8 +347,8 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
-    handler: async (args) =>
-      brain.updateHighlight(
+    handler: async (args, ctx) =>
+      brain.updateHighlight(ctx.userId, 
         required(args, "id"),
         defined({
           text: s(args, "text"),
@@ -342,7 +364,7 @@ export const tools: McpTool[] = [
     title: "Delete a highlight",
     description: "Permanently delete an achievement bullet.",
     inputSchema: object({ id: str("Highlight id") }, ["id"]),
-    handler: async (args) => brain.deleteHighlight(required(args, "id")),
+    handler: async (args, ctx) => brain.deleteHighlight(ctx.userId, required(args, "id")),
   },
 
   // -------------------------------------------------------------------------
@@ -354,7 +376,7 @@ export const tools: McpTool[] = [
     description:
       "Free-floating notes not tied to any single job: STAR stories, interview prep, references, compensation history, anything.",
     inputSchema: object({}),
-    handler: async () => brain.listNotes(),
+    handler: async (_args, ctx) => brain.listNotes(ctx.userId),
   },
   {
     name: "create_note",
@@ -370,8 +392,8 @@ export const tools: McpTool[] = [
       },
       ["title"],
     ),
-    handler: async (args) =>
-      brain.createNote({
+    handler: async (args, ctx) =>
+      brain.createNote(ctx.userId, {
         title: required(args, "title"),
         ...defined({ body: s(args, "body"), tags: a(args, "tags"), pinned: b(args, "pinned") }),
       }),
@@ -390,8 +412,8 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
-    handler: async (args) =>
-      brain.updateNote(
+    handler: async (args, ctx) =>
+      brain.updateNote(ctx.userId, 
         required(args, "id"),
         defined({
           title: s(args, "title"),
@@ -416,16 +438,16 @@ export const tools: McpTool[] = [
       },
       ["kind"],
     ),
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       switch (required(args, "kind")) {
         case "education":
-          return brain.listEducation();
+          return brain.listEducation(ctx.userId);
         case "projects":
-          return brain.listProjects();
+          return brain.listProjects(ctx.userId);
         case "skills":
-          return brain.listSkillGroups();
+          return brain.listSkillGroups(ctx.userId);
         case "certifications":
-          return brain.listCertifications();
+          return brain.listCertifications(ctx.userId);
         default:
           throw new Error("kind must be education | projects | skills | certifications");
       }
@@ -463,10 +485,10 @@ export const tools: McpTool[] = [
       },
       ["kind"],
     ),
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       switch (required(args, "kind")) {
         case "education":
-          return brain.createEducation({
+          return brain.createEducation(ctx.userId, {
             school: required(args, "school"),
             ...defined({
               degree: s(args, "degree"),
@@ -479,7 +501,7 @@ export const tools: McpTool[] = [
             }),
           });
         case "projects":
-          return brain.createProject({
+          return brain.createProject(ctx.userId, {
             name: required(args, "name"),
             ...defined({
               role: s(args, "role"),
@@ -492,12 +514,12 @@ export const tools: McpTool[] = [
             }),
           });
         case "skills":
-          return brain.createSkillGroup({
+          return brain.createSkillGroup(ctx.userId, {
             name: required(args, "name"),
             skills: a(args, "skills") ?? [],
           });
         case "certifications":
-          return brain.createCertification({
+          return brain.createCertification(ctx.userId, {
             name: required(args, "name"),
             ...defined({ issuer: s(args, "issuer"), date: s(args, "date"), url: s(args, "url") }),
           });
@@ -521,17 +543,17 @@ export const tools: McpTool[] = [
       },
       ["kind", "id"],
     ),
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const id = required(args, "id");
       switch (required(args, "kind")) {
         case "education":
-          return brain.deleteEducation(id);
+          return brain.deleteEducation(ctx.userId, id);
         case "projects":
-          return brain.deleteProject(id);
+          return brain.deleteProject(ctx.userId, id);
         case "skills":
-          return brain.deleteSkillGroup(id);
+          return brain.deleteSkillGroup(ctx.userId, id);
         case "certifications":
-          return brain.deleteCertification(id);
+          return brain.deleteCertification(ctx.userId, id);
         default:
           throw new Error("kind must be education | projects | skills | certifications");
       }
@@ -547,7 +569,7 @@ export const tools: McpTool[] = [
     description:
       "Returns the exact JSON shape of a resume document plus the available templates, fonts and writing guidance. Call this once before your first create_resume or update_resume so the document you build validates.",
     inputSchema: object({}),
-    handler: async () => ({
+    handler: async (_args, ctx) => ({
       documentShape: RESUME_DOC_SHAPE,
       defaultTemplate: "harvard",
       templates: [
@@ -589,7 +611,7 @@ export const tools: McpTool[] = [
     description:
       "All saved resumes with their target role/company and how many applications each is attached to.",
     inputSchema: object({}),
-    handler: async () => resumes.listResumes(),
+    handler: async (_args, ctx) => resumes.listResumes(ctx.userId),
   },
   {
     name: "get_resume",
@@ -602,8 +624,8 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
-    handler: async (args) => {
-      const resume = await resumes.getResume(required(args, "id"));
+    handler: async (args, ctx) => {
+      const resume = await resumes.getResume(ctx.userId, required(args, "id"));
       if (!resume) throw new Error("Resume not found");
       if (b(args, "as_text")) {
         return {
@@ -641,8 +663,8 @@ export const tools: McpTool[] = [
       },
       ["name"],
     ),
-    handler: async (args) =>
-      resumes.createResume({
+    handler: async (args, ctx) =>
+      resumes.createResume(ctx.userId, {
         name: required(args, "name"),
         seedFromBrain: b(args, "seedFromBrain"),
         data: args.data,
@@ -684,8 +706,8 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
-    handler: async (args) =>
-      resumes.updateResume(required(args, "id"), {
+    handler: async (args, ctx) =>
+      resumes.updateResume(ctx.userId, required(args, "id"), {
         ...(args.data !== undefined ? { data: args.data } : {}),
         ...defined({
           name: s(args, "name"),
@@ -707,14 +729,14 @@ export const tools: McpTool[] = [
     description:
       "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application.",
     inputSchema: object({ id: str("Resume id to copy"), name: str("Name for the copy") }, ["id"]),
-    handler: async (args) => resumes.duplicateResume(required(args, "id"), s(args, "name")),
+    handler: async (args, ctx) => resumes.duplicateResume(ctx.userId, required(args, "id"), s(args, "name")),
   },
   {
     name: "delete_resume",
     title: "Delete a resume",
     description: "Permanently delete a resume.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
-    handler: async (args) => resumes.deleteResume(required(args, "id")),
+    handler: async (args, ctx) => resumes.deleteResume(ctx.userId, required(args, "id")),
   },
   {
     name: "preview_resume_text",
@@ -731,7 +753,7 @@ export const tools: McpTool[] = [
       },
       ["data"],
     ),
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const doc = parseResumeDoc(args.data);
       return {
         text: resumes.resumeToText(doc),
@@ -750,7 +772,7 @@ export const tools: McpTool[] = [
     description:
       "Counts by stage, active applications, applications sent this week, interviews, offers, open tasks, follow-ups due and response rate. Start here for any 'how is my search going' question.",
     inputSchema: object({}),
-    handler: async () => pipeline.pipelineStats(),
+    handler: async (_args, ctx) => pipeline.pipelineStats(ctx.userId),
   },
   {
     name: "list_applications",
@@ -762,8 +784,8 @@ export const tools: McpTool[] = [
       includeClosed: bool("Include accepted / rejected / withdrawn"),
       search: str("Filter by company, role title or notes"),
     }),
-    handler: async (args) =>
-      pipeline.listApplications({
+    handler: async (args, ctx) =>
+      pipeline.listApplications(ctx.userId, {
         stage: s(args, "stage") as Stage | undefined,
         includeClosed: b(args, "includeClosed"),
         search: s(args, "search"),
@@ -775,7 +797,11 @@ export const tools: McpTool[] = [
     description:
       "Full detail for one application including the job description, the complete activity timeline, contacts and tasks.",
     inputSchema: object({ id: str("Application id") }, ["id"]),
-    handler: async (args) => pipeline.getApplication(required(args, "id")),
+    handler: async (args, ctx) => {
+      const application = await pipeline.getApplication(ctx.userId, required(args, "id"));
+      if (!application) throw new Error(`No application with id ${required(args, "id")}`);
+      return application;
+    },
   },
   {
     name: "create_application",
@@ -802,8 +828,8 @@ export const tools: McpTool[] = [
       },
       ["company", "roleTitle"],
     ),
-    handler: async (args) =>
-      pipeline.createApplication({
+    handler: async (args, ctx) =>
+      pipeline.createApplication(ctx.userId, {
         company: required(args, "company"),
         roleTitle: required(args, "roleTitle"),
         ...defined({
@@ -849,8 +875,8 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
-    handler: async (args) =>
-      pipeline.updateApplication(required(args, "id"), {
+    handler: async (args, ctx) =>
+      pipeline.updateApplication(ctx.userId, required(args, "id"), {
         ...defined({
           company: s(args, "company"),
           roleTitle: s(args, "roleTitle"),
@@ -883,8 +909,8 @@ export const tools: McpTool[] = [
       },
       ["id", "stage"],
     ),
-    handler: async (args) =>
-      pipeline.moveApplicationStage(
+    handler: async (args, ctx) =>
+      pipeline.moveApplicationStage(ctx.userId, 
         required(args, "id"),
         required(args, "stage") as Stage,
         s(args, "note"),
@@ -895,7 +921,7 @@ export const tools: McpTool[] = [
     title: "Delete an application",
     description: "Permanently delete an application and its timeline.",
     inputSchema: object({ id: str("Application id") }, ["id"]),
-    handler: async (args) => pipeline.deleteApplication(required(args, "id")),
+    handler: async (args, ctx) => pipeline.deleteApplication(ctx.userId, required(args, "id")),
   },
   {
     name: "log_activity",
@@ -911,8 +937,8 @@ export const tools: McpTool[] = [
       },
       ["applicationId", "body"],
     ),
-    handler: async (args) =>
-      pipeline.addActivity({
+    handler: async (args, ctx) =>
+      pipeline.addActivity(ctx.userId, {
         applicationId: required(args, "applicationId"),
         body: required(args, "body"),
         type: s(args, "type") as ActivityType | undefined,
@@ -928,7 +954,7 @@ export const tools: McpTool[] = [
       applicationId: str("Limit to one application"),
       limit: num("Max entries, default 40"),
     }),
-    handler: async (args) => pipeline.listActivities(s(args, "applicationId"), n(args, "limit") ?? 40),
+    handler: async (args, ctx) => pipeline.listActivities(ctx.userId, s(args, "applicationId"), n(args, "limit") ?? 40),
   },
   {
     name: "list_follow_ups",
@@ -938,14 +964,14 @@ export const tools: McpTool[] = [
     inputSchema: object({
       withinDays: num("Look ahead this many days. 0 = due now, 7 = due within a week."),
     }),
-    handler: async (args) => pipeline.followUpsDue(n(args, "withinDays") ?? 0),
+    handler: async (args, ctx) => pipeline.followUpsDue(ctx.userId, n(args, "withinDays") ?? 0),
   },
   {
     name: "list_tasks",
     title: "List tasks",
     description: "To-dos, optionally attached to an application.",
     inputSchema: object({ done: bool("Filter by completion state. Omit for all.") }),
-    handler: async (args) => pipeline.listTasks({ done: b(args, "done") }),
+    handler: async (args, ctx) => pipeline.listTasks(ctx.userId, { done: b(args, "done") }),
   },
   {
     name: "create_task",
@@ -960,8 +986,8 @@ export const tools: McpTool[] = [
       },
       ["title"],
     ),
-    handler: async (args) =>
-      pipeline.createTask({
+    handler: async (args, ctx) =>
+      pipeline.createTask(ctx.userId, {
         title: required(args, "title"),
         ...defined({
           detail: s(args, "detail"),
@@ -975,14 +1001,14 @@ export const tools: McpTool[] = [
     title: "Complete or reopen a task",
     description: "Mark a task done, or reopen it with done: false.",
     inputSchema: object({ id: str("Task id"), done: bool("Default true") }, ["id"]),
-    handler: async (args) => pipeline.setTaskDone(required(args, "id"), b(args, "done") ?? true),
+    handler: async (args, ctx) => pipeline.setTaskDone(ctx.userId, required(args, "id"), b(args, "done") ?? true),
   },
   {
     name: "list_contacts",
     title: "List contacts",
     description: "Recruiters, hiring managers and referrals, optionally for one application.",
     inputSchema: object({ applicationId: str("Limit to one application") }),
-    handler: async (args) => pipeline.listContacts(s(args, "applicationId")),
+    handler: async (args, ctx) => pipeline.listContacts(ctx.userId, s(args, "applicationId")),
   },
   {
     name: "create_contact",
@@ -1002,8 +1028,8 @@ export const tools: McpTool[] = [
       },
       ["name"],
     ),
-    handler: async (args) =>
-      pipeline.createContact({
+    handler: async (args, ctx) =>
+      pipeline.createContact(ctx.userId, {
         name: required(args, "name"),
         ...defined({
           title: s(args, "title"),
@@ -1017,7 +1043,205 @@ export const tools: McpTool[] = [
         }),
       }),
   },
+
+  // -------------------------------------------------------------------------
+  // ACCOUNT
+  // -------------------------------------------------------------------------
+  {
+    name: "whoami",
+    title: "Who am I connected as",
+    description:
+      "The account this connection belongs to: name, email, role, and whether it can administer the instance. Every other tool acts as this person and can only see their data.",
+    inputSchema: object({}),
+    handler: async (_args, ctx) => ({
+      id: ctx.user.id,
+      name: ctx.user.name,
+      email: ctx.user.email,
+      role: ctx.user.role,
+      isAdmin: isAdmin(ctx.user),
+      memberSince: ctx.user.createdAt,
+    }),
+  },
+
+  // -------------------------------------------------------------------------
+  // ADMIN — hidden entirely from members
+  // -------------------------------------------------------------------------
+  {
+    name: "admin_instance_stats",
+    title: "Instance overview",
+    description:
+      "How many people are on this instance, how many are active, how many invites are outstanding, and how much material exists across all accounts. Aggregate counts only — never another person's content.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async () => users.instanceStats(),
+  },
+  {
+    name: "admin_list_users",
+    title: "List members",
+    description:
+      "Everyone on the instance with their role, whether they are active, when they last signed in, and how much they have built. Does not expose anyone's brain, resumes or applications.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async () => users.listUsers(),
+  },
+  {
+    name: "admin_invite_user",
+    title: "Invite someone",
+    description:
+      "Create an invitation and email it through Resend. If email is not configured yet, the invite is still created and the reply includes a link you can send by hand — so this works before Resend is set up.",
+    inputSchema: object(
+      {
+        email: str("Who to invite"),
+        role: {
+          type: "string",
+          enum: ["MEMBER", "ADMIN"],
+          description: "MEMBER by default. Only the super admin may create ADMINs.",
+        },
+      },
+      ["email"],
+    ),
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const result = await users.createInvite({
+        actor: ctx.user,
+        email: required(args, "email"),
+        role: (s(args, "role") as UserRole | undefined) ?? "MEMBER",
+        baseUrl: ctx.baseUrl,
+      });
+      return {
+        email: result.invite.email,
+        expiresAt: result.invite.expiresAt,
+        emailSent: result.emailSent,
+        emailError: result.emailError,
+        acceptUrl: result.acceptUrl,
+        note: result.emailSent
+          ? "Invitation emailed."
+          : "Invitation created but NOT emailed — send them the acceptUrl yourself, or configure Resend with admin_set_email_config.",
+      };
+    },
+  },
+  {
+    name: "admin_list_invites",
+    title: "List outstanding invites",
+    description: "Invitations that have not been accepted yet, with their links and expiry.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async () => users.listInvites(),
+  },
+  {
+    name: "admin_revoke_invite",
+    title: "Revoke an invite",
+    description: "Cancel an outstanding invitation so its link stops working.",
+    inputSchema: object({ id: str("Invite id") }, ["id"]),
+    adminOnly: true,
+    handler: async (args) => users.revokeInvite(required(args, "id")),
+  },
+  {
+    name: "admin_set_user_role",
+    title: "Change someone's role",
+    description:
+      "Promote a member to admin or demote an admin to member. The super admin cannot be changed, and admins can only act on members.",
+    inputSchema: object(
+      {
+        userId: str("User id"),
+        role: { type: "string", enum: ["MEMBER", "ADMIN"], description: "The new role" },
+      },
+      ["userId", "role"],
+    ),
+    adminOnly: true,
+    handler: async (args, ctx) =>
+      users.setUserRole(ctx.user, required(args, "userId"), required(args, "role") as UserRole),
+  },
+  {
+    name: "admin_set_user_active",
+    title: "Activate or suspend someone",
+    description:
+      "Suspending signs the person out everywhere and blocks their login and their MCP connection. Their data is kept.",
+    inputSchema: object(
+      { userId: str("User id"), isActive: bool("true to reactivate, false to suspend") },
+      ["userId", "isActive"],
+    ),
+    adminOnly: true,
+    handler: async (args, ctx) =>
+      users.setUserActive(ctx.user, required(args, "userId"), b(args, "isActive") ?? true),
+  },
+  {
+    name: "admin_delete_user",
+    title: "Delete someone",
+    description:
+      "PERMANENT. Removes the account and everything it owns: brain, resumes, applications. Confirm with the person you are talking to before calling this.",
+    inputSchema: object({ userId: str("User id") }, ["userId"]),
+    adminOnly: true,
+    handler: async (args, ctx) => users.deleteUser(ctx.user, required(args, "userId")),
+  },
+  {
+    name: "admin_get_email_config",
+    title: "Check email configuration",
+    description:
+      "Whether Resend is wired up, and the from address invitations will come from. The API key is returned masked.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async () => {
+      const settings = await getSettings();
+      return {
+        configured: emailIsConfigured(settings),
+        instanceName: settings.instanceName,
+        resendApiKey: maskSecret(settings.resendApiKey),
+        resendFromEmail: settings.resendFromEmail,
+        resendFromName: settings.resendFromName,
+        publicUrl: settings.publicUrl,
+        help: "The from address must be on a domain you have verified in Resend, otherwise sends are rejected.",
+      };
+    },
+  },
+  {
+    name: "admin_set_email_config",
+    title: "Configure email",
+    description:
+      "Set the Resend API key and the address invitations are sent from. Only the fields you pass are changed. Follow with admin_send_test_email to prove it works.",
+    inputSchema: object({
+      resendApiKey: str("Resend API key, starts with re_"),
+      resendFromEmail: str("From address on a domain verified in Resend, e.g. hello@yourdomain.com"),
+      resendFromName: str("Display name on outgoing mail"),
+      instanceName: str("What this instance is called, used in invitation emails"),
+      publicUrl: str("Public base URL, used to build invite links, e.g. https://you.up.railway.app"),
+    }),
+    adminOnly: true,
+    handler: async (args) => {
+      await updateSettings(
+        defined({
+          resendApiKey: s(args, "resendApiKey"),
+          resendFromEmail: s(args, "resendFromEmail"),
+          resendFromName: s(args, "resendFromName"),
+          instanceName: s(args, "instanceName"),
+          publicUrl: s(args, "publicUrl"),
+        }),
+      );
+      const settings = await getSettings();
+      return { configured: emailIsConfigured(settings), resendFromEmail: settings.resendFromEmail };
+    },
+  },
+  {
+    name: "admin_send_test_email",
+    title: "Send a test email",
+    description: "Proves the Resend configuration actually delivers. Returns the exact error if it does not.",
+    inputSchema: object({ to: str("Where to send it. Defaults to your own address.") }),
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const settings = await getSettings();
+      const to = s(args, "to") || ctx.user.email;
+      const result = await sendEmail({ to, ...testEmail(settings.instanceName), settings });
+      return result.ok
+        ? { ok: true, to, id: result.id }
+        : { ok: false, to, error: result.error };
+    },
+  },
 ];
+
+/** Members never even see the admin tools in tools/list. */
+export function toolsFor(user: { role: UserRole }): McpTool[] {
+  return isAdmin(user) ? tools : tools.filter((tool) => !tool.adminOnly);
+}
 
 export const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
 
@@ -1029,6 +1253,7 @@ export type McpPrompt = {
   name: string;
   title: string;
   description: string;
+  adminOnly?: boolean;
   arguments: { name: string; description: string; required?: boolean }[];
   build: (args: Record<string, string>) => string;
 };
@@ -1097,6 +1322,25 @@ Then give me:
 - Create tasks for the actions I should take, with due dates.`,
   },
   {
+    name: "onboard_teammate",
+    title: "Invite and onboard someone",
+    description: "Invite a person to this instance and walk them through their first steps.",
+    adminOnly: true,
+    arguments: [
+      { name: "email", description: "Who to invite", required: true },
+      { name: "role", description: "MEMBER or ADMIN" },
+    ],
+    build: (args) => `Invite ${args.email ?? "someone"} to this Resume OS instance.
+
+1. Call admin_get_email_config. If email is not configured, tell me plainly and carry on —
+   the invite still works, I will just send the link myself.
+2. Call admin_invite_user with email "${args.email ?? ""}"${args.role ? ` and role ${args.role}` : ""}.
+3. If emailSent is false, give me the acceptUrl in full and tell me to send it to them.
+4. Then write me a short message I can paste to them explaining what this is: a place to
+   dump everything about their career, build tailored resumes from it, and track applications
+   — and that they connect their own Claude to it from the Settings page once they are in.`,
+  },
+  {
     name: "log_my_week",
     title: "Log what happened this week",
     description: "Turn a rambling update into structured brain-dump entries and pipeline updates.",
@@ -1118,3 +1362,8 @@ Then confirm what you filed and where, and ask me about anything that was ambigu
 ];
 
 export const promptsByName = new Map(prompts.map((prompt) => [prompt.name, prompt]));
+
+/** Same rule as tools: members never see the admin workflows. */
+export function promptsFor(user: { role: UserRole }): McpPrompt[] {
+  return isAdmin(user) ? prompts : prompts.filter((prompt) => !prompt.adminOnly);
+}

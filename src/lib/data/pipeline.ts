@@ -1,6 +1,8 @@
 import { ActivityType, Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 
+/** Like brain.ts: userId is the required first argument on every query. */
+
 export const STAGES: Stage[] = [
   "WISHLIST",
   "APPLIED",
@@ -67,18 +69,23 @@ export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN"];
 // Companies
 // ---------------------------------------------------------------------------
 
-export async function listCompanies() {
+export async function listCompanies(userId: string) {
   return db.company.findMany({
+    where: { userId },
     orderBy: { name: "asc" },
     include: { _count: { select: { applications: true } } },
   });
 }
 
-export async function upsertCompanyByName(name: string, extra?: Partial<{ website: string; industry: string; location: string; notes: string }>) {
+export async function upsertCompanyByName(
+  userId: string,
+  name: string,
+  extra?: Partial<{ website: string; industry: string; location: string; notes: string }>,
+) {
   const clean = name.trim();
   return db.company.upsert({
-    where: { name: clean },
-    create: { name: clean, ...extra },
+    where: { userId_name: { userId, name: clean } },
+    create: { userId, name: clean, ...extra },
     update: extra ?? {},
   });
 }
@@ -111,8 +118,11 @@ const applicationInclude = {
   _count: { select: { activities: true, tasks: true, contacts: true } },
 } satisfies Prisma.ApplicationInclude;
 
-export async function listApplications(options?: { stage?: Stage; includeClosed?: boolean; search?: string }) {
-  const where: Prisma.ApplicationWhereInput = {};
+export async function listApplications(
+  userId: string,
+  options?: { stage?: Stage; includeClosed?: boolean; search?: string },
+) {
+  const where: Prisma.ApplicationWhereInput = { userId };
   if (options?.stage) where.stage = options.stage;
   else if (!options?.includeClosed) where.stage = { notIn: TERMINAL_STAGES };
   if (options?.search) {
@@ -129,9 +139,9 @@ export async function listApplications(options?: { stage?: Stage; includeClosed?
   });
 }
 
-export async function getApplication(id: string) {
-  return db.application.findUnique({
-    where: { id },
+export async function getApplication(userId: string, id: string) {
+  return db.application.findFirst({
+    where: { id, userId },
     include: {
       company: true,
       resume: { select: { id: true, name: true } },
@@ -149,13 +159,21 @@ function toDate(value: Date | string | null | undefined): Date | null | undefine
   return Number.isNaN(d.getTime()) ? null : d;
 }
 
-export async function createApplication(input: ApplicationInput) {
-  const company = await upsertCompanyByName(input.company);
+/** A resume may only be attached if the same user owns it. */
+async function assertOwnsResume(userId: string, resumeId: string) {
+  const resume = await db.resume.findFirst({ where: { id: resumeId, userId } });
+  if (!resume) throw new Error(`No resume with id ${resumeId}`);
+}
+
+export async function createApplication(userId: string, input: ApplicationInput) {
+  const company = await upsertCompanyByName(userId, input.company);
   const stage = input.stage ?? "WISHLIST";
   const appliedAt = toDate(input.appliedAt) ?? (stage !== "WISHLIST" ? new Date() : null);
+  if (input.resumeId) await assertOwnsResume(userId, input.resumeId);
 
   const application = await db.application.create({
     data: {
+      userId,
       companyId: company.id,
       roleTitle: input.roleTitle,
       stage,
@@ -177,6 +195,7 @@ export async function createApplication(input: ApplicationInput) {
 
   await db.activity.create({
     data: {
+      userId,
       applicationId: application.id,
       type: stage === "WISHLIST" ? "NOTE" : "APPLIED",
       body: stage === "WISHLIST" ? "Added to wishlist." : `Applied for ${input.roleTitle}.`,
@@ -186,7 +205,14 @@ export async function createApplication(input: ApplicationInput) {
   return application;
 }
 
-export async function updateApplication(id: string, patch: Partial<ApplicationInput> & { sortOrder?: number }) {
+export async function updateApplication(
+  userId: string,
+  id: string,
+  patch: Partial<ApplicationInput> & { sortOrder?: number },
+) {
+  const current = await db.application.findFirst({ where: { id, userId } });
+  if (!current) throw new Error(`No application with id ${id}`);
+
   const data: Prisma.ApplicationUpdateInput = {};
   if (patch.roleTitle !== undefined) data.roleTitle = patch.roleTitle;
   if (patch.jobUrl !== undefined) data.jobUrl = patch.jobUrl;
@@ -202,14 +228,20 @@ export async function updateApplication(id: string, patch: Partial<ApplicationIn
   if (patch.appliedAt !== undefined) data.appliedAt = toDate(patch.appliedAt);
   if (patch.nextFollowUpAt !== undefined) data.nextFollowUpAt = toDate(patch.nextFollowUpAt);
   if (patch.resumeId !== undefined) {
-    data.resume = patch.resumeId ? { connect: { id: patch.resumeId } } : { disconnect: true };
+    if (patch.resumeId) {
+      await assertOwnsResume(userId, patch.resumeId);
+      data.resume = { connect: { id: patch.resumeId } };
+    } else {
+      data.resume = { disconnect: true };
+    }
   }
   if (patch.company !== undefined) {
-    const company = await upsertCompanyByName(patch.company);
+    const company = await upsertCompanyByName(userId, patch.company);
     data.company = { connect: { id: company.id } };
   }
   if (patch.stage !== undefined) {
-    return moveApplicationStage(id, patch.stage);
+    await db.application.update({ where: { id }, data });
+    return moveApplicationStage(userId, id, patch.stage);
   }
   return db.application.update({ where: { id }, data, include: applicationInclude });
 }
@@ -232,8 +264,13 @@ function defaultFollowUp(stage: Stage): Date | null {
   return d;
 }
 
-export async function moveApplicationStage(id: string, stage: Stage, note?: string) {
-  const current = await db.application.findUnique({ where: { id } });
+export async function moveApplicationStage(
+  userId: string,
+  id: string,
+  stage: Stage,
+  note?: string,
+) {
+  const current = await db.application.findFirst({ where: { id, userId } });
   if (!current) throw new Error(`No application with id ${id}`);
 
   const data: Prisma.ApplicationUpdateInput = { stage };
@@ -251,6 +288,7 @@ export async function moveApplicationStage(id: string, stage: Stage, note?: stri
   if (current.stage !== stage) {
     await db.activity.create({
       data: {
+        userId,
         applicationId: id,
         type: stageActivityType(stage),
         body: note ?? `${STAGE_LABEL[current.stage]} → ${STAGE_LABEL[stage]}`,
@@ -267,13 +305,17 @@ function stageActivityType(stage: Stage): ActivityType {
   return "STAGE_CHANGE";
 }
 
-export async function deleteApplication(id: string) {
-  return db.application.delete({ where: { id } });
+export async function deleteApplication(userId: string, id: string) {
+  const { count } = await db.application.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No application with id ${id}`);
+  return { id };
 }
 
-export async function reorderApplications(ids: string[]) {
+export async function reorderApplications(userId: string, ids: string[]) {
   await db.$transaction(
-    ids.map((id, index) => db.application.update({ where: { id }, data: { sortOrder: index } })),
+    ids.map((id, index) =>
+      db.application.updateMany({ where: { id, userId }, data: { sortOrder: index } }),
+    ),
   );
 }
 
@@ -281,14 +323,23 @@ export async function reorderApplications(ids: string[]) {
 // Activities, tasks, contacts
 // ---------------------------------------------------------------------------
 
-export async function addActivity(input: {
-  applicationId: string;
-  type?: ActivityType;
-  body: string;
-  occurredAt?: Date | string;
-}) {
+export async function addActivity(
+  userId: string,
+  input: {
+    applicationId: string;
+    type?: ActivityType;
+    body: string;
+    occurredAt?: Date | string;
+  },
+) {
+  const application = await db.application.findFirst({
+    where: { id: input.applicationId, userId },
+  });
+  if (!application) throw new Error(`No application with id ${input.applicationId}`);
+
   return db.activity.create({
     data: {
+      userId,
       applicationId: input.applicationId,
       type: input.type ?? "NOTE",
       body: input.body,
@@ -297,23 +348,33 @@ export async function addActivity(input: {
   });
 }
 
-export async function listActivities(applicationId?: string, limit = 40) {
+export async function listActivities(userId: string, applicationId?: string, limit = 40) {
   return db.activity.findMany({
-    where: applicationId ? { applicationId } : {},
+    where: { userId, ...(applicationId ? { applicationId } : {}) },
     orderBy: { occurredAt: "desc" },
     take: limit,
     include: { application: { include: { company: true } } },
   });
 }
 
-export async function createTask(input: {
-  title: string;
-  detail?: string;
-  dueAt?: Date | string | null;
-  applicationId?: string | null;
-}) {
+export async function createTask(
+  userId: string,
+  input: {
+    title: string;
+    detail?: string;
+    dueAt?: Date | string | null;
+    applicationId?: string | null;
+  },
+) {
+  if (input.applicationId) {
+    const application = await db.application.findFirst({
+      where: { id: input.applicationId, userId },
+    });
+    if (!application) throw new Error(`No application with id ${input.applicationId}`);
+  }
   return db.task.create({
     data: {
+      userId,
       title: input.title,
       detail: input.detail ?? "",
       dueAt: toDate(input.dueAt) ?? null,
@@ -322,40 +383,54 @@ export async function createTask(input: {
   });
 }
 
-export async function listTasks(options?: { done?: boolean; limit?: number }) {
+export async function listTasks(userId: string, options?: { done?: boolean; limit?: number }) {
   return db.task.findMany({
-    where: options?.done === undefined ? {} : { done: options.done },
+    where: { userId, ...(options?.done === undefined ? {} : { done: options.done }) },
     orderBy: [{ done: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
     take: options?.limit ?? 100,
     include: { application: { include: { company: true } } },
   });
 }
 
-export async function setTaskDone(id: string, done: boolean) {
-  return db.task.update({
-    where: { id },
+export async function setTaskDone(userId: string, id: string, done: boolean) {
+  const { count } = await db.task.updateMany({
+    where: { id, userId },
     data: { done, doneAt: done ? new Date() : null },
   });
+  if (count === 0) throw new Error(`No task with id ${id}`);
+  return db.task.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteTask(id: string) {
-  return db.task.delete({ where: { id } });
+export async function deleteTask(userId: string, id: string) {
+  const { count } = await db.task.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No task with id ${id}`);
+  return { id };
 }
 
-export async function createContact(input: {
-  name: string;
-  title?: string;
-  email?: string;
-  phone?: string;
-  linkedin?: string;
-  relationship?: string;
-  notes?: string;
-  company?: string;
-  applicationId?: string | null;
-}) {
-  const companyId = input.company ? (await upsertCompanyByName(input.company)).id : undefined;
+export async function createContact(
+  userId: string,
+  input: {
+    name: string;
+    title?: string;
+    email?: string;
+    phone?: string;
+    linkedin?: string;
+    relationship?: string;
+    notes?: string;
+    company?: string;
+    applicationId?: string | null;
+  },
+) {
+  if (input.applicationId) {
+    const application = await db.application.findFirst({
+      where: { id: input.applicationId, userId },
+    });
+    if (!application) throw new Error(`No application with id ${input.applicationId}`);
+  }
+  const companyId = input.company ? (await upsertCompanyByName(userId, input.company)).id : undefined;
   return db.contact.create({
     data: {
+      userId,
       name: input.name,
       title: input.title ?? "",
       email: input.email ?? "",
@@ -369,16 +444,18 @@ export async function createContact(input: {
   });
 }
 
-export async function listContacts(applicationId?: string) {
+export async function listContacts(userId: string, applicationId?: string) {
   return db.contact.findMany({
-    where: applicationId ? { applicationId } : {},
+    where: { userId, ...(applicationId ? { applicationId } : {}) },
     orderBy: { createdAt: "desc" },
     include: { company: true, application: { select: { id: true, roleTitle: true } } },
   });
 }
 
-export async function deleteContact(id: string) {
-  return db.contact.delete({ where: { id } });
+export async function deleteContact(userId: string, id: string) {
+  const { count } = await db.contact.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No contact with id ${id}`);
+  return { id };
 }
 
 // ---------------------------------------------------------------------------
@@ -386,12 +463,13 @@ export async function deleteContact(id: string) {
 // ---------------------------------------------------------------------------
 
 /** Applications whose follow-up date has arrived (or passed). */
-export async function followUpsDue(withinDays = 0) {
+export async function followUpsDue(userId: string, withinDays = 0) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + withinDays);
   cutoff.setHours(23, 59, 59, 999);
   return db.application.findMany({
     where: {
+      userId,
       nextFollowUpAt: { lte: cutoff },
       stage: { notIn: TERMINAL_STAGES },
     },
@@ -400,17 +478,17 @@ export async function followUpsDue(withinDays = 0) {
   });
 }
 
-export async function pipelineStats() {
+export async function pipelineStats(userId: string) {
   const [byStage, total, active, thisWeek, interviews, offers, tasksOpen, followUps] =
     await Promise.all([
-      db.application.groupBy({ by: ["stage"], _count: { _all: true } }),
-      db.application.count(),
-      db.application.count({ where: { stage: { notIn: TERMINAL_STAGES } } }),
-      db.application.count({ where: { appliedAt: { gte: startOfWeek() } } }),
-      db.application.count({ where: { stage: { in: ["SCREEN", "INTERVIEW", "FINAL"] } } }),
-      db.application.count({ where: { stage: { in: ["OFFER", "ACCEPTED"] } } }),
-      db.task.count({ where: { done: false } }),
-      followUpsDue(0),
+      db.application.groupBy({ by: ["stage"], where: { userId }, _count: { _all: true } }),
+      db.application.count({ where: { userId } }),
+      db.application.count({ where: { userId, stage: { notIn: TERMINAL_STAGES } } }),
+      db.application.count({ where: { userId, appliedAt: { gte: startOfWeek() } } }),
+      db.application.count({ where: { userId, stage: { in: ["SCREEN", "INTERVIEW", "FINAL"] } } }),
+      db.application.count({ where: { userId, stage: { in: ["OFFER", "ACCEPTED"] } } }),
+      db.task.count({ where: { userId, done: false } }),
+      followUpsDue(userId, 0),
     ]);
 
   const counts = Object.fromEntries(STAGES.map((s) => [s, 0])) as Record<Stage, number>;

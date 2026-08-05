@@ -3,14 +3,16 @@ import { listApplications } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
 import { PipelineBoard } from "@/components/pipeline/board";
 import { NewApplicationDialog } from "@/components/pipeline/new-application-dialog";
+import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplicationsPage() {
+  const user = await requireUser();
   const [open, closed, resumes] = await Promise.all([
-    listApplications(),
-    listApplications({ includeClosed: true }),
-    listResumes(),
+    listApplications(user.id),
+    listApplications(user.id, { includeClosed: true }),
+    listResumes(user.id),
   ]);
 
   const closedOnly = closed.filter(

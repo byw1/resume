@@ -10,7 +10,10 @@ yourself, wired into Claude so you can just *talk* to it.
   OCS format; four other templates, live preview, real PDF export.
 - **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
   timeline, contacts, tasks, and follow-up dates that schedule themselves.
-- **Claude connection** — one URL turns all of the above into 43 tools Claude can call.
+- **Claude connection** — every person gets their own URL that turns all of the above into
+  44 tools Claude can call (55 if you're an admin).
+- **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
+  admins manage accounts but never see anyone's brain, resumes or applications.
 
 > "Here's everything I did at Vertex last quarter — file it."
 > "Tailor my resume to this posting."
@@ -56,32 +59,74 @@ rotate, your app follows automatically.
 **Settings** → **Networking** → **Generate Domain**. You'll get something like
 `resume-os-production.up.railway.app`.
 
-### 5. Log in
+### 5. Claim it
 
-Open that URL. Enter the `APP_PASSWORD` you chose. That's your app.
+Open that URL. You'll land on a setup page. Enter your `APP_PASSWORD` as the **setup key**,
+then pick your name, email and a real password. That makes you the **owner**.
+
+The setup key matters: without it, the first stranger to find your URL could claim the
+instance. Once you've claimed it, the setup page closes permanently.
 
 The database tables are created automatically on the first boot — there's no migration
 step for you to run, now or after any future update.
 
 ### 6. Connect Claude
 
-Go to **Settings** inside the app and hit **Copy** on the connection URL. Then in Claude:
+Go to **Settings** inside the app and hit **Copy** on your connection URL. Then in Claude:
 
 **Settings → Connectors → Add custom connector** → name it `Resume OS` → paste the URL →
 save.
 
 That's it. Claude can now read and write your brain, your resumes, and your pipeline.
 
-> The connection URL contains a secret token. Anyone who has it can read and write your
-> data, so don't paste it anywhere public. If you ever do, hit **Rotate** on the Settings
-> page and re-paste the new URL into Claude.
+> The connection URL contains a secret token tied to your account alone — it can't reach
+> anyone else's data. Anyone who has it can read and write *yours*, though, so don't paste
+> it anywhere public. If you ever do, hit **Rotate** on the Settings page and re-paste the
+> new URL into Claude.
+
+---
+
+## Inviting other people
+
+**Admin → Invites** → type an email → **Send invite**. They get a link, pick a password, and
+land in their own empty workspace.
+
+Email is optional. Until you set up Resend, creating an invite gives you a link to send
+however you like — it stays valid for 14 days. Nothing is blocked on email being configured.
+
+### Roles
+
+| Role | Can do |
+| --- | --- |
+| **Owner** | Everything. Created at setup, can't be demoted or deleted. One per instance. |
+| **Admin** | Invite people, suspend/delete members, configure email. |
+| **Member** | Their own workspace. Never sees the admin area. |
+
+Admins manage *accounts*, not *content*. There is no way — through the UI or through
+Claude — for one person to read another's brain, resumes or applications. That's enforced
+at the data layer: every query is scoped by owner, and it's a required argument the compiler
+won't let a caller omit.
+
+### Setting up email (Resend)
+
+**Admin → Email**:
+
+1. Make a free account at [resend.com](https://resend.com).
+2. Add and verify the domain you want to send from.
+3. Create an API key, paste it in, and set a from address on that domain.
+4. Save, then **Send test** to prove it works — if it fails you get Resend's exact reason,
+   which is almost always an unverified domain.
+
+You can do all of this by talking to Claude instead: *"is email set up? configure Resend with
+this key and send a test."*
 
 ---
 
 ## What Claude can do once it's connected
 
-43 tools across the three areas, plus four ready-made workflows that show up as slash
-commands:
+44 tools across the three areas, plus ready-made workflows that show up as slash commands.
+Admins get 11 more tools and one more workflow — and members never even see those in the
+tool list, so nobody is tempted by a permission they don't have.
 
 | Workflow | What it does |
 | --- | --- |
@@ -89,6 +134,7 @@ commands:
 | **Mine a brain dump into highlights** | Turns a raw, rambling brain dump into polished, reusable resume bullets. |
 | **Weekly pipeline review** | What's stalled, who needs chasing, what to do next — with the follow-up messages drafted. |
 | **Log what happened this week** | You ramble; it files everything to the right role, application, or note. |
+| **Invite and onboard someone** *(admin)* | Invites a person, hands you the link if email isn't set up, and drafts the message to send them. |
 
 Claude is instructed never to invent experience, employers, dates, or metrics. If there's
 no evidence in your brain for something a job asks for, it says so instead of making it up.
@@ -106,6 +152,12 @@ committing.
 
 **Pipeline** — applications and stages, an activity timeline, contacts, tasks,
 `list_follow_ups` for what's overdue, and `pipeline_stats` for the shape of your search.
+
+**Admin** *(admins only)* — `admin_list_users`, `admin_invite_user`, `admin_set_user_role`,
+`admin_set_user_active`, `admin_delete_user`, `admin_instance_stats`, plus
+`admin_get_email_config` / `admin_set_email_config` / `admin_send_test_email` for wiring up
+Resend without leaving the conversation. These act on accounts and instance settings only —
+none of them can read another person's content.
 
 ---
 
@@ -156,6 +208,8 @@ nothing to download.
 - **Follow-up dates set themselves** when an application changes stage — 7 days after
   applying, 4 after a screen, 3 after a final round. Override any of them by hand.
 - **Dark and light** both supported; toggle is top-right.
+- **Suspending someone** signs them out everywhere and kills their Claude connection
+  immediately — their data is kept. Deleting them removes it all.
 
 ---
 

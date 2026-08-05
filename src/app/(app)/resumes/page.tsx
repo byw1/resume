@@ -9,11 +9,16 @@ import { parseResumeDoc } from "@/lib/resume-schema";
 import { NewResumeDialog } from "@/components/resume/new-resume-dialog";
 import { ResumePaper } from "@/components/resume/resume-paper";
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
 export default async function ResumesPage() {
-  const [resumes, roleCount] = await Promise.all([listResumes(), db.role.count()]);
+  const user = await requireUser();
+  const [resumes, roleCount] = await Promise.all([
+    listResumes(user.id),
+    db.role.count({ where: { userId: user.id } }),
+  ]);
 
   return (
     <PageShell>

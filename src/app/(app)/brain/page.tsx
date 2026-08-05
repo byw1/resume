@@ -11,6 +11,7 @@ import {
   listRoles,
   listSkillGroups,
 } from "@/lib/data/brain";
+import { requireUser } from "@/lib/auth";
 import { RolesPanel } from "@/components/brain/roles-panel";
 import { ProfileForm } from "@/components/brain/profile-form";
 import { NotesPanel } from "@/components/brain/notes-panel";
@@ -20,14 +21,15 @@ import { NewRoleDialog } from "@/components/brain/new-role-dialog";
 export const dynamic = "force-dynamic";
 
 export default async function BrainPage() {
+  const user = await requireUser();
   const [profile, roles, notes, education, projects, skills, certifications] = await Promise.all([
-    getProfile(),
-    listRoles(),
-    listNotes(),
-    listEducation(),
-    listProjects(),
-    listSkillGroups(),
-    listCertifications(),
+    getProfile(user.id),
+    listRoles(user.id),
+    listNotes(user.id),
+    listEducation(user.id),
+    listProjects(user.id),
+    listSkillGroups(user.id),
+    listCertifications(user.id),
   ]);
 
   return (

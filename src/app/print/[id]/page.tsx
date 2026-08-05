@@ -1,5 +1,5 @@
-import { notFound, redirect } from "next/navigation";
-import { isAuthenticated } from "@/lib/auth";
+import { notFound } from "next/navigation";
+import { requireUser } from "@/lib/auth";
 import { getResume } from "@/lib/data/resumes";
 import { ResumePaper } from "@/components/resume/resume-paper";
 import { PrintTrigger } from "@/components/resume/print-trigger";
@@ -12,10 +12,9 @@ export const dynamic = "force-dynamic";
  * ATS-readable PDF — no headless Chrome on the server required.
  */
 export default async function PrintPage({ params }: { params: Promise<{ id: string }> }) {
-  if (!(await isAuthenticated())) redirect("/login");
-
+  const user = await requireUser();
   const { id } = await params;
-  const resume = await getResume(id);
+  const resume = await getResume(user.id, id);
   if (!resume) notFound();
 
   return (

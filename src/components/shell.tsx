@@ -13,6 +13,7 @@ import {
   MoonIcon,
   SearchIcon,
   SettingsIcon,
+  ShieldIcon,
   SunIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
@@ -30,15 +31,23 @@ const NAV = [
   { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
 
+const ADMIN_NAV = { href: "/admin", label: "Admin", icon: ShieldIcon };
+
+export type ShellUser = { name: string; email: string; role: string };
+
 export function Shell({
   children,
   index,
   followUpCount,
+  user,
 }: {
   children: React.ReactNode;
   index: PaletteIndex;
   followUpCount: number;
+  user: ShellUser;
 }) {
+  const canAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+  const nav = canAdmin ? [...NAV, ADMIN_NAV] : NAV;
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
 
@@ -72,7 +81,7 @@ export function Shell({
         </div>
 
         <nav className="flex flex-1 flex-col gap-0.5 px-3 pt-2">
-          {NAV.map((item) => {
+          {nav.map((item) => {
             const active = isActive(item.href);
             return (
               <Link
@@ -107,6 +116,18 @@ export function Shell({
           })}
         </nav>
 
+        <div className="px-4 pb-1">
+          <div className="truncate text-[13px] font-medium">{user.name || user.email}</div>
+          <div className="text-muted-foreground truncate text-[11px]">
+            {user.email}
+            {canAdmin && (
+              <span className="text-primary ml-1.5 font-medium">
+                {user.role === "SUPER_ADMIN" ? "· owner" : "· admin"}
+              </span>
+            )}
+          </div>
+        </div>
+
         <div className="p-3">
           <button
             onClick={() => setPaletteOpen(true)}
@@ -125,7 +146,7 @@ export function Shell({
         {/* Top bar */}
         <header className="glass sticky top-0 z-20 flex h-16 items-center gap-2 border-b px-4 md:px-7">
           <nav className="flex items-center gap-1 md:hidden">
-            {NAV.map((item) => (
+            {nav.map((item) => (
               <Link key={item.href} href={item.href}>
                 <Button
                   variant={isActive(item.href) ? "secondary" : "ghost"}

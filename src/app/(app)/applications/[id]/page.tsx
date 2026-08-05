@@ -6,13 +6,18 @@ import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
 import { getApplication } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
+import { requireUser } from "@/lib/auth";
 import { ApplicationDetail } from "@/components/pipeline/application-detail";
 
 export const dynamic = "force-dynamic";
 
 export default async function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
+  const user = await requireUser();
   const { id } = await params;
-  const [application, resumes] = await Promise.all([getApplication(id), listResumes()]);
+  const [application, resumes] = await Promise.all([
+    getApplication(user.id, id),
+    listResumes(user.id),
+  ]);
   if (!application) notFound();
 
   return (

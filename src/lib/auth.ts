@@ -1,110 +1,234 @@
-import { createHmac, randomBytes, timingSafeEqual } from "node:crypto";
-import { cookies } from "next/headers";
+import {
+  randomBytes,
+  scryptSync,
+  timingSafeEqual,
+} from "node:crypto";
+import { cookies, headers } from "next/headers";
+import { redirect } from "next/navigation";
+import type { User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 
-const COOKIE = "resume_os_session";
-const MAX_AGE = 60 * 60 * 24 * 30; // 30 days
+const SESSION_COOKIE = "resume_os_session";
+const SESSION_DAYS = 30;
+
+// ---------------------------------------------------------------------------
+// Passwords — scrypt from the standard library, no native dependency.
+// ---------------------------------------------------------------------------
+
+const SCRYPT_N = 16384;
+const SCRYPT_r = 8;
+const SCRYPT_p = 1;
+const KEY_LEN = 64;
+
+export function hashPassword(password: string): string {
+  const salt = randomBytes(16);
+  const key = scryptSync(password.normalize("NFKC"), salt, KEY_LEN, {
+    N: SCRYPT_N,
+    r: SCRYPT_r,
+    p: SCRYPT_p,
+  });
+  return `scrypt:${SCRYPT_N}:${SCRYPT_r}:${SCRYPT_p}:${salt.toString("hex")}:${key.toString("hex")}`;
+}
+
+export function verifyPassword(password: string, stored: string): boolean {
+  // An empty hash is the unclaimed-placeholder marker; nothing may match it.
+  if (!stored) return false;
+  const parts = stored.split(":");
+  if (parts.length !== 6 || parts[0] !== "scrypt") return false;
+  const [, n, r, p, saltHex, keyHex] = parts;
+  try {
+    const salt = Buffer.from(saltHex, "hex");
+    const expected = Buffer.from(keyHex, "hex");
+    const actual = scryptSync(password.normalize("NFKC"), salt, expected.length, {
+      N: Number(n),
+      r: Number(r),
+      p: Number(p),
+    });
+    return actual.length === expected.length && timingSafeEqual(actual, expected);
+  } catch {
+    return false;
+  }
+}
+
+export function generateMcpToken() {
+  return `rsm_${randomBytes(24).toString("hex")}`;
+}
+
+function generateSessionToken() {
+  return randomBytes(32).toString("hex");
+}
+
+export function generateInviteToken() {
+  return randomBytes(24).toString("hex");
+}
+
+// ---------------------------------------------------------------------------
+// Instance setup
+// ---------------------------------------------------------------------------
 
 /**
- * Zero-config auth. The only secret you have to set is APP_PASSWORD.
- * The signing key is derived from it, so there is no second env var to manage.
+ * The instance is unclaimed until somebody with a real password exists. The
+ * migration leaves behind a placeholder row owning any pre-multi-user data;
+ * it has an empty passwordHash and cannot be logged into.
  */
-function signingKey() {
-  const pw = process.env.APP_PASSWORD ?? "";
-  return createHmac("sha256", "resume-os/v1").update(pw).digest();
+export async function instanceNeedsSetup() {
+  const claimed = await db.user.count({ where: { passwordHash: { not: "" } } });
+  return claimed === 0;
 }
 
-function sign(payload: string) {
-  return createHmac("sha256", signingKey()).update(payload).digest("hex");
+export function setupKeyIsRequired() {
+  return Boolean(process.env.APP_PASSWORD);
 }
 
-function safeEqual(a: string, b: string) {
-  const ab = Buffer.from(a);
-  const bb = Buffer.from(b);
-  if (ab.length !== bb.length) return false;
-  return timingSafeEqual(ab, bb);
-}
-
-export function passwordIsConfigured() {
-  return Boolean(process.env.APP_PASSWORD && process.env.APP_PASSWORD.length > 0);
-}
-
-export function checkPassword(candidate: string) {
+export function setupKeyMatches(candidate: string) {
   const expected = process.env.APP_PASSWORD ?? "";
-  if (!expected) return false;
-  return safeEqual(candidate, expected);
+  if (!expected) return true; // nothing configured — nothing to check
+  const a = Buffer.from(candidate);
+  const b = Buffer.from(expected);
+  return a.length === b.length && timingSafeEqual(a, b);
 }
 
-export function makeSessionValue() {
-  const issued = Date.now().toString();
-  return `${issued}.${sign(issued)}`;
+/**
+ * Claim the instance as super admin. Adopts the placeholder owner when one
+ * exists so data from the single-user era keeps its ids and simply changes
+ * hands, rather than being orphaned or deleted.
+ */
+export async function claimInstance(input: {
+  email: string;
+  name: string;
+  password: string;
+}) {
+  if (!(await instanceNeedsSetup())) {
+    throw new Error("This instance has already been set up.");
+  }
+
+  const email = input.email.trim().toLowerCase();
+  const placeholder = await db.user.findFirst({ where: { passwordHash: "" } });
+
+  const data = {
+    email,
+    name: input.name.trim(),
+    passwordHash: hashPassword(input.password),
+    role: "SUPER_ADMIN" as const,
+    isActive: true,
+  };
+
+  if (placeholder) {
+    return db.user.update({
+      where: { id: placeholder.id },
+      data: { ...data, mcpToken: generateMcpToken() },
+    });
+  }
+  return db.user.create({ data: { ...data, mcpToken: generateMcpToken() } });
 }
 
-export function sessionValueIsValid(value: string | undefined) {
-  if (!value) return false;
-  const [issued, mac] = value.split(".");
-  if (!issued || !mac) return false;
-  if (!safeEqual(mac, sign(issued))) return false;
-  const age = Date.now() - Number(issued);
-  return Number.isFinite(age) && age >= 0 && age < MAX_AGE * 1000;
-}
+// ---------------------------------------------------------------------------
+// Sessions
+// ---------------------------------------------------------------------------
 
-export async function isAuthenticated() {
-  // If no password is set the app is open — useful for a first local run.
-  if (!passwordIsConfigured()) return true;
+export async function startSession(userId: string) {
+  const token = generateSessionToken();
+  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400_000);
+  const headerList = await headers();
+
+  await db.session.create({
+    data: {
+      token,
+      userId,
+      expiresAt,
+      userAgent: (headerList.get("user-agent") ?? "").slice(0, 200),
+    },
+  });
+  await db.user.update({ where: { id: userId }, data: { lastLoginAt: new Date() } });
+
   const jar = await cookies();
-  return sessionValueIsValid(jar.get(COOKIE)?.value);
-}
-
-export async function createSession() {
-  const jar = await cookies();
-  jar.set(COOKIE, makeSessionValue(), {
+  jar.set(SESSION_COOKIE, token, {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    maxAge: MAX_AGE,
+    expires: expiresAt,
   });
 }
 
-export async function destroySession() {
+export async function endSession() {
   const jar = await cookies();
-  jar.delete(COOKIE);
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (token) await db.session.deleteMany({ where: { token } });
+  jar.delete(SESSION_COOKIE);
 }
 
-export const SESSION_COOKIE = COOKIE;
+/** Sign every device out — used when a password changes. */
+export async function endAllSessions(userId: string) {
+  await db.session.deleteMany({ where: { userId } });
+}
+
+export async function getCurrentUser(): Promise<User | null> {
+  const jar = await cookies();
+  const token = jar.get(SESSION_COOKIE)?.value;
+  if (!token) return null;
+
+  const session = await db.session.findUnique({ where: { token }, include: { user: true } });
+  if (!session) return null;
+  if (session.expiresAt < new Date()) {
+    await db.session.delete({ where: { id: session.id } }).catch(() => {});
+    return null;
+  }
+  if (!session.user.isActive || !session.user.passwordHash) return null;
+  return session.user;
+}
+
+export async function authenticate(email: string, password: string): Promise<User | null> {
+  const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
+  // Spend the same work whether or not the account exists.
+  const hash = user?.passwordHash || "scrypt:16384:8:1:00:00";
+  const ok = verifyPassword(password, hash);
+  if (!user || !ok || !user.isActive || !user.passwordHash) return null;
+  return user;
+}
 
 // ---------------------------------------------------------------------------
-// MCP token — auto-generated on first read and stored in the database so the
-// user never has to invent or paste a secret into Railway.
+// Guards
 // ---------------------------------------------------------------------------
 
-const MCP_TOKEN_KEY = "mcp_token";
+export async function requireUser(): Promise<User> {
+  const user = await getCurrentUser();
+  if (!user) redirect("/login");
+  return user;
+}
 
-export async function getOrCreateMcpToken(): Promise<string> {
-  const existing = await db.setting.findUnique({ where: { key: MCP_TOKEN_KEY } });
-  if (existing?.value) return existing.value;
-  const token = `rsm_${randomBytes(24).toString("hex")}`;
-  await db.setting.upsert({
-    where: { key: MCP_TOKEN_KEY },
-    create: { key: MCP_TOKEN_KEY, value: token },
-    update: { value: token },
-  });
+export function isAdmin(user: { role: UserRole }) {
+  return user.role === "ADMIN" || user.role === "SUPER_ADMIN";
+}
+
+export async function requireAdmin(): Promise<User> {
+  const user = await requireUser();
+  if (!isAdmin(user)) redirect("/");
+  return user;
+}
+
+export async function requireSuperAdmin(): Promise<User> {
+  const user = await requireUser();
+  if (user.role !== "SUPER_ADMIN") redirect("/");
+  return user;
+}
+
+// ---------------------------------------------------------------------------
+// MCP tokens — one per user, so a connection URL only ever reaches that
+// person's data.
+// ---------------------------------------------------------------------------
+
+export async function userByMcpToken(token: string | null | undefined): Promise<User | null> {
+  if (!token || !token.startsWith("rsm_")) return null;
+  const user = await db.user.findUnique({ where: { mcpToken: token } });
+  if (!user || !user.isActive || !user.passwordHash) return null;
+  return user;
+}
+
+export async function rotateMcpToken(userId: string) {
+  const token = generateMcpToken();
+  await db.user.update({ where: { id: userId }, data: { mcpToken: token } });
   return token;
 }
 
-export async function rotateMcpToken(): Promise<string> {
-  const token = `rsm_${randomBytes(24).toString("hex")}`;
-  await db.setting.upsert({
-    where: { key: MCP_TOKEN_KEY },
-    create: { key: MCP_TOKEN_KEY, value: token },
-    update: { value: token },
-  });
-  return token;
-}
-
-export async function mcpTokenIsValid(candidate: string | null | undefined) {
-  if (!candidate) return false;
-  const token = await getOrCreateMcpToken();
-  return safeEqual(candidate, token);
-}
+export { SESSION_COOKIE };

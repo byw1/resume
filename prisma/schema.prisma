@@ -1,5 +1,7 @@
 // Resume OS — data model
-// Three pillars: BRAIN (everything about you), RESUMES (tailored documents), PIPELINE (application CRM)
+// Multi-tenant. Every record below belongs to exactly one User, and every read
+// in src/lib/data/ takes a userId as its first argument so the compiler will
+// not let a query go out unscoped.
 
 generator client {
   provider = "prisma-client-js"
@@ -11,10 +13,88 @@ datasource db {
 }
 
 // ---------------------------------------------------------------------------
-// SYSTEM
+// ACCOUNTS
 // ---------------------------------------------------------------------------
 
-/// Single-row key/value store for app settings (MCP token, onboarding state, etc.)
+enum UserRole {
+  /// The person who claimed the instance. Cannot be demoted or removed.
+  SUPER_ADMIN
+  /// Can invite people and manage users, but not touch the super admin.
+  ADMIN
+  /// Owns their own brain, resumes and pipeline. Sees nothing else.
+  MEMBER
+}
+
+model User {
+  id           String    @id @default(cuid())
+  email        String    @unique
+  name         String    @default("")
+  /// scrypt, stored as "scrypt:N:r:p:salt:hash"
+  passwordHash String
+  role         UserRole  @default(MEMBER)
+  isActive     Boolean   @default(true)
+  /// Personal MCP token. The connection URL Claude uses is scoped to this user.
+  mcpToken     String    @unique
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  invitedById String?
+  invitedBy   User?   @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
+  invitees    User[]  @relation("UserInvites")
+
+  sessions       Session[]
+  sentInvites    Invite[]        @relation("InviteSender")
+  profile        Profile?
+  roles          Role[]
+  highlights     Highlight[]
+  education      Education[]
+  projects       Project[]
+  skillGroups    SkillGroup[]
+  certifications Certification[]
+  notes          Note[]
+  resumes        Resume[]
+  companies      Company[]
+  applications   Application[]
+  contacts       Contact[]
+  activities     Activity[]
+  tasks          Task[]
+
+  @@index([role])
+}
+
+model Session {
+  id        String   @id @default(cuid())
+  token     String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  userAgent String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([expiresAt])
+}
+
+model Invite {
+  id          String    @id @default(cuid())
+  email       String
+  token       String    @unique
+  role        UserRole  @default(MEMBER)
+  invitedById String
+  invitedBy   User      @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt   DateTime
+  acceptedAt  DateTime?
+  /// Whether the invite email actually went out, so the UI can offer the raw link.
+  emailSent   Boolean   @default(false)
+  emailError  String    @default("")
+  createdAt   DateTime  @default(now())
+
+  @@index([email])
+  @@index([acceptedAt])
+}
+
+/// Instance-wide configuration: Resend credentials, instance name, signup policy.
 model Setting {
   key       String   @id
   value     String
@@ -26,7 +106,9 @@ model Setting {
 // ---------------------------------------------------------------------------
 
 model Profile {
-  id        String   @id @default("me")
+  id        String   @id @default(cuid())
+  userId    String   @unique
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   fullName  String   @default("")
   headline  String   @default("")
   email     String   @default("")
@@ -44,32 +126,36 @@ model Profile {
 }
 
 model Role {
-  id             String     @id @default(cuid())
+  id             String   @id @default(cuid())
+  userId         String
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   company        String
   title          String
-  employmentType String     @default("Full-time")
-  location       String     @default("")
-  startDate      String     @default("")
-  endDate        String     @default("")
-  isCurrent      Boolean    @default(false)
+  employmentType String   @default("Full-time")
+  location       String   @default("")
+  startDate      String   @default("")
+  endDate        String   @default("")
+  isCurrent      Boolean  @default(false)
   /// One or two sentences describing the scope of the role.
-  summary        String     @default("")
+  summary        String   @default("")
   /// THE BRAIN DUMP. Unlimited markdown: projects, metrics, stories, tech,
   /// politics, wins, failures, praise, numbers. Claude mines this.
-  brainDump      String     @default("")
-  tags           String[]   @default([])
-  sortOrder      Int        @default(0)
-  createdAt      DateTime   @default(now())
-  updatedAt      DateTime   @updatedAt
+  brainDump      String   @default("")
+  tags           String[] @default([])
+  sortOrder      Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
 
   highlights Highlight[]
 
-  @@index([sortOrder])
+  @@index([userId, sortOrder])
 }
 
 /// A reusable, polished achievement line distilled from a role's brain dump.
 model Highlight {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   roleId    String?
   role      Role?    @relation(fields: [roleId], references: [id], onDelete: Cascade)
   text      String
@@ -83,11 +169,14 @@ model Highlight {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
+  @@index([userId])
   @@index([roleId])
 }
 
 model Education {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   school    String
   degree    String   @default("")
   field     String   @default("")
@@ -98,10 +187,14 @@ model Education {
   details   String   @default("")
   sortOrder Int      @default(0)
   createdAt DateTime @default(now())
+
+  @@index([userId])
 }
 
 model Project {
   id          String   @id @default(cuid())
+  userId      String
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name        String
   role        String   @default("")
   url         String   @default("")
@@ -113,34 +206,48 @@ model Project {
   sortOrder   Int      @default(0)
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+
+  @@index([userId])
 }
 
 model SkillGroup {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   skills    String[] @default([])
   sortOrder Int      @default(0)
+
+  @@index([userId])
 }
 
 model Certification {
-  id       String @id @default(cuid())
-  name     String
-  issuer   String @default("")
-  date     String @default("")
-  url      String @default("")
-  sortOrder Int   @default(0)
+  id        String @id @default(cuid())
+  userId    String
+  user      User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  issuer    String @default("")
+  date      String @default("")
+  url       String @default("")
+  sortOrder Int    @default(0)
+
+  @@index([userId])
 }
 
 /// Free-floating brain dump not tied to a role: stories, STAR answers,
 /// interview prep, references, compensation history, anything.
 model Note {
   id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String   @default("")
   tags      String[] @default([])
   pinned    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
@@ -149,6 +256,8 @@ model Note {
 
 model Resume {
   id            String   @id @default(cuid())
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   targetRole    String   @default("")
   targetCompany String   @default("")
@@ -168,6 +277,8 @@ model Resume {
   updatedAt     DateTime @updatedAt
 
   applications Application[]
+
+  @@index([userId])
 }
 
 // ---------------------------------------------------------------------------
@@ -202,7 +313,9 @@ enum ActivityType {
 
 model Company {
   id        String   @id @default(cuid())
-  name      String   @unique
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
   website   String   @default("")
   industry  String   @default("")
   size      String   @default("")
@@ -212,44 +325,51 @@ model Company {
 
   applications Application[]
   contacts     Contact[]
+
+  @@unique([userId, name])
+  @@index([userId])
 }
 
 model Application {
-  id             String   @id @default(cuid())
+  id             String    @id @default(cuid())
+  userId         String
+  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyId      String
-  company        Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
   roleTitle      String
-  stage          Stage    @default(WISHLIST)
-  jobUrl         String   @default("")
-  jobDescription String   @default("")
-  location       String   @default("")
-  workMode       String   @default("")
-  salaryRange    String   @default("")
-  source         String   @default("")
+  stage          Stage     @default(WISHLIST)
+  jobUrl         String    @default("")
+  jobDescription String    @default("")
+  location       String    @default("")
+  workMode       String    @default("")
+  salaryRange    String    @default("")
+  source         String    @default("")
   /// 1-5 how much you want this
-  excitement     Int      @default(3)
+  excitement     Int       @default(3)
   /// 1-5 how strong a fit you are
-  fit            Int      @default(3)
-  notes          String   @default("")
+  fit            Int       @default(3)
+  notes          String    @default("")
   appliedAt      DateTime?
   nextFollowUpAt DateTime?
   closedAt       DateTime?
   resumeId       String?
-  resume         Resume?  @relation(fields: [resumeId], references: [id], onDelete: SetNull)
-  sortOrder      Int      @default(0)
-  createdAt      DateTime @default(now())
-  updatedAt      DateTime @updatedAt
+  resume         Resume?   @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  sortOrder      Int       @default(0)
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
 
   activities Activity[]
   contacts   Contact[]
   tasks      Task[]
 
-  @@index([stage])
-  @@index([nextFollowUpAt])
+  @@index([userId, stage])
+  @@index([userId, nextFollowUpAt])
 }
 
 model Contact {
   id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   name          String
   title         String       @default("")
   email         String       @default("")
@@ -262,10 +382,14 @@ model Contact {
   applicationId String?
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
+
+  @@index([userId])
 }
 
 model Activity {
   id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   applicationId String
   application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   type          ActivityType @default(NOTE)
@@ -273,11 +397,14 @@ model Activity {
   occurredAt    DateTime     @default(now())
   createdAt     DateTime     @default(now())
 
+  @@index([userId, occurredAt])
   @@index([applicationId, occurredAt])
 }
 
 model Task {
   id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   title         String
   detail        String       @default("")
   dueAt         DateTime?
@@ -287,5 +414,5 @@ model Task {
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())
 
-  @@index([done, dueAt])
+  @@index([userId, done, dueAt])
 }

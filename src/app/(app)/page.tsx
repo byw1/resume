@@ -19,6 +19,7 @@ import { Progress } from "@/components/ui/progress";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
 import { AnimatedNumber } from "@/components/animated-number";
 import { db } from "@/lib/db";
+import { requireUser } from "@/lib/auth";
 import {
   ACTIVITY_LABEL,
   BOARD_STAGES,
@@ -37,17 +38,22 @@ import { FollowUpList } from "@/components/dashboard/follow-up-list";
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
+  const user = await requireUser();
   const [stats, followUps, tasks, activities, profile, counts] = await Promise.all([
-    pipelineStats(),
-    followUpsDue(3),
-    listTasks({ done: false, limit: 8 }),
-    listActivities(undefined, 8),
-    getProfile(),
-    Promise.all([db.role.count(), db.resume.count(), db.highlight.count()]),
+    pipelineStats(user.id),
+    followUpsDue(user.id, 3),
+    listTasks(user.id, { done: false, limit: 8 }),
+    listActivities(user.id, undefined, 8),
+    getProfile(user.id),
+    Promise.all([
+      db.role.count({ where: { userId: user.id } }),
+      db.resume.count({ where: { userId: user.id } }),
+      db.highlight.count({ where: { userId: user.id } }),
+    ]),
   ]);
 
   const [roleCount, resumeCount, highlightCount] = counts;
-  const firstName = profile.fullName.split(" ")[0];
+  const firstName = (profile.fullName || user.name).split(" ")[0];
   const isEmpty = roleCount === 0 && stats.total === 0 && resumeCount === 0;
   const maxStage = Math.max(1, ...BOARD_STAGES.map((stage) => stats.counts[stage]));
 

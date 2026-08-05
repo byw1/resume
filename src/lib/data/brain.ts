@@ -1,13 +1,20 @@
 import { db } from "@/lib/db";
 
+/**
+ * Every function here takes the owning userId as its first argument, and every
+ * query filters on it. Making it a required positional parameter rather than an
+ * optional field means the compiler rejects any call site that forgets it —
+ * which is the whole defence against one tenant reading another's data.
+ */
+
 // ---------------------------------------------------------------------------
 // Profile
 // ---------------------------------------------------------------------------
 
-export async function getProfile() {
-  const existing = await db.profile.findUnique({ where: { id: "me" } });
+export async function getProfile(userId: string) {
+  const existing = await db.profile.findUnique({ where: { userId } });
   if (existing) return existing;
-  return db.profile.create({ data: { id: "me" } });
+  return db.profile.create({ data: { userId } });
 }
 
 export type ProfilePatch = Partial<{
@@ -24,9 +31,9 @@ export type ProfilePatch = Partial<{
   brainDump: string;
 }>;
 
-export async function updateProfile(patch: ProfilePatch) {
-  await getProfile();
-  return db.profile.update({ where: { id: "me" }, data: patch });
+export async function updateProfile(userId: string, patch: ProfilePatch) {
+  await getProfile(userId);
+  return db.profile.update({ where: { userId }, data: patch });
 }
 
 // ---------------------------------------------------------------------------
@@ -46,24 +53,26 @@ export type RoleInput = {
   tags?: string[];
 };
 
-export async function listRoles() {
+export async function listRoles(userId: string) {
   return db.role.findMany({
+    where: { userId },
     orderBy: [{ isCurrent: "desc" }, { startDate: "desc" }, { sortOrder: "asc" }],
     include: { _count: { select: { highlights: true } } },
   });
 }
 
-export async function getRole(id: string) {
-  return db.role.findUnique({
-    where: { id },
+export async function getRole(userId: string, id: string) {
+  return db.role.findFirst({
+    where: { id, userId },
     include: { highlights: { orderBy: [{ sortOrder: "asc" }, { createdAt: "asc" }] } },
   });
 }
 
-export async function createRole(input: RoleInput) {
-  const count = await db.role.count();
+export async function createRole(userId: string, input: RoleInput) {
+  const count = await db.role.count({ where: { userId } });
   return db.role.create({
     data: {
+      userId,
       company: input.company,
       title: input.title,
       employmentType: input.employmentType ?? "Full-time",
@@ -79,21 +88,30 @@ export async function createRole(input: RoleInput) {
   });
 }
 
-export async function updateRole(id: string, patch: Partial<RoleInput>) {
-  return db.role.update({ where: { id }, data: patch });
+export async function updateRole(userId: string, id: string, patch: Partial<RoleInput>) {
+  const { count } = await db.role.updateMany({ where: { id, userId }, data: patch });
+  if (count === 0) throw new Error(`No role with id ${id}`);
+  return db.role.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteRole(id: string) {
-  return db.role.delete({ where: { id } });
+export async function deleteRole(userId: string, id: string) {
+  const { count } = await db.role.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No role with id ${id}`);
+  return { id };
 }
 
 /** Non-destructive: adds text to the end of the role's brain dump. */
-export async function appendToRoleBrainDump(id: string, text: string, heading?: string) {
-  const role = await db.role.findUnique({ where: { id } });
+export async function appendToRoleBrainDump(
+  userId: string,
+  id: string,
+  text: string,
+  heading?: string,
+) {
+  const role = await db.role.findFirst({ where: { id, userId } });
   if (!role) throw new Error(`No role with id ${id}`);
   const stamp = heading ? `\n\n## ${heading}\n` : "\n\n";
   const next = `${role.brainDump}${role.brainDump ? stamp : heading ? `## ${heading}\n` : ""}${text}`.trim();
-  return db.role.update({ where: { id }, data: { brainDump: next } });
+  return db.role.update({ where: { id: role.id }, data: { brainDump: next } });
 }
 
 // ---------------------------------------------------------------------------
@@ -108,17 +126,23 @@ export type HighlightInput = {
   strength?: number;
 };
 
-export async function listHighlights(roleId?: string) {
+export async function listHighlights(userId: string, roleId?: string) {
   return db.highlight.findMany({
-    where: { archived: false, ...(roleId ? { roleId } : {}) },
+    where: { userId, archived: false, ...(roleId ? { roleId } : {}) },
     orderBy: [{ strength: "desc" }, { sortOrder: "asc" }, { createdAt: "asc" }],
     include: { role: { select: { id: true, company: true, title: true } } },
   });
 }
 
-export async function createHighlight(input: HighlightInput) {
+export async function createHighlight(userId: string, input: HighlightInput) {
+  // A highlight may only hang off a role the same user owns.
+  if (input.roleId) {
+    const role = await db.role.findFirst({ where: { id: input.roleId, userId } });
+    if (!role) throw new Error(`No role with id ${input.roleId}`);
+  }
   return db.highlight.create({
     data: {
+      userId,
       roleId: input.roleId ?? null,
       text: input.text,
       impact: input.impact ?? "",
@@ -128,33 +152,45 @@ export async function createHighlight(input: HighlightInput) {
   });
 }
 
-export async function createHighlights(inputs: HighlightInput[]) {
+export async function createHighlights(userId: string, inputs: HighlightInput[]) {
   const created = [];
-  for (const input of inputs) created.push(await createHighlight(input));
+  for (const input of inputs) created.push(await createHighlight(userId, input));
   return created;
 }
 
-export async function updateHighlight(id: string, patch: Partial<HighlightInput> & { archived?: boolean }) {
+export async function updateHighlight(
+  userId: string,
+  id: string,
+  patch: Partial<HighlightInput> & { archived?: boolean },
+) {
   const data = { ...patch } as Record<string, unknown>;
   if (typeof patch.strength === "number") data.strength = clamp(patch.strength, 1, 5);
-  return db.highlight.update({ where: { id }, data });
+  const { count } = await db.highlight.updateMany({ where: { id, userId }, data });
+  if (count === 0) throw new Error(`No highlight with id ${id}`);
+  return db.highlight.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteHighlight(id: string) {
-  return db.highlight.delete({ where: { id } });
+export async function deleteHighlight(userId: string, id: string) {
+  const { count } = await db.highlight.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No highlight with id ${id}`);
+  return { id };
 }
 
 // ---------------------------------------------------------------------------
 // Notes
 // ---------------------------------------------------------------------------
 
-export async function listNotes() {
-  return db.note.findMany({ orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }] });
+export async function listNotes(userId: string) {
+  return db.note.findMany({ where: { userId }, orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }] });
 }
 
-export async function createNote(input: { title: string; body?: string; tags?: string[]; pinned?: boolean }) {
+export async function createNote(
+  userId: string,
+  input: { title: string; body?: string; tags?: string[]; pinned?: boolean },
+) {
   return db.note.create({
     data: {
+      userId,
       title: input.title,
       body: input.body ?? "",
       tags: input.tags ?? [],
@@ -164,107 +200,136 @@ export async function createNote(input: { title: string; body?: string; tags?: s
 }
 
 export async function updateNote(
+  userId: string,
   id: string,
   patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean }>,
 ) {
-  return db.note.update({ where: { id }, data: patch });
+  const { count } = await db.note.updateMany({ where: { id, userId }, data: patch });
+  if (count === 0) throw new Error(`No note with id ${id}`);
+  return db.note.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteNote(id: string) {
-  return db.note.delete({ where: { id } });
+export async function deleteNote(userId: string, id: string) {
+  const { count } = await db.note.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No note with id ${id}`);
+  return { id };
 }
 
 // ---------------------------------------------------------------------------
 // Education / Projects / Skills / Certifications
 // ---------------------------------------------------------------------------
 
-export async function listEducation() {
-  return db.education.findMany({ orderBy: [{ sortOrder: "asc" }, { endDate: "desc" }] });
+export async function listEducation(userId: string) {
+  return db.education.findMany({ where: { userId }, orderBy: [{ sortOrder: "asc" }, { endDate: "desc" }] });
 }
 
-export async function createEducation(input: {
-  school: string;
-  degree?: string;
-  field?: string;
-  location?: string;
-  startDate?: string;
-  endDate?: string;
-  gpa?: string;
-  details?: string;
-}) {
-  const count = await db.education.count();
-  return db.education.create({ data: { ...input, sortOrder: count } });
+export async function createEducation(
+  userId: string,
+  input: {
+    school: string;
+    degree?: string;
+    field?: string;
+    location?: string;
+    startDate?: string;
+    endDate?: string;
+    gpa?: string;
+    details?: string;
+  },
+) {
+  const count = await db.education.count({ where: { userId } });
+  return db.education.create({ data: { ...input, userId, sortOrder: count } });
 }
 
-export async function updateEducation(id: string, patch: Record<string, unknown>) {
-  return db.education.update({ where: { id }, data: patch });
+export async function updateEducation(userId: string, id: string, patch: Record<string, unknown>) {
+  const { count } = await db.education.updateMany({ where: { id, userId }, data: patch });
+  if (count === 0) throw new Error(`No education entry with id ${id}`);
+  return db.education.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteEducation(id: string) {
-  return db.education.delete({ where: { id } });
+export async function deleteEducation(userId: string, id: string) {
+  const { count } = await db.education.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No education entry with id ${id}`);
+  return { id };
 }
 
-export async function listProjects() {
-  return db.project.findMany({ orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] });
+export async function listProjects(userId: string) {
+  return db.project.findMany({ where: { userId }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }] });
 }
 
-export async function createProject(input: {
-  name: string;
-  role?: string;
-  url?: string;
-  description?: string;
-  brainDump?: string;
-  tags?: string[];
-  startDate?: string;
-  endDate?: string;
-}) {
-  const count = await db.project.count();
-  return db.project.create({ data: { ...input, tags: input.tags ?? [], sortOrder: count } });
-}
-
-export async function updateProject(id: string, patch: Record<string, unknown>) {
-  return db.project.update({ where: { id }, data: patch });
-}
-
-export async function deleteProject(id: string) {
-  return db.project.delete({ where: { id } });
-}
-
-export async function listSkillGroups() {
-  return db.skillGroup.findMany({ orderBy: { sortOrder: "asc" } });
-}
-
-export async function createSkillGroup(input: { name: string; skills?: string[] }) {
-  const count = await db.skillGroup.count();
-  return db.skillGroup.create({
-    data: { name: input.name, skills: input.skills ?? [], sortOrder: count },
+export async function createProject(
+  userId: string,
+  input: {
+    name: string;
+    role?: string;
+    url?: string;
+    description?: string;
+    brainDump?: string;
+    tags?: string[];
+    startDate?: string;
+    endDate?: string;
+  },
+) {
+  const count = await db.project.count({ where: { userId } });
+  return db.project.create({
+    data: { ...input, userId, tags: input.tags ?? [], sortOrder: count },
   });
 }
 
-export async function updateSkillGroup(id: string, patch: { name?: string; skills?: string[] }) {
-  return db.skillGroup.update({ where: { id }, data: patch });
+export async function updateProject(userId: string, id: string, patch: Record<string, unknown>) {
+  const { count } = await db.project.updateMany({ where: { id, userId }, data: patch });
+  if (count === 0) throw new Error(`No project with id ${id}`);
+  return db.project.findFirstOrThrow({ where: { id, userId } });
 }
 
-export async function deleteSkillGroup(id: string) {
-  return db.skillGroup.delete({ where: { id } });
+export async function deleteProject(userId: string, id: string) {
+  const { count } = await db.project.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No project with id ${id}`);
+  return { id };
 }
 
-export async function listCertifications() {
-  return db.certification.findMany({ orderBy: { sortOrder: "asc" } });
+export async function listSkillGroups(userId: string) {
+  return db.skillGroup.findMany({ where: { userId }, orderBy: { sortOrder: "asc" } });
 }
 
-export async function createCertification(input: {
-  name: string;
-  issuer?: string;
-  date?: string;
-  url?: string;
-}) {
-  const count = await db.certification.count();
-  return db.certification.create({ data: { ...input, sortOrder: count } });
+export async function createSkillGroup(userId: string, input: { name: string; skills?: string[] }) {
+  const count = await db.skillGroup.count({ where: { userId } });
+  return db.skillGroup.create({
+    data: { userId, name: input.name, skills: input.skills ?? [], sortOrder: count },
+  });
 }
 
-export async function deleteCertification(id: string) {
-  return db.certification.delete({ where: { id } });
+export async function updateSkillGroup(
+  userId: string,
+  id: string,
+  patch: { name?: string; skills?: string[] },
+) {
+  const { count } = await db.skillGroup.updateMany({ where: { id, userId }, data: patch });
+  if (count === 0) throw new Error(`No skill group with id ${id}`);
+  return db.skillGroup.findFirstOrThrow({ where: { id, userId } });
+}
+
+export async function deleteSkillGroup(userId: string, id: string) {
+  const { count } = await db.skillGroup.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No skill group with id ${id}`);
+  return { id };
+}
+
+export async function listCertifications(userId: string) {
+  return db.certification.findMany({ where: { userId }, orderBy: { sortOrder: "asc" } });
+}
+
+export async function createCertification(
+  userId: string,
+  input: { name: string; issuer?: string; date?: string; url?: string },
+) {
+  const count = await db.certification.count({ where: { userId } });
+  return db.certification.create({ data: { ...input, userId, sortOrder: count } });
+}
+
+export async function deleteCertification(userId: string, id: string) {
+  const { count } = await db.certification.deleteMany({ where: { id, userId } });
+  if (count === 0) throw new Error(`No certification with id ${id}`);
+  return { id };
 }
 
 // ---------------------------------------------------------------------------
@@ -307,11 +372,11 @@ function excerptAround(haystack: string, terms: string[], radius = 180) {
 }
 
 /**
- * Ranked full-text search across everything in the brain. Deliberately done in
- * application code rather than Postgres FTS so it works identically on a fresh
- * database with zero extensions or migrations to configure.
+ * Ranked full-text search across everything in one user's brain. Deliberately
+ * done in application code rather than Postgres FTS so it works identically on
+ * a fresh database with zero extensions to configure.
  */
-export async function searchBrain(query: string, limit = 25): Promise<BrainHit[]> {
+export async function searchBrain(userId: string, query: string, limit = 25): Promise<BrainHit[]> {
   const terms = query
     .toLowerCase()
     .split(/\s+/)
@@ -319,20 +384,19 @@ export async function searchBrain(query: string, limit = 25): Promise<BrainHit[]
     .filter((t) => t.length > 1);
 
   const [profile, roles, highlights, notes, projects] = await Promise.all([
-    getProfile(),
-    db.role.findMany(),
+    getProfile(userId),
+    db.role.findMany({ where: { userId } }),
     db.highlight.findMany({
-      where: { archived: false },
+      where: { userId, archived: false },
       include: { role: { select: { company: true, title: true } } },
     }),
-    db.note.findMany(),
-    db.project.findMany(),
+    db.note.findMany({ where: { userId } }),
+    db.project.findMany({ where: { userId } }),
   ]);
 
   const hits: BrainHit[] = [];
 
   if (terms.length === 0) {
-    // No query: return the most recently touched material.
     for (const role of roles.slice(0, limit)) {
       hits.push({
         kind: "role",
@@ -353,7 +417,7 @@ export async function searchBrain(query: string, limit = 25): Promise<BrainHit[]
   if (profileScore > 0) {
     hits.push({
       kind: "profile",
-      id: "me",
+      id: profile.id,
       title: profile.fullName || "Profile",
       subtitle: profile.headline,
       excerpt: excerptAround(profileBlob, terms),
@@ -428,18 +492,18 @@ export async function searchBrain(query: string, limit = 25): Promise<BrainHit[]
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-/** Everything in one payload — used to seed a resume and by the MCP `get_brain_snapshot` tool. */
-export async function getBrainSnapshot() {
+/** Everything in one payload — used to seed a resume and by `get_brain_snapshot`. */
+export async function getBrainSnapshot(userId: string) {
   const [profile, roles, highlights, education, projects, skillGroups, certifications, notes] =
     await Promise.all([
-      getProfile(),
-      listRoles(),
-      listHighlights(),
-      listEducation(),
-      listProjects(),
-      listSkillGroups(),
-      listCertifications(),
-      listNotes(),
+      getProfile(userId),
+      listRoles(userId),
+      listHighlights(userId),
+      listEducation(userId),
+      listProjects(userId),
+      listSkillGroups(userId),
+      listCertifications(userId),
+      listNotes(userId),
     ]);
   return { profile, roles, highlights, education, projects, skillGroups, certifications, notes };
 }

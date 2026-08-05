@@ -1,5 +1,5 @@
 import { corsHeaders, handleMcpPost, mcpUnauthorized } from "@/lib/mcp/handler";
-import { mcpTokenIsValid } from "@/lib/auth";
+import { userByMcpToken } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
@@ -12,12 +12,14 @@ function bearer(request: Request) {
 }
 
 export async function POST(request: Request) {
-  if (!(await mcpTokenIsValid(bearer(request)))) return mcpUnauthorized();
-  return handleMcpPost(request);
+  const user = await userByMcpToken(bearer(request));
+  if (!user) return mcpUnauthorized();
+  return handleMcpPost(request, user);
 }
 
 export async function GET(request: Request) {
-  if (!(await mcpTokenIsValid(bearer(request)))) return mcpUnauthorized();
+  const user = await userByMcpToken(bearer(request));
+  if (!user) return mcpUnauthorized();
   return new Response(null, { status: 405, headers: { Allow: "POST", ...corsHeaders() } });
 }
 

@@ -23,10 +23,14 @@ import { rotateMcpTokenAction } from "@/server/actions";
 export function McpPanel({
   url,
   toolCount,
+  adminToolCount,
+  isAdmin,
   promptNames,
 }: {
   url: string;
   toolCount: number;
+  adminToolCount: number;
+  isAdmin: boolean;
   promptNames: { name: string; title: string; description: string }[];
 }) {
   const [currentUrl, setCurrentUrl] = useState(url);
@@ -65,6 +69,9 @@ export function McpPanel({
             <CardTitle className="text-[15px]">Claude connection</CardTitle>
             <p className="text-muted-foreground text-sm">
               {toolCount} tools · {promptNames.length} ready-made workflows
+              {isAdmin && adminToolCount > 0 && (
+                <span className="text-primary"> · including {adminToolCount} admin tools</span>
+              )}
             </p>
           </div>
         </div>
@@ -97,7 +104,8 @@ export function McpPanel({
             </Button>
           </div>
           <p className="text-muted-foreground text-xs">
-            Anyone with this URL can read and write your data. Treat it like a password.
+            This URL is yours alone — it reaches your data and nobody else&apos;s. Anyone who has it
+            can read and write it, so treat it like a password.
           </p>
         </div>
 
@@ -156,6 +164,9 @@ export function McpPanel({
               "What should I follow up on this week?",
               "Mine my Stripe role into resume bullets.",
               "I just had a screen with Acme — log it and move them forward.",
+              ...(isAdmin
+                ? ["Invite sam@example.com to the platform.", "Is email set up? Send a test."]
+                : []),
             ].map((example) => (
               <Badge key={example} variant="secondary" className="px-2.5 py-1 text-[11px] font-normal">
                 {example}
@@ -170,7 +181,7 @@ export function McpPanel({
           <div>
             <div className="text-[13px] font-medium">Rotate token</div>
             <p className="text-muted-foreground text-xs">
-              Invalidates the current URL. Use it if you ever paste the link somewhere public.
+              Invalidates your current URL. Use it if you ever paste the link somewhere public.
             </p>
           </div>
           <Button variant="outline" size="sm" onClick={rotate} disabled={pending}>

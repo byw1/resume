@@ -3,15 +3,69 @@
 import { useActionState } from "react";
 import { useFormStatus } from "react-dom";
 import { motion } from "framer-motion";
-import { LoaderCircleIcon, LockIcon } from "lucide-react";
+import { LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { loginAction } from "@/server/actions";
 
-export function LoginForm({ configured }: { configured: boolean }) {
+export function LoginForm({ instanceName }: { instanceName: string }) {
   const [state, formAction] = useActionState(loginAction, undefined);
 
+  return (
+    <AuthCard title={instanceName} subtitle="Sign in to your career workspace.">
+      <form action={formAction} className="space-y-4">
+        <div className="space-y-2">
+          <Label htmlFor="email">Email</Label>
+          <Input
+            id="email"
+            name="email"
+            type="email"
+            autoFocus
+            autoComplete="username"
+            placeholder="you@example.com"
+          />
+        </div>
+        <div className="space-y-2">
+          <Label htmlFor="password">Password</Label>
+          <Input
+            id="password"
+            name="password"
+            type="password"
+            autoComplete="current-password"
+            placeholder="••••••••••"
+          />
+        </div>
+
+        {state?.error && (
+          <motion.p
+            initial={{ opacity: 0, x: -4 }}
+            animate={{ opacity: 1, x: 0 }}
+            className="text-destructive text-sm"
+          >
+            {state.error}
+          </motion.p>
+        )}
+
+        <SubmitButton label="Sign in" pendingLabel="Signing in…" />
+      </form>
+
+      <p className="text-muted-foreground mt-6 text-center text-xs">
+        Accounts here are invite-only. Ask an admin for an invitation.
+      </p>
+    </AuthCard>
+  );
+}
+
+export function AuthCard({
+  title,
+  subtitle,
+  children,
+}: {
+  title: string;
+  subtitle: string;
+  children: React.ReactNode;
+}) {
   return (
     <motion.div
       initial={{ opacity: 0, y: 18, scale: 0.98 }}
@@ -25,65 +79,27 @@ export function LoginForm({ configured }: { configured: boolean }) {
             <span className="text-primary-foreground text-xl font-bold">R</span>
             <div className="absolute inset-0 rounded-xl ring-1 ring-white/25" />
           </div>
-          <h1 className="text-gradient text-2xl font-semibold tracking-tight">Resume OS</h1>
-          <p className="text-muted-foreground mt-1.5 text-sm">
-            Your career brain, resumes and pipeline.
-          </p>
+          <h1 className="text-gradient text-2xl font-semibold tracking-tight">{title}</h1>
+          <p className="text-muted-foreground mt-1.5 text-sm text-balance">{subtitle}</p>
         </div>
-
-        {configured ? (
-          <form action={formAction} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="password">
-                <LockIcon className="size-3.5" /> Password
-              </Label>
-              <Input
-                id="password"
-                name="password"
-                type="password"
-                autoFocus
-                autoComplete="current-password"
-                placeholder="••••••••••"
-              />
-            </div>
-
-            {state?.error && (
-              <motion.p
-                initial={{ opacity: 0, x: -4 }}
-                animate={{ opacity: 1, x: 0 }}
-                className="text-destructive text-sm"
-              >
-                {state.error}
-              </motion.p>
-            )}
-
-            <SubmitButton />
-          </form>
-        ) : (
-          <div className="space-y-3 text-sm">
-            <p className="text-muted-foreground">
-              No password is set, so this app is currently open to anyone with the link.
-            </p>
-            <p className="text-muted-foreground">
-              Add an <code className="bg-muted rounded px-1 py-0.5 text-xs">APP_PASSWORD</code>{" "}
-              variable in Railway to lock it down.
-            </p>
-            <Button asChild variant="gradient" className="w-full">
-              <a href="/">Continue</a>
-            </Button>
-          </div>
-        )}
+        {children}
       </div>
     </motion.div>
   );
 }
 
-function SubmitButton() {
+export function SubmitButton({
+  label,
+  pendingLabel,
+}: {
+  label: string;
+  pendingLabel: string;
+}) {
   const { pending } = useFormStatus();
   return (
     <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={pending}>
-      {pending ? <LoaderCircleIcon className="animate-spin" /> : null}
-      {pending ? "Checking…" : "Enter"}
+      {pending && <LoaderCircleIcon className="animate-spin" />}
+      {pending ? pendingLabel : label}
     </Button>
   );
 }

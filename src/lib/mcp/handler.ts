@@ -1,12 +1,15 @@
-import { promptsByName, prompts, tools, toolsByName } from "@/lib/mcp/tools";
+import type { User } from "@prisma/client";
+import { promptsFor, promptsByName, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
+import { isAdmin } from "@/lib/auth";
 
 /**
  * A small, dependency-light implementation of the MCP Streamable HTTP transport.
  *
  * Written by hand rather than wired through the SDK's Node transport because
  * Next.js route handlers speak the Web Request/Response API. Stateless: every
- * POST is self-contained, so there are no sessions to lose across Railway
- * restarts or replicas.
+ * POST is self-contained, so there are no sessions to lose across restarts or
+ * replicas — and every request re-resolves its user from the token, so
+ * suspending someone takes effect immediately.
  */
 
 const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
@@ -15,18 +18,27 @@ const LATEST_PROTOCOL_VERSION = "2025-06-18";
 const SERVER_INFO = {
   name: "resume-os",
   title: "Resume OS",
-  version: "1.0.0",
+  version: "2.0.0",
 };
 
-const INSTRUCTIONS = `Resume OS is this person's career knowledge base, resume builder and job-search CRM.
+function instructionsFor(user: User) {
+  return `Resume OS is ${user.name || user.email}'s career knowledge base, resume builder and
+job-search CRM. You are connected as them; every tool reads and writes only their data.
 
 Three areas:
 • BRAIN — everything about them. Roles each hold an unlimited free-form "brain dump" of raw
   material, plus polished reusable bullets called highlights. There are also notes, projects,
   education, skills and certifications. search_brain is the fastest way in.
 • RESUMES — documents assembled from that material. Call get_resume_format before writing one.
+  New resumes use the Harvard OCS format by default.
 • PIPELINE — applications, stages, activity timeline, contacts, tasks and follow-up dates.
-
+${
+  isAdmin(user)
+    ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are
+also available: inviting people, managing accounts and configuring email. Those act on the
+instance, never on another person's brain or resumes.\n`
+    : ""
+}
 Rules of thumb:
 - Never invent experience, employers, dates or metrics. Everything on a resume must trace back to
   something in the brain. If evidence is missing, say so and ask.
@@ -35,6 +47,7 @@ Rules of thumb:
 - update_resume and update_role replace what you send. Read first, modify, then write back whole.
 - Prefer creating a tailored copy (duplicate_resume) over editing a resume already attached to an
   application.`;
+}
 
 type JsonRpcId = string | number | null;
 
@@ -71,11 +84,12 @@ function serialize(value: unknown) {
   return JSON.stringify(value, (_key, val) => (val instanceof Date ? val.toISOString() : val), 2);
 }
 
-async function handleMessage(message: JsonRpcRequest): Promise<JsonRpcResponse | null> {
+async function handleMessage(
+  message: JsonRpcRequest,
+  ctx: McpContext,
+): Promise<JsonRpcResponse | null> {
   const id = message.id ?? null;
   const params = message.params ?? {};
-
-  // Notifications carry no id and expect no response.
   const isNotification = message.id === undefined || message.id === null;
 
   switch (message.method) {
@@ -91,7 +105,7 @@ async function handleMessage(message: JsonRpcRequest): Promise<JsonRpcResponse |
           prompts: { listChanged: false },
         },
         serverInfo: SERVER_INFO,
-        instructions: INSTRUCTIONS,
+        instructions: instructionsFor(ctx.user),
       });
     }
 
@@ -106,7 +120,7 @@ async function handleMessage(message: JsonRpcRequest): Promise<JsonRpcResponse |
 
     case "tools/list":
       return ok(id, {
-        tools: tools.map((tool) => ({
+        tools: toolsFor(ctx.user).map((tool) => ({
           name: tool.name,
           title: tool.title,
           description: tool.description,
@@ -118,25 +132,26 @@ async function handleMessage(message: JsonRpcRequest): Promise<JsonRpcResponse |
       const name = typeof params.name === "string" ? params.name : "";
       const tool = toolsByName.get(name);
       if (!tool) return err(id, INVALID_PARAMS, `Unknown tool: ${name}`);
+      if (tool.adminOnly && !isAdmin(ctx.user)) {
+        return ok(id, {
+          content: [{ type: "text", text: "Error: that tool is only available to admins." }],
+          isError: true,
+        });
+      }
       const args = (params.arguments ?? {}) as Record<string, unknown>;
       try {
-        const result = await tool.handler(args);
-        return ok(id, {
-          content: [{ type: "text", text: serialize(result ?? { ok: true }) }],
-        });
+        const result = await tool.handler(args, ctx);
+        return ok(id, { content: [{ type: "text", text: serialize(result ?? { ok: true }) }] });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         // Tool failures are reported in-band so the model can recover.
-        return ok(id, {
-          content: [{ type: "text", text: `Error: ${message}` }],
-          isError: true,
-        });
+        return ok(id, { content: [{ type: "text", text: `Error: ${message}` }], isError: true });
       }
     }
 
     case "prompts/list":
       return ok(id, {
-        prompts: prompts.map((prompt) => ({
+        prompts: promptsFor(ctx.user).map((prompt) => ({
           name: prompt.name,
           title: prompt.title,
           description: prompt.description,
@@ -147,13 +162,13 @@ async function handleMessage(message: JsonRpcRequest): Promise<JsonRpcResponse |
     case "prompts/get": {
       const name = typeof params.name === "string" ? params.name : "";
       const prompt = promptsByName.get(name);
-      if (!prompt) return err(id, INVALID_PARAMS, `Unknown prompt: ${name}`);
+      if (!prompt || (prompt.adminOnly && !isAdmin(ctx.user))) {
+        return err(id, INVALID_PARAMS, `Unknown prompt: ${name}`);
+      }
       const args = (params.arguments ?? {}) as Record<string, string>;
       return ok(id, {
         description: prompt.description,
-        messages: [
-          { role: "user", content: { type: "text", text: prompt.build(args) } },
-        ],
+        messages: [{ role: "user", content: { type: "text", text: prompt.build(args) } }],
       });
     }
 
@@ -208,13 +223,22 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 /** Entry point shared by both MCP routes. */
-export async function handleMcpPost(request: Request): Promise<Response> {
+export async function handleMcpPost(request: Request, user: User): Promise<Response> {
   let body: unknown;
   try {
     body = await request.json();
   } catch {
     return jsonResponse(err(null, PARSE_ERROR, "Invalid JSON"), 400);
   }
+
+  const url = new URL(request.url);
+  const forwardedHost = request.headers.get("x-forwarded-host");
+  const forwardedProto = request.headers.get("x-forwarded-proto");
+  const ctx: McpContext = {
+    userId: user.id,
+    user,
+    baseUrl: `${forwardedProto ?? url.protocol.replace(":", "")}://${forwardedHost ?? url.host}`,
+  };
 
   const wantsSse = (request.headers.get("accept") ?? "").includes("text/event-stream");
   const messages = Array.isArray(body) ? (body as JsonRpcRequest[]) : [body as JsonRpcRequest];
@@ -230,7 +254,7 @@ export async function handleMcpPost(request: Request): Promise<Response> {
       continue;
     }
     try {
-      const response = await handleMessage(message);
+      const response = await handleMessage(message, ctx);
       if (response) responses.push(response);
     } catch (error) {
       const detail = error instanceof Error ? error.message : String(error);
@@ -255,7 +279,7 @@ export function mcpUnauthorized() {
     {
       error: "unauthorized",
       message:
-        "Missing or invalid token. Copy the full connection URL from the Settings page of your Resume OS.",
+        "Missing, invalid or suspended token. Copy your personal connection URL from the Settings page of your Resume OS.",
     },
     401,
   );
