@@ -21,9 +21,10 @@ yourself, wired into Claude so you can just *talk* to it.
 
 ---
 
-## Deploy it on Railway
+## Self-host it on Railway
 
-Six steps, two variables, about five minutes. You don't need to touch a terminal.
+**One variable, five minutes, no terminal.** You don't invent a password, run a migration,
+or configure anything — the app provisions itself on first boot.
 
 ### 1. Create the project
 
@@ -31,8 +32,8 @@ Go to [railway.com](https://railway.com) → **New Project** → **Deploy from G
 pick this repository. Railway starts building immediately.
 
 The build will succeed, but the app won't start yet — it has nowhere to store anything.
-You'll see it crash and retry. That's expected. Steps 2 and 3 fix it, and Railway
-redeploys on its own the moment you add the variables.
+You'll see it crash and retry. That's expected; the next two steps fix it, and Railway
+redeploys on its own.
 
 ### 2. Add a database
 
@@ -40,35 +41,56 @@ In the same project, click **+ Create** → **Database** → **Add PostgreSQL**.
 
 Railway names the service **Postgres**. Leave it alone; you never have to configure it.
 
-### 3. Add the two variables
+### 3. Point the app at it
 
-Click your **app service** (not the Postgres one) → **Variables** → **New Variable**, and
-add these two:
+Click your **app service** (not the Postgres one) → **Variables** → **New Variable**:
 
 | Variable | Value |
 | --- | --- |
 | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
-| `APP_PASSWORD` | anything you'll remember — this is your login |
 
-Type the `DATABASE_URL` value exactly as shown, including the `${{ }}`. Railway
-autocompletes it as you type. It's a *reference*, so if the database credentials ever
-rotate, your app follows automatically.
+Type it exactly as shown, `${{ }}` included — Railway autocompletes it. It's a *reference*,
+so if the database credentials ever rotate, your app follows automatically.
+
+That's the only variable. Everything else is configured inside the app.
 
 ### 4. Give it a web address
 
 **Settings** → **Networking** → **Generate Domain**. You'll get something like
 `resume-os-production.up.railway.app`.
 
-### 5. Claim it
+### 5. Get your password from the logs
 
-Open that URL. You'll land on a setup page. Enter your `APP_PASSWORD` as the **setup key**,
-then pick your name, email and a real password. That makes you the **owner**.
+On first boot the app creates your owner account and prints the credentials once:
 
-The setup key matters: without it, the first stranger to find your URL could claim the
-instance. Once you've claimed it, the setup page closes permanently.
+```
+╔══════════════════════════════════════════════════════════════╗
+║ Resume OS is ready — this is your owner account.             ║
+║                                                              ║
+║   Sign in   https://resume-os-production.up.railway.app      ║
+║   Email     owner@localhost                                  ║
+║   Password  quartz-meadow-falcon-7391                        ║
+║                                                              ║
+║   This password was generated for you and is shown ONCE.     ║
+╚══════════════════════════════════════════════════════════════╝
+```
 
-The database tables are created automatically on the first boot — there's no migration
-step for you to run, now or after any future update.
+Open the **Deploy Logs** tab on your app service and scroll to the top of the latest
+deploy. Copy the password, sign in, then change your email and password from **Settings**.
+
+Database tables are created automatically on every boot — there's no migration step for you
+to run, now or after any future update.
+
+<details>
+<summary>Optional variables</summary>
+
+| Variable | What it does |
+| --- | --- |
+| `ADMIN_EMAIL` | Use this address for the owner account instead of `owner@localhost`. |
+| `APP_PASSWORD` | Use this as the owner's first password instead of a generated one. |
+| `RESET_OWNER_PASSWORD` | Set to `1` and redeploy to generate a fresh owner password and print it again. Remove the variable afterwards. |
+
+</details>
 
 ### 6. Connect Claude
 
@@ -213,18 +235,48 @@ nothing to download.
 
 ---
 
+## Locked out?
+
+Add `RESET_OWNER_PASSWORD=1` to your app service's variables and redeploy. The app prints a
+fresh owner password to the logs. Remove the variable afterwards, or it resets again on the
+next deploy.
+
+---
+
 ## Running it locally
 
 You need Node 20+ and a Postgres database.
 
 ```bash
-cp .env.example .env      # then edit DATABASE_URL and APP_PASSWORD
+cp .env.example .env      # only DATABASE_URL is required
 npm install
 npx prisma migrate deploy
 npm run dev
 ```
 
-Open http://localhost:3000.
+Open http://localhost:3000. Your owner password is printed in the terminal on first start.
+
+## Contributing
+
+Issues and pull requests are welcome.
+
+```bash
+npm run typecheck   # tsc, no emit
+npm run build       # production build
+```
+
+The two things worth knowing before changing anything:
+
+1. **Tenant isolation is a compile-time property.** Every function in `src/lib/data/` takes
+   the owning `userId` as its first argument, and every query filters on it. Don't add a
+   data function without one — the whole safety story rests on the compiler rejecting
+   unscoped calls.
+2. **The MCP tools and the UI share one data layer.** Anything you add in `src/lib/data/`
+   can be exposed to both; don't fork the logic.
+
+## License
+
+MIT — see [LICENSE](LICENSE).
 
 ## How it's built
 

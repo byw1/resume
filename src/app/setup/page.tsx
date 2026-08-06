@@ -6,9 +6,10 @@ import { SetupForm } from "@/components/setup-form";
 export const dynamic = "force-dynamic";
 
 /**
- * First run. Whoever completes this becomes the super admin, so when
- * APP_PASSWORD is set we require it as a setup key — otherwise the first
- * stranger to find the URL could claim the instance.
+ * Fallback only. The owner account is normally provisioned at boot by
+ * src/lib/bootstrap.ts, which closes the window where a stranger could claim
+ * the instance. This page exists for the case where that failed — and still
+ * requires APP_PASSWORD as a setup key when one is configured.
  */
 export default async function SetupPage() {
   if (!(await instanceNeedsSetup())) redirect("/login");

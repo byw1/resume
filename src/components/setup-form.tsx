@@ -14,7 +14,7 @@ export function SetupForm({ requiresKey }: { requiresKey: boolean }) {
   return (
     <AuthCard
       title="Claim this instance"
-      subtitle="You're the first one here. This creates the owner account."
+      subtitle="Your owner account is normally created automatically on first boot — check your server logs for the password. Use this page only if that didn't happen."
     >
       <form action={formAction} className="space-y-4">
         {requiresKey ? (
