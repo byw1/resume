@@ -233,8 +233,14 @@
       );
   }
 
-  /* A hairline top highlight — the shadcn/21st "premium card" tell */
-  .ring-highlight {
+  /* A hairline top highlight — the shadcn/21st "premium card" tell.
+     The ::before needs a positioned ancestor, but this file is emitted after
+     Tailwind's own utilities inside @layer utilities, so a plain
+     `.ring-highlight { position: relative }` would outrank `.fixed`/`.absolute`
+     on the same element and quietly break every dialog. :where() drops the
+     specificity to zero, so it only supplies a default and any explicit
+     position utility still wins. */
+  :where(.ring-highlight) {
     position: relative;
   }
   .ring-highlight::before {
