@@ -8,6 +8,7 @@ import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as users from "@/lib/data/users";
+import * as connections from "@/lib/data/connections";
 import {
   authenticate,
   claimInstance,
@@ -15,7 +16,6 @@ import {
   instanceNeedsSetup,
   requireAdmin,
   requireUser,
-  rotateMcpToken,
   setupKeyMatches,
   startSession,
 } from "@/lib/auth";
@@ -102,11 +102,72 @@ export async function updateOwnAccountAction(patch: { name?: string; email?: str
   revalidatePath("/settings");
 }
 
-export async function rotateMcpTokenAction() {
+// ---------------------------------------------------------------------------
+// MCP connections
+// ---------------------------------------------------------------------------
+
+export async function createConnectionAction(input: { name?: string; client?: string }) {
   const user = await requireUser();
-  const token = await rotateMcpToken(user.id);
+  const connection = await connections.createConnection(user.id, input);
+  revalidatePath("/settings");
+  return { id: connection.id, token: connection.token };
+}
+
+export async function renameConnectionAction(id: string, name: string) {
+  const user = await requireUser();
+  await connections.renameConnection(user.id, id, name);
+  revalidatePath("/settings");
+}
+
+export async function rotateConnectionAction(id: string) {
+  const user = await requireUser();
+  const token = await connections.rotateConnection(user.id, id);
   revalidatePath("/settings");
   return token;
+}
+
+export async function deleteConnectionAction(id: string) {
+  const user = await requireUser();
+  await connections.deleteConnection(user.id, id);
+  revalidatePath("/settings");
+}
+
+/**
+ * Calls our own MCP endpoint the way a client would, over real HTTP, and
+ * reports what came back. Proves the whole path — routing, host headers, token
+ * lookup — rather than just asserting the token exists in the database.
+ */
+export async function testConnectionAction(id: string) {
+  const user = await requireUser();
+  const all = await connections.listConnections(user.id);
+  const connection = all.find((item) => item.id === id);
+  if (!connection) return { ok: false as const, error: "No connection with that id." };
+
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto =
+    headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+
+  try {
+    const response = await fetch(`${proto}://${host}/api/mcp/${connection.token}`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "user-agent": "resume-os-selftest" },
+      body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
+      cache: "no-store",
+    });
+    if (!response.ok) {
+      return { ok: false as const, error: `Server answered ${response.status}.` };
+    }
+    const payload = (await response.json()) as { result?: { tools?: unknown[] } };
+    const toolCount = payload.result?.tools?.length ?? 0;
+    if (!toolCount) return { ok: false as const, error: "Connected, but no tools came back." };
+    return { ok: true as const, toolCount };
+  } catch (error) {
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : "Could not reach the endpoint.",
+    };
+  }
 }
 
 // ---------------------------------------------------------------------------

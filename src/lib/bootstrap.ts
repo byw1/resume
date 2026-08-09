@@ -1,6 +1,6 @@
 import { randomInt } from "node:crypto";
 import { db } from "@/lib/db";
-import { generateMcpToken, hashPassword } from "@/lib/auth";
+import { ensureDefaultConnection, hashPassword } from "@/lib/auth";
 
 /**
  * First-boot provisioning.
@@ -81,14 +81,12 @@ export async function ensureOwner() {
     passwordHash: hashPassword(password),
     role: "SUPER_ADMIN" as const,
     isActive: true,
-    mcpToken: generateMcpToken(),
   };
 
-  if (placeholder) {
-    await db.user.update({ where: { id: placeholder.id }, data });
-  } else {
-    await db.user.create({ data });
-  }
+  const owner = placeholder
+    ? await db.user.update({ where: { id: placeholder.id }, data })
+    : await db.user.create({ data });
+  await ensureDefaultConnection(owner.id);
 
   const url = publicUrl();
   banner([

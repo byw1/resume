@@ -1,6 +1,6 @@
 import type { User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
-import { generateInviteToken, generateMcpToken, hashPassword } from "@/lib/auth";
+import { ensureDefaultConnection, generateInviteToken, hashPassword } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { inviteEmail, sendEmail } from "@/lib/email";
 
@@ -211,7 +211,6 @@ export async function acceptInvite(input: { token: string; name: string; passwor
             name: input.name.trim(),
             passwordHash: hashPassword(input.password),
             role: invite.role,
-            mcpToken: generateMcpToken(),
             invitedById: invite.invitedById,
           },
         });
@@ -219,6 +218,7 @@ export async function acceptInvite(input: { token: string; name: string; passwor
     return created;
   });
 
+  await ensureDefaultConnection(user.id);
   return user;
 }
 

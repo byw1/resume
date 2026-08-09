@@ -33,8 +33,6 @@ model User {
   passwordHash String
   role         UserRole  @default(MEMBER)
   isActive     Boolean   @default(true)
-  /// Personal MCP token. The connection URL Claude uses is scoped to this user.
-  mcpToken     String    @unique
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -44,6 +42,7 @@ model User {
   invitees    User[]  @relation("UserInvites")
 
   sessions       Session[]
+  mcpConnections McpConnection[]
   sentInvites    Invite[]        @relation("InviteSender")
   profile        Profile?
   roles          Role[]
@@ -74,6 +73,27 @@ model Session {
 
   @@index([userId])
   @@index([expiresAt])
+}
+
+/// One per AI client. Handing every client its own token means revoking the one
+/// on a laptop you lost doesn't disconnect the others, and `lastUsedAt` answers
+/// the only question anyone ever asks about a connector: is it actually working?
+model McpConnection {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// What the person called it, e.g. "Claude desktop".
+  name   String
+  /// Catalog id from src/lib/mcp/clients.ts — drives which setup card is shown.
+  client String @default("other")
+  token  String @unique
+
+  lastUsedAt   DateTime?
+  /// User-agent of whatever last called in, trimmed. Purely informational.
+  lastUsedFrom String    @default("")
+  createdAt    DateTime  @default(now())
+
+  @@index([userId])
 }
 
 model Invite {

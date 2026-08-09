@@ -15,7 +15,7 @@ type Params = { params: Promise<{ token: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   const { token } = await params;
-  const user = await userByMcpToken(token);
+  const user = await userByMcpToken(token, request.headers.get("user-agent") ?? "");
   if (!user) return mcpUnauthorized();
   return handleMcpPost(request, user);
 }

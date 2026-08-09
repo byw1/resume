@@ -113,13 +113,12 @@ export async function claimInstance(input: {
     isActive: true,
   };
 
-  if (placeholder) {
-    return db.user.update({
-      where: { id: placeholder.id },
-      data: { ...data, mcpToken: generateMcpToken() },
-    });
-  }
-  return db.user.create({ data: { ...data, mcpToken: generateMcpToken() } });
+  const user = placeholder
+    ? await db.user.update({ where: { id: placeholder.id }, data })
+    : await db.user.create({ data });
+
+  await ensureDefaultConnection(user.id);
+  return user;
 }
 
 // ---------------------------------------------------------------------------
@@ -214,21 +213,54 @@ export async function requireSuperAdmin(): Promise<User> {
 }
 
 // ---------------------------------------------------------------------------
-// MCP tokens — one per user, so a connection URL only ever reaches that
-// person's data.
+// MCP tokens — each connection belongs to exactly one user, so a connection URL
+// only ever reaches that person's data.
 // ---------------------------------------------------------------------------
 
-export async function userByMcpToken(token: string | null | undefined): Promise<User | null> {
+/** Don't write a timestamp on every single tool call. */
+const LAST_USED_RESOLUTION_MS = 60_000;
+
+export async function userByMcpToken(
+  token: string | null | undefined,
+  userAgent = "",
+): Promise<User | null> {
   if (!token || !token.startsWith("rsm_")) return null;
-  const user = await db.user.findUnique({ where: { mcpToken: token } });
-  if (!user || !user.isActive || !user.passwordHash) return null;
+
+  const connection = await db.mcpConnection.findUnique({
+    where: { token },
+    include: { user: true },
+  });
+  if (!connection) return null;
+
+  const { user } = connection;
+  if (!user.isActive || !user.passwordHash) return null;
+
+  const now = Date.now();
+  const stale =
+    !connection.lastUsedAt || now - connection.lastUsedAt.getTime() > LAST_USED_RESOLUTION_MS;
+  if (stale) {
+    // Never let bookkeeping fail a real request.
+    void db.mcpConnection
+      .update({
+        where: { id: connection.id },
+        data: {
+          lastUsedAt: new Date(now),
+          lastUsedFrom: userAgent.slice(0, 200),
+        },
+      })
+      .catch(() => {});
+  }
+
   return user;
 }
 
-export async function rotateMcpToken(userId: string) {
-  const token = generateMcpToken();
-  await db.user.update({ where: { id: userId }, data: { mcpToken: token } });
-  return token;
+/** Every user starts with one connection so Settings is never an empty page. */
+export async function ensureDefaultConnection(userId: string) {
+  const existing = await db.mcpConnection.count({ where: { userId } });
+  if (existing > 0) return;
+  await db.mcpConnection.create({
+    data: { userId, name: "Claude", client: "claude", token: generateMcpToken() },
+  });
 }
 
 export { SESSION_COOKIE };

@@ -10,8 +10,9 @@ yourself, wired into Claude so you can just *talk* to it.
   OCS format; four other templates, live preview, real PDF export.
 - **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
   timeline, contacts, tasks, and follow-up dates that schedule themselves.
-- **Claude connection** — every person gets their own URL that turns all of the above into
-  44 tools Claude can call (55 if you're an admin).
+- **AI connections** — every person gets their own URL that turns all of the above into
+  44 tools any MCP client can call (55 if you're an admin). Claude, Claude Code, ChatGPT,
+  Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
 
@@ -92,19 +93,37 @@ to run, now or after any future update.
 
 </details>
 
-### 6. Connect Claude
+### 6. Connect your AI
 
-Go to **Settings** inside the app and hit **Copy** on your connection URL. Then in Claude:
+Open **Settings** in the app. You already have a connection waiting; hit **Set up**, pick
+whichever assistant you use, and the exact steps appear — with the config already filled in
+with your URL, ready to copy.
 
-**Settings → Connectors → Add custom connector** → name it `Resume OS` → paste the URL →
-save.
+| Client | What you paste |
+| --- | --- |
+| **Claude** (web, desktop, mobile) | The URL, under Settings → Connectors → Add custom connector |
+| **Claude Code** | `claude mcp add --transport http --scope user resume-os "<your URL>"` |
+| **ChatGPT** | The URL, as a custom connector |
+| **Cursor** | A three-line block in `~/.cursor/mcp.json` |
+| **VS Code** | One `code --add-mcp` command, or `.vscode/mcp.json` |
+| **Windsurf** | A three-line block in `~/.codeium/windsurf/mcp_config.json` |
+| **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
-That's it. Claude can now read and write your brain, your resumes, and your pipeline.
+Hit **Test** next to any connection and the app calls its own endpoint the way a client
+would, then tells you how many tools answered — 44, or 55 if you're an admin.
 
-> The connection URL contains a secret token tied to your account alone — it can't reach
-> anyone else's data. Anyone who has it can read and write *yours*, though, so don't paste
-> it anywhere public. If you ever do, hit **Rotate** on the Settings page and re-paste the
-> new URL into Claude.
+#### One connection per client
+
+**New connection** gives each assistant its own URL. That matters more than it sounds:
+
+- Your laptop dies, or you paste a URL somewhere you shouldn't — **Rotate** or
+  **Disconnect** that one client. Everything else stays connected.
+- Each row shows when it was last used and what called in, so "is it actually working?"
+  stops being a guess.
+
+> A connection URL contains a secret token tied to your account alone — it can't reach
+> anyone else's data. Anyone who has it can read and write *yours*, though, so treat it like
+> a password.
 
 ---
 
@@ -144,9 +163,10 @@ this key and send a test."*
 
 ---
 
-## What Claude can do once it's connected
+## What your AI can do once it's connected
 
-44 tools across the three areas, plus ready-made workflows that show up as slash commands.
+44 tools across the three areas, plus ready-made workflows that show up as slash commands
+or prompt shortcuts, depending on the client.
 Admins get 11 more tools and one more workflow — and members never even see those in the
 tool list, so nobody is tempted by a permission they don't have.
 
@@ -158,7 +178,7 @@ tool list, so nobody is tempted by a permission they don't have.
 | **Log what happened this week** | You ramble; it files everything to the right role, application, or note. |
 | **Invite and onboard someone** *(admin)* | Invites a person, hands you the link if email isn't set up, and drafts the message to send them. |
 
-Claude is instructed never to invent experience, employers, dates, or metrics. If there's
+Every client is instructed never to invent experience, employers, dates, or metrics. If there's
 no evidence in your brain for something a job asks for, it says so instead of making it up.
 
 ### The three areas
@@ -286,4 +306,10 @@ PostgreSQL.
 The MCP server lives in `src/lib/mcp/` and speaks the Streamable HTTP transport directly —
 no session state, so it survives restarts and replicas without reconnecting. Tools are
 defined once in `src/lib/mcp/tools.ts` and share the same data layer (`src/lib/data/`) as
-the UI, so anything Claude writes shows up in the app immediately and vice versa.
+the UI, so anything an assistant writes shows up in the app immediately and vice versa.
+
+The token lives in the URL path (`/api/mcp/<token>`) because that is the one shape every
+client can express — no headers to configure, no OAuth discovery. Clients that insist on a
+header can send `Authorization: Bearer <token>` to `/api/mcp` instead; both routes resolve
+to the same connection. Setup recipes are data, in `src/lib/mcp/clients.ts` — adding support
+for a new client is one entry in that array, no UI changes.
