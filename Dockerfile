@@ -39,7 +39,12 @@ WORKDIR /app
 # Dependencies first so a source-only change doesn't reinstall them. Every build
 # dependency lives in `dependencies` (see package.json), so a production install
 # is still a complete one.
+#
+# prisma/ has to come along here, not with the rest of the source: npm's
+# postinstall hook runs `prisma generate`, which needs the schema to exist. The
+# schema changes far less often than src/, so this costs nothing in cache hits.
 COPY package.json package-lock.json ./
+COPY prisma ./prisma
 RUN npm ci
 
 COPY . .
