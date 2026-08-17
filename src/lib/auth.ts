@@ -150,6 +150,32 @@ export async function startSession(userId: string) {
   });
 }
 
+/**
+ * A session that exists only long enough for the PDF renderer to load one page.
+ *
+ * Deliberately an ordinary Session row rather than a new kind of token: the
+ * print page keeps its `requireUser()` guard, so there is no new authentication
+ * bypass to reason about, and this inherits every check that already applies —
+ * a suspended user's ephemeral session is rejected exactly like any other.
+ * Callers must delete it when they're done; the short expiry is the backstop.
+ */
+export async function createEphemeralSession(userId: string, seconds = 120) {
+  const token = generateSessionToken();
+  await db.session.create({
+    data: {
+      token,
+      userId,
+      expiresAt: new Date(Date.now() + seconds * 1000),
+      userAgent: "resume-os-pdf-renderer",
+    },
+  });
+  return token;
+}
+
+export async function destroySession(token: string) {
+  await db.session.deleteMany({ where: { token } });
+}
+
 export async function endSession() {
   const jar = await cookies();
   const token = jar.get(SESSION_COOKIE)?.value;

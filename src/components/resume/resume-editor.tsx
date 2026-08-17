@@ -14,6 +14,7 @@ import {
   EyeOffIcon,
   MinusIcon,
   MoreVerticalIcon,
+  PrinterIcon,
   PaletteIcon,
   PlusIcon,
   StarIcon,
@@ -203,8 +204,11 @@ export function ResumeEditor({
 
           <ShareButton id={id} initialUrl={shareUrl} />
 
+          {/* Server-rendered: no print dialog, no margin settings to get wrong.
+              The print page stays one menu item away for hosts without a
+              headless browser, and the route says so if it can't render. */}
           <Button asChild variant="gradient" size="sm">
-            <a href={`/print/${id}`} target="_blank" rel="noreferrer">
+            <a href={`/api/resumes/${id}/pdf`}>
               <DownloadIcon /> PDF
             </a>
           </Button>
@@ -227,6 +231,11 @@ export function ResumeEditor({
                 }
               >
                 <CopyIcon /> Duplicate
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <a href={`/print/${id}`} target="_blank" rel="noreferrer">
+                  <PrinterIcon /> Open print view
+                </a>
               </DropdownMenuItem>
               <DropdownMenuSeparator />
               <DropdownMenuItem

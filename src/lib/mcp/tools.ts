@@ -5,8 +5,9 @@ import * as pipeline from "@/lib/data/pipeline";
 import * as users from "@/lib/data/users";
 import { getSettings, updateSettings, emailIsConfigured, maskSecret } from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
+import { renderPdf, pdfRenderingAvailable } from "@/lib/pdf";
 
 type Json = Record<string, unknown>;
 
@@ -735,6 +736,52 @@ export const tools: McpTool[] = [
           isFavorite: b(args, "isFavorite"),
         }),
       }),
+  },
+  {
+    name: "export_resume_pdf",
+    title: "Export a resume as a PDF",
+    description:
+      "Render a resume to a real PDF on the server and return a download url, plus how many pages it actually came out to. Reach for this when the user wants a FILE to attach to an email or upload to a form — use publish_resume instead when they want a link. The page count is measured from the rendered document rather than estimated, so it is the reliable way to answer 'does this fit on one page?' before they send it. The url opens in their browser, where they are already signed in; it is not a public link and nobody else can fetch it. If this instance has no headless browser the tool says so and points at the print page, which produces the same document through the browser's own print dialog.",
+    inputSchema: object({ id: str("Resume id") }, ["id"]),
+    handler: async (args, ctx) => {
+      const id = required(args, "id");
+      const resume = await resumes.getResume(ctx.userId, id);
+      if (!resume) throw new Error(`No resume with id ${id}`);
+
+      const downloadUrl = `${ctx.baseUrl}/api/resumes/${id}/pdf`;
+      if (!pdfRenderingAvailable()) {
+        return {
+          available: false,
+          printUrl: `${ctx.baseUrl}/print/${id}`,
+          message:
+            "This instance has no headless browser, so it cannot render PDFs server-side. Open the print url and use the browser's Save as PDF.",
+        };
+      }
+
+      // Render once here so the answer is "it worked, and it is N pages",
+      // not "here is a url, hope it works".
+      const token = await createEphemeralSession(ctx.userId);
+      try {
+        const { bytes, pages } = await renderPdf({
+          url: `${ctx.baseUrl}/print/${id}`,
+          sessionCookie: {
+            name: SESSION_COOKIE,
+            value: token,
+            domain: new URL(ctx.baseUrl).hostname,
+            secure: ctx.baseUrl.startsWith("https:"),
+          },
+        });
+        return {
+          available: true,
+          url: downloadUrl,
+          pages,
+          sizeKb: Math.round(bytes.length / 1024),
+          name: resume.name,
+        };
+      } finally {
+        await destroySession(token);
+      }
+    },
   },
   {
     name: "publish_resume",

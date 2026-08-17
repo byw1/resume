@@ -124,3 +124,41 @@ count, which dragged the whole data module into the browser bundle. That only ev
 accident — adding one `node:crypto` import for slug generation broke the production build
 outright. Nothing in `src/lib/data/` should be reachable from a client component.
 **Applies to:** `src/lib/resume-text.ts`, `src/components/resume/resume-editor.tsx`.
+
+## 2026-08-17 — Server-side PDF drives the print page, it doesn't replace it
+**Decision:** `/api/resumes/[id]/pdf` launches headless Chromium against this app's own
+`/print/[id]` and returns the bytes. `export_resume_pdf` does the same and reports the real
+page count. The print page is untouched and stays reachable from the editor's ⋯ menu.
+**Why:** the alternative was generating a PDF from the ResumeDoc with a PDF library, which
+would have been a *second* renderer to keep in sync with `ResumePaper` — it would drift, and
+the five templates would drift fastest. Driving the real page means there is exactly one
+renderer and the PDF cannot disagree with what the editor shows. Verified the output is
+genuinely selectable text: Chromium writes Type0/CIDFontType2 fonts, so the words are glyph
+ids, and it is the ToUnicode CMap that makes them recoverable by a human copy-pasting or an
+applicant tracking system. The test decodes through that map rather than asserting "it's a
+PDF", because a rasterised page would pass the lazy check and fail every real ATS.
+**Applies to:** `src/lib/pdf.ts`, `src/app/api/resumes/[id]/pdf/`, `/print/[id]` (leave it
+alone).
+
+## 2026-08-17 — The PDF renderer degrades instead of becoming a deploy dependency
+**Decision:** `playwright-core`, not `playwright` or `puppeteer`, plus whatever Chromium the
+host already has. No browser is downloaded at install. When there is none, the route answers
+501 with an explanation and the tool returns `available: false` and points at the print page.
+**Why:** self-hosting is supposed to be one variable and five minutes, and Railway's default
+image has no Chromium — Railway's own guidance for Playwright is a Dockerfile. Making the
+browser mandatory would have meant changing the builder for everyone to buy one-click PDF for
+one person. This way an instance without a browser behaves exactly as it did before the
+feature existed, and adding a browser later is a pure upgrade. `PDF_CHROMIUM_PATH` is
+optional and exists for unusual hosts; `DATABASE_URL` is still the only required variable.
+**Applies to:** `src/lib/pdf.ts`, `package.json`, deploy config.
+
+## 2026-08-17 — The renderer authenticates with an ordinary short-lived Session
+**Decision:** the PDF route mints a Session row expiring in 120 seconds, hands that cookie to
+the headless browser, and deletes it in a `finally`.
+**Why:** the print page must keep its `requireUser()` guard, so the renderer needs to be
+somebody. The alternatives were a signed render token or an auth exemption on `/print`, and
+both add a new way in that has to be reasoned about separately. Reusing the existing session
+mechanism means the renderer inherits every check that already applies — a suspended user's
+ephemeral session is rejected exactly like any other — and there is no new credential type in
+the system.
+**Applies to:** `createEphemeralSession`/`destroySession` in `src/lib/auth.ts`.

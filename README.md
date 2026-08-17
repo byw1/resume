@@ -12,7 +12,7 @@ yourself, wired into Claude so you can just *talk* to it.
 - **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
   timeline, contacts, tasks, and follow-up dates that schedule themselves.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  46 tools any MCP client can call (57 if you're an admin). Claude, Claude Code, ChatGPT,
+  47 tools any MCP client can call (58 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -111,7 +111,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 46, or 57 if you're an admin.
+would, then tells you how many tools answered — 47, or 58 if you're an admin.
 
 #### One connection per client
 
@@ -166,7 +166,7 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-46 tools across the three areas, plus ready-made workflows that show up as slash commands
+47 tools across the three areas, plus ready-made workflows that show up as slash commands
 or prompt shortcuts, depending on the client.
 Admins get 11 more tools and one more workflow — and members never even see those in the
 tool list, so nobody is tempted by a permission they don't have.
@@ -192,7 +192,8 @@ education, projects, skills, certifications.
 `update_resume` / `duplicate_resume` build and tailor them. `preview_resume_text` renders a
 draft and estimates page count *without* saving, so Claude can check length before
 committing. `publish_resume` turns one into a shareable link and hands back the URL;
-`unpublish_resume` destroys it.
+`unpublish_resume` destroys it. `export_resume_pdf` renders a real PDF server-side and
+reports the page count it actually came out to.
 
 **Pipeline** — applications and stages, an activity timeline, contacts, tasks,
 `list_follow_ups` for what's overdue, and `pipeline_stats` for the shape of your search.
@@ -253,16 +254,35 @@ so a URL you regret sending stays dead.
 
 ## Getting a PDF
 
-Open a resume → **PDF** → your browser's print dialog → **Save as PDF**, with margins set
-to **None**.
+Open a resume → **PDF**. The file downloads. There is no print dialog and no margin setting
+to get wrong.
 
-The page is laid out at exactly 8.5in × 11in with the Harvard template's half-inch margins,
-so what you see is what you get. The output is real selectable text, not an image, so
-applicant tracking systems can read it.
+The server renders the same page you'd have printed by hand, so what you see is what you
+get: exactly 8.5in × 11in with the Harvard template's half-inch margins. The output is real
+selectable text, not an image, so applicant tracking systems can read it.
+
+Ask Claude instead and you get the page count with it — *"export my Stripe resume"* returns
+a download link and tells you it came out to one page, which is the thing you actually
+wanted to know before sending it.
 
 No webfont is fetched: the serif stack is Tinos → Times New Roman → Liberation Serif, which
 are metrically identical, so the document renders the same on macOS, Windows and Linux with
 nothing to download.
+
+<details>
+<summary>If your host has no headless browser</summary>
+
+Server-side rendering needs a Chromium on the machine. Railway's default image doesn't ship
+one, so on a stock deploy the **PDF** button reports that and the fallback still works:
+**⋯ → Open print view**, then your browser's **Save as PDF** with margins set to **None**.
+Same document, one more step. `export_resume_pdf` says the same thing rather than failing
+silently.
+
+To get the one-click version, deploy with a Dockerfile that installs Chromium — Railway
+documents this for Playwright — or point `PDF_CHROMIUM_PATH` at a browser you've installed
+some other way.
+
+</details>
 
 ---
 
