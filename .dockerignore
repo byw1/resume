@@ -1,0 +1,11 @@
+# Anything the image builds for itself, or must never end up inside it.
+node_modules
+.next
+.git
+.env
+.env*.local
+npm-debug.log*
+.claude
+CLAUDE.local.md
+*.md
+!README.md
