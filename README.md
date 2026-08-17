@@ -278,9 +278,11 @@ one, so on a stock deploy the **PDF** button reports that and the fallback still
 Same document, one more step. `export_resume_pdf` says the same thing rather than failing
 silently.
 
-To get the one-click version, deploy with a Dockerfile that installs Chromium — Railway
-documents this for Playwright — or point `PDF_CHROMIUM_PATH` at a browser you've installed
-some other way.
+To get the one-click version the image needs a Chromium and a Times-metric serif, and then
+`PDF_CHROMIUM_PATH` pointed at the browser (or one of the usual paths, which are checked
+automatically). A Dockerfile installing `chromium`, `fonts-croscore` and `fonts-liberation`
+gets there — that part is proven — but Railway's healthcheck did not come up on the
+resulting container, so it isn't the shipped default yet.
 
 </details>
 

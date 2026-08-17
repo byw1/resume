@@ -162,3 +162,24 @@ mechanism means the renderer inherits every check that already applies — a sus
 ephemeral session is rejected exactly like any other — and there is no new credential type in
 the system.
 **Applies to:** `createEphemeralSession`/`destroySession` in `src/lib/auth.ts`.
+
+## 2026-08-17 — Docker build for server-side PDF: parked, not abandoned
+**Decision:** the repo stays on Nixpacks. The `Dockerfile` and `.dockerignore` that installed
+Chromium are reverted. `src/lib/pdf.ts` and everything around it stay exactly as they are, so
+the PDF button falls back to the print page on a stock Railway deploy.
+**Why:** two attempts, and no local Docker daemon to test against. The first failed because
+`npm ci` runs `prisma generate` in postinstall and the schema hadn't been copied yet —
+fixed. The second built fine and then failed its healthcheck: the container started, ran
+migrations, and `next start` produced no output and never listened, where the Nixpacks
+container printed its banner and was ready in under a second. That is a third unknown, and
+debugging it by pushing to a live deployment is the wrong way to spend someone's site.
+**What is already proven**, so nobody repeats it: `node:20-bookworm-slim` installs
+`chromium` (lands at `/usr/bin/chromium`), `fonts-croscore` and `fonts-liberation` cleanly in
+about 26 seconds; `COPY prisma ./prisma` must precede `npm ci`; the fonts are not optional,
+because the Harvard template asks for Tinos and would otherwise silently render in something
+else.
+**How to finish it:** build the image locally with a real Docker daemon, run it with
+DATABASE_URL and PORT set, and find out why `next start` stays silent — likely a port or
+entrypoint difference between Railway's Docker runtime and Nixpacks. It is a ten-minute job
+with a daemon and an unbounded one without.
+**Applies to:** deploy config; revisit before promising one-click PDF in the README.
