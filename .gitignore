@@ -14,3 +14,6 @@ next-env.d.ts
 tsconfig.tsbuildinfo
 prisma/dev.db
 prisma/dev.db-journal
+
+# Personal working context — CLAUDE.md is the committed, public one
+CLAUDE.local.md
