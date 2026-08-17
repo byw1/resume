@@ -1,4 +1,4 @@
-import type { ActivityType, Stage, User, UserRole } from "@prisma/client";
+import type { ActivityType, NoteKind, Stage, User, UserRole } from "@prisma/client";
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
@@ -63,6 +63,12 @@ function required(args: Json, key: string): string {
 /** Where a published resume lives. Null slug means it isn't published. */
 function publicResumeUrl(baseUrl: string, slug: string | null) {
   return slug ? `${baseUrl}/r/${slug}` : null;
+}
+
+/** Note kind, validated against the enum rather than trusted. */
+function noteKind(args: Json): NoteKind | undefined {
+  const value = s(args, "kind");
+  return value === "GUARDRAIL" || value === "NOTE" ? value : undefined;
 }
 
 /** Strip undefined keys so Prisma doesn't try to write them. */
@@ -388,26 +394,38 @@ export const tools: McpTool[] = [
     name: "create_note",
     title: "Create a note",
     description:
-      "Save a free-floating note. Use this for brain-dump material that does not belong to one specific job.",
+      "Save a free-floating note. Use this for brain-dump material that does not belong to one specific job. Set kind: GUARDRAIL to make it a standing rule instead — see the kind field.",
     inputSchema: object(
       {
         title: str("Short title"),
         body: str("The note body. Markdown welcome, no length limit."),
         tags: strArray("Tags"),
         pinned: bool("Pin to the top of the notes list"),
+        kind: {
+          type: "string",
+          enum: ["NOTE", "GUARDRAIL"],
+          description:
+            "GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
+        },
       },
       ["title"],
     ),
     handler: async (args, ctx) =>
       brain.createNote(ctx.userId, {
         title: required(args, "title"),
-        ...defined({ body: s(args, "body"), tags: a(args, "tags"), pinned: b(args, "pinned") }),
+        ...defined({
+          body: s(args, "body"),
+          tags: a(args, "tags"),
+          pinned: b(args, "pinned"),
+          kind: noteKind(args),
+        }),
       }),
   },
   {
     name: "update_note",
     title: "Update a note",
-    description: "Edit an existing note. Passing `body` replaces the whole body.",
+    description:
+      "Edit an existing note. Passing `body` replaces the whole body. Promote a note to a standing rule, or demote one, with `kind`.",
     inputSchema: object(
       {
         id: str("Note id"),
@@ -415,6 +433,12 @@ export const tools: McpTool[] = [
         body: str("New body (replaces existing)"),
         tags: strArray("New tags"),
         pinned: bool("Pinned state"),
+        kind: {
+          type: "string",
+          enum: ["NOTE", "GUARDRAIL"],
+          description:
+            "GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
+        },
       },
       ["id"],
     ),
@@ -426,6 +450,7 @@ export const tools: McpTool[] = [
           body: s(args, "body"),
           tags: a(args, "tags"),
           pinned: b(args, "pinned"),
+          kind: noteKind(args),
         }),
       ),
   },
@@ -529,6 +554,86 @@ export const tools: McpTool[] = [
             name: required(args, "name"),
             ...defined({ issuer: s(args, "issuer"), date: s(args, "date"), url: s(args, "url") }),
           });
+        default:
+          throw new Error("kind must be education | projects | skills | certifications");
+      }
+    },
+  },
+  {
+    name: "update_extra",
+    title: "Update an education / project / skill group / certification",
+    description:
+      "Change fields on an item in one of the supporting collections. Reach for this instead of deleting and re-creating — that would hand the item a new id and break anything referring to it. Only the fields you pass are changed; everything you leave out keeps its current value, so you do not need to read the item first. Fields not relevant to `kind` are ignored.",
+    inputSchema: object(
+      {
+        kind: {
+          type: "string",
+          enum: ["education", "projects", "skills", "certifications"],
+          description: "Which collection the item is in",
+        },
+        id: str("Id of the item to change"),
+        school: str("[education] School name"),
+        degree: str("[education] e.g. 'B.S.'"),
+        field: str("[education] e.g. 'Computer Science'"),
+        gpa: str("[education] GPA"),
+        details: str("[education] Honours, coursework, activities"),
+        name: str("[projects] project name · [skills] group name · [certifications] cert name"),
+        role: str("[projects] Your role on the project"),
+        url: str("[projects | certifications] Link"),
+        description: str("[projects] One-line description"),
+        brainDump: str("[projects] Long-form raw detail about the project"),
+        skills: strArray("[skills] REPLACES the whole list, e.g. ['Python','Go','Rust']"),
+        issuer: str("[certifications] Issuing body"),
+        date: str("[certifications] Date earned"),
+        location: str("[education] Location"),
+        startDate: str("[education | projects] YYYY-MM"),
+        endDate: str("[education | projects] YYYY-MM"),
+        tags: strArray("[projects] REPLACES the whole list"),
+      },
+      ["kind", "id"],
+    ),
+    handler: async (args, ctx) => {
+      const id = required(args, "id");
+      switch (required(args, "kind")) {
+        case "education":
+          return brain.updateEducation(ctx.userId, id, 
+            defined({
+              school: s(args, "school"),
+              degree: s(args, "degree"),
+              field: s(args, "field"),
+              location: s(args, "location"),
+              startDate: s(args, "startDate"),
+              endDate: s(args, "endDate"),
+              gpa: s(args, "gpa"),
+              details: s(args, "details"),
+            }),
+          );
+        case "projects":
+          return brain.updateProject(ctx.userId, id, 
+            defined({
+              name: s(args, "name"),
+              role: s(args, "role"),
+              url: s(args, "url"),
+              description: s(args, "description"),
+              brainDump: s(args, "brainDump"),
+              tags: a(args, "tags"),
+              startDate: s(args, "startDate"),
+              endDate: s(args, "endDate"),
+            }),
+          );
+        case "skills":
+          return brain.updateSkillGroup(ctx.userId, id, 
+            defined({ name: s(args, "name"), skills: a(args, "skills") }),
+          );
+        case "certifications":
+          return brain.updateCertification(ctx.userId, id, 
+            defined({
+              name: s(args, "name"),
+              issuer: s(args, "issuer"),
+              date: s(args, "date"),
+              url: s(args, "url"),
+            }),
+          );
         default:
           throw new Error("kind must be education | projects | skills | certifications");
       }
@@ -1318,11 +1423,6 @@ export const tools: McpTool[] = [
 ];
 
 /** Members never even see the admin tools in tools/list. */
-export function toolsFor(user: { role: UserRole }): McpTool[] {
-  return isAdmin(user) ? tools : tools.filter((tool) => !tool.adminOnly);
-}
-
-export const toolsByName = new Map(tools.map((tool) => [tool.name, tool]));
 
 // ---------------------------------------------------------------------------
 // Prompts — these surface in Claude as ready-made workflows
@@ -1446,3 +1546,57 @@ export const promptsByName = new Map(prompts.map((prompt) => [prompt.name, promp
 export function promptsFor(user: { role: UserRole }): McpPrompt[] {
   return isAdmin(user) ? prompts : prompts.filter((prompt) => !prompt.adminOnly);
 }
+
+// ---------------------------------------------------------------------------
+// The workflows, again, as tools
+// ---------------------------------------------------------------------------
+
+/**
+ * MCP prompts are a client-optional surface. Tools are not.
+ *
+ * The five workflows above are the most considered design in this file —
+ * tailor_resume alone encodes the whole seven-step loop including "do not
+ * invent anything" — and in a client that doesn't render prompts they are
+ * simply unreachable. That fails this project's own rule: a feature isn't done
+ * until it's callable from a conversation.
+ *
+ * So every prompt is also published as a tool. Calling one returns the same
+ * instruction text `prompts/get` would have returned, which the model then
+ * follows. This is a wrapper, not a copy — the text lives in exactly one place,
+ * so the two surfaces cannot drift.
+ */
+function promptAsTool(prompt: McpPrompt): McpTool {
+  const properties: Json = {};
+  for (const argument of prompt.arguments) {
+    properties[argument.name] = str(argument.description);
+  }
+  const requiredArgs = prompt.arguments.filter((a) => a.required).map((a) => a.name);
+
+  return {
+    name: prompt.name,
+    title: prompt.title,
+    description:
+      `${prompt.description} Returns a step-by-step plan for this job — follow the steps it gives you, ` +
+      `calling the tools it names. This is a workflow, not a data lookup: nothing is read or written until you act on it.`,
+    inputSchema: object(properties, requiredArgs),
+    adminOnly: prompt.adminOnly,
+    handler: async (args) => {
+      const stringArgs: Record<string, string> = {};
+      for (const argument of prompt.arguments) {
+        const value = s(args, argument.name);
+        if (value !== undefined) stringArgs[argument.name] = value;
+        else if (argument.required) throw new Error(`Missing required string argument "${argument.name}"`);
+      }
+      return prompt.build(stringArgs);
+    },
+  };
+}
+
+/** The data tools plus the workflow tools. Order matters only for display. */
+export const allTools: McpTool[] = [...tools, ...prompts.map(promptAsTool)];
+
+export function toolsFor(user: { role: UserRole }): McpTool[] {
+  return isAdmin(user) ? allTools : allTools.filter((tool) => !tool.adminOnly);
+}
+
+export const toolsByName = new Map(allTools.map((tool) => [tool.name, tool]));

@@ -88,7 +88,11 @@ export async function updateResume(
   // A patch of nothing-we-recognise leaves Prisma with no columns to write, and
   // updateMany then reports zero rows — which would raise "no such resume" for a
   // resume that plainly exists. Check ownership directly instead.
-  if (Object.keys(data).length === 0) return db.resume.findFirstOrThrow({ where: { id, userId } });
+  if (Object.keys(data).length === 0) {
+    const current = await db.resume.findFirst({ where: { id, userId } });
+    if (!current) throw new Error(`No resume with id ${id}`);
+    return current;
+  }
   const { count } = await db.resume.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No resume with id ${id}`);
   return db.resume.findFirstOrThrow({ where: { id, userId } });
@@ -127,6 +131,23 @@ export async function duplicateResume(userId: string, id: string, name?: string)
  * bullets. This is what "New resume from my brain" and the MCP
  * `create_resume(seed_from_brain: true)` call use.
  */
+
+/**
+ * A highlight's printable bullet.
+ *
+ * `impact` is a separate structured field, but a polished highlight almost
+ * always already states its own number — people write "Cut p95 latency 40%" in
+ * `text` and then fill `impact` with the same thing. Appending unconditionally
+ * printed it twice, which made most seeded bullets unusable on first run. So
+ * append only when it genuinely adds something.
+ */
+function bulletFor(text: string, impact: string) {
+  const trimmed = impact.trim();
+  if (!trimmed) return text;
+  const flatten = (value: string) => value.toLowerCase().replace(/[^a-z0-9]+/g, "");
+  return flatten(text).includes(flatten(trimmed)) ? text : `${text} — ${trimmed}`;
+}
+
 export async function buildDocFromBrain(userId: string): Promise<ResumeDoc> {
   const { profile, roles, highlights, education, projects, skillGroups, certifications } =
     await getBrainSnapshot(userId);
@@ -167,7 +188,7 @@ export async function buildDocFromBrain(userId: string): Promise<ResumeDoc> {
     bullets: highlights
       .filter((h) => h.roleId === role.id)
       .slice(0, 6)
-      .map((h) => (h.impact ? `${h.text} — ${h.impact}` : h.text)),
+      .map((h) => bulletFor(h.text, h.impact)),
   }));
   doc.sections.push(experience);
 

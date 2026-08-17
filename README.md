@@ -12,7 +12,7 @@ yourself, wired into Claude so you can just *talk* to it.
 - **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
   timeline, contacts, tasks, and follow-up dates that schedule themselves.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  47 tools any MCP client can call (58 if you're an admin). Claude, Claude Code, ChatGPT,
+  52 tools any MCP client can call (64 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -111,7 +111,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 47, or 58 if you're an admin.
+would, then tells you how many tools answered — 52, or 64 if you're an admin.
 
 #### One connection per client
 
@@ -166,10 +166,11 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-47 tools across the three areas, plus ready-made workflows that show up as slash commands
-or prompt shortcuts, depending on the client.
-Admins get 11 more tools and one more workflow — and members never even see those in the
-tool list, so nobody is tempted by a permission they don't have.
+52 tools across the three areas. The five workflows below are among them: they're published
+as tools as well as prompts, because prompt support is optional in MCP clients and tool
+support isn't. Call one and it hands back a step-by-step plan that it then follows.
+Admins get 12 more tools — and members never even see those in the tool list, so nobody is
+tempted by a permission they don't have.
 
 | Workflow | What it does |
 | --- | --- |
@@ -185,8 +186,9 @@ no evidence in your brain for something a job asks for, it says so instead of ma
 ### The three areas
 
 **Brain** — `search_brain`, `get_brain_snapshot`, roles with unlimited brain dumps
-(`append_role_brain_dump` adds without overwriting), reusable highlights, free-form notes,
-education, projects, skills, certifications.
+(`append_role_brain_dump` adds without overwriting), reusable highlights, notes and standing
+rules, plus education, projects, skills and certifications, which
+`create_extra` / `update_extra` / `delete_extra` maintain.
 
 **Resumes** — `get_resume_format` describes the document shape, then `create_resume` /
 `update_resume` / `duplicate_resume` build and tailor them. `preview_resume_text` renders a

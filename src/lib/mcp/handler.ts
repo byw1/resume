@@ -1,5 +1,6 @@
 import type { User } from "@prisma/client";
 import { promptsFor, promptsByName, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
+import { listGuardrails } from "@/lib/data/brain";
 import { isAdmin } from "@/lib/auth";
 
 /**
@@ -21,8 +22,8 @@ const SERVER_INFO = {
   version: "2.0.0",
 };
 
-function instructionsFor(user: User) {
-  return `Resume OS is ${user.name || user.email}'s career knowledge base, resume builder and
+async function instructionsFor(user: User) {
+  const base = `Resume OS is ${user.name || user.email}'s career knowledge base, resume builder and
 job-search CRM. You are connected as them; every tool reads and writes only their data.
 
 Three areas:
@@ -51,6 +52,61 @@ Rules of thumb:
 - A published resume is readable by anyone holding its link, and unpublish_resume destroys that
   link rather than pausing it. Say which resume you are about to publish, and warn before
   withdrawing a link that may already be out in the world.`;
+
+  return `${base}${await standingRulesFor(user.id)}`;
+}
+
+/**
+ * The user's own rules, appended to the briefing every client receives.
+ *
+ * This exists because "never invent experience, employers, dates or metrics"
+ * does not catch the failure that actually happens. Tailoring to a job req
+ * quietly *upgrades* facts — a distribution credit becomes a hire, an unsettled
+ * follower count becomes a cited one — and none of it feels like invention to
+ * whoever is drafting, because every upgrade maps to a stated responsibility.
+ *
+ * Guardrails are Note rows, so they could in principle be found with
+ * search_brain. In practice nobody searches "follower count" before writing a
+ * scope bullet, so a rule that has to be looked up is a rule that is absent at
+ * the moment it matters. `initialize` runs once per session in every client,
+ * before any tool call — it is the only place a constraint is guaranteed to be
+ * in context.
+ */
+const STANDING_RULES_BUDGET = 4096;
+
+async function standingRulesFor(userId: string) {
+  const guardrails = await listGuardrails(userId).catch(() => []);
+  if (guardrails.length === 0) return "";
+
+  const header = `
+
+THIS PERSON'S STANDING RULES — these override any inference you would otherwise make.
+They are not preferences. Breaking one produces a document that reads as true and is not.
+`;
+
+  const lines: string[] = [];
+  let used = 0;
+  let dropped = 0;
+  for (const rule of guardrails) {
+    const line = `\n• ${rule.title}${rule.body.trim() ? ` — ${rule.body.trim()}` : ""}`;
+    if (used + line.length > STANDING_RULES_BUDGET) {
+      dropped += 1;
+      continue;
+    }
+    lines.push(line);
+    used += line.length;
+  }
+
+  if (dropped > 0) {
+    // Silently truncating someone's guardrails is the worst possible failure
+    // here, so it is at least visible in the server log.
+    console.warn(
+      `[mcp] standing rules truncated for user ${userId}: ${dropped} of ${guardrails.length} omitted past ${STANDING_RULES_BUDGET} chars`,
+    );
+    lines.push(`\n• (${dropped} further rules omitted — trim them in the app, they are not being sent.)`);
+  }
+
+  return header + lines.join("");
 }
 
 type JsonRpcId = string | number | null;
@@ -109,7 +165,7 @@ async function handleMessage(
           prompts: { listChanged: false },
         },
         serverInfo: SERVER_INFO,
-        instructions: instructionsFor(ctx.user),
+        instructions: await instructionsFor(ctx.user),
       });
     }
 

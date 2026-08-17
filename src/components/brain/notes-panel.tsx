@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { PinIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import { PinIcon, PlusIcon, ShieldIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -20,7 +20,14 @@ import {
 } from "@/server/actions";
 import { StickyNoteIcon } from "lucide-react";
 
-type Note = { id: string; title: string; body: string; tags: string[]; pinned: boolean };
+type Note = {
+  id: string;
+  title: string;
+  body: string;
+  tags: string[];
+  pinned: boolean;
+  kind: "NOTE" | "GUARDRAIL";
+};
 
 export function NotesPanel({ notes }: { notes: Note[] }) {
   const [pending, startTransition] = useTransition();
@@ -76,10 +83,14 @@ export function NotesPanel({ notes }: { notes: Note[] }) {
 }
 
 function NoteCard({ note, onRemoved }: { note: Note; onRemoved: () => void }) {
-  const [values, setValues] = useState({ title: note.title, body: note.body, pinned: note.pinned });
-  const { state, push } = useAutosave<{ title: string; body: string; pinned: boolean }>((next) =>
-    updateNoteAction(note.id, next),
-  );
+  const [values, setValues] = useState({
+    title: note.title,
+    body: note.body,
+    pinned: note.pinned,
+    kind: note.kind,
+  });
+  const { state, push } = useAutosave<typeof values>((next) => updateNoteAction(note.id, next));
+  const isRule = values.kind === "GUARDRAIL";
 
   const set = (patch: Partial<typeof values>) => {
     const next = { ...values, ...patch };
@@ -89,8 +100,14 @@ function NoteCard({ note, onRemoved }: { note: Note; onRemoved: () => void }) {
 
   return (
     <motion.div layout exit={{ opacity: 0, scale: 0.96 }} transition={{ duration: 0.2 }}>
-      <Card className="group">
+      <Card className={cn("group", isRule && "border-primary/40")}>
         <CardContent className="space-y-2 pt-5">
+          {isRule && (
+            <div className="text-primary flex items-center gap-1.5 text-[11px] font-medium">
+              <ShieldIcon className="size-3" />
+              Sent to every AI on connect
+            </div>
+          )}
           <div className="flex items-start gap-1">
             <Input
               value={values.title}
@@ -98,6 +115,23 @@ function NoteCard({ note, onRemoved }: { note: Note; onRemoved: () => void }) {
               className="h-auto border-0 bg-transparent px-0 py-0 text-[15px] font-semibold shadow-none focus-visible:ring-0"
               placeholder="Note title"
             />
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className={cn(
+                "shrink-0 opacity-0 transition-opacity group-hover:opacity-100",
+                isRule && "text-primary opacity-100",
+              )}
+              onClick={() => set({ kind: isRule ? "NOTE" : "GUARDRAIL" })}
+              title={
+                isRule
+                  ? "A standing rule. Every AI client is given this before it does anything."
+                  : "Make this a standing rule, given to every AI client on connect"
+              }
+              aria-label={isRule ? "Stop sending this as a standing rule" : "Make this a standing rule"}
+            >
+              <ShieldIcon />
+            </Button>
             <Button
               variant="ghost"
               size="icon-sm"

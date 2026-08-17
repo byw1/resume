@@ -256,18 +256,29 @@ model Certification {
 
 /// Free-floating brain dump not tied to a role: stories, STAR answers,
 /// interview prep, references, compensation history, anything.
+/// What a note is for. A GUARDRAIL is not filed away to be found later — it is
+/// prepended to the briefing every connected client receives on connect, so it
+/// is in context before the first tool call rather than only when a search
+/// happens to hit its words.
+enum NoteKind {
+  NOTE
+  GUARDRAIL
+}
+
 model Note {
   id        String   @id @default(cuid())
   userId    String
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   title     String
   body      String   @default("")
+  kind      NoteKind @default(NOTE)
   tags      String[] @default([])
   pinned    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@index([userId])
+  @@index([userId, kind])
 }
 
 // ---------------------------------------------------------------------------

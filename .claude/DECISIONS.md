@@ -183,3 +183,54 @@ DATABASE_URL and PORT set, and find out why `next start` stays silent — likely
 entrypoint difference between Railway's Docker runtime and Nixpacks. It is a ten-minute job
 with a daemon and an unbounded one without.
 **Applies to:** deploy config; revisit before promising one-click PDF in the README.
+
+## 2026-08-17 — Every prompt is also a tool
+**Decision:** the five workflows are published in `tools/list` as well as `prompts/list`, via
+one `promptAsTool` wrapper over the existing `prompts` array. `prompts/list` and `prompts/get`
+are unchanged.
+**Why:** MCP prompts are a client-optional surface and tools are not. A full working session
+against the live instance ran start to finish without a single prompt being reachable —
+`tailor_resume`, which encodes the whole seven-step loop including "do not invent anything",
+simply did not exist as far as that client was concerned. That fails this project's own rule:
+a feature isn't done until it's callable from a conversation. It is a wrapper rather than a
+copy on purpose — the instruction text has exactly one home, and a test asserts the tool and
+the prompt return byte-identical strings so the two surfaces cannot drift. `adminOnly` rides
+along, so `onboard_teammate` stays hidden from members in both places.
+**Applies to:** `promptAsTool` and `allTools` in `src/lib/mcp/tools.ts`.
+
+## 2026-08-17 — Standing rules go in the briefing, not in search
+**Decision:** `Note.kind` (`NOTE | GUARDRAIL`), and `instructionsFor` is now async and appends
+every guardrail under a "THIS PERSON'S STANDING RULES" heading, capped at 4KB with a warning
+logged if anything is dropped.
+**Why:** "never invent experience, employers, dates or metrics" does not catch the failure that
+actually happens. Tailoring to a posting quietly *upgrades* facts — a distribution credit
+becomes a hire, an unsettled follower count becomes a cited one — and none of it reads as
+invention to whoever is drafting, because every upgrade maps to a stated responsibility. Those
+rules were already in the system as notes, and notes are only found if a search happens to hit
+their words; nobody searches "follower count" before writing a scope bullet. `initialize` runs
+once per session in every client before any tool call, which makes it the only place a
+constraint is guaranteed to be in context. Truncation is logged rather than silent because
+quietly dropping someone's guardrails is the worst thing this code could do.
+**Applies to:** `standingRulesFor` in `src/lib/mcp/handler.ts`, `listGuardrails` in
+`src/lib/data/brain.ts`, the shield toggle in `src/components/brain/notes-panel.tsx`.
+
+## 2026-08-17 — Seeding: append impact only when it adds something
+**Decision:** `buildDocFromBrain` runs each highlight through `bulletFor(text, impact)`, which
+appends the impact only when the text doesn't already contain it (compared with punctuation
+and case stripped).
+**Why:** it appended unconditionally, and a polished highlight almost always states its own
+number — people write "Cut infrastructure spend 38%" in `text` and then fill `impact` with the
+same thing, so the bullet printed the figure twice. Six of eight bullets came out unusable on a
+real first run, and seeding is the first thing a new user touches. Dropping `impact` from the
+render entirely would have been simpler but loses the case where the text is terse and the
+impact genuinely adds the number, so the check is a containment test rather than a deletion.
+**Applies to:** `bulletFor` in `src/lib/data/resumes.ts`.
+
+## 2026-08-17 — A narrowed-to-nothing patch must still report missing records properly
+**Decision:** the empty-patch guards added with `pick()` go through `existingOrThrow`, which
+throws `No <thing> with id <id>` instead of falling into `findFirstOrThrow`.
+**Why:** found while testing `update_extra` — calling it with an unknown id and no fields
+returned a raw Prisma stack trace to the caller instead of the legible error every other path
+produces. Same information, wrong audience.
+**Applies to:** `existingOrThrow` in `src/lib/data/brain.ts`, and the matching branch in
+`updateResume`.

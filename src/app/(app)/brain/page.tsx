@@ -88,6 +88,7 @@ export default async function BrainPage() {
                 body: note.body,
                 tags: note.tags,
                 pinned: note.pinned,
+                kind: note.kind,
               }))}
             />
           </FadeIn>

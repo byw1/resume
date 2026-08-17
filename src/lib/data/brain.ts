@@ -1,3 +1,4 @@
+import type { NoteKind } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 
@@ -11,6 +12,22 @@ import { pick } from "@/lib/data/patch";
 // ---------------------------------------------------------------------------
 // Profile
 // ---------------------------------------------------------------------------
+
+/**
+ * A patch that narrows to nothing still has to say whether the record exists —
+ * and say it the same way the write path does, rather than surfacing a Prisma
+ * stack trace to whoever called the tool.
+ */
+async function existingOrThrow<T>(
+  model: { findFirst: (args: { where: { id: string; userId: string } }) => Promise<T | null> },
+  id: string,
+  userId: string,
+  label: string,
+): Promise<T> {
+  const found = await model.findFirst({ where: { id, userId } });
+  if (!found) throw new Error(`No ${label} with id ${id}`);
+  return found;
+}
 
 export async function getProfile(userId: string) {
   const existing = await db.profile.findUnique({ where: { userId } });
@@ -101,7 +118,7 @@ const ROLE_COLUMNS = [
 
 export async function updateRole(userId: string, id: string, patch: Partial<RoleInput>) {
   const data = pick(patch, ROLE_COLUMNS);
-  if (Object.keys(data).length === 0) return db.role.findFirstOrThrow({ where: { id, userId } });
+  if (Object.keys(data).length === 0) return existingOrThrow(db.role, id, userId, "role");
   const { count } = await db.role.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No role with id ${id}`);
   return db.role.findFirstOrThrow({ where: { id, userId } });
@@ -187,7 +204,7 @@ export async function updateHighlight(
   }
   const data = pick(patch, HIGHLIGHT_COLUMNS) as Record<string, unknown>;
   if (typeof patch.strength === "number") data.strength = clamp(patch.strength, 1, 5);
-  if (Object.keys(data).length === 0) return db.highlight.findFirstOrThrow({ where: { id, userId } });
+  if (Object.keys(data).length === 0) return existingOrThrow(db.highlight, id, userId, "highlight");
   const { count } = await db.highlight.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No highlight with id ${id}`);
   return db.highlight.findFirstOrThrow({ where: { id, userId } });
@@ -204,12 +221,30 @@ export async function deleteHighlight(userId: string, id: string) {
 // ---------------------------------------------------------------------------
 
 export async function listNotes(userId: string) {
-  return db.note.findMany({ where: { userId }, orderBy: [{ pinned: "desc" }, { updatedAt: "desc" }] });
+  return db.note.findMany({
+    where: { userId },
+    orderBy: [{ kind: "asc" }, { pinned: "desc" }, { updatedAt: "desc" }],
+  });
+}
+
+/**
+ * The user's standing rules, for the briefing every client gets on connect.
+ *
+ * Kept deliberately small and ordered oldest-first so the briefing is stable
+ * between sessions — a rule that moves around in the text reads as a different
+ * rule. Capping happens at the call site, which knows the budget.
+ */
+export async function listGuardrails(userId: string) {
+  return db.note.findMany({
+    where: { userId, kind: "GUARDRAIL" },
+    orderBy: { createdAt: "asc" },
+    select: { id: true, title: true, body: true },
+  });
 }
 
 export async function createNote(
   userId: string,
-  input: { title: string; body?: string; tags?: string[]; pinned?: boolean },
+  input: { title: string; body?: string; tags?: string[]; pinned?: boolean; kind?: NoteKind },
 ) {
   return db.note.create({
     data: {
@@ -218,6 +253,7 @@ export async function createNote(
       body: input.body ?? "",
       tags: input.tags ?? [],
       pinned: input.pinned ?? false,
+      kind: input.kind ?? "NOTE",
     },
   });
 }
@@ -225,10 +261,10 @@ export async function createNote(
 export async function updateNote(
   userId: string,
   id: string,
-  patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean }>,
+  patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean; kind: NoteKind }>,
 ) {
-  const data = pick(patch, ["title", "body", "tags", "pinned"] as const);
-  if (Object.keys(data).length === 0) return db.note.findFirstOrThrow({ where: { id, userId } });
+  const data = pick(patch, ["title", "body", "tags", "pinned", "kind"] as const);
+  if (Object.keys(data).length === 0) return existingOrThrow(db.note, id, userId, "note");
   const { count } = await db.note.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No note with id ${id}`);
   return db.note.findFirstOrThrow({ where: { id, userId } });
@@ -280,7 +316,7 @@ export async function updateEducation(userId: string, id: string, patch: Educati
   const data = pick(patch, [
     "school", "degree", "field", "location", "startDate", "endDate", "gpa", "details",
   ] as const);
-  if (Object.keys(data).length === 0) return db.education.findFirstOrThrow({ where: { id, userId } });
+  if (Object.keys(data).length === 0) return existingOrThrow(db.education, id, userId, "education entry");
   const { count } = await db.education.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No education entry with id ${id}`);
   return db.education.findFirstOrThrow({ where: { id, userId } });
@@ -330,7 +366,7 @@ export async function updateProject(userId: string, id: string, patch: ProjectPa
   const data = pick(patch, [
     "name", "role", "url", "description", "brainDump", "tags", "startDate", "endDate",
   ] as const);
-  if (Object.keys(data).length === 0) return db.project.findFirstOrThrow({ where: { id, userId } });
+  if (Object.keys(data).length === 0) return existingOrThrow(db.project, id, userId, "project");
   const { count } = await db.project.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No project with id ${id}`);
   return db.project.findFirstOrThrow({ where: { id, userId } });
@@ -359,7 +395,7 @@ export async function updateSkillGroup(
   patch: { name?: string; skills?: string[] },
 ) {
   const data = pick(patch, ["name", "skills"] as const);
-  if (Object.keys(data).length === 0) return db.skillGroup.findFirstOrThrow({ where: { id, userId } });
+  if (Object.keys(data).length === 0) return existingOrThrow(db.skillGroup, id, userId, "skill group");
   const { count } = await db.skillGroup.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No skill group with id ${id}`);
   return db.skillGroup.findFirstOrThrow({ where: { id, userId } });
@@ -381,6 +417,21 @@ export async function createCertification(
 ) {
   const count = await db.certification.count({ where: { userId } });
   return db.certification.create({ data: { ...input, userId, sortOrder: count } });
+}
+
+export type CertificationPatch = Partial<{
+  name: string;
+  issuer: string;
+  date: string;
+  url: string;
+}>;
+
+export async function updateCertification(userId: string, id: string, patch: CertificationPatch) {
+  const data = pick(patch, ["name", "issuer", "date", "url"] as const);
+  if (Object.keys(data).length === 0) return existingOrThrow(db.certification, id, userId, "certification");
+  const { count } = await db.certification.updateMany({ where: { id, userId }, data });
+  if (count === 0) throw new Error(`No certification with id ${id}`);
+  return db.certification.findFirstOrThrow({ where: { id, userId } });
 }
 
 export async function deleteCertification(userId: string, id: string) {

@@ -3,7 +3,7 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import type { ActivityType, Stage, UserRole } from "@prisma/client";
+import type { ActivityType, NoteKind, Stage, UserRole } from "@prisma/client";
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
@@ -358,7 +358,7 @@ export async function createNoteAction(input: { title: string; body?: string; ta
 
 export async function updateNoteAction(
   id: string,
-  patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean }>,
+  patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean; kind: NoteKind }>,
 ) {
   const user = await requireUser();
   await brain.updateNote(user.id, id, patch);
