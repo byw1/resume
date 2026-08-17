@@ -1,4 +1,6 @@
+import { randomBytes } from "node:crypto";
 import { db } from "@/lib/db";
+import { pick } from "@/lib/data/patch";
 import {
   blankSection,
   emptyResumeDoc,
@@ -7,6 +9,10 @@ import {
   type ResumeDoc,
 } from "@/lib/resume-schema";
 import { getBrainSnapshot } from "@/lib/data/brain";
+
+// Rendering helpers live in resume-text.ts (client-safe); re-exported so server
+// callers can keep reaching them through this module.
+export { resumeToText, estimateLines } from "@/lib/resume-text";
 
 export type ResumeMeta = Partial<{
   name: string;
@@ -64,13 +70,25 @@ export async function createResume(
   });
 }
 
+const RESUME_COLUMNS = [
+  "name", "targetRole", "targetCompany", "template", "accent", "fontFamily",
+  "fontSize", "lineHeight", "pageMargin", "notes", "isFavorite",
+] as const;
+
 export async function updateResume(
   userId: string,
   id: string,
   patch: ResumeMeta & { data?: unknown },
 ) {
-  const data: Record<string, unknown> = { ...patch };
+  // slug / visibility / publishedAt are deliberately absent: publishing goes
+  // through publishResume, which allocates an unguessable slug and keeps the
+  // promise that a withdrawn address stays dead.
+  const data: Record<string, unknown> = pick(patch, RESUME_COLUMNS);
   if (patch.data !== undefined) data.data = parseResumeDoc(patch.data) as unknown as object;
+  // A patch of nothing-we-recognise leaves Prisma with no columns to write, and
+  // updateMany then reports zero rows — which would raise "no such resume" for a
+  // resume that plainly exists. Check ownership directly instead.
+  if (Object.keys(data).length === 0) return db.resume.findFirstOrThrow({ where: { id, userId } });
   const { count } = await db.resume.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No resume with id ${id}`);
   return db.resume.findFirstOrThrow({ where: { id, userId } });
@@ -203,88 +221,115 @@ export async function buildDocFromBrain(userId: string): Promise<ResumeDoc> {
 }
 
 /** Flat plain-text rendering — handy for Claude to review its own output. */
-export function resumeToText(doc: ResumeDoc) {
-  const lines: string[] = [];
-  const { header } = doc;
-  if (header.name) lines.push(header.name);
-  if (header.title) lines.push(header.title);
-  const contact = [header.email, header.phone, header.location, ...header.links.map((l) => l.url)]
-    .filter(Boolean)
-    .join(" | ");
-  if (contact) lines.push(contact);
+// ---------------------------------------------------------------------------
+// Publishing — a resume gets a URL you can paste into an application form
+// ---------------------------------------------------------------------------
 
-  for (const section of doc.sections) {
-    if (!section.visible) continue;
-    const body: string[] = [];
-    if (section.kind === "summary" && section.text) body.push(section.text);
-    if (section.kind === "experience") {
-      for (const item of section.experience) {
-        body.push(
-          `${item.title} — ${item.company}${item.location ? `, ${item.location}` : ""} (${item.startDate} – ${item.isCurrent ? "Present" : item.endDate})`,
-        );
-        if (item.summary) body.push(`  ${item.summary}`);
-        for (const b of item.bullets.filter(Boolean)) body.push(`  • ${b}`);
-      }
-    }
-    if (section.kind === "education") {
-      for (const item of section.education) {
-        body.push(
-          `${item.degree}${item.field ? ` in ${item.field}` : ""} — ${item.school} (${item.startDate} – ${item.endDate})`,
-        );
-        for (const d of item.details.filter(Boolean)) body.push(`  • ${d}`);
-      }
-    }
-    if (section.kind === "projects") {
-      for (const item of section.projects) {
-        body.push(`${item.name}${item.role ? ` — ${item.role}` : ""}${item.url ? ` (${item.url})` : ""}`);
-        if (item.description) body.push(`  ${item.description}`);
-        for (const b of item.bullets.filter(Boolean)) body.push(`  • ${b}`);
-      }
-    }
-    if (section.kind === "skills") {
-      for (const g of section.skills) body.push(`${g.name}: ${g.skills.join(", ")}`);
-    }
-    if (section.kind === "certifications") {
-      for (const c of section.certifications)
-        body.push([c.name, c.issuer, c.date].filter(Boolean).join(" — "));
-    }
-    if (section.kind === "custom") {
-      for (const item of section.items) {
-        body.push([item.title, item.subtitle, item.meta].filter(Boolean).join(" — "));
-        for (const b of item.bullets.filter(Boolean)) body.push(`  • ${b}`);
-      }
-    }
-    if (body.length) {
-      lines.push("", section.heading.toUpperCase(), ...body);
-    }
-  }
-  return lines.join("\n");
+/**
+ * Slugs are the entire privacy model for an unlisted resume, so the random part
+ * carries the weight: 12 base32 characters is ~60 bits, which is not guessable
+ * and not enumerable. The readable stem is there so the link doesn't look like
+ * spam when you paste it — it only ever contains the resume's own name, which
+ * whoever you send it to is about to read anyway.
+ */
+const SLUG_ALPHABET = "abcdefghijkmnpqrstuvwxyz23456789"; // no look-alikes
+
+function randomSuffix(bytes = 12) {
+  const buffer = randomBytes(bytes);
+  let out = "";
+  for (const byte of buffer) out += SLUG_ALPHABET[byte % SLUG_ALPHABET.length];
+  return out;
 }
 
-/** Rough one-page pressure gauge shown in the editor. */
-export function estimateLines(doc: ResumeDoc) {
-  let lines = 5; // header
-  for (const section of doc.sections) {
-    if (!section.visible) continue;
-    lines += 2;
-    if (section.kind === "summary") lines += Math.ceil(section.text.length / 110);
-    if (section.kind === "experience")
-      for (const item of section.experience) {
-        lines += 2;
-        lines += Math.ceil(item.summary.length / 110);
-        for (const b of item.bullets.filter(Boolean)) lines += Math.ceil(b.length / 105);
-      }
-    if (section.kind === "education") lines += section.education.length * 2;
-    if (section.kind === "projects")
-      for (const item of section.projects) {
-        lines += 1 + Math.ceil(item.description.length / 110);
-        for (const b of item.bullets.filter(Boolean)) lines += Math.ceil(b.length / 105);
-      }
-    if (section.kind === "skills")
-      for (const g of section.skills) lines += Math.ceil(g.skills.join(", ").length / 95) || 1;
-    if (section.kind === "certifications") lines += section.certifications.length;
-    if (section.kind === "custom")
-      for (const item of section.items) lines += 1 + item.bullets.filter(Boolean).length;
+function slugStem(name: string) {
+  const stem = name
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, "-")
+    .replace(/^-+|-+$/g, "")
+    .slice(0, 40)
+    .replace(/-+$/g, "");
+  return stem || "resume";
+}
+
+/**
+ * Publish a resume at /r/<slug> and return the row.
+ *
+ * Idempotent while published: calling it again keeps the same slug, so a link
+ * already sent out doesn't rot. Publishing something that was unpublished mints
+ * a NEW slug, because the old link was withdrawn deliberately and reviving it
+ * would undo that.
+ */
+export async function publishResume(userId: string, id: string) {
+  const resume = await db.resume.findFirst({ where: { id, userId } });
+  if (!resume) throw new Error(`No resume with id ${id}`);
+
+  if (resume.visibility === "UNLISTED" && resume.slug) return resume;
+
+  // The unique index is the real arbiter; retry on the (vanishingly unlikely)
+  // collision rather than trusting a pre-check that another request can race.
+  for (let attempt = 0; attempt < 5; attempt++) {
+    const slug = `${slugStem(resume.name)}-${randomSuffix()}`;
+    try {
+      const { count } = await db.resume.updateMany({
+        where: { id, userId },
+        data: { slug, visibility: "UNLISTED", publishedAt: new Date() },
+      });
+      if (count === 0) throw new Error(`No resume with id ${id}`);
+      return db.resume.findFirstOrThrow({ where: { id, userId } });
+    } catch (error) {
+      const code = (error as { code?: string }).code;
+      if (code !== "P2002") throw error;
+    }
   }
-  return lines;
+  throw new Error("Could not allocate a unique link. Try again.");
+}
+
+/**
+ * Withdraw the public link. The slug is cleared, not just hidden, so the URL is
+ * dead for good — publishing again gives a different one.
+ */
+export async function unpublishResume(userId: string, id: string) {
+  const { count } = await db.resume.updateMany({
+    where: { id, userId },
+    data: { slug: null, visibility: "PRIVATE", publishedAt: null },
+  });
+  if (count === 0) throw new Error(`No resume with id ${id}`);
+  return db.resume.findFirstOrThrow({ where: { id, userId } });
+}
+
+/**
+ * THE ONE ANONYMOUS READ IN THIS DIRECTORY.
+ *
+ * Every other function here takes a userId first and filters on it, which is
+ * how the compiler keeps tenants apart. A public page has no user, so this one
+ * cannot — and that makes it the single place where a mistake is a data leak
+ * rather than a type error. It is therefore deliberately narrow:
+ *
+ *   - it filters on visibility, so a correct slug for a resume that was never
+ *     published (or has been withdrawn) returns null rather than the document;
+ *   - it returns ONLY what the page renders. `notes` are the owner's private
+ *     tailoring notes and must never appear here; nor does userId, nor the
+ *     applications this resume is attached to.
+ *
+ * Do not widen the select. If a public page needs another field, add it here
+ * explicitly and ask whether it is really safe to show a stranger.
+ */
+export async function getResumeBySlug(slug: string) {
+  if (!slug) return null;
+  const resume = await db.resume.findFirst({
+    where: { slug, visibility: "UNLISTED" },
+    select: {
+      name: true,
+      data: true,
+      template: true,
+      accent: true,
+      fontFamily: true,
+      fontSize: true,
+      lineHeight: true,
+      pageMargin: true,
+      updatedAt: true,
+    },
+  });
+  if (!resume) return null;
+  return { ...resume, doc: parseResumeDoc(resume.data) };
 }

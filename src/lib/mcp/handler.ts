@@ -30,7 +30,8 @@ Three areas:
   material, plus polished reusable bullets called highlights. There are also notes, projects,
   education, skills and certifications. search_brain is the fastest way in.
 • RESUMES — documents assembled from that material. Call get_resume_format before writing one.
-  New resumes use the Harvard OCS format by default.
+  New resumes use the Harvard OCS format by default. Any of them can be published to a public
+  link with publish_resume, which is what to use when a form or a recruiter wants a URL.
 • PIPELINE — applications, stages, activity timeline, contacts, tasks and follow-up dates.
 ${
   isAdmin(user)
@@ -46,7 +47,10 @@ Rules of thumb:
   append_role_brain_dump rather than update_role, so nothing is overwritten.
 - update_resume and update_role replace what you send. Read first, modify, then write back whole.
 - Prefer creating a tailored copy (duplicate_resume) over editing a resume already attached to an
-  application.`;
+  application.
+- A published resume is readable by anyone holding its link, and unpublish_resume destroys that
+  link rather than pausing it. Say which resume you are about to publish, and warn before
+  withdrawing a link that may already be out in the world.`;
 }
 
 type JsonRpcId = string | number | null;

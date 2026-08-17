@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { pick } from "@/lib/data/patch";
 
 /**
  * Every function here takes the owning userId as its first argument, and every
@@ -31,9 +32,14 @@ export type ProfilePatch = Partial<{
   brainDump: string;
 }>;
 
+const PROFILE_COLUMNS = [
+  "fullName", "headline", "email", "phone", "location", "website",
+  "linkedin", "github", "twitter", "summary", "brainDump",
+] as const;
+
 export async function updateProfile(userId: string, patch: ProfilePatch) {
   await getProfile(userId);
-  return db.profile.update({ where: { userId }, data: patch });
+  return db.profile.update({ where: { userId }, data: pick(patch, PROFILE_COLUMNS) });
 }
 
 // ---------------------------------------------------------------------------
@@ -88,8 +94,15 @@ export async function createRole(userId: string, input: RoleInput) {
   });
 }
 
+const ROLE_COLUMNS = [
+  "company", "title", "employmentType", "location", "startDate", "endDate",
+  "isCurrent", "summary", "brainDump", "tags",
+] as const;
+
 export async function updateRole(userId: string, id: string, patch: Partial<RoleInput>) {
-  const { count } = await db.role.updateMany({ where: { id, userId }, data: patch });
+  const data = pick(patch, ROLE_COLUMNS);
+  if (Object.keys(data).length === 0) return db.role.findFirstOrThrow({ where: { id, userId } });
+  const { count } = await db.role.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No role with id ${id}`);
   return db.role.findFirstOrThrow({ where: { id, userId } });
 }
@@ -158,13 +171,23 @@ export async function createHighlights(userId: string, inputs: HighlightInput[])
   return created;
 }
 
+const HIGHLIGHT_COLUMNS = ["roleId", "text", "impact", "tags", "strength", "archived"] as const;
+
 export async function updateHighlight(
   userId: string,
   id: string,
   patch: Partial<HighlightInput> & { archived?: boolean },
 ) {
-  const data = { ...patch } as Record<string, unknown>;
+  // Re-parenting is a read of whatever it points at — listHighlights and
+  // searchBrain join the role in — so the new parent must be the caller's own,
+  // exactly as createHighlight already checks.
+  if (patch.roleId) {
+    const role = await db.role.findFirst({ where: { id: patch.roleId, userId } });
+    if (!role) throw new Error(`No role with id ${patch.roleId}`);
+  }
+  const data = pick(patch, HIGHLIGHT_COLUMNS) as Record<string, unknown>;
   if (typeof patch.strength === "number") data.strength = clamp(patch.strength, 1, 5);
+  if (Object.keys(data).length === 0) return db.highlight.findFirstOrThrow({ where: { id, userId } });
   const { count } = await db.highlight.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No highlight with id ${id}`);
   return db.highlight.findFirstOrThrow({ where: { id, userId } });
@@ -204,7 +227,9 @@ export async function updateNote(
   id: string,
   patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean }>,
 ) {
-  const { count } = await db.note.updateMany({ where: { id, userId }, data: patch });
+  const data = pick(patch, ["title", "body", "tags", "pinned"] as const);
+  if (Object.keys(data).length === 0) return db.note.findFirstOrThrow({ where: { id, userId } });
+  const { count } = await db.note.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No note with id ${id}`);
   return db.note.findFirstOrThrow({ where: { id, userId } });
 }
@@ -240,8 +265,23 @@ export async function createEducation(
   return db.education.create({ data: { ...input, userId, sortOrder: count } });
 }
 
-export async function updateEducation(userId: string, id: string, patch: Record<string, unknown>) {
-  const { count } = await db.education.updateMany({ where: { id, userId }, data: patch });
+export type EducationPatch = Partial<{
+  school: string;
+  degree: string;
+  field: string;
+  location: string;
+  startDate: string;
+  endDate: string;
+  gpa: string;
+  details: string;
+}>;
+
+export async function updateEducation(userId: string, id: string, patch: EducationPatch) {
+  const data = pick(patch, [
+    "school", "degree", "field", "location", "startDate", "endDate", "gpa", "details",
+  ] as const);
+  if (Object.keys(data).length === 0) return db.education.findFirstOrThrow({ where: { id, userId } });
+  const { count } = await db.education.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No education entry with id ${id}`);
   return db.education.findFirstOrThrow({ where: { id, userId } });
 }
@@ -275,8 +315,23 @@ export async function createProject(
   });
 }
 
-export async function updateProject(userId: string, id: string, patch: Record<string, unknown>) {
-  const { count } = await db.project.updateMany({ where: { id, userId }, data: patch });
+export type ProjectPatch = Partial<{
+  name: string;
+  role: string;
+  url: string;
+  description: string;
+  brainDump: string;
+  tags: string[];
+  startDate: string;
+  endDate: string;
+}>;
+
+export async function updateProject(userId: string, id: string, patch: ProjectPatch) {
+  const data = pick(patch, [
+    "name", "role", "url", "description", "brainDump", "tags", "startDate", "endDate",
+  ] as const);
+  if (Object.keys(data).length === 0) return db.project.findFirstOrThrow({ where: { id, userId } });
+  const { count } = await db.project.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No project with id ${id}`);
   return db.project.findFirstOrThrow({ where: { id, userId } });
 }
@@ -303,7 +358,9 @@ export async function updateSkillGroup(
   id: string,
   patch: { name?: string; skills?: string[] },
 ) {
-  const { count } = await db.skillGroup.updateMany({ where: { id, userId }, data: patch });
+  const data = pick(patch, ["name", "skills"] as const);
+  if (Object.keys(data).length === 0) return db.skillGroup.findFirstOrThrow({ where: { id, userId } });
+  const { count } = await db.skillGroup.updateMany({ where: { id, userId }, data });
   if (count === 0) throw new Error(`No skill group with id ${id}`);
   return db.skillGroup.findFirstOrThrow({ where: { id, userId } });
 }

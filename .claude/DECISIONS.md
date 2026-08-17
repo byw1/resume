@@ -71,3 +71,56 @@ throttled to once a minute — which made the number quietly wrong and the name 
 future session wants real usage numbers, that's a separate append-only table, not a counter
 on this row.
 **Applies to:** `prisma/schema.prisma` (`McpConnection`), `src/lib/auth.ts`.
+
+## 2026-08-17 — A resume gets a URL, and the slug is the entire privacy model
+**Decision:** `Resume.slug` + `visibility` (PRIVATE | UNLISTED), a public `/r/[slug]` route
+with no auth, and `publish_resume` / `unpublish_resume`. No per-viewer permissions, no
+passwords, no expiry. Withdrawing a link *clears the slug* rather than hiding it, so the
+address is destroyed and republishing mints a different one.
+**Why:** this is the one thing people actually leave for resume.lol — a link you paste into
+an application form. Everyone you'd send it to is someone you already decided to send it to,
+so permissions would be ceremony protecting nothing. The slug carries ~60 bits of entropy,
+which is what makes "unguessable" true rather than a slogan, and the page sets noindex
+because an indexed unlisted link is a listed one. Destroying rather than pausing the address
+matters: the reason you withdraw a link is usually that it went somewhere you regret, and a
+pause that can be undone doesn't fix that.
+**Applies to:** `src/app/r/[slug]/`, `publishResume`/`unpublishResume` in
+`src/lib/data/resumes.ts`, `Resume.slug` in the schema.
+
+## 2026-08-17 — One deliberately anonymous read, and how it's kept narrow
+**Decision:** `getResumeBySlug(slug)` is the only function in `src/lib/data/` without a
+leading `userId`. It filters on `visibility: UNLISTED` and uses an explicit `select` listing
+the nine fields the public page renders.
+**Why:** a public page has no user, so the compile-time isolation rule cannot apply — which
+makes this the one place where a mistake is a data leak instead of a type error. The
+`select` is an allow-list rather than an omit-list precisely so that adding a column to
+`Resume` later can never silently publish it. `notes` are private tailoring notes and must
+never appear. Do not widen it without asking whether a stranger should see the new field.
+**Applies to:** `getResumeBySlug` in `src/lib/data/resumes.ts`.
+
+## 2026-08-17 — Never spread a patch object into Prisma
+**Decision:** every update in `src/lib/data/` narrows its patch through `pick()` from
+`src/lib/data/patch.ts` with an explicit column list. `updateHighlight` additionally verifies
+that a new `roleId` belongs to the caller, as `createHighlight` already did.
+**Why:** found while shipping public URLs, confirmed against a live database, and worse than
+it looked. The userId-first rule scopes the *query*; it says nothing about what the patch
+*contains*, and server actions accept whatever JSON a client sends because the TypeScript
+parameter type is erased at runtime. So `{ ...patch }` handed the caller every column:
+`updateResumeAction(myId, { userId: someoneElse })` moved a row into another person's
+workspace, `updateHighlightAction(mine, { roleId: theirRoleId })` read back their employer and
+job title through the joined role, and once slug/visibility existed, a member could have
+claimed an address another user had just withdrawn. All three were reachable; all three are
+closed. Whitelisting also means a patch of nothing-we-recognise leaves no columns to write,
+so each function now checks ownership directly rather than reporting "no such record" for a
+record that plainly exists.
+**Applies to:** every `update*` in `src/lib/data/brain.ts` and `resumes.ts`. Adding an
+editable column means adding it to that function's list on purpose.
+
+## 2026-08-17 — Pure resume helpers live outside the data layer
+**Decision:** `resumeToText` and `estimateLines` moved to `src/lib/resume-text.ts`.
+`resumes.ts` re-exports them so server callers are unchanged.
+**Why:** the editor is a client component and imports `estimateLines` for its live page
+count, which dragged the whole data module into the browser bundle. That only ever worked by
+accident — adding one `node:crypto` import for slug generation broke the production build
+outright. Nothing in `src/lib/data/` should be reachable from a client component.
+**Applies to:** `src/lib/resume-text.ts`, `src/components/resume/resume-editor.tsx`.

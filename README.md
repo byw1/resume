@@ -7,11 +7,12 @@ yourself, wired into Claude so you can just *talk* to it.
   structure required. Numbers, projects, stories, praise, screw-ups. This is the raw
   material every resume gets built from.
 - **Resumes** — tailored documents assembled from that material. Defaults to the Harvard
-  OCS format; four other templates, live preview, real PDF export.
+  OCS format; four other templates, live preview, real PDF export, and a shareable link for
+  the application forms that want a URL instead of a file.
 - **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
   timeline, contacts, tasks, and follow-up dates that schedule themselves.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  44 tools any MCP client can call (55 if you're an admin). Claude, Claude Code, ChatGPT,
+  46 tools any MCP client can call (57 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -110,7 +111,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 44, or 55 if you're an admin.
+would, then tells you how many tools answered — 46, or 57 if you're an admin.
 
 #### One connection per client
 
@@ -165,7 +166,7 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-44 tools across the three areas, plus ready-made workflows that show up as slash commands
+46 tools across the three areas, plus ready-made workflows that show up as slash commands
 or prompt shortcuts, depending on the client.
 Admins get 11 more tools and one more workflow — and members never even see those in the
 tool list, so nobody is tempted by a permission they don't have.
@@ -190,7 +191,8 @@ education, projects, skills, certifications.
 **Resumes** — `get_resume_format` describes the document shape, then `create_resume` /
 `update_resume` / `duplicate_resume` build and tailor them. `preview_resume_text` renders a
 draft and estimates page count *without* saving, so Claude can check length before
-committing.
+committing. `publish_resume` turns one into a shareable link and hands back the URL;
+`unpublish_resume` destroys it.
 
 **Pipeline** — applications and stages, an activity timeline, contacts, tasks,
 `list_follow_ups` for what's overdue, and `pipeline_stats` for the shape of your search.
@@ -226,6 +228,28 @@ for students and recent graduates, and wrong for most people with real work hist
 default order leads with Experience.
 
 The other templates — Classic, Modern, Compact, Editorial — are all still there.
+
+## Sharing a resume as a link
+
+Application forms keep asking for a URL, not a file. Open a resume → **Share** → **Create a
+link**, and you get an address like:
+
+```
+https://your-app.up.railway.app/r/staff-engineer-stripe-k7m2qx4bnp8t
+```
+
+Anyone with it can read that one resume without signing in. Ask Claude instead and you skip
+the browser entirely: *"publish my Stripe resume and give me the link."*
+
+The privacy model is the address itself, and nothing else. It's long and random, so it can't
+be guessed or walked, the page tells search engines not to index it, and it's listed nowhere.
+Your private notes on the resume aren't on the public page. That's the whole model — there
+are no per-viewer permissions and no passwords, because everyone you'd send this to is
+someone you already decided to send it to.
+
+**Withdraw** destroys the address rather than pausing it. The page starts returning "not
+found" for everyone immediately, and sharing that resume again gives you a different link —
+so a URL you regret sending stays dead.
 
 ## Getting a PDF
 

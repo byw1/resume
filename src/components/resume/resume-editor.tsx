@@ -21,6 +21,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { ShareButton } from "@/components/resume/share-button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -54,7 +55,7 @@ import {
   type ResumeSection,
   type SectionKind,
 } from "@/lib/resume-schema";
-import { estimateLines } from "@/lib/data/resumes";
+import { estimateLines } from "@/lib/resume-text";
 import { ResumePaper, type PaperSettings } from "@/components/resume/resume-paper";
 import {
   deleteResumeAction,
@@ -77,10 +78,17 @@ export function ResumeEditor({
   id,
   doc: initialDoc,
   meta: initialMeta,
+  shareUrl,
 }: {
   id: string;
   doc: ResumeDoc;
   meta: Meta;
+  /**
+   * The public link, or null when unpublished. Deliberately NOT part of `meta`:
+   * meta is what autosave writes back through updateResumeAction, and a public
+   * URL must never be created or destroyed as a side effect of typing.
+   */
+  shareUrl: string | null;
 }) {
   const router = useRouter();
   const [doc, setDoc] = useState(initialDoc);
@@ -192,6 +200,8 @@ export function ResumeEditor({
               <PlusIcon />
             </Button>
           </div>
+
+          <ShareButton id={id} initialUrl={shareUrl} />
 
           <Button asChild variant="gradient" size="sm">
             <a href={`/print/${id}`} target="_blank" rel="noreferrer">

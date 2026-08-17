@@ -274,6 +274,16 @@ model Note {
 // RESUMES
 // ---------------------------------------------------------------------------
 
+/// Who can reach a resume by URL. There is no middle ground on purpose: an
+/// unlisted resume is protected by an unguessable slug and nothing else, which
+/// is the whole privacy model. Anything finer needs accounts for the viewer.
+enum ResumeVisibility {
+  /// No public URL. The default, and what unpublishing returns you to.
+  PRIVATE
+  /// Anyone with the link can read it. Not indexed, not listed anywhere.
+  UNLISTED
+}
+
 model Resume {
   id            String   @id @default(cuid())
   userId        String
@@ -295,6 +305,12 @@ model Resume {
   isFavorite    Boolean  @default(false)
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
+
+  /// The public URL is /r/<slug>. Null until first published; cleared again on
+  /// unpublish so a link that has been withdrawn can never come back to life.
+  slug        String?          @unique
+  visibility  ResumeVisibility @default(PRIVATE)
+  publishedAt DateTime?
 
   applications Application[]
 

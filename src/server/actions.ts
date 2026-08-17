@@ -103,6 +103,33 @@ export async function updateOwnAccountAction(patch: { name?: string; email?: str
 }
 
 // ---------------------------------------------------------------------------
+// Sharing a resume
+// ---------------------------------------------------------------------------
+
+async function currentBaseUrl() {
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto =
+    headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  return `${proto}://${host}`;
+}
+
+export async function publishResumeAction(id: string) {
+  const user = await requireUser();
+  const resume = await resumes.publishResume(user.id, id);
+  revalidatePath(`/resumes/${id}`);
+  revalidatePath("/resumes");
+  return { url: `${await currentBaseUrl()}/r/${resume.slug}` };
+}
+
+export async function unpublishResumeAction(id: string) {
+  const user = await requireUser();
+  await resumes.unpublishResume(user.id, id);
+  revalidatePath(`/resumes/${id}`);
+  revalidatePath("/resumes");
+}
+
+// ---------------------------------------------------------------------------
 // MCP connections
 // ---------------------------------------------------------------------------
 

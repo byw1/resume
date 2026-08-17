@@ -59,6 +59,11 @@ function required(args: Json, key: string): string {
   return value;
 }
 
+/** Where a published resume lives. Null slug means it isn't published. */
+function publicResumeUrl(baseUrl: string, slug: string | null) {
+  return slug ? `${baseUrl}/r/${slug}` : null;
+}
+
 /** Strip undefined keys so Prisma doesn't try to write them. */
 function defined<T extends object>(input: T): Partial<T> {
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Partial<T>;
@@ -609,14 +614,21 @@ export const tools: McpTool[] = [
     name: "list_resumes",
     title: "List resumes",
     description:
-      "All saved resumes with their target role/company and how many applications each is attached to.",
+      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published.",
     inputSchema: object({}),
-    handler: async (_args, ctx) => resumes.listResumes(ctx.userId),
+    handler: async (_args, ctx) => {
+      const all = await resumes.listResumes(ctx.userId);
+      return all.map((resume) => ({
+        ...resume,
+        publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug),
+      }));
+    },
   },
   {
     name: "get_resume",
     title: "Get a resume",
-    description: "Fetch one resume: its settings and its full document JSON.",
+    description:
+      "Fetch one resume: its settings, its full document JSON, and publicUrl — the shareable link, or null if it isn't published. Read this before update_resume, which replaces the whole document.",
     inputSchema: object(
       {
         id: str("Resume id"),
@@ -627,14 +639,15 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => {
       const resume = await resumes.getResume(ctx.userId, required(args, "id"));
       if (!resume) throw new Error("Resume not found");
+      const withUrl = { ...resume, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
       if (b(args, "as_text")) {
         return {
-          ...resume,
+          ...withUrl,
           text: resumes.resumeToText(resume.doc),
           estimatedLines: resumes.estimateLines(resume.doc),
         };
       }
-      return resume;
+      return withUrl;
     },
   },
   {
@@ -722,6 +735,25 @@ export const tools: McpTool[] = [
           isFavorite: b(args, "isFavorite"),
         }),
       }),
+  },
+  {
+    name: "publish_resume",
+    title: "Publish a resume to a public link",
+    description:
+      "Give a resume a shareable web address. Reach for this whenever the user needs a LINK rather than a file — an application form with a 'portfolio or resume URL' field, a recruiter asking them to send something over, a message where attaching a PDF would be awkward. Returns publicUrl, which is the whole point: hand it straight to the user. Anyone with the link can read the resume without signing in, and the link is the only protection, so it is long and random — it cannot be guessed or found by searching, and the page tells search engines not to index it. The user's private notes on the resume are never shown. Calling this again while the resume is already published returns the SAME url, so it is safe to repeat. If the resume was previously unpublished, publishing mints a brand new url and the old one stays dead.",
+    inputSchema: object({ id: str("Resume id") }, ["id"]),
+    handler: async (args, ctx) => {
+      const resume = await resumes.publishResume(ctx.userId, required(args, "id"));
+      return { ...resume, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
+    },
+  },
+  {
+    name: "unpublish_resume",
+    title: "Withdraw a resume's public link",
+    description:
+      "Turn off a resume's public link. Reach for this when the user is done with a link, or has sent one somewhere they regret. The page starts returning 'not found' immediately for everyone who has the url. This is PERMANENT for that address: the link is not parked or paused, it is destroyed, and publishing the same resume later produces a different url. Say so before doing it if the user might still need the old link working. Does not touch the resume itself — nothing is deleted.",
+    inputSchema: object({ id: str("Resume id") }, ["id"]),
+    handler: async (args, ctx) => resumes.unpublishResume(ctx.userId, required(args, "id")),
   },
   {
     name: "duplicate_resume",
