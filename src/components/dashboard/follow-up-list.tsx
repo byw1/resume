@@ -5,9 +5,8 @@ import { useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { AlarmClockIcon, ClockIcon } from "lucide-react";
 import { toast } from "sonner";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { STAGE_LABEL } from "@/lib/data/pipeline";
+import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
 import { snoozeFollowUpAction } from "@/server/actions";
 import { cn } from "@/lib/utils";
@@ -67,9 +66,12 @@ export function FollowUpList({ items }: { items: Item[] }) {
               </div>
               <div className="text-faint truncate text-[12px]">{item.roleTitle}</div>
             </Link>
-            <Badge variant="outline" className="text-[10px]">
+            <span
+              className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-medium"
+              style={{ ["--tone" as string]: STAGE_TONE[item.stage] }}
+            >
               {STAGE_LABEL[item.stage]}
-            </Badge>
+            </span>
             <span
               className={cn(
                 "nums w-20 text-right text-[12px]",

@@ -38,24 +38,25 @@ export const STAGE_LABEL: Record<Stage, string> = {
 };
 
 /**
- * A stage is a position on one path, not a category, so the scale is
- * monochrome and gets darker as an application advances — you read progress
- * from weight rather than from remembering what teal meant.
+ * A stage is a position on one path, not a category, so the hue rotates in one
+ * direction as an application advances — steel, blue, violet, pink, then gold
+ * at the offer. Turning one way is what keeps it a path: you can tell "further
+ * along" from two chips without knowing which label is which.
  *
- * Only the ends earn a hue, because only the ends carry news: the offer you
- * are working toward, and the two ways it can finish. Values are CSS variables
- * so they follow the theme; a fixed colour would go muddy in dark mode.
+ * The three endings sit outside the rotation because they mean something other
+ * than progress. Values are CSS variables so they follow the theme; a fixed
+ * colour tuned for one mode goes muddy in the other.
  */
 export const STAGE_TONE: Record<Stage, string> = {
-  WISHLIST: "var(--stage-1)",
-  APPLIED: "var(--stage-2)",
-  SCREEN: "var(--stage-3)",
-  INTERVIEW: "var(--stage-4)",
-  FINAL: "var(--stage-5)",
-  OFFER: "var(--primary)",
-  ACCEPTED: "var(--success)",
-  REJECTED: "var(--destructive)",
-  WITHDRAWN: "var(--stage-muted)",
+  WISHLIST: "var(--stage-wishlist)",
+  APPLIED: "var(--stage-applied)",
+  SCREEN: "var(--stage-screen)",
+  INTERVIEW: "var(--stage-interview)",
+  FINAL: "var(--stage-final)",
+  OFFER: "var(--stage-offer)",
+  ACCEPTED: "var(--stage-accepted)",
+  REJECTED: "var(--stage-rejected)",
+  WITHDRAWN: "var(--stage-withdrawn)",
 };
 
 export const ACTIVITY_LABEL: Record<ActivityType, string> = {
@@ -105,6 +106,8 @@ export async function upsertCompanyByName(
 
 export type ApplicationInput = {
   company: string;
+  /** The company's own site. Drives the logo; nothing else depends on it. */
+  companyWebsite?: string;
   roleTitle: string;
   stage?: Stage;
   jobUrl?: string;
@@ -175,7 +178,11 @@ async function assertOwnsResume(userId: string, resumeId: string) {
 }
 
 export async function createApplication(userId: string, input: ApplicationInput) {
-  const company = await upsertCompanyByName(userId, input.company);
+  const company = await upsertCompanyByName(
+    userId,
+    input.company,
+    input.companyWebsite ? { website: input.companyWebsite } : undefined,
+  );
   const stage = input.stage ?? "WISHLIST";
   const appliedAt = toDate(input.appliedAt) ?? (stage !== "WISHLIST" ? new Date() : null);
   if (input.resumeId) await assertOwnsResume(userId, input.resumeId);
@@ -244,9 +251,20 @@ export async function updateApplication(
       data.resume = { disconnect: true };
     }
   }
+  // The website lives on the company, not the application. Resolved after the
+  // company itself, so moving an application to a different employer and
+  // setting a website in the same call writes it to the new one.
+  let companyId = current.companyId;
   if (patch.company !== undefined) {
     const company = await upsertCompanyByName(userId, patch.company);
+    companyId = company.id;
     data.company = { connect: { id: company.id } };
+  }
+  if (patch.companyWebsite !== undefined) {
+    await db.company.updateMany({
+      where: { id: companyId, userId },
+      data: { website: patch.companyWebsite },
+    });
   }
   if (patch.stage !== undefined) {
     await db.application.update({ where: { id }, data });

@@ -330,3 +330,53 @@ every other the document sat stranded to one side of a white card. CSS cannot do
 cannot divide a length by a length — so the measuring is the one bit of client work; the
 document itself still renders on the server and comes in as a slot.
 **Applies to:** `src/components/resume/paper-thumb.tsx`.
+
+## 2026-08-18 — Stages are a rotation, not a ramp (supersedes the monochrome decision)
+**Decision:** each stage gets a hue, and the hue turns one direction along the path —
+grey wishlist, steel applied, blue screening, violet interviewing, pink final, gold offer.
+The three endings step outside the rotation because they mean something other than
+progress: green accepted, red rejected, grey withdrawn. Every surface that shows a stage
+uses the same token through one `.stage-chip` utility, and list rows carry the same colour
+at 5% as a band.
+**Why:** William asked for it, and the monochrome ramp I logged on 2026-08-17 was one step
+too austere — a board where every column header is the same grey makes you read labels
+instead of seeing shape. The rotation keeps what the ramp was protecting: because the hue
+only ever turns one way, two chips still tell you which is further along without anyone
+memorising that violet means interviewing. That is the property a nine-hue palette lost.
+**Applies to:** `--stage-*` in `globals.css`, `STAGE_TONE` in `pipeline.ts`, and the
+`.stage-chip` / `.stage-band` utilities. The rule from before still holds — before adding a
+colour, say what information it carries. Here it carries position on the path.
+
+## 2026-08-18 — Company logos, and the beacon that comes with them
+**Decision:** the pipeline shows each company's favicon from twenty-icons.com, with a
+tinted monogram of the initials underneath it that is always drawn and never replaced. An
+admin switch turns the whole thing off; when it is off no domain is even sent to the
+browser, so there is nothing for it to fetch. `admin_set_company_logos` makes that
+switchable from a conversation, and `admin_instance_stats` reports the current state.
+**Why:** logos make a list of companies scannable in a way text never is. The cost is that
+a third party learns which companies are in someone's pipeline, which for a job search is
+close to the most sensitive thing in the app — so it is stated plainly in the admin panel
+rather than buried, `no-referrer` keeps our URLs out of it, and it is one click to stop.
+**Applies to:** `src/lib/company.ts`, `src/components/pipeline/company-avatar.tsx`.
+
+## 2026-08-18 — Domains are guessed, and the guess is allowed to be wrong
+**Decision:** `companyDomain()` tries the company's `website`, then the posting URL —
+unwrapping Greenhouse, Lever, Ashby, Workable, SmartRecruiters and Workday slugs, and
+ignoring LinkedIn and the other aggregators — and finally the company name as `name.com`.
+`create_application` and `update_application` now take `companyWebsite` so an assistant can
+just say it.
+**Why:** nobody types a company's domain into a job tracker, so without inference the
+feature would show initials forever. Guessing is safe here because the failure is
+invisible: a wrong domain 404s and the monogram was already on screen.
+**Applies to:** `src/lib/company.ts`.
+
+## 2026-08-18 — An image that is already loaded fires no events
+**Decision:** `CompanyAvatar` settles its state from the element (`img.complete` plus
+`naturalWidth`) via a ref, not only from `onLoad`/`onError`.
+**Why:** a cached image finishes before React attaches its handlers, so neither event ever
+fires and the logo stays invisible — on every visit after the first, which is every visit
+that matters. Found because the stubbed test served bytes instantly and reproduced exactly
+that. The same three-state handling is why a request that hangs shows initials rather than
+a white square.
+**Applies to:** `src/components/pipeline/company-avatar.tsx`. Any image with a fallback
+needs this; the two-state version passes a first-load test and fails in production.

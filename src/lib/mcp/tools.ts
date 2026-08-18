@@ -1002,10 +1002,11 @@ export const tools: McpTool[] = [
     name: "create_application",
     title: "Create an application",
     description:
-      "Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist.",
+      "Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist. Pass companyWebsite when you know it — it is what makes the company's logo appear in the pipeline, and it costs nothing to include.",
     inputSchema: object(
       {
         company: str("Company name"),
+        companyWebsite: str("The company's own site, e.g. stripe.com. Shows their logo in the pipeline."),
         roleTitle: str("Job title"),
         stage: { type: "string", enum: STAGE_VALUES, description: "Starting stage. Default WISHLIST." },
         jobUrl: str("Link to the posting"),
@@ -1028,6 +1029,7 @@ export const tools: McpTool[] = [
         company: required(args, "company"),
         roleTitle: required(args, "roleTitle"),
         ...defined({
+          companyWebsite: s(args, "companyWebsite"),
           stage: s(args, "stage") as Stage | undefined,
           jobUrl: s(args, "jobUrl"),
           jobDescription: s(args, "jobDescription"),
@@ -1053,6 +1055,7 @@ export const tools: McpTool[] = [
       {
         id: str("Application id"),
         company: str("Company name"),
+        companyWebsite: str("The company's own site, e.g. stripe.com. Shows their logo in the pipeline."),
         roleTitle: str("Job title"),
         stage: { type: "string", enum: STAGE_VALUES, description: "New stage" },
         jobUrl: str("Posting link"),
@@ -1074,6 +1077,7 @@ export const tools: McpTool[] = [
       pipeline.updateApplication(ctx.userId, required(args, "id"), {
         ...defined({
           company: s(args, "company"),
+          companyWebsite: s(args, "companyWebsite"),
           roleTitle: s(args, "roleTitle"),
           stage: s(args, "stage") as Stage | undefined,
           jobUrl: s(args, "jobUrl"),
@@ -1283,7 +1287,24 @@ export const tools: McpTool[] = [
       "How many people are on this instance, how many are active, how many invites are outstanding, and how much material exists across all accounts. Aggregate counts only — never another person's content.",
     inputSchema: object({}),
     adminOnly: true,
-    handler: async () => users.instanceStats(),
+    handler: async () => {
+      const [stats, settings] = await Promise.all([users.instanceStats(), getSettings()]);
+      return { ...stats, instanceName: settings.instanceName, companyLogos: settings.companyLogos };
+    },
+  },
+  {
+    name: "admin_set_company_logos",
+    title: "Turn company logos on or off",
+    description:
+      "Controls whether the pipeline shows a company's favicon next to its name. When on, each person's browser asks twenty-icons.com for the logo, which means that service can see which companies are in their pipeline — turn it off for an instance where that matters and everyone gets initials on a coloured tile instead. Nothing else changes; no data is stored or deleted either way. Call admin_instance_stats to read the current state.",
+    inputSchema: object({ enabled: bool("On shows logos, off shows initials only") }, ["enabled"]),
+    adminOnly: true,
+    handler: async (args) => {
+      const enabled = b(args, "enabled");
+      if (enabled === undefined) throw new Error('Missing required boolean argument "enabled"');
+      await updateSettings({ companyLogos: enabled });
+      return { companyLogos: enabled };
+    },
   },
   {
     name: "admin_list_users",

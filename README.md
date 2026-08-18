@@ -13,7 +13,7 @@ yourself, wired into Claude so you can just *talk* to it.
   tasks, and follow-up dates that schedule themselves. Read it three ways: a drag-and-drop
   board, a sortable table, or a month calendar of everything that has a date on it.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  53 tools any MCP client can call (65 if you're an admin). Claude, Claude Code, ChatGPT,
+  53 tools any MCP client can call (66 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -170,7 +170,7 @@ this key and send a test."*
 53 tools across the three areas. The five workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 12 more tools — and members never even see those in the tool list, so nobody is
+Admins get 13 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |

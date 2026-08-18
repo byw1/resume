@@ -11,6 +11,7 @@ export const SETTING_KEYS = {
   resendFromEmail: "resend_from_email",
   resendFromName: "resend_from_name",
   publicUrl: "public_url",
+  companyLogos: "company_logos",
 } as const;
 
 export type InstanceSettings = {
@@ -19,6 +20,8 @@ export type InstanceSettings = {
   resendFromEmail: string;
   resendFromName: string;
   publicUrl: string;
+  /** Off means no request ever leaves the browser for a logo. */
+  companyLogos: boolean;
 };
 
 export async function getSettings(): Promise<InstanceSettings> {
@@ -32,6 +35,10 @@ export async function getSettings(): Promise<InstanceSettings> {
     resendFromEmail: map.get(SETTING_KEYS.resendFromEmail) ?? "",
     resendFromName: map.get(SETTING_KEYS.resendFromName) ?? "Resume OS",
     publicUrl: map.get(SETTING_KEYS.publicUrl) ?? "",
+    // On by default: a job tracker with no logos looks unfinished, and the
+    // switch exists for the person who would rather twenty-icons.com not see
+    // which companies they are applying to.
+    companyLogos: (map.get(SETTING_KEYS.companyLogos) ?? "1") !== "0",
   };
 }
 
@@ -50,6 +57,7 @@ export async function updateSettings(patch: Partial<InstanceSettings>) {
     [SETTING_KEYS.resendFromEmail, patch.resendFromEmail],
     [SETTING_KEYS.resendFromName, patch.resendFromName],
     [SETTING_KEYS.publicUrl, patch.publicUrl],
+    [SETTING_KEYS.companyLogos, patch.companyLogos === undefined ? undefined : patch.companyLogos ? "1" : "0"],
   ];
   for (const [key, value] of entries) {
     if (value !== undefined) await setSetting(key, value.trim());

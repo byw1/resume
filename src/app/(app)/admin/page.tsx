@@ -126,6 +126,7 @@ export default async function AdminPage() {
                 resendFromEmail: settings.resendFromEmail,
                 resendFromName: settings.resendFromName,
                 publicUrl: settings.publicUrl || `${proto}://${host}`,
+                companyLogos: settings.companyLogos,
               }}
               ownEmail={actor.email}
             />

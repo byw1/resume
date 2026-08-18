@@ -12,6 +12,8 @@ import {
 import { ViewSwitcher, parseView } from "@/components/pipeline/view-switcher";
 import { NewApplicationDialog } from "@/components/pipeline/new-application-dialog";
 import { requireUser } from "@/lib/auth";
+import { companyDomain } from "@/lib/company";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -28,6 +30,17 @@ export default async function ApplicationsPage({
 }) {
   const user = await requireUser();
   const params = await searchParams;
+  // Resolved once per request: with logos off, no domain reaches the browser
+  // at all, so there is nothing for it to go and fetch.
+  const { companyLogos } = await getSettings();
+  const domainFor = (application: { company: { name: string; website: string }; jobUrl: string }) =>
+    companyLogos
+      ? companyDomain({
+          name: application.company.name,
+          website: application.company.website,
+          jobUrl: application.jobUrl,
+        })
+      : null;
   const one = (key: string) => (Array.isArray(params[key]) ? params[key][0] : params[key]);
   const view = parseView(one("view"));
 
@@ -86,6 +99,7 @@ export default async function ApplicationsPage({
       nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
       activityCount: application._count.activities,
       updatedAt: application.updatedAt.toISOString(),
+      domain: domainFor(application),
     }));
     const sort = parseSort(one("sort"));
     const desc = one("dir") === "desc";
@@ -116,6 +130,7 @@ export default async function ApplicationsPage({
     nextFollowUpAt: application.nextFollowUpAt ? application.nextFollowUpAt.toISOString() : null,
     resumeName: application.resume?.name ?? null,
     activityCount: application._count.activities,
+    domain: domainFor(application),
   });
 
   return (

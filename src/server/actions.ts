@@ -271,6 +271,7 @@ export async function saveEmailSettingsAction(patch: {
   resendFromEmail?: string;
   resendFromName?: string;
   publicUrl?: string;
+  companyLogos?: boolean;
 }) {
   await requireAdmin();
   // An empty API key field means "leave it alone", not "clear it".
@@ -278,6 +279,7 @@ export async function saveEmailSettingsAction(patch: {
   if (clean.resendApiKey !== undefined && clean.resendApiKey.trim() === "") delete clean.resendApiKey;
   await updateSettings(clean);
   revalidatePath("/admin");
+  revalidatePath("/applications");
   return { ok: true as const };
 }
 

@@ -16,6 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
+import { Switch } from "@/components/ui/switch";
 import { saveEmailSettingsAction, sendTestEmailAction } from "@/server/actions";
 
 export function EmailPanel({
@@ -31,6 +32,7 @@ export function EmailPanel({
     resendFromEmail: string;
     resendFromName: string;
     publicUrl: string;
+    companyLogos: boolean;
   };
   ownEmail: string;
 }) {
@@ -40,6 +42,7 @@ export function EmailPanel({
     resendFromEmail: settings.resendFromEmail,
     resendFromName: settings.resendFromName,
     publicUrl: settings.publicUrl,
+    companyLogos: settings.companyLogos,
   });
   const [testTo, setTestTo] = useState(ownEmail);
   const [pending, startTransition] = useTransition();
@@ -172,6 +175,24 @@ export function EmailPanel({
               />
               <p className="text-muted-foreground text-xs">Used to build invitation links.</p>
             </div>
+          </div>
+
+          <Separator />
+
+          <div className="flex items-start justify-between gap-4">
+            <div className="min-w-0">
+              <Label htmlFor="company-logos">Company logos</Label>
+              <p className="text-muted-foreground mt-1 text-xs">
+                Shows each company&apos;s favicon in the pipeline. Fetching it means the browser
+                asks twenty-icons.com for the logo, so that service can see which companies
+                people here are tracking. Turn it off and everyone gets initials instead.
+              </p>
+            </div>
+            <Switch
+              id="company-logos"
+              checked={values.companyLogos}
+              onCheckedChange={(checked) => setValues({ ...values, companyLogos: checked })}
+            />
           </div>
 
           <Button variant="default" onClick={save} disabled={pending}>

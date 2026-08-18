@@ -104,13 +104,28 @@
     0 8px 20px oklch(0 0 0 / 0.06),
     0 24px 56px oklch(0 0 0 / 0.09);
 
-  /* Pipeline progress: one ramp, darkening as an application advances. */
-  --stage-1: oklch(0.82 0.004 265);
-  --stage-2: oklch(0.73 0.005 265);
-  --stage-3: oklch(0.63 0.006 265);
-  --stage-4: oklch(0.53 0.007 265);
-  --stage-5: oklch(0.42 0.008 265);
-  --stage-muted: oklch(0.87 0.003 265);
+  /* --- Pipeline stages ----------------------------------------------------
+     Hue rotates one direction as an application advances — steel, blue,
+     violet, pink, then gold at the offer. Because it only ever turns one way,
+     a stage still reads as a position on a path rather than as a category, and
+     you can tell "further along" from two colours without knowing the labels.
+     The three endings step outside the rotation because they mean something
+     other than progress: green accepted, red rejected, grey withdrawn.
+
+     Each value is the ink. The wash behind it is the same colour at low alpha,
+     so one token drives both. */
+  --stage-wishlist: oklch(0.6 0.012 265);
+  --stage-applied: oklch(0.55 0.13 235);
+  --stage-screen: oklch(0.53 0.15 268);
+  --stage-interview: oklch(0.52 0.17 300);
+  --stage-final: oklch(0.55 0.18 340);
+  --stage-offer: oklch(0.58 0.14 68);
+  --stage-accepted: oklch(0.55 0.13 152);
+  --stage-rejected: oklch(0.55 0.19 25);
+  --stage-withdrawn: oklch(0.68 0.008 265);
+
+  /* How much of the ink shows through the wash behind a chip. */
+  --stage-wash: 12%;
 }
 
 .dark {
@@ -173,13 +188,19 @@
     0 0 0 1px oklch(1 0 0 / 0.13),
     0 8px 28px oklch(0 0 0 / 0.42);
 
-  /* Inverted: in the dark the ramp brightens as it advances. */
-  --stage-1: oklch(0.38 0.005 265);
-  --stage-2: oklch(0.47 0.006 265);
-  --stage-3: oklch(0.57 0.007 265);
-  --stage-4: oklch(0.68 0.006 265);
-  --stage-5: oklch(0.8 0.004 265);
-  --stage-muted: oklch(0.34 0.004 265);
+  /* Same hues, lifted so they carry on a dark card, and a heavier wash because
+     low-alpha colour disappears against dark far faster than against white. */
+  --stage-wishlist: oklch(0.72 0.012 265);
+  --stage-applied: oklch(0.72 0.12 235);
+  --stage-screen: oklch(0.72 0.14 268);
+  --stage-interview: oklch(0.73 0.15 300);
+  --stage-final: oklch(0.74 0.15 340);
+  --stage-offer: oklch(0.79 0.13 75);
+  --stage-accepted: oklch(0.75 0.13 152);
+  --stage-rejected: oklch(0.7 0.17 25);
+  --stage-withdrawn: oklch(0.52 0.008 265);
+
+  --stage-wash: 20%;
 }
 
 @theme inline {
@@ -362,6 +383,40 @@
   .nums {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+  }
+
+  /* A stage, wearing its colour. Set --tone to the stage's token and this
+     handles the rest, in both themes, from one declaration:
+
+        <span className="stage-chip" style={{ "--tone": STAGE_TONE[stage] }}>
+
+     Kept as a utility rather than nine variants because the colour is data —
+     it comes from the row, not from a prop somebody chose. */
+  .stage-chip {
+    color: var(--tone);
+    background-color: color-mix(in oklch, var(--tone) var(--stage-wash), transparent);
+  }
+
+  /* The same colour as a whisper, for banding a row you are not trying to
+     highlight — strong enough to group, too weak to shout. */
+  .stage-band {
+    background-color: color-mix(in oklch, var(--tone) 5%, transparent);
+  }
+  .dark .stage-band {
+    background-color: color-mix(in oklch, var(--tone) 8%, transparent);
+  }
+
+  /* The tile behind a company's initials when there is no logo. --hue comes
+     from a hash of the name, so a company keeps its colour across screens.
+     This one is decoration, not information: the stage chip beside it is what
+     carries meaning, which is why it stays this pale. */
+  .monogram {
+    color: oklch(0.5 0.075 var(--hue));
+    background-color: oklch(0.945 0.028 var(--hue));
+  }
+  .dark .monogram {
+    color: oklch(0.82 0.075 var(--hue));
+    background-color: oklch(0.32 0.035 var(--hue));
   }
 }
 

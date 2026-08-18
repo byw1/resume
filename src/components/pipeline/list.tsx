@@ -2,6 +2,7 @@ import Link from "next/link";
 import { ArrowDownIcon, ArrowUpIcon, FlameIcon } from "lucide-react";
 import type { Stage } from "@prisma/client";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
+import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { cn, relativeDay } from "@/lib/utils";
 
 export const LIST_SORTS = ["followUp", "company", "stage", "updated", "salary"] as const;
@@ -24,6 +25,8 @@ export type ListRow = {
   nextFollowUpAt: string | null;
   activityCount: number;
   updatedAt: string;
+  /** Null when logos are off, or no domain could be worked out. */
+  domain: string | null;
 };
 
 const STAGE_ORDER: Stage[] = [
@@ -138,13 +141,11 @@ export function PipelineList({
             <li key={row.id}>
               <Link
                 href={`/applications/${row.id}`}
-                className="hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors duration-150"
+                style={{ ["--tone" as string]: STAGE_TONE[row.stage] }}
+                className="stage-band hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors duration-150"
               >
                 <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <span
-                    className="size-1.5 shrink-0 rounded-full"
-                    style={{ background: STAGE_TONE[row.stage] }}
-                  />
+                  <CompanyAvatar name={row.company} domain={row.domain} size={26} />
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="truncate text-[13px] font-medium">{row.company}</span>
@@ -156,8 +157,13 @@ export function PipelineList({
                   </div>
                 </div>
 
-                <div className="text-muted-foreground w-28 shrink-0 truncate text-[12px]">
-                  {STAGE_LABEL[row.stage]}
+                <div className="w-28 shrink-0">
+                  <span
+                    className="stage-chip inline-block max-w-full truncate rounded-chip px-1.5 py-0.5 text-[11.5px] font-medium"
+                    style={{ ["--tone" as string]: STAGE_TONE[row.stage] }}
+                  >
+                    {STAGE_LABEL[row.stage]}
+                  </span>
                 </div>
 
                 <div

@@ -25,7 +25,7 @@ import {
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
-import { Badge } from "@/components/ui/badge";
+import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { cn, relativeDay } from "@/lib/utils";
 import { moveStageAction } from "@/server/actions";
 
@@ -40,6 +40,8 @@ export type Card = {
   nextFollowUpAt: string | null;
   resumeName: string | null;
   activityCount: number;
+  /** Null when logos are off, or no domain could be worked out. */
+  domain: string | null;
 };
 
 export function PipelineBoard({ open, closed }: { open: Card[]; closed: Card[] }) {
@@ -113,18 +115,18 @@ export function PipelineBoard({ open, closed }: { open: Card[]; closed: Card[] }
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {closed.map((card) => (
               <Link key={card.id} href={`/applications/${card.id}`}>
-                <div className="bg-card shadow-hairline hover:bg-accent/40 flex items-center gap-3 rounded-card px-3 py-2 transition-colors duration-150">
-                  <span
-                    className="size-1.5 shrink-0 rounded-full"
-                    style={{ background: STAGE_TONE[card.stage] }}
-                  />
+                <div className="bg-card shadow-hairline hover:bg-accent/40 flex items-center gap-2.5 rounded-card px-3 py-2 transition-colors duration-150">
+                  <CompanyAvatar name={card.company} domain={card.domain} size={24} />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13px] font-medium">{card.company}</div>
                     <div className="text-faint truncate text-[12px]">{card.roleTitle}</div>
                   </div>
-                  <Badge variant="outline" className="shrink-0 text-[10px]">
+                  <span
+                    className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-medium"
+                    style={{ ["--tone" as string]: STAGE_TONE[card.stage] }}
+                  >
                     {STAGE_LABEL[card.stage]}
-                  </Badge>
+                  </span>
                 </div>
               </Link>
             ))}
@@ -141,8 +143,12 @@ function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
   return (
     <div className="flex w-[17.5rem] shrink-0 flex-col">
       <div className="mb-2.5 flex items-center gap-2 px-1">
-        <span className="size-2 rounded-full" style={{ background: STAGE_TONE[stage] }} />
-        <span className="text-[13px] font-semibold">{STAGE_LABEL[stage]}</span>
+        <span
+          className="stage-chip rounded-chip px-1.5 py-0.5 text-[12px] font-semibold"
+          style={{ ["--tone" as string]: STAGE_TONE[stage] }}
+        >
+          {STAGE_LABEL[stage]}
+        </span>
         <span className="text-faint nums text-[12px]">{cards.length}</span>
       </div>
 
@@ -194,12 +200,17 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
 
   return (
     <div
+      style={{ ["--tone" as string]: STAGE_TONE[card.stage] }}
       className={cn(
-        "group bg-card cursor-grab rounded-card p-3 transition-shadow duration-200 ease-[var(--ease-settle)] active:cursor-grabbing",
+        "group bg-card relative cursor-grab overflow-hidden rounded-card p-3 pl-3.5 transition-shadow duration-200 ease-[var(--ease-settle)] active:cursor-grabbing",
+        // A stripe of the stage's colour down the edge, so a column reads as
+        // one thing at a glance and a mis-dropped card is obvious.
+        "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--tone)]",
         overlay ? "shadow-overlay" : "shadow-card hover:shadow-raised",
       )}
     >
       <div className="flex items-start gap-2">
+        <CompanyAvatar name={card.company} domain={card.domain} size={26} className="mt-0.5" />
         <div className="min-w-0 flex-1">
           <Link
             href={`/applications/${card.id}`}

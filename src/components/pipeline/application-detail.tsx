@@ -167,7 +167,7 @@ export function ApplicationDetail({
             <SelectTrigger className="w-40">
               <span className="flex items-center gap-2">
                 <span
-                  className="size-2 rounded-full"
+                  className="size-2 shrink-0 rounded-full"
                   style={{ background: STAGE_TONE[stage] }}
                 />
                 <SelectValue />
@@ -176,7 +176,13 @@ export function ApplicationDetail({
             <SelectContent>
               {STAGES.map((option) => (
                 <SelectItem key={option} value={option}>
-                  {STAGE_LABEL[option]}
+                  <span className="flex items-center gap-2">
+                    <span
+                      className="size-2 shrink-0 rounded-full"
+                      style={{ background: STAGE_TONE[option] }}
+                    />
+                    {STAGE_LABEL[option]}
+                  </span>
                 </SelectItem>
               ))}
             </SelectContent>
