@@ -380,3 +380,18 @@ that. The same three-state handling is why a request that hangs shows initials r
 a white square.
 **Applies to:** `src/components/pipeline/company-avatar.tsx`. Any image with a fallback
 needs this; the two-state version passes a first-load test and fails in production.
+
+## 2026-08-18 — The rail carries navigation, the top bar carries identity
+**Decision:** search moved to the top of the sidebar (above the nav, below the brand), the
+name/email block moved out of the sidebar footer into a profile menu at the top right
+(Settings, Admin when you have it, Sign out), and the light/dark switch moved out of the
+header into an Appearance card in Settings. The rail collapses to icons with a toggle in
+the brand row, remembered in `localStorage` under `resume-os:sidebar-collapsed`.
+**Why:** the header held two unlabelled icons that each did something permanent-feeling
+(theme, sign out) and the sidebar footer held identity with nothing to click. Grouping
+every account action behind one avatar makes the sign-out deliberate rather than a
+mis-click, and frees the rail to be only navigation. Theme is a preference, and
+preferences live in Settings.
+**Applies to:** `src/components/shell.tsx`,
+`src/components/settings/appearance-panel.tsx`. Collapse state is read in an effect, not
+during render — reading `localStorage` while rendering would hydrate-mismatch.

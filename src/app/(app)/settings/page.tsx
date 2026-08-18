@@ -4,6 +4,7 @@ import { FadeIn } from "@/components/motion";
 import { requireUser, isAdmin, ensureDefaultConnection } from "@/lib/auth";
 import { ConnectionsPanel } from "@/components/settings/connections-panel";
 import { AccountPanel } from "@/components/settings/account-panel";
+import { AppearancePanel } from "@/components/settings/appearance-panel";
 import { listConnections } from "@/lib/data/connections";
 import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
@@ -58,6 +59,10 @@ export default async function SettingsPage() {
         </FadeIn>
 
         <FadeIn delay={0.08}>
+          <AppearancePanel />
+        </FadeIn>
+
+        <FadeIn delay={0.12}>
           <AccountPanel user={{ name: user.name, email: user.email, role: user.role }} />
         </FadeIn>
       </div>

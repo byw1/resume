@@ -2,24 +2,31 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { useTheme } from "next-themes";
 import { motion } from "framer-motion";
 import {
   BrainIcon,
+  ChevronDownIcon,
   FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
   LogOutIcon,
-  MoonIcon,
+  PanelLeftCloseIcon,
+  PanelLeftOpenIcon,
   SearchIcon,
   SettingsIcon,
   ShieldIcon,
-  SunIcon,
 } from "lucide-react";
 import { useEffect, useState } from "react";
 import { cn } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipTrigger } from "@/components/ui/tooltip";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { CommandPalette, type PaletteIndex } from "@/components/command-palette";
 import { logoutAction } from "@/server/actions";
 
@@ -32,6 +39,10 @@ const NAV = [
 ];
 
 const ADMIN_NAV = { href: "/admin", label: "Admin", icon: ShieldIcon };
+
+// The rail remembers whether you collapsed it. Read after mount so the server
+// and the first client render agree.
+const COLLAPSE_KEY = "resume-os:sidebar-collapsed";
 
 export type ShellUser = { name: string; email: string; role: string };
 
@@ -50,6 +61,19 @@ export function Shell({
   const nav = canAdmin ? [...NAV, ADMIN_NAV] : NAV;
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+
+  useEffect(() => {
+    setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+  }, []);
+
+  const toggleCollapsed = () => {
+    setCollapsed((value) => {
+      const next = !value;
+      window.localStorage.setItem(COLLAPSE_KEY, next ? "1" : "0");
+      return next;
+    });
+  };
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -68,26 +92,100 @@ export function Shell({
   return (
     <div className="flex min-h-svh">
       {/* Rail */}
-      <aside className="bg-sidebar sticky top-0 z-30 hidden h-svh w-[15rem] shrink-0 flex-col border-r md:flex">
-        <div className="flex h-16 items-center gap-2.5 px-5">
-          <div className="bg-foreground flex size-[26px] items-center justify-center rounded-[7px]">
+      <aside
+        className={cn(
+          "bg-sidebar sticky top-0 z-30 hidden h-svh shrink-0 flex-col border-r transition-[width] duration-200 md:flex",
+          collapsed ? "w-[4.5rem]" : "w-[15rem]",
+        )}
+      >
+        <div
+          className={cn(
+            "flex h-16 items-center gap-2.5",
+            collapsed ? "justify-center px-2" : "px-5",
+          )}
+        >
+          <div className="bg-foreground flex size-[26px] shrink-0 items-center justify-center rounded-[7px]">
             <span className="text-background text-[13px] font-semibold">R</span>
           </div>
-          <div className="leading-tight">
-            <div className="text-[15px] font-semibold tracking-tight">Resume OS</div>
-            <div className="text-muted-foreground text-[11px]">Career operating system</div>
-          </div>
+          {!collapsed && (
+            <>
+              <div className="min-w-0 leading-tight">
+                <div className="truncate text-[15px] font-semibold tracking-tight">Resume OS</div>
+                <div className="text-muted-foreground truncate text-[11px]">
+                  Career operating system
+                </div>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                className="text-muted-foreground -mr-1.5 ml-auto"
+                onClick={toggleCollapsed}
+                aria-label="Collapse sidebar"
+              >
+                <PanelLeftCloseIcon />
+              </Button>
+            </>
+          )}
         </div>
 
-        <nav className="flex flex-1 flex-col gap-0.5 px-3 pt-2">
+        {collapsed && (
+          <div className="flex justify-center px-2 pb-1">
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="text-muted-foreground"
+                  onClick={toggleCollapsed}
+                  aria-label="Expand sidebar"
+                >
+                  <PanelLeftOpenIcon />
+                </Button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
+          </div>
+        )}
+
+        <div className={cn("pb-2", collapsed ? "px-2" : "px-3")}>
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={() => setPaletteOpen(true)}
+                  className="text-muted-foreground hover:text-foreground hover:bg-accent bg-card flex w-full items-center justify-center rounded-md border py-2 transition-colors"
+                  aria-label="Search"
+                >
+                  <SearchIcon className="size-4" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Search · ⌘K</TooltipContent>
+            </Tooltip>
+          ) : (
+            <button
+              onClick={() => setPaletteOpen(true)}
+              className="text-muted-foreground hover:text-foreground hover:bg-accent bg-card flex w-full items-center gap-2 rounded-md border px-3 py-1.5 text-[13px] transition-colors"
+            >
+              <SearchIcon className="size-3.5" />
+              <span>Search…</span>
+              <kbd className="bg-muted text-muted-foreground ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">
+                ⌘K
+              </kbd>
+            </button>
+          )}
+        </div>
+
+        <nav className={cn("flex flex-1 flex-col gap-0.5", collapsed ? "px-2" : "px-3")}>
           {nav.map((item) => {
             const active = isActive(item.href);
-            return (
+            const link = (
               <Link
                 key={item.href}
                 href={item.href}
+                aria-label={item.label}
                 className={cn(
-                  "group relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
+                  "group relative flex items-center rounded-lg py-2 text-sm font-medium transition-colors",
+                  collapsed ? "justify-center px-2" : "gap-3 px-3",
                   active ? "text-foreground" : "text-muted-foreground hover:text-foreground",
                 )}
               >
@@ -100,45 +198,35 @@ export function Shell({
                 )}
                 <item.icon
                   className={cn(
-                    "relative size-4 transition-colors",
+                    "relative size-4 shrink-0 transition-colors",
                     active ? "text-primary" : "group-hover:text-foreground",
                   )}
                 />
-                <span className="relative">{item.label}</span>
-                {item.href === "/applications" && followUpCount > 0 && (
-                  <span className="bg-muted text-muted-foreground relative ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-                    {followUpCount}
-                  </span>
-                )}
+                {!collapsed && <span className="relative">{item.label}</span>}
+                {item.href === "/applications" &&
+                  followUpCount > 0 &&
+                  (collapsed ? (
+                    <span className="bg-primary absolute right-2.5 top-1.5 size-1.5 rounded-full" />
+                  ) : (
+                    <span className="bg-muted text-muted-foreground relative ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+                      {followUpCount}
+                    </span>
+                  ))}
               </Link>
+            );
+
+            if (!collapsed) return link;
+            return (
+              <Tooltip key={item.href}>
+                <TooltipTrigger asChild>{link}</TooltipTrigger>
+                <TooltipContent side="right">
+                  {item.label}
+                  {item.href === "/applications" && followUpCount > 0 && ` · ${followUpCount} due`}
+                </TooltipContent>
+              </Tooltip>
             );
           })}
         </nav>
-
-        <div className="px-4 pb-1">
-          <div className="truncate text-[13px] font-medium">{user.name || user.email}</div>
-          <div className="text-muted-foreground truncate text-[11px]">
-            {user.email}
-            {canAdmin && (
-              <span className="text-muted-foreground ml-1.5 font-medium">
-                {user.role === "SUPER_ADMIN" ? "· owner" : "· admin"}
-              </span>
-            )}
-          </div>
-        </div>
-
-        <div className="p-3">
-          <button
-            onClick={() => setPaletteOpen(true)}
-            className="text-muted-foreground hover:text-foreground hover:bg-accent flex w-full items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-[13px] transition-colors"
-          >
-            <SearchIcon className="size-3.5" />
-            <span>Search…</span>
-            <kbd className="bg-muted text-muted-foreground ml-auto rounded px-1.5 py-0.5 font-mono text-[10px]">
-              ⌘K
-            </kbd>
-          </button>
-        </div>
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
@@ -168,17 +256,7 @@ export function Shell({
             >
               <SearchIcon />
             </Button>
-            <ThemeToggle />
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <form action={logoutAction}>
-                  <Button variant="ghost" size="icon-sm" type="submit" aria-label="Sign out">
-                    <LogOutIcon />
-                  </Button>
-                </form>
-              </TooltipTrigger>
-              <TooltipContent>Sign out</TooltipContent>
-            </Tooltip>
+            <ProfileMenu user={user} canAdmin={canAdmin} />
           </div>
         </header>
 
@@ -190,19 +268,69 @@ export function Shell({
   );
 }
 
-function ThemeToggle() {
-  const { resolvedTheme, setTheme } = useTheme();
-  const [mounted, setMounted] = useState(false);
-  useEffect(() => setMounted(true), []);
+function initials(user: ShellUser) {
+  const source = user.name?.trim() || user.email;
+  const parts = source.split(/[\s@._-]+/).filter(Boolean);
+  return (parts[0]?.[0] ?? "?").concat(parts[1]?.[0] ?? "").toUpperCase();
+}
+
+function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean }) {
+  const roleLabel = user.role === "SUPER_ADMIN" ? "Owner" : canAdmin ? "Admin" : "Member";
 
   return (
-    <Button
-      variant="ghost"
-      size="icon-sm"
-      aria-label="Toggle theme"
-      onClick={() => setTheme(resolvedTheme === "dark" ? "light" : "dark")}
-    >
-      {mounted && resolvedTheme === "dark" ? <SunIcon /> : <MoonIcon />}
-    </Button>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <button
+          className="hover:bg-accent flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-2.5 transition-colors"
+          aria-label="Account menu"
+        >
+          <span className="bg-foreground text-background flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
+            {initials(user)}
+          </span>
+          <span className="hidden max-w-[10rem] truncate text-[13px] font-medium sm:block">
+            {user.name || user.email}
+          </span>
+          <ChevronDownIcon className="text-muted-foreground size-3.5" />
+        </button>
+      </DropdownMenuTrigger>
+
+      <DropdownMenuContent align="end" className="w-60">
+        <div className="flex items-center gap-2.5 px-2 py-1.5">
+          <span className="bg-foreground text-background flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
+            {initials(user)}
+          </span>
+          <div className="min-w-0">
+            <div className="truncate text-[13px] font-medium">{user.name || user.email}</div>
+            <div className="text-muted-foreground truncate text-[11px]">{user.email}</div>
+          </div>
+        </div>
+        <div className="text-muted-foreground px-2 pb-1.5 text-[11px]">{roleLabel}</div>
+
+        <DropdownMenuSeparator />
+
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <SettingsIcon /> Settings
+          </Link>
+        </DropdownMenuItem>
+        {canAdmin && (
+          <DropdownMenuItem asChild>
+            <Link href="/admin">
+              <ShieldIcon /> Admin
+            </Link>
+          </DropdownMenuItem>
+        )}
+
+        <DropdownMenuSeparator />
+
+        <form action={logoutAction}>
+          <DropdownMenuItem asChild>
+            <button type="submit" className="w-full">
+              <LogOutIcon /> Sign out
+            </button>
+          </DropdownMenuItem>
+        </form>
+      </DropdownMenuContent>
+    </DropdownMenu>
   );
 }
