@@ -471,3 +471,41 @@ build is happy, and the list view 500s at runtime. Same shape as the `resume-tex
 when a component becomes a client component, its pure helpers have to move out first.
 **Applies to:** anywhere a server page imports from a component file. If the page calls it,
 it does not live behind `"use client"`.
+
+## 2026-08-18 — The tool reference is generated, never written
+**Decision:** `/docs` builds its tool and workflow reference from `toolsFor(user)` and
+`promptsFor(user)` at request time, grouped into the four areas by name. Anything that
+matches no area is listed under "Everything else" rather than dropped.
+**Why:** a hand-maintained list of 76 tools is wrong within a week, and wrong here is worse
+than absent — this is the page someone reads to decide what to ask for. It is also
+role-aware for free: a member's docs page does not mention the admin tools, which matches
+what their client actually sees in `tools/list`. The test asserts the page and the live
+server agree in both directions, so an undocumented tool fails the build's verification
+rather than shipping quietly.
+**Applies to:** `src/app/(app)/docs/page.tsx`. When you add a tool, add its name to the
+right area's matcher — or don't, and it still appears, just in the wrong place.
+
+## 2026-08-18 — Skills are files, read from disk
+**Decision:** the three Claude Skills live at `skills/<name>/SKILL.md` in the repository.
+The docs page reads them at request time, shows them raw, and serves them from an
+auth-gated route that returns the file byte for byte.
+**Why:** the thing being handed over *is* the markdown, front matter included — a
+prettified preview would look better and be the wrong bytes. Reading from disk rather than
+pasting into a constant means the copy someone downloads is the copy in the repository; a
+skill duplicated into source is a skill that drifts from the one people have installed.
+The test compares the download against the file on disk for exactly that reason.
+**Applies to:** `skills/`, `src/lib/skills.ts`. Ordering is explicit — orientation first,
+because the task skills read as if you have seen it.
+
+## 2026-08-18 — Three skills, and the first one is about honesty
+**Decision:** `resume-os` (orientation, the four areas, replace-vs-append, the rules),
+`tailor-a-resume` (the craft), `run-the-search` (the daily and weekly loop).
+**Why:** the orientation skill exists to carry one paragraph: the failure mode is not
+fabrication from nothing, it is quiet upgrading while tailoring — a distribution credit
+becomes a hire, "helped with" becomes "led" — and every upgrade maps neatly onto a stated
+requirement, so it does not feel like invention to whoever is drafting. That is the same
+argument as the guardrails feature, and it needs to be in front of an assistant before the
+first tool call rather than looked up after the mistake.
+**Applies to:** `skills/`. If a rule matters, it goes in the orientation skill *and* the
+tool description *and* `instructionsFor` — a rule stated once is a rule that is absent when
+the client only reads one of the three.

@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
+  BookOpenIcon,
   BrainIcon,
   Building2Icon,
   ChevronDownIcon,
@@ -305,6 +306,11 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
 
         <DropdownMenuSeparator />
 
+        <DropdownMenuItem asChild>
+          <Link href="/docs">
+            <BookOpenIcon /> Docs
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings">
             <SettingsIcon /> Settings

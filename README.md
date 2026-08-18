@@ -18,7 +18,7 @@ yourself, wired into Claude so you can just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  61 tools any MCP client can call (74 if you're an admin). Claude, Claude Code, ChatGPT,
+  63 tools any MCP client can call (76 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -172,7 +172,7 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-61 tools across the four areas. The five workflows below are among them: they're published
+63 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
 Admins get 13 more tools — and members never even see those in the tool list, so nobody is
@@ -183,13 +183,20 @@ tempted by a permission they don't have.
 | **Tailor a resume to a job** | Reads a posting, mines your brain for real evidence, drafts and saves a tailored resume, and tells you what it couldn't back up. |
 | **Mine a brain dump into highlights** | Turns a raw, rambling brain dump into polished, reusable resume bullets. |
 | **Weekly pipeline review** | What's stalled, who needs chasing, what to do next — with the follow-up messages drafted. |
+| **Research a company into the CRM** | Gathers what's known, works out what's missing, and writes it back to their record without flattening what was already there. |
+| **Prepare for an interview** | Pulls the posting, the timeline, the company research, the people involved and your own evidence into one prep sheet. |
 | **Log what happened this week** | You ramble; it files everything to the right role, application, or note. |
 | **Invite and onboard someone** *(admin)* | Invites a person, hands you the link if email isn't set up, and drafts the message to send them. |
 
 Every client is instructed never to invent experience, employers, dates, or metrics. If there's
 no evidence in your brain for something a job asks for, it says so instead of making it up.
 
-### The three areas
+The **Docs** page inside the app — it's in the profile menu, next to Settings — lists every tool
+and workflow, generated from the server itself rather than written out, so it can't drift. It
+also carries three Claude Skills you can install, which teach an assistant the rules of this
+place before you have to.
+
+### The four areas
 
 **Brain** — `search_brain`, `get_brain_snapshot`, roles with unlimited brain dumps
 (`append_role_brain_dump` adds without overwriting), reusable highlights, notes and standing
@@ -203,8 +210,14 @@ committing. `publish_resume` turns one into a shareable link and hands back the 
 `unpublish_resume` destroys it. `export_resume_pdf` renders a real PDF server-side and
 reports the page count it actually came out to.
 
-**Pipeline** — applications and stages, an activity timeline, contacts, tasks,
-`list_follow_ups` for what's overdue, and `pipeline_stats` for the shape of your search.
+**Pipeline** — applications and stages, an activity timeline, tasks, `list_follow_ups` for
+what's overdue, `list_schedule` for a whole window of dated work at once, and `pipeline_stats`
+for the shape of your search.
+
+**CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
+`delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /
+`delete_contact` for the people at them. A company's `website` is what puts their logo on your
+pipeline. Deleting one refuses while applications still point at it.
 
 **Admin** *(admins only)* — `admin_list_users`, `admin_invite_user`, `admin_set_user_role`,
 `admin_set_user_active`, `admin_delete_user`, `admin_instance_stats`, plus

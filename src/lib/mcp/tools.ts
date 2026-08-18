@@ -1694,16 +1694,83 @@ ${args.role_id ? `Use role id ${args.role_id}.` : "Call list_roles first and ask
     build: () => `Run my weekly job search review.
 
 1. Call pipeline_stats for the shape of the search.
-2. Call list_follow_ups with within_days: 7.
+2. Call list_follow_ups with withinDays: 7.
 3. Call list_applications and list_activities to see what has actually moved.
 4. Call list_tasks with done: false.
+5. Call list_companies to see who I am talking to, and note any without a website on file.
 
 Then give me:
 - A two-line summary of where the search stands.
 - Anything stalled: applied over 10 days ago with no movement, or a follow-up date that has passed.
 - A prioritised list of what to do this week, most important first, each tied to a specific company.
-- Draft the follow-up messages for anything overdue.
-- Create tasks for the actions I should take, with due dates.`,
+- Draft the follow-up messages for anything overdue. Use the timeline so each one refers to what
+  was actually said — a follow-up that mentions the thing the recruiter told me gets answered.
+- Create tasks for the actions I should take, with due dates.
+
+Be direct about the bad news. If most of what I have sent has gone unanswered, that is a signal
+about the resume or the targeting and I would rather hear it than have it phrased kindly.`,
+  },
+  {
+    name: "research_company",
+    title: "Research a company into the CRM",
+    description:
+      "Gather what is known about a company, work out what is missing, and write it back to their record without losing what was already there.",
+    arguments: [
+      { name: "company", description: "Company name", required: true },
+      { name: "focus", description: "Anything specific to dig into, e.g. 'the interview loop'" },
+    ],
+    build: (args) => `Research ${args.company ?? "this company"} and put what you find on their record.
+
+1. Call list_companies with search: "${args.company ?? ""}" to find their id, then get_company for
+   everything already on file — including every application and contact I have there.
+2. Tell me what is already known and what is missing.${
+      args.focus ? `
+3. Focus especially on: ${args.focus}` : ""
+    }
+
+Then write it back with update_company. This is the part to get right:
+
+- update_company REPLACES the notes field. Take what get_company returned, combine it with what is
+  new, and write the whole thing back. Do not send only the new part.
+- Set website to their OWN domain if it is missing — not a Greenhouse, Lever or Ashby link, which
+  is the job board rather than the employer. It is what puts their logo on my pipeline.
+- Fill industry, size and location if you can.
+
+Worth recording, because it is what I will want the night before an interview: what they actually
+do and how they make money, the interview loop if it is known, who I know there, and the honest
+version of why I do or do not want this.
+
+Do not invent facts about the company. If you are working from what I have told you, say so; if you
+are unsure, mark it as unconfirmed in the notes rather than stating it flatly.`,
+  },
+  {
+    name: "prep_for_interview",
+    title: "Prepare for an interview",
+    description:
+      "Pull the application, the company research, the people involved and my own evidence into one prep sheet.",
+    arguments: [
+      { name: "company", description: "Company name", required: true },
+      { name: "round", description: "Which round, e.g. 'system design', 'final'" },
+    ],
+    build: (args) => `Get me ready for my${args.round ? ` ${args.round}` : ""} interview at ${args.company ?? "this company"}.
+
+Gather first:
+1. list_applications with search: "${args.company ?? ""}", then get_application for the full posting
+   and the whole timeline — what has already been said matters more than the posting does.
+2. list_companies then get_company for the research on file.
+3. list_contacts for that company, so I know who I am meeting and what I know about them.
+4. search_brain for the two or three themes the posting leans on hardest, so my answers come from
+   real work rather than from memory under pressure.
+
+Then give me:
+- The three things they most obviously care about, from the posting and the timeline together.
+- For each one, the strongest true story I have, with the specific numbers from my brain. Do not
+  invent a metric — if the number is not on file, say the story without one and tell me to check.
+- The questions I am most likely to be asked, and the weak spots in my own history for this role.
+- Five questions worth asking them, drawn from the company research rather than generic ones.
+- Anything in the timeline I should follow up on or refer back to.
+
+If the research on file is thin, say so and offer to run research_company first.`,
   },
   {
     name: "onboard_teammate",
