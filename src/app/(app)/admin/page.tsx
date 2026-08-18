@@ -150,7 +150,6 @@ function Stat({
   return (
     <StaggerItem>
       <Card className="group relative overflow-hidden transition-shadow hover:elev-2">
-        <div className="from-primary/8 pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
         <CardContent className="relative pt-5">
           <div className="flex items-center gap-2">
             <Icon className="text-muted-foreground size-3.5" />

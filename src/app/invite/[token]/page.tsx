@@ -1,7 +1,6 @@
 import Link from "next/link";
 import { getInviteByToken } from "@/lib/data/users";
 import { getSettings } from "@/lib/settings";
-import { Aurora } from "@/components/aurora";
 import { AuthCard } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
 import { AcceptInviteForm } from "@/components/accept-invite-form";
@@ -23,8 +22,6 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           ? "This invitation has already been used. Try signing in instead."
           : "This invitation link isn't valid.";
     return (
-      <>
-        <Aurora intense />
         <main className="flex min-h-svh items-center justify-center p-6">
           <AuthCard title="Invitation unavailable" subtitle={message}>
             <Button asChild variant="outline" className="w-full">
@@ -32,15 +29,12 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
             </Button>
           </AuthCard>
         </main>
-      </>
-    );
+  );
   }
 
   const inviter = invite.invitedBy.name || invite.invitedBy.email;
 
   return (
-    <>
-      <Aurora intense />
       <main className="flex min-h-svh items-center justify-center p-6">
         <AcceptInviteForm
           token={token}
@@ -49,6 +43,5 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           instanceName={settings.instanceName}
         />
       </main>
-    </>
   );
 }

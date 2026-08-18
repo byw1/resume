@@ -157,7 +157,7 @@ export function ApplicationDetail({
           <Input
             value={values.roleTitle}
             onChange={(event) => set({ roleTitle: event.target.value })}
-            className="text-primary h-auto border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
+            className="h-auto border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
           />
         </div>
 

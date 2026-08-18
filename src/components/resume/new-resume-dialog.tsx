@@ -63,7 +63,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="gradient">
+        <Button variant="default">
           <PlusIcon /> New resume
         </Button>
       </DialogTrigger>
@@ -155,7 +155,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
               )}
             >
               {form.seedFromBrain ? (
-                <BrainIcon className="text-primary mt-0.5 size-4 shrink-0" />
+                <BrainIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               ) : (
                 <FilePlus2Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               )}
@@ -177,7 +177,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="gradient" onClick={submit} disabled={pending}>
+          <Button variant="default" onClick={submit} disabled={pending}>
             {pending && <LoaderCircleIcon className="animate-spin" />}
             Create
           </Button>

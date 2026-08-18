@@ -207,7 +207,7 @@ export function ResumeEditor({
           {/* Server-rendered: no print dialog, no margin settings to get wrong.
               The print page stays one menu item away for hosts without a
               headless browser, and the route says so if it can't render. */}
-          <Button asChild variant="gradient" size="sm">
+          <Button asChild variant="default" size="sm">
             <a href={`/api/resumes/${id}/pdf`}>
               <DownloadIcon /> PDF
             </a>
@@ -979,7 +979,7 @@ function Collapsible({
     <div
       className={cn(
         "rounded-xl border transition-colors",
-        nested ? "bg-background/40" : "surface",
+        nested ? "bg-background/40" : "bg-card",
         dimmed && "opacity-55",
       )}
     >

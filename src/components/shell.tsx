@@ -68,11 +68,10 @@ export function Shell({
   return (
     <div className="flex min-h-svh">
       {/* Rail */}
-      <aside className="bg-sidebar/70 sticky top-0 z-30 hidden h-svh w-[15.5rem] shrink-0 flex-col border-r backdrop-blur-xl md:flex">
+      <aside className="bg-sidebar sticky top-0 z-30 hidden h-svh w-[15rem] shrink-0 flex-col border-r md:flex">
         <div className="flex h-16 items-center gap-2.5 px-5">
-          <div className="relative flex size-8 items-center justify-center rounded-lg bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary)_55%,oklch(0.7_0.19_215)))] shadow-sm">
-            <span className="text-primary-foreground text-[15px] font-bold">R</span>
-            <div className="absolute inset-0 rounded-lg ring-1 ring-white/25" />
+          <div className="bg-foreground flex size-[26px] items-center justify-center rounded-[7px]">
+            <span className="text-background text-[13px] font-semibold">R</span>
           </div>
           <div className="leading-tight">
             <div className="text-[15px] font-semibold tracking-tight">Resume OS</div>
@@ -107,7 +106,7 @@ export function Shell({
                 />
                 <span className="relative">{item.label}</span>
                 {item.href === "/applications" && followUpCount > 0 && (
-                  <span className="bg-primary/15 text-primary relative ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-semibold tabular-nums">
+                  <span className="bg-muted text-muted-foreground relative ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
                     {followUpCount}
                   </span>
                 )}
@@ -121,7 +120,7 @@ export function Shell({
           <div className="text-muted-foreground truncate text-[11px]">
             {user.email}
             {canAdmin && (
-              <span className="text-primary ml-1.5 font-medium">
+              <span className="text-muted-foreground ml-1.5 font-medium">
                 {user.role === "SUPER_ADMIN" ? "· owner" : "· admin"}
               </span>
             )}
@@ -131,7 +130,7 @@ export function Shell({
         <div className="p-3">
           <button
             onClick={() => setPaletteOpen(true)}
-            className="text-muted-foreground hover:text-foreground hover:border-primary/30 flex w-full items-center gap-2 rounded-lg border bg-background/50 px-3 py-2 text-sm transition-colors"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent flex w-full items-center gap-2 rounded-md border bg-card px-3 py-1.5 text-[13px] transition-colors"
           >
             <SearchIcon className="size-3.5" />
             <span>Search…</span>

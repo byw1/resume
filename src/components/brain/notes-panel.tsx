@@ -60,7 +60,7 @@ export function NotesPanel({ notes }: { notes: Note[] }) {
           title="No notes yet"
           description="Notes are free-form. Claude searches them alongside your roles when it writes."
           action={
-            <Button variant="gradient" onClick={add} disabled={pending}>
+            <Button variant="default" onClick={add} disabled={pending}>
               <PlusIcon /> New note
             </Button>
           }

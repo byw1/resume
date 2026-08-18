@@ -197,7 +197,7 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
   return (
     <div
       className={cn(
-        "surface ring-highlight group cursor-grab rounded-xl border p-3 transition-shadow active:cursor-grabbing",
+        "group cursor-grab rounded-xl border p-3 transition-shadow active:cursor-grabbing",
         overlay ? "elev-3" : "elev-1 hover:elev-2",
       )}
     >

@@ -112,7 +112,7 @@ export function EmailPanel({
                 <>Save, then send yourself a test to prove it works.</>,
               ].map((step, index) => (
                 <li key={index} className="flex gap-3 text-sm">
-                  <span className="bg-primary/12 text-primary flex size-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums">
+                  <span className="bg-muted text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums">
                     {index + 1}
                   </span>
                   <span className="text-muted-foreground pt-0.5">{step}</span>
@@ -174,7 +174,7 @@ export function EmailPanel({
             </div>
           </div>
 
-          <Button variant="gradient" onClick={save} disabled={pending}>
+          <Button variant="default" onClick={save} disabled={pending}>
             {pending && <LoaderCircleIcon className="animate-spin" />}
             Save settings
           </Button>

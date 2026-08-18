@@ -72,7 +72,7 @@ function SkillsCard({ skills }: { skills: SkillGroup[] }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-[15px]">
-          <WrenchIcon className="text-primary size-4" /> Skills
+          <WrenchIcon className="text-muted-foreground size-4" /> Skills
         </CardTitle>
         <Button
           variant="ghost"
@@ -168,7 +168,7 @@ function EducationCard({ education }: { education: Education[] }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-[15px]">
-          <GraduationCapIcon className="text-primary size-4" /> Education
+          <GraduationCapIcon className="text-muted-foreground size-4" /> Education
         </CardTitle>
         <Button
           variant="ghost"
@@ -283,7 +283,7 @@ function ProjectsCard({ projects }: { projects: Project[] }) {
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="flex items-center gap-2 text-[15px]">
-          <FolderGitIcon className="text-primary size-4" /> Projects
+          <FolderGitIcon className="text-muted-foreground size-4" /> Projects
         </CardTitle>
         <Button
           variant="ghost"
@@ -408,7 +408,7 @@ function CertificationsCard({ certifications }: { certifications: Certification[
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-[15px]">
-          <AwardIcon className="text-primary size-4" /> Certifications
+          <AwardIcon className="text-muted-foreground size-4" /> Certifications
         </CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">

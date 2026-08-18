@@ -57,12 +57,12 @@ function CopyButton({
   value,
   label = "Copy",
   className,
-  variant = "gradient",
+  variant = "default",
 }: {
   value: string;
   label?: string;
   className?: string;
-  variant?: "gradient" | "ghost" | "outline" | "secondary";
+  variant?: "default" | "ghost" | "outline" | "secondary";
 }) {
   const [copied, setCopied] = useState(false);
   return (
@@ -108,7 +108,7 @@ function SetupGuide({ clientId, url }: { clientId: string; url: string }) {
       <ol className="space-y-3">
         {steps.map((step, index) => (
           <li key={step.text} className="flex gap-3">
-            <span className="bg-primary/12 text-primary mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums">
+            <span className="bg-muted text-muted-foreground mt-0.5 flex size-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums">
               {index + 1}
             </span>
             <div className="min-w-0 flex-1">
@@ -180,7 +180,7 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
   return (
     <div className="rounded-xl border">
       <div className="flex flex-wrap items-center gap-3 p-3.5">
-        <div className="bg-primary/10 text-primary flex size-9 shrink-0 items-center justify-center rounded-lg">
+        <div className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
           <PlugZapIcon className="size-4" />
         </div>
 
@@ -303,7 +303,7 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
                       className={cn(
                         "rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors",
                         client === entry.id
-                          ? "border-primary/50 bg-primary/10 text-primary"
+                          ? "border-primary/50 bg-muted text-muted-foreground"
                           : "hover:bg-accent/60",
                       )}
                     >
@@ -371,12 +371,11 @@ export function ConnectionsPanel({
 
   return (
     <Card className="relative overflow-hidden">
-      <div className="from-primary/10 pointer-events-none absolute inset-0 bg-gradient-to-br via-transparent to-transparent" />
 
       <CardHeader className="relative">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
-            <div className="bg-primary/12 text-primary flex size-9 items-center justify-center rounded-xl">
+            <div className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-xl">
               <PlugZapIcon className="size-[18px]" />
             </div>
             <div>
@@ -384,12 +383,12 @@ export function ConnectionsPanel({
               <p className="text-muted-foreground text-sm">
                 {toolCount} tools · {prompts.length} ready-made workflows
                 {isAdmin && adminToolCount > 0 && (
-                  <span className="text-primary"> · including {adminToolCount} admin tools</span>
+                  <span> · including {adminToolCount} admin tools</span>
                 )}
               </p>
             </div>
           </div>
-          <Button variant="gradient" size="sm" onClick={() => add("other")} disabled={pending}>
+          <Button variant="default" size="sm" onClick={() => add("other")} disabled={pending}>
             <PlusIcon className="size-3.5" /> New connection
           </Button>
         </div>

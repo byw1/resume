@@ -37,16 +37,25 @@ export const STAGE_LABEL: Record<Stage, string> = {
   WITHDRAWN: "Withdrawn",
 };
 
+/**
+ * A stage is a position on one path, not a category, so the scale is
+ * monochrome and gets darker as an application advances — you read progress
+ * from weight rather than from remembering what teal meant.
+ *
+ * Only the ends earn a hue, because only the ends carry news: the offer you
+ * are working toward, and the two ways it can finish. Values are CSS variables
+ * so they follow the theme; a fixed colour would go muddy in dark mode.
+ */
 export const STAGE_TONE: Record<Stage, string> = {
-  WISHLIST: "oklch(0.62 0.02 280)",
-  APPLIED: "oklch(0.62 0.16 250)",
-  SCREEN: "oklch(0.66 0.15 215)",
-  INTERVIEW: "oklch(0.68 0.16 175)",
-  FINAL: "oklch(0.72 0.16 120)",
-  OFFER: "oklch(0.74 0.17 85)",
-  ACCEPTED: "oklch(0.68 0.18 150)",
-  REJECTED: "oklch(0.62 0.17 25)",
-  WITHDRAWN: "oklch(0.58 0.02 280)",
+  WISHLIST: "var(--stage-1)",
+  APPLIED: "var(--stage-2)",
+  SCREEN: "var(--stage-3)",
+  INTERVIEW: "var(--stage-4)",
+  FINAL: "var(--stage-5)",
+  OFFER: "var(--primary)",
+  ACCEPTED: "var(--success)",
+  REJECTED: "var(--destructive)",
+  WITHDRAWN: "var(--stage-muted)",
 };
 
 export const ACTIVITY_LABEL: Record<ActivityType, string> = {

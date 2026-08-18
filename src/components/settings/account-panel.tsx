@@ -45,7 +45,7 @@ export function AccountPanel({
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2.5">
-          <div className="bg-primary/12 text-primary flex size-9 items-center justify-center rounded-xl">
+          <div className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-xl">
             <UserIcon className="size-[18px]" />
           </div>
           <div>

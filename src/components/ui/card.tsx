@@ -6,7 +6,10 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        "surface ring-highlight text-card-foreground flex flex-col rounded-xl border elev-1",
+        // A hairline and a flat fill. No shadow: on a grey ground the border
+        // already separates the panel, and stacking shadows is what makes an
+        // interface look like a pile of boxes.
+        "bg-card text-card-foreground flex flex-col rounded-xl border",
         className,
       )}
       {...props}

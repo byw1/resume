@@ -96,7 +96,7 @@ export function RoleEditor({ role, highlights }: { role: Role; highlights: Highl
             value={values.company}
             onChange={(event) => set({ company: event.target.value })}
             placeholder="Company"
-            className="text-primary h-auto border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
+            className="h-auto border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
           />
         </div>
         <div className="flex items-center gap-2">
@@ -250,7 +250,7 @@ function HighlightsCard({ roleId, highlights }: { roleId: string; highlights: Hi
     <Card>
       <CardHeader>
         <CardTitle className="flex items-center gap-2 text-[15px]">
-          <SparklesIcon className="text-primary size-4" /> Highlights
+          <SparklesIcon className="text-muted-foreground size-4" /> Highlights
         </CardTitle>
         <p className="text-muted-foreground text-sm">
           Polished, reusable bullets distilled from the dump above. Ask Claude to

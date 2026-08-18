@@ -70,7 +70,7 @@ export default async function DashboardPage() {
                 <BrainIcon /> Brain dump
               </Link>
             </Button>
-            <Button asChild variant="gradient">
+            <Button asChild variant="default">
               <Link href="/resumes?new=1">
                 <SparklesIcon /> New resume
               </Link>
@@ -116,7 +116,7 @@ export default async function DashboardPage() {
               <Card className="h-full">
                 <CardHeader className="flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-[15px]">
-                    <CalendarClockIcon className="text-primary size-4" />
+                    <CalendarClockIcon className="text-muted-foreground size-4" />
                     Needs you now
                   </CardTitle>
                   <Button asChild variant="ghost" size="xs">
@@ -144,7 +144,7 @@ export default async function DashboardPage() {
               <Card className="h-full">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-[15px]">
-                    <CheckCircle2Icon className="text-primary size-4" />
+                    <CheckCircle2Icon className="text-muted-foreground size-4" />
                     Tasks
                   </CardTitle>
                 </CardHeader>
@@ -204,7 +204,7 @@ export default async function DashboardPage() {
                       <span className="bg-border absolute top-1.5 bottom-1.5 left-[3px] w-px" />
                       {activities.map((activity) => (
                         <li key={activity.id} className="relative">
-                          <span className="bg-primary ring-background absolute top-1.5 -left-5 size-[7px] rounded-full ring-4" />
+                          <span className="bg-border ring-background absolute top-1.5 -left-5 size-[7px] rounded-full ring-4" />
                           <div className="flex flex-wrap items-baseline gap-x-2">
                             <Link
                               href={`/applications/${activity.applicationId}`}
@@ -255,7 +255,6 @@ function StatCard({
   return (
     <StaggerItem>
       <Card className="group relative overflow-hidden transition-shadow hover:elev-2">
-        <div className="from-primary/8 pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
         <CardContent className="relative pt-5">
           <div className="flex items-center gap-2">
             <Icon className="text-muted-foreground size-3.5" />

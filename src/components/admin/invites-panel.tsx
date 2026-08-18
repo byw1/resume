@@ -110,7 +110,7 @@ export function InvitesPanel({
               </Select>
             </div>
             <div className="flex items-end">
-              <Button variant="gradient" onClick={invite} disabled={pending || !email.trim()}>
+              <Button variant="default" onClick={invite} disabled={pending || !email.trim()}>
                 {pending ? <LoaderCircleIcon className="animate-spin" /> : <SendIcon />}
                 Send invite
               </Button>

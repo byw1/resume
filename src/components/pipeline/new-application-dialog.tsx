@@ -70,7 +70,7 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="gradient">
+        <Button variant="default">
           <PlusIcon /> Track a job
         </Button>
       </DialogTrigger>
@@ -197,7 +197,7 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="gradient" onClick={submit} disabled={pending}>
+          <Button variant="default" onClick={submit} disabled={pending}>
             {pending && <LoaderCircleIcon className="animate-spin" />}
             Track it
           </Button>

@@ -234,3 +234,28 @@ returned a raw Prisma stack trace to the caller instead of the legible error eve
 produces. Same information, wrong audience.
 **Applies to:** `existingOrThrow` in `src/lib/data/brain.ts`, and the matching branch in
 `updateResume`.
+
+## 2026-08-17 — Colour has to earn its place
+**Decision:** the interface is near-monochrome. One accent (blue) appears in exactly three
+roles — the primary button, links, and the selected thing — and the only other hues are
+status: green for current, amber for attention, red for overdue or destructive. The ambient
+Aurora background, gradient headings, the gradient button variant, the shimmer, the grid
+wash, the `ring-highlight` hairline and the accent hover-blooms are all deleted.
+**Why:** with a purple accent used decoratively on eyebrows, icons, bullets, company names and
+badges, plus a nine-hue rainbow for pipeline stages, nothing on screen could be read as
+meaningful — an overdue application in red sat next to a purple sparkle that meant nothing.
+This is a tool people work in for an hour at a time; the ground should be quiet so the one
+thing that matters can be loud. Type does the hierarchy now: tighter tracking on large sizes,
+a hairline border instead of a shadow on every panel, and shadow reserved for things that
+genuinely float.
+**Applies to:** `src/app/globals.css` is the whole system — change a token there rather than
+restyling a component. Before adding a colour anywhere, say what information it carries.
+
+## 2026-08-17 — Pipeline stages are a ramp, not a palette
+**Decision:** `STAGE_TONE` is a monochrome scale that darkens (lightens, in dark mode) as an
+application advances, with hue only at the ends: accent for OFFER, green for ACCEPTED, red
+for REJECTED. The values are CSS variables rather than literals.
+**Why:** stage is a position on one path, so weight reads as progress in a way that nine
+arbitrary hues never did — nobody remembers that teal meant "interviewing". Variables rather
+than fixed colours because the old literals were tuned for dark mode and went muddy in light.
+**Applies to:** `STAGE_TONE` in `src/lib/data/pipeline.ts`, `--stage-*` in `globals.css`.

@@ -3,70 +3,103 @@
 
 @custom-variant dark (&:is(.dark *));
 
+/* ---------------------------------------------------------------------------
+   The palette is near-monochrome on purpose.
+
+   This is a tool people work in for an hour at a time, not a landing page. So
+   the surface is grey and the type does the hierarchy, and colour is reserved
+   for things that mean something: the one primary action, a link, the current
+   selection, and status (green current, amber attention, red overdue). If a
+   colour on screen isn't carrying information, it shouldn't be there.
+
+   Everything here is a token. Change a value once and every screen follows —
+   which is the whole reason this file is worth reading before restyling a
+   component by hand.
+   --------------------------------------------------------------------------- */
+
 :root {
-  --radius: 0.75rem;
+  --radius: 0.625rem;
 
-  --background: oklch(0.994 0 0);
-  --foreground: oklch(0.17 0.012 275);
+  /* Greys carry a trace of blue so they read as neutral rather than muddy. */
+  --background: oklch(0.979 0.001 265);
+  --foreground: oklch(0.18 0.006 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.17 0.012 275);
+  --card-foreground: oklch(0.18 0.006 265);
   --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.17 0.012 275);
-  --primary: oklch(0.55 0.21 288);
-  --primary-foreground: oklch(0.99 0.005 285);
-  --secondary: oklch(0.968 0.005 285);
-  --secondary-foreground: oklch(0.25 0.015 280);
-  --muted: oklch(0.967 0.004 285);
-  --muted-foreground: oklch(0.53 0.014 280);
-  --accent: oklch(0.955 0.014 288);
-  --accent-foreground: oklch(0.28 0.05 288);
-  --destructive: oklch(0.58 0.222 27);
-  --destructive-foreground: oklch(0.99 0 0);
-  --success: oklch(0.62 0.15 155);
-  --warning: oklch(0.72 0.16 70);
-  --border: oklch(0.915 0.005 285);
-  --input: oklch(0.915 0.005 285);
-  --ring: oklch(0.55 0.21 288);
+  --popover-foreground: oklch(0.18 0.006 265);
 
-  --sidebar: oklch(0.985 0.003 285);
-  --sidebar-foreground: oklch(0.2 0.012 275);
-  --sidebar-border: oklch(0.915 0.005 285);
+  /* The one accent. Used for the primary button, links and selection. */
+  --primary: oklch(0.55 0.17 254);
+  --primary-foreground: oklch(1 0 0);
 
-  --glow-a: oklch(0.62 0.2 288 / 0.28);
-  --glow-b: oklch(0.68 0.17 210 / 0.22);
-  --glow-c: oklch(0.72 0.16 330 / 0.18);
+  --secondary: oklch(0.955 0.002 265);
+  --secondary-foreground: oklch(0.26 0.007 265);
+  --muted: oklch(0.962 0.002 265);
+  --muted-foreground: oklch(0.505 0.008 265);
+  --accent: oklch(0.945 0.003 265);
+  --accent-foreground: oklch(0.22 0.007 265);
+
+  /* Status. These are the only other hues in the system. */
+  --destructive: oklch(0.58 0.21 25);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.6 0.13 152);
+  --warning: oklch(0.72 0.14 70);
+
+  --border: oklch(0.905 0.003 265);
+  --input: oklch(0.895 0.003 265);
+  --ring: oklch(0.55 0.17 254);
+
+  --sidebar: oklch(0.968 0.002 265);
+  --sidebar-foreground: oklch(0.24 0.006 265);
+  --sidebar-border: oklch(0.9 0.003 265);
+
+  /* Pipeline progress: one ramp, darkening as an application advances. */
+  --stage-1: oklch(0.82 0.004 265);
+  --stage-2: oklch(0.73 0.005 265);
+  --stage-3: oklch(0.63 0.006 265);
+  --stage-4: oklch(0.53 0.007 265);
+  --stage-5: oklch(0.42 0.008 265);
+  --stage-muted: oklch(0.87 0.003 265);
 }
 
 .dark {
-  --background: oklch(0.145 0.012 278);
-  --foreground: oklch(0.965 0.005 285);
-  --card: oklch(0.183 0.014 278);
-  --card-foreground: oklch(0.965 0.005 285);
-  --popover: oklch(0.183 0.014 278);
-  --popover-foreground: oklch(0.965 0.005 285);
-  --primary: oklch(0.7 0.17 291);
-  --primary-foreground: oklch(0.16 0.03 288);
-  --secondary: oklch(0.235 0.016 278);
-  --secondary-foreground: oklch(0.95 0.005 285);
-  --muted: oklch(0.235 0.016 278);
-  --muted-foreground: oklch(0.685 0.014 283);
-  --accent: oklch(0.27 0.03 285);
-  --accent-foreground: oklch(0.95 0.01 285);
+  --background: oklch(0.165 0.004 265);
+  --foreground: oklch(0.968 0.002 265);
+  --card: oklch(0.203 0.004 265);
+  --card-foreground: oklch(0.968 0.002 265);
+  --popover: oklch(0.223 0.005 265);
+  --popover-foreground: oklch(0.968 0.002 265);
+
+  --primary: oklch(0.65 0.17 252);
+  --primary-foreground: oklch(1 0 0);
+
+  --secondary: oklch(0.253 0.005 265);
+  --secondary-foreground: oklch(0.95 0.002 265);
+  --muted: oklch(0.253 0.005 265);
+  --muted-foreground: oklch(0.66 0.008 265);
+  --accent: oklch(0.283 0.006 265);
+  --accent-foreground: oklch(0.96 0.002 265);
+
   --destructive: oklch(0.66 0.19 25);
-  --destructive-foreground: oklch(0.15 0.02 25);
-  --success: oklch(0.72 0.16 155);
-  --warning: oklch(0.79 0.15 72);
-  --border: oklch(0.99 0 0 / 10%);
-  --input: oklch(0.99 0 0 / 14%);
-  --ring: oklch(0.7 0.17 291);
+  --destructive-foreground: oklch(1 0 0);
+  --success: oklch(0.7 0.14 154);
+  --warning: oklch(0.78 0.14 72);
 
-  --sidebar: oklch(0.166 0.014 278);
-  --sidebar-foreground: oklch(0.95 0.005 285);
-  --sidebar-border: oklch(0.99 0 0 / 8%);
+  --border: oklch(1 0 0 / 9%);
+  --input: oklch(1 0 0 / 13%);
+  --ring: oklch(0.65 0.17 252);
 
-  --glow-a: oklch(0.6 0.24 291 / 0.34);
-  --glow-b: oklch(0.62 0.2 220 / 0.26);
-  --glow-c: oklch(0.66 0.2 335 / 0.2);
+  --sidebar: oklch(0.185 0.004 265);
+  --sidebar-foreground: oklch(0.94 0.002 265);
+  --sidebar-border: oklch(1 0 0 / 7%);
+
+  /* Inverted: in the dark the ramp brightens as it advances. */
+  --stage-1: oklch(0.38 0.005 265);
+  --stage-2: oklch(0.47 0.006 265);
+  --stage-3: oklch(0.57 0.007 265);
+  --stage-4: oklch(0.68 0.006 265);
+  --stage-5: oklch(0.8 0.004 265);
+  --stage-muted: oklch(0.34 0.004 265);
 }
 
 @theme inline {
@@ -99,73 +132,24 @@
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
   --radius-xl: calc(var(--radius) + 4px);
-  --radius-2xl: calc(var(--radius) + 10px);
+  --radius-2xl: calc(var(--radius) + 8px);
 
-  --font-sans: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system, "Segoe UI",
-    Roboto, "Helvetica Neue", sans-serif;
+  --font-sans: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system,
+    "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
 
-  --animate-shimmer: shimmer 2.4s linear infinite;
-  --animate-float: float 7s ease-in-out infinite;
-  --animate-aurora: aurora 18s ease-in-out infinite alternate;
-  --animate-in-up: inUp 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
-  --animate-pulse-ring: pulseRing 2.4s ease-out infinite;
-}
-
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
-  }
-  100% {
-    background-position: 200% 0;
-  }
-}
-
-@keyframes float {
-  0%,
-  100% {
-    transform: translateY(0) translateX(0);
-  }
-  50% {
-    transform: translateY(-14px) translateX(6px);
-  }
-}
-
-@keyframes aurora {
-  0% {
-    transform: translate3d(0, 0, 0) scale(1);
-    opacity: 0.75;
-  }
-  50% {
-    transform: translate3d(4%, -3%, 0) scale(1.12);
-    opacity: 1;
-  }
-  100% {
-    transform: translate3d(-3%, 4%, 0) scale(1.05);
-    opacity: 0.8;
-  }
+  /* One entrance animation, used once per screen. Nothing loops. */
+  --animate-in-up: inUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
 @keyframes inUp {
   from {
     opacity: 0;
-    transform: translateY(10px);
+    transform: translateY(6px);
   }
   to {
     opacity: 1;
     transform: translateY(0);
-  }
-}
-
-@keyframes pulseRing {
-  0% {
-    box-shadow: 0 0 0 0 var(--glow-a);
-  }
-  70% {
-    box-shadow: 0 0 0 12px transparent;
-  }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
   }
 }
 
@@ -174,38 +158,48 @@
     border-color: var(--border);
   }
 
-  html {
-    scroll-behavior: smooth;
-  }
-
   body {
     background-color: var(--background);
     color: var(--foreground);
     font-feature-settings: "cv02", "cv03", "cv04", "cv11", "ss01";
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
   }
 
-  ::selection {
-    background: color-mix(in oklch, var(--primary) 28%, transparent);
+  /* Optical sizing: large text wants tighter tracking, small text wants none.
+     This is most of what makes a type stack feel considered rather than
+     defaulted. */
+  h1,
+  h2,
+  h3 {
+    letter-spacing: -0.018em;
+    text-wrap: balance;
+  }
+  h1 {
+    letter-spacing: -0.026em;
   }
 
-  /* Refined scrollbars */
+  ::selection {
+    background: color-mix(in oklch, var(--primary) 22%, transparent);
+  }
+
+  /* Thin, neutral, and only visible while it matters. */
   ::-webkit-scrollbar {
-    width: 10px;
-    height: 10px;
+    width: 12px;
+    height: 12px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: color-mix(in oklch, var(--muted-foreground) 26%, transparent);
+    background: color-mix(in oklch, var(--muted-foreground) 22%, transparent);
     border-radius: 999px;
-    border: 3px solid transparent;
+    border: 4px solid transparent;
     background-clip: content-box;
   }
   ::-webkit-scrollbar-thumb:hover {
-    background: color-mix(in oklch, var(--muted-foreground) 46%, transparent);
+    background: color-mix(in oklch, var(--muted-foreground) 38%, transparent);
     background-clip: content-box;
   }
 
@@ -215,85 +209,54 @@
   button {
     font: inherit;
   }
+
+  /* Anyone who has asked their system to calm down gets a calm app. */
+  @media (prefers-reduced-motion: reduce) {
+    *,
+    *::before,
+    *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 @layer utilities {
+  /* Chrome material — sidebar and toolbars only, never content. */
   .glass {
-    background: color-mix(in oklch, var(--card) 72%, transparent);
-    backdrop-filter: blur(18px) saturate(160%);
-    -webkit-backdrop-filter: blur(18px) saturate(160%);
+    background: color-mix(in oklch, var(--background) 82%, transparent);
+    backdrop-filter: saturate(180%) blur(20px);
+    -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
-  .surface {
-    background:
-      linear-gradient(
-        to bottom,
-        color-mix(in oklch, var(--card) 100%, transparent),
-        color-mix(in oklch, var(--card) 92%, var(--background))
-      );
+  /* Elevation is nearly absent by design: a hairline border does the
+     separating, and shadow is kept for things that genuinely float. */
+  .elev-1 {
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
   }
-
-  /* A hairline top highlight — the shadcn/21st "premium card" tell.
-     The ::before needs a positioned ancestor, but this file is emitted after
-     Tailwind's own utilities inside @layer utilities, so a plain
-     `.ring-highlight { position: relative }` would outrank `.fixed`/`.absolute`
-     on the same element and quietly break every dialog. :where() drops the
-     specificity to zero, so it only supplies a default and any explicit
-     position utility still wins. */
-  :where(.ring-highlight) {
-    position: relative;
+  .elev-2 {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 0.04),
+      0 4px 12px oklch(0 0 0 / 0.05);
   }
-  .ring-highlight::before {
-    content: "";
-    position: absolute;
-    inset: 0;
-    border-radius: inherit;
-    padding: 1px;
-    background: linear-gradient(
-      to bottom,
-      color-mix(in oklch, white 22%, transparent),
-      transparent 42%
-    );
-    -webkit-mask:
-      linear-gradient(#000 0 0) content-box,
-      linear-gradient(#000 0 0);
-    -webkit-mask-composite: xor;
-    mask-composite: exclude;
-    pointer-events: none;
+  .elev-3 {
+    box-shadow:
+      0 2px 6px oklch(0 0 0 / 0.06),
+      0 12px 32px oklch(0 0 0 / 0.12);
   }
-
-  .text-gradient {
-    background: linear-gradient(
-      100deg,
-      var(--foreground) 0%,
-      color-mix(in oklch, var(--primary) 78%, var(--foreground)) 48%,
-      var(--foreground) 100%
-    );
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
+  .dark .elev-1 {
+    box-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
   }
-
-  .shimmer-text {
-    background: linear-gradient(
-      100deg,
-      var(--muted-foreground) 20%,
-      var(--foreground) 46%,
-      var(--muted-foreground) 72%
-    );
-    background-size: 200% 100%;
-    -webkit-background-clip: text;
-    background-clip: text;
-    color: transparent;
-    animation: var(--animate-shimmer);
+  .dark .elev-2 {
+    box-shadow:
+      0 1px 2px oklch(0 0 0 / 0.4),
+      0 4px 14px oklch(0 0 0 / 0.35);
   }
-
-  .grid-bg {
-    background-image:
-      linear-gradient(to right, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px),
-      linear-gradient(to bottom, color-mix(in oklch, var(--border) 70%, transparent) 1px, transparent 1px);
-    background-size: 44px 44px;
-    mask-image: radial-gradient(ellipse 80% 60% at 50% 0%, #000 40%, transparent 100%);
+  .dark .elev-3 {
+    box-shadow:
+      0 2px 8px oklch(0 0 0 / 0.5),
+      0 16px 40px oklch(0 0 0 / 0.5);
   }
 
   .no-scrollbar::-webkit-scrollbar {
@@ -304,35 +267,18 @@
     scrollbar-width: none;
   }
 
-  .elev-1 {
-    box-shadow:
-      0 1px 2px oklch(0 0 0 / 0.05),
-      0 1px 3px oklch(0 0 0 / 0.04);
-  }
-  .elev-2 {
-    box-shadow:
-      0 2px 4px oklch(0 0 0 / 0.04),
-      0 8px 24px oklch(0 0 0 / 0.07);
-  }
-  .elev-3 {
-    box-shadow:
-      0 4px 8px oklch(0 0 0 / 0.05),
-      0 18px 48px oklch(0 0 0 / 0.11);
-  }
-  .dark .elev-2 {
-    box-shadow:
-      0 2px 4px oklch(0 0 0 / 0.3),
-      0 10px 30px oklch(0 0 0 / 0.4);
-  }
-  .dark .elev-3 {
-    box-shadow:
-      0 6px 12px oklch(0 0 0 / 0.35),
-      0 24px 60px oklch(0 0 0 / 0.5);
+  /* Tabular figures for anything you compare down a column. */
+  .nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
   }
 }
 
 /* ---------------------------------------------------------------------------
-   Resume paper — shared by the editor preview and the print route
+   Resume paper — shared by the editor preview and the print route.
+
+   Deliberately untouched by the app's theme: this is a printed document, and it
+   is white with black text wherever it is rendered.
    --------------------------------------------------------------------------- */
 
 .resume-paper {

@@ -1,7 +1,6 @@
 import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Shell } from "@/components/shell";
-import { Aurora } from "@/components/aurora";
 import { followUpsDue } from "@/lib/data/pipeline";
 import { dateRange } from "@/lib/utils";
 
@@ -42,7 +41,6 @@ export default async function AppLayout({ children }: { children: React.ReactNod
 
   return (
     <>
-      <Aurora />
       <Shell
         index={index}
         followUpCount={followUps.length}

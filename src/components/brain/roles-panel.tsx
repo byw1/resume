@@ -40,14 +40,13 @@ export function RolesPanel({ roles }: { roles: RoleCard[] }) {
           <Lift>
             <Link href={`/brain/${role.id}`} className="block h-full">
               <Card className="group relative h-full overflow-hidden transition-all hover:border-primary/30 hover:elev-2">
-                <div className="from-primary/8 pointer-events-none absolute inset-0 bg-gradient-to-br to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                 <CardContent className="relative flex h-full flex-col pt-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">
                       <div className="truncate text-[15px] font-semibold tracking-tight">
                         {role.title}
                       </div>
-                      <div className="text-primary truncate text-sm font-medium">{role.company}</div>
+                      <div className="text-muted-foreground truncate text-sm font-medium">{role.company}</div>
                     </div>
                     {role.isCurrent && (
                       <Badge variant="success" className="shrink-0">
@@ -84,7 +83,7 @@ export function RolesPanel({ roles }: { roles: RoleCard[] }) {
 
                   <div className="mt-auto flex items-center gap-4 pt-5 text-xs">
                     <span className="flex items-center gap-1.5">
-                      <SparklesIcon className="text-primary size-3" />
+                      <SparklesIcon className="text-muted-foreground size-3" />
                       <span className="font-medium tabular-nums">{role.highlightCount}</span>
                       <span className="text-muted-foreground">highlights</span>
                     </span>

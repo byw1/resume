@@ -41,7 +41,7 @@ function DialogContent({
         className={cn(
           // w-[calc(100%-2rem)] keeps a gutter on narrow screens; max-w-lg still
           // caps the width everywhere else.
-          "bg-popover ring-highlight fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 elev-3",
+          "bg-popover fixed top-1/2 left-1/2 z-50 grid w-[calc(100%-2rem)] max-w-lg -translate-x-1/2 -translate-y-1/2 gap-4 rounded-2xl border p-6 elev-3",
           "duration-200 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:fade-out-0 data-[state=open]:fade-in-0 data-[state=closed]:zoom-out-95 data-[state=open]:zoom-in-95",
           "max-h-[92vh] overflow-y-auto",
           className,

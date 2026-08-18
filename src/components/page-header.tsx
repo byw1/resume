@@ -16,18 +16,19 @@ export function PageHeader({
   actions?: React.ReactNode;
 }) {
   return (
-    <div className="mb-7 flex flex-wrap items-end justify-between gap-4">
+    <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
       <div className="min-w-0">
+        {/* The eyebrow labels the section; it is not a place for accent colour. */}
         {eyebrow && (
-          <div className="text-primary mb-1.5 text-[11px] font-semibold tracking-[0.14em] uppercase">
+          <div className="text-muted-foreground mb-2 text-[11px] font-medium tracking-[0.08em] uppercase">
             {eyebrow}
           </div>
         )}
-        <h1 className="text-gradient text-[27px] leading-tight font-semibold tracking-tight md:text-[32px]">
-          {title}
-        </h1>
+        <h1 className="text-[24px] leading-[1.15] font-semibold md:text-[28px]">{title}</h1>
         {description && (
-          <p className="text-muted-foreground mt-1.5 max-w-2xl text-sm">{description}</p>
+          <p className="text-muted-foreground mt-2 max-w-xl text-[13.5px] leading-relaxed">
+            {description}
+          </p>
         )}
       </div>
       {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
@@ -51,11 +52,11 @@ export function EmptyState({
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center rounded-2xl border border-dashed px-6 py-16 text-center",
+        "flex flex-col items-center justify-center rounded-xl border border-dashed px-6 py-16 text-center",
         className,
       )}
     >
-      <div className="bg-muted/60 text-muted-foreground mb-4 flex size-12 items-center justify-center rounded-xl">
+      <div className="bg-muted text-muted-foreground mb-4 flex size-11 items-center justify-center rounded-full">
         <Icon className="size-5" />
       </div>
       <h3 className="font-medium">{title}</h3>

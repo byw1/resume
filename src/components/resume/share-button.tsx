@@ -72,7 +72,7 @@ export function ShareButton({ id, initialUrl }: { id: string; initialUrl: string
                 {url}
               </code>
               <Button
-                variant={copied ? "secondary" : "gradient"}
+                variant={copied ? "secondary" : "default"}
                 size="sm"
                 onClick={() => copy(url)}
               >
@@ -114,7 +114,7 @@ export function ShareButton({ id, initialUrl }: { id: string; initialUrl: string
                 page tells search engines not to index it.
               </p>
             </div>
-            <Button variant="gradient" size="sm" className="w-full" disabled={pending} onClick={publish}>
+            <Button variant="default" size="sm" className="w-full" disabled={pending} onClick={publish}>
               {pending ? (
                 <LoaderCircleIcon className="size-3.5 animate-spin" />
               ) : (

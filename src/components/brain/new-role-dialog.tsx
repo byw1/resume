@@ -64,7 +64,7 @@ export function NewRoleDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="gradient">
+        <Button variant="default">
           <PlusIcon /> Add role
         </Button>
       </DialogTrigger>
@@ -144,7 +144,7 @@ export function NewRoleDialog() {
           <Button variant="ghost" onClick={() => setOpen(false)}>
             Cancel
           </Button>
-          <Button variant="gradient" onClick={submit} disabled={pending}>
+          <Button variant="default" onClick={submit} disabled={pending}>
             {pending && <LoaderCircleIcon className="animate-spin" />}
             Create role
           </Button>

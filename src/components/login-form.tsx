@@ -73,13 +73,12 @@ export function AuthCard({
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className="w-full max-w-sm"
     >
-      <div className="surface ring-highlight rounded-2xl border p-8 elev-3">
+      <div className="bg-card rounded-2xl border p-8 elev-2">
         <div className="mb-7 flex flex-col items-center text-center">
-          <div className="relative mb-4 flex size-12 items-center justify-center rounded-xl bg-[linear-gradient(135deg,var(--primary),color-mix(in_oklch,var(--primary)_55%,oklch(0.7_0.19_215)))] shadow-lg shadow-primary/25">
-            <span className="text-primary-foreground text-xl font-bold">R</span>
-            <div className="absolute inset-0 rounded-xl ring-1 ring-white/25" />
+          <div className="bg-foreground mb-4 flex size-10 items-center justify-center rounded-[10px]">
+            <span className="text-background text-[17px] font-semibold">R</span>
           </div>
-          <h1 className="text-gradient text-2xl font-semibold tracking-tight">{title}</h1>
+          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-muted-foreground mt-1.5 text-sm text-balance">{subtitle}</p>
         </div>
         {children}
@@ -97,7 +96,7 @@ export function SubmitButton({
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="gradient" size="lg" className="w-full" disabled={pending}>
+    <Button type="submit" variant="default" size="lg" className="w-full" disabled={pending}>
       {pending && <LoaderCircleIcon className="animate-spin" />}
       {pending ? pendingLabel : label}
     </Button>
