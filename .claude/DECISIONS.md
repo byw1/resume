@@ -509,3 +509,41 @@ first tool call rather than looked up after the mistake.
 **Applies to:** `skills/`. If a rule matters, it goes in the orientation skill *and* the
 tool description *and* `instructionsFor` — a rule stated once is a rule that is absent when
 the client only reads one of the three.
+
+## 2026-08-18 — Diagnose the funnel, don't display it
+**Decision:** `diagnoseSearch` computes per-step conversion, median days in stage, weekly
+volume, stalled applications and per-resume response rate — and then says one sentence about
+which step is losing people. The dashboard card leads with that sentence and puts the rates
+underneath.
+**Why:** six numbers with no reading is what every job tracker already shows, and the reading
+*is* the work. "You're getting responses but not past the screen" is a different week from
+"nothing is coming back at all", and a person staring at a funnel chart will not reliably tell
+those apart. This is also the honest answer to "should I send more applications" — sometimes
+the answer is no, stop, the resume is the problem.
+**Applies to:** `diagnoseSearch` and `verdict()` in `src/lib/data/pipeline.ts`. Two rules held
+firmly: under ten applications it refuses to diagnose and says so, because a verdict from four
+data points is a guess wearing a lab coat; and the thresholds are stated as this tool's own
+rules of thumb rather than dressed up as industry benchmarks we cannot source.
+
+## 2026-08-18 — Progress is the furthest stage ever reached
+**Decision:** conversion is computed from how far each application *ever* got, reconstructed
+from the transition log, not from where it sits now.
+**Why:** otherwise every rejection looks like it failed at the first hurdle. A rejection after
+a final round and a rejection after applying are opposite signals, and collapsing them makes
+the whole funnel lie in the most flattering direction — you would always conclude the top of
+the funnel was broken.
+**Applies to:** the `furthest` map in `diagnoseSearch`. `ACCEPTED` counts as having reached
+`OFFER` whatever the row says now.
+
+## 2026-08-18 — A note used to destroy the stage transition
+**Decision:** `Activity.fromStage` / `toStage`, set on every move, backfilled from the
+generated body where it survives.
+**Why:** I told William this feature needed no schema change and I was wrong. The transition
+was only ever recorded as the string `"Applied → Screening"` in the activity body — and
+`moveApplicationStage(…, note)` replaces that body wholesale, while `stageActivityType`
+collapses Screening, Interviewing, Final and Withdrawn into one `STAGE_CHANGE`. So every
+stage move made with a note was invisible to the funnel. Two nullable columns, and the
+diagnosis is trustworthy instead of inferred.
+**Applies to:** anything reading stage history. Read `toStage`, never parse the body — the
+backfill leaves nulls where a note had already destroyed the evidence, which is correct: we
+genuinely do not know, and guessing would be worse than a gap.

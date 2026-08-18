@@ -25,6 +25,7 @@ import {
   BOARD_STAGES,
   STAGE_LABEL,
   STAGE_TONE,
+  diagnoseSearch,
   followUpsDue,
   listActivities,
   listTasks,
@@ -34,13 +35,15 @@ import { getProfile } from "@/lib/data/brain";
 import { relativeDay, truncate } from "@/lib/utils";
 import { TaskList } from "@/components/dashboard/task-list";
 import { FollowUpList } from "@/components/dashboard/follow-up-list";
+import { DiagnosisCard } from "@/components/dashboard/diagnosis";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [stats, followUps, tasks, activities, profile, counts] = await Promise.all([
+  const [stats, diagnosis, followUps, tasks, activities, profile, counts] = await Promise.all([
     pipelineStats(user.id),
+    diagnoseSearch(user.id),
     followUpsDue(user.id, 3),
     listTasks(user.id, { done: false, limit: 8 }),
     listActivities(user.id, undefined, 8),
@@ -109,6 +112,10 @@ export default async function DashboardPage() {
               hint={`${roleCount} role${roleCount === 1 ? "" : "s"} · ${resumeCount} resume${resumeCount === 1 ? "" : "s"}`}
             />
           </Stagger>
+
+          <FadeIn delay={0.08}>
+            <DiagnosisCard diagnosis={diagnosis} />
+          </FadeIn>
 
           <div className="grid items-start gap-4 lg:grid-cols-3">
             <FadeIn delay={0.1} className="lg:col-span-2">

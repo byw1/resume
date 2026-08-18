@@ -445,11 +445,16 @@ model Activity {
   application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   type          ActivityType @default(NOTE)
   body          String       @default("")
+  /// Set on stage moves so the funnel can be reconstructed. Null on every other
+  /// kind of activity, and on historic moves that were written with a note.
+  fromStage     Stage?
+  toStage       Stage?
   occurredAt    DateTime     @default(now())
   createdAt     DateTime     @default(now())
 
   @@index([userId, occurredAt])
   @@index([applicationId, occurredAt])
+  @@index([userId, toStage])
 }
 
 model Task {

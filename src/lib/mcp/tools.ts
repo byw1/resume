@@ -1166,6 +1166,14 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => pipeline.followUpsDue(ctx.userId, n(args, "withinDays") ?? 0),
   },
   {
+    name: "diagnose_search",
+    title: "Diagnose the job search",
+    description:
+      "Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.",
+    inputSchema: object({}),
+    handler: async (args, ctx) => pipeline.diagnoseSearch(ctx.userId),
+  },
+  {
     name: "list_schedule",
     title: "List everything dated in a window",
     description:
@@ -1693,8 +1701,9 @@ ${args.role_id ? `Use role id ${args.role_id}.` : "Call list_roles first and ask
     arguments: [],
     build: () => `Run my weekly job search review.
 
-1. Call pipeline_stats for the shape of the search.
-2. Call list_follow_ups with withinDays: 7.
+1. Call diagnose_search FIRST. It tells you which step of the funnel is losing people, and the
+   whole review should be built around that answer rather than around the counts.
+2. Call pipeline_stats for the shape of the search, and list_follow_ups with withinDays: 7.
 3. Call list_applications and list_activities to see what has actually moved.
 4. Call list_tasks with done: false.
 5. Call list_companies to see who I am talking to, and note any without a website on file.
@@ -1707,8 +1716,10 @@ Then give me:
   was actually said — a follow-up that mentions the thing the recruiter told me gets answered.
 - Create tasks for the actions I should take, with due dates.
 
-Be direct about the bad news. If most of what I have sent has gone unanswered, that is a signal
-about the resume or the targeting and I would rather hear it than have it phrased kindly.`,
+Lead with what diagnose_search found. If it says the problem is the resume or the targeting, do not
+give me a list of follow-ups as though volume were the answer — tell me the thing that is broken and
+what to do about it this week. Be direct about the bad news; I would rather hear it than have it
+phrased kindly. If it says there is not enough data yet, say that and keep the review short.`,
   },
   {
     name: "research_company",

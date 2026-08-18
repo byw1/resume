@@ -18,7 +18,7 @@ yourself, wired into Claude so you can just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  63 tools any MCP client can call (76 if you're an admin). Claude, Claude Code, ChatGPT,
+  64 tools any MCP client can call (77 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -172,7 +172,7 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-63 tools across the four areas. The seven workflows below are among them: they're published
+64 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
 Admins get 13 more tools — and members never even see those in the tool list, so nobody is
@@ -211,8 +211,9 @@ committing. `publish_resume` turns one into a shareable link and hands back the 
 reports the page count it actually came out to.
 
 **Pipeline** — applications and stages, an activity timeline, tasks, `list_follow_ups` for
-what's overdue, `list_schedule` for a whole window of dated work at once, and `pipeline_stats`
-for the shape of your search.
+what's overdue, `list_schedule` for a whole window of dated work at once, `pipeline_stats` for
+the shape of your search, and `diagnose_search`, which reads the funnel and tells you which
+step is losing people rather than handing you six numbers to interpret.
 
 **CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /

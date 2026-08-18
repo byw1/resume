@@ -415,6 +415,10 @@ export async function moveApplicationStage(
         applicationId: id,
         type: stageActivityType(stage),
         body: note ?? `${STAGE_LABEL[current.stage]} → ${STAGE_LABEL[stage]}`,
+        // Recorded separately from the body, which a note is allowed to replace.
+        // Without these the funnel is guesswork.
+        fromStage: current.stage,
+        toStage: stage,
       },
     });
   }
@@ -748,6 +752,301 @@ export async function listSchedule(
   ];
 
   return entries.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
+/**
+ * What is actually going wrong with the search.
+ *
+ * A funnel display shows six numbers and leaves the reading to you. This does
+ * the reading: it works out which step is losing people and says so in one
+ * sentence, because "you are getting responses but not past the screen" is a
+ * different week's work from "nothing is coming back at all".
+ *
+ * Progress is measured by the furthest stage an application ever reached, not
+ * by where it sits now — otherwise every rejection would look like it failed at
+ * the first hurdle, and a rejection after a final round is the opposite signal
+ * from a rejection after applying.
+ */
+
+/** The one path forward. Terminal stages sit outside it and end the journey. */
+const LADDER: Stage[] = ["APPLIED", "SCREEN", "INTERVIEW", "FINAL", "OFFER"];
+
+export type FunnelStep = {
+  from: Stage;
+  to: Stage;
+  reached: number;
+  advanced: number;
+  /** Null rather than 0 when nobody has reached this step yet. */
+  rate: number | null;
+  medianDays: number | null;
+};
+
+export type SearchDiagnosis = {
+  /** The sentence. Everything else on the screen supports this. */
+  headline: string;
+  detail: string;
+  /** Which step is the bottleneck, or null when there isn't enough to say. */
+  weakest: Stage | null;
+  confident: boolean;
+  steps: FunnelStep[];
+  applied: number;
+  inFlight: number;
+  velocity: { weekStart: string; count: number }[];
+  stalled: { id: string; company: string; roleTitle: string; stage: Stage; days: number }[];
+  byResume: { id: string; name: string; sent: number; responded: number; rate: number | null }[];
+};
+
+/** How long an application can sit in a stage before it has probably died. */
+const STALE_AFTER: Partial<Record<Stage, number>> = {
+  APPLIED: 21,
+  SCREEN: 14,
+  INTERVIEW: 14,
+  FINAL: 10,
+  OFFER: 7,
+};
+
+function median(values: number[]): number | null {
+  if (values.length === 0) return null;
+  const sorted = [...values].sort((a, b) => a - b);
+  const mid = Math.floor(sorted.length / 2);
+  return sorted.length % 2 === 0
+    ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
+    : sorted[mid];
+}
+
+const DAY = 86_400_000;
+
+export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {
+  const [applications, transitions] = await Promise.all([
+    db.application.findMany({
+      where: { userId },
+      select: {
+        id: true,
+        stage: true,
+        roleTitle: true,
+        appliedAt: true,
+        updatedAt: true,
+        resumeId: true,
+        company: { select: { name: true } },
+        resume: { select: { id: true, name: true } },
+      },
+    }),
+    db.activity.findMany({
+      where: { userId, toStage: { not: null } },
+      select: { applicationId: true, fromStage: true, toStage: true, occurredAt: true },
+      orderBy: { occurredAt: "asc" },
+    }),
+  ]);
+
+  const byApplication = new Map<string, typeof transitions>();
+  for (const transition of transitions) {
+    const list = byApplication.get(transition.applicationId);
+    if (list) list.push(transition);
+    else byApplication.set(transition.applicationId, [transition]);
+  }
+
+  // --- how far each application ever got ------------------------------------
+  const rank = (stage: Stage | null) => (stage ? LADDER.indexOf(stage) : -1);
+  const furthest = new Map<string, number>();
+  for (const application of applications) {
+    let best = rank(application.stage);
+    // ACCEPTED means they got the offer, whatever the row says now.
+    if (application.stage === "ACCEPTED") best = LADDER.indexOf("OFFER");
+    for (const transition of byApplication.get(application.id) ?? []) {
+      best = Math.max(best, rank(transition.toStage));
+    }
+    // An application with a date on it was sent, even if nothing was logged.
+    if (best < 0 && application.appliedAt) best = 0;
+    furthest.set(application.id, best);
+  }
+
+  // --- time spent in each stage before moving on ----------------------------
+  const daysIn = new Map<Stage, number[]>();
+  for (const list of byApplication.values()) {
+    for (let i = 0; i < list.length - 1; i++) {
+      const stage = list[i].toStage;
+      if (!stage) continue;
+      const days = Math.round((list[i + 1].occurredAt.getTime() - list[i].occurredAt.getTime()) / DAY);
+      if (days < 0) continue;
+      const bucket = daysIn.get(stage);
+      if (bucket) bucket.push(days);
+      else daysIn.set(stage, [days]);
+    }
+  }
+
+  const steps: FunnelStep[] = LADDER.slice(0, -1).map((from, index) => {
+    const reached = [...furthest.values()].filter((value) => value >= index).length;
+    const advanced = [...furthest.values()].filter((value) => value >= index + 1).length;
+    return {
+      from,
+      to: LADDER[index + 1],
+      reached,
+      advanced,
+      rate: reached > 0 ? Math.round((advanced / reached) * 100) : null,
+      medianDays: median(daysIn.get(from) ?? []),
+    };
+  });
+
+  // --- velocity: six weeks back, Monday-anchored ----------------------------
+  const now = new Date();
+  const monday = new Date(now);
+  monday.setUTCHours(0, 0, 0, 0);
+  monday.setUTCDate(monday.getUTCDate() - ((monday.getUTCDay() + 6) % 7));
+  const velocity = Array.from({ length: 6 }, (_, i) => {
+    const start = new Date(monday);
+    start.setUTCDate(start.getUTCDate() - (5 - i) * 7);
+    const end = new Date(start);
+    end.setUTCDate(end.getUTCDate() + 7);
+    return {
+      weekStart: start.toISOString().slice(0, 10),
+      count: applications.filter(
+        (application) =>
+          application.appliedAt !== null &&
+          application.appliedAt >= start &&
+          application.appliedAt < end,
+      ).length,
+    };
+  });
+
+  // --- what has gone quiet ---------------------------------------------------
+  const lastTouch = (id: string, fallback: Date) => {
+    const list = byApplication.get(id);
+    return list && list.length > 0 ? list[list.length - 1].occurredAt : fallback;
+  };
+  const stalled = applications
+    .filter((application) => !TERMINAL_STAGES.includes(application.stage))
+    .map((application) => ({
+      id: application.id,
+      company: application.company.name,
+      roleTitle: application.roleTitle,
+      stage: application.stage,
+      days: Math.floor((now.getTime() - lastTouch(application.id, application.updatedAt).getTime()) / DAY),
+    }))
+    .filter((row) => row.days >= (STALE_AFTER[row.stage] ?? Infinity))
+    .sort((a, b) => b.days - a.days);
+
+  // --- which resume is actually working --------------------------------------
+  const resumeRows = new Map<string, { id: string; name: string; sent: number; responded: number }>();
+  for (const application of applications) {
+    if (!application.resume || (furthest.get(application.id) ?? -1) < 0) continue;
+    const row = resumeRows.get(application.resume.id) ?? {
+      id: application.resume.id,
+      name: application.resume.name,
+      sent: 0,
+      responded: 0,
+    };
+    row.sent += 1;
+    if ((furthest.get(application.id) ?? -1) >= 1) row.responded += 1;
+    resumeRows.set(application.resume.id, row);
+  }
+  const byResume = [...resumeRows.values()]
+    .map((row) => ({ ...row, rate: row.sent > 0 ? Math.round((row.responded / row.sent) * 100) : null }))
+    .sort((a, b) => b.sent - a.sent);
+
+  const applied = [...furthest.values()].filter((value) => value >= 0).length;
+  const inFlight = applications.filter(
+    (application) => !TERMINAL_STAGES.includes(application.stage),
+  ).length;
+
+  return {
+    ...verdict(steps, applied, velocity),
+    steps,
+    applied,
+    inFlight,
+    velocity,
+    stalled,
+    byResume,
+  };
+}
+
+/**
+ * The sentence.
+ *
+ * Deliberately opinionated and deliberately not benchmarked against numbers we
+ * cannot source. The thresholds below are this tool's own rules of thumb, and
+ * the copy says which step is losing people rather than claiming what a normal
+ * rate is. Under ten applications it says nothing at all, because a diagnosis
+ * from four data points is a guess wearing a lab coat.
+ */
+function verdict(
+  steps: FunnelStep[],
+  applied: number,
+  velocity: { weekStart: string; count: number }[],
+) {
+  const step = (from: Stage) => steps.find((candidate) => candidate.from === from);
+  const response = step("APPLIED");
+  const screen = step("SCREEN");
+  const interview = step("INTERVIEW");
+  const final = step("FINAL");
+
+  const thisWeek = velocity[velocity.length - 1]?.count ?? 0;
+  const previous = velocity.slice(0, -1);
+  const busiest = Math.max(0, ...previous.map((week) => week.count));
+  const slowing =
+    busiest >= 3 && thisWeek * 2 < busiest
+      ? ` You have also slowed down — ${thisWeek} sent this week against ${busiest} in your best recent week, and a search usually dies of that before anything else.`
+      : "";
+
+  if (applied < 10) {
+    return {
+      headline: "Too early to tell you anything useful.",
+      detail: `${applied} application${applied === 1 ? "" : "s"} in. Around ten is where the numbers below start meaning something rather than describing luck.${slowing}`,
+      weakest: null,
+      confident: false,
+    };
+  }
+
+  if (response && response.reached >= 10 && (response.rate ?? 0) < 15) {
+    return {
+      headline: "Almost nothing is coming back.",
+      detail: `${response.advanced} of ${response.reached} applications got any response. At this volume that is not bad luck — it is the resume or which jobs you are applying to, and sending more of the same will not fix it.${slowing}`,
+      weakest: "APPLIED" as Stage,
+      confident: true,
+    };
+  }
+
+  if (screen && screen.reached >= 4 && (screen.rate ?? 0) < 34) {
+    return {
+      headline: "You are getting responses but not past the screen.",
+      detail: `${screen.advanced} of ${screen.reached} screens became an interview. The resume is working — this is a phone-screen problem, which is usually how you tell the story rather than what is in it.${slowing}`,
+      weakest: "SCREEN" as Stage,
+      confident: true,
+    };
+  }
+
+  if (interview && interview.reached >= 3 && (interview.rate ?? 0) < 40) {
+    return {
+      headline: "You are getting into the room and not converting.",
+      detail: `${interview.advanced} of ${interview.reached} interviews went further. You are being taken seriously; something in the loop itself is losing it.${slowing}`,
+      weakest: "INTERVIEW" as Stage,
+      confident: true,
+    };
+  }
+
+  if (final && final.reached >= 2 && (final.rate ?? 0) < 50) {
+    return {
+      headline: "You are reaching final rounds and stopping there.",
+      detail: `${final.advanced} of ${final.reached} final rounds became an offer. This close, the difference is usually fit and how you close rather than capability.${slowing}`,
+      weakest: "FINAL" as Stage,
+      confident: true,
+    };
+  }
+
+  if (thisWeek === 0 && busiest >= 3) {
+    return {
+      headline: "Your funnel is fine. You have stopped feeding it.",
+      detail: `Nothing sent this week, against ${busiest} in your best recent week. Every rate below is holding up — there is just less going in.`,
+      weakest: null,
+      confident: true,
+    };
+  }
+
+  return {
+    headline: "Nothing obviously broken.",
+    detail: `${applied} applications in and every step is converting at a reasonable rate. Keep the volume up and chase what has gone quiet.${slowing}`,
+    weakest: null,
+    confident: true,
+  };
 }
 
 export async function pipelineStats(userId: string) {

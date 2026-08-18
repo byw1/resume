@@ -59,7 +59,7 @@ const AREAS = [
     blurb:
       "Applications, stages, the activity timeline, tasks and follow-up dates that schedule themselves when a stage changes.",
     match: (name: string) =>
-      /^(list_applications|get_application|create_application|update_application|move_application_stage|delete_application|log_activity|list_activities|list_tasks|create_task|complete_task|list_follow_ups|list_schedule|pipeline_stats|pipeline_review|log_my_week)$/.test(
+      /^(list_applications|get_application|create_application|update_application|move_application_stage|delete_application|log_activity|list_activities|list_tasks|create_task|complete_task|list_follow_ups|list_schedule|pipeline_stats|diagnose_search|pipeline_review|log_my_week)$/.test(
         name,
       ),
   },
