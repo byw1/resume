@@ -60,6 +60,17 @@ function required(args: Json, key: string): string {
   return value;
 }
 
+/**
+ * A bare `YYYY-MM-DD` parses as midnight, so an inclusive end date would drop
+ * everything that actually happened on it. Push it to the last millisecond.
+ */
+function endOfDay(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`"${value}" is not a date I can read`);
+  if (/^\d{4}-\d{2}-\d{2}$/.test(value.trim())) date.setUTCHours(23, 59, 59, 999);
+  return date;
+}
+
 /** Where a published resume lives. Null slug means it isn't published. */
 function publicResumeUrl(baseUrl: string, slug: string | null) {
   return slug ? `${baseUrl}/r/${slug}` : null;
@@ -1149,6 +1160,21 @@ export const tools: McpTool[] = [
       withinDays: num("Look ahead this many days. 0 = due now, 7 = due within a week."),
     }),
     handler: async (args, ctx) => pipeline.followUpsDue(ctx.userId, n(args, "withinDays") ?? 0),
+  },
+  {
+    name: "list_schedule",
+    title: "List everything dated in a window",
+    description:
+      "Everything with a date attached between two dates, merged into one list sorted earliest first: follow-ups that come due, tasks with a due date, and activity already logged (calls, interviews, emails, stage changes). This is the tool for 'what does my week look like', 'what happened last month' or 'what is coming up' — anything where the question is about a period of time rather than about one application. Each entry says its kind (FOLLOW_UP, TASK or ACTIVITY), the date, a title, the company and the applicationId, so you can call get_application for the full picture. Reach for list_follow_ups instead when you only want what is already overdue, and list_tasks when the date does not matter. Read-only; it saves nothing.",
+    inputSchema: object(
+      {
+        from: str("Start of the window, ISO date (YYYY-MM-DD). Inclusive."),
+        to: str("End of the window, ISO date (YYYY-MM-DD). Inclusive."),
+      },
+      ["from", "to"],
+    ),
+    handler: async (args, ctx) =>
+      pipeline.listSchedule(ctx.userId, required(args, "from"), endOfDay(required(args, "to"))),
   },
   {
     name: "list_tasks",

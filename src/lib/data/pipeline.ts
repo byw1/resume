@@ -487,6 +487,95 @@ export async function followUpsDue(userId: string, withinDays = 0) {
   });
 }
 
+/**
+ * Everything with a date on it, in one window.
+ *
+ * Three tables carry dates — an application's next follow-up, a task's due
+ * date, and an activity's occurredAt — and a person thinking about "next week"
+ * is thinking about all three at once. Merging them here rather than in the
+ * calendar component is what lets the same answer come back over MCP.
+ */
+export type ScheduleKind = "FOLLOW_UP" | "TASK" | "ACTIVITY";
+
+export type ScheduleEntry = {
+  kind: ScheduleKind;
+  id: string;
+  date: Date;
+  title: string;
+  detail: string;
+  company: string | null;
+  applicationId: string | null;
+  stage: Stage | null;
+  done: boolean | null;
+  activityType: ActivityType | null;
+};
+
+export async function listSchedule(
+  userId: string,
+  from: Date | string,
+  to: Date | string,
+): Promise<ScheduleEntry[]> {
+  const start = toDate(from) ?? new Date();
+  const end = toDate(to) ?? new Date();
+  const range = { gte: start, lte: end };
+
+  const [followUps, tasks, activities] = await Promise.all([
+    db.application.findMany({
+      where: { userId, nextFollowUpAt: range, stage: { notIn: TERMINAL_STAGES } },
+      include: { company: true },
+    }),
+    db.task.findMany({
+      where: { userId, dueAt: range },
+      include: { application: { include: { company: true } } },
+    }),
+    db.activity.findMany({
+      where: { userId, occurredAt: range },
+      include: { application: { include: { company: true } } },
+    }),
+  ]);
+
+  const entries: ScheduleEntry[] = [
+    ...followUps.map((application) => ({
+      kind: "FOLLOW_UP" as const,
+      id: application.id,
+      date: application.nextFollowUpAt!,
+      title: `Follow up with ${application.company.name}`,
+      detail: application.roleTitle,
+      company: application.company.name,
+      applicationId: application.id,
+      stage: application.stage,
+      done: null,
+      activityType: null,
+    })),
+    ...tasks.map((task) => ({
+      kind: "TASK" as const,
+      id: task.id,
+      date: task.dueAt!,
+      title: task.title,
+      detail: task.detail,
+      company: task.application?.company.name ?? null,
+      applicationId: task.applicationId,
+      stage: task.application?.stage ?? null,
+      done: task.done,
+      activityType: null,
+    })),
+    ...activities.map((activity) => ({
+      kind: "ACTIVITY" as const,
+      id: activity.id,
+      date: activity.occurredAt,
+      title: `${ACTIVITY_LABEL[activity.type]} · ${activity.application.company.name}`,
+      detail: activity.body,
+      company: activity.application.company.name,
+      applicationId: activity.applicationId,
+      stage: activity.application.stage,
+      done: null,
+      activityType: activity.type,
+    })),
+  ];
+
+  return entries.sort((a, b) => a.date.getTime() - b.date.getTime());
+}
+
 export async function pipelineStats(userId: string) {
   const [byStage, total, active, thisWeek, interviews, offers, tasksOpen, followUps] =
     await Promise.all([

@@ -9,10 +9,11 @@ yourself, wired into Claude so you can just *talk* to it.
 - **Resumes** — tailored documents assembled from that material. Defaults to the Harvard
   OCS format; four other templates, live preview, real PDF export, and a shareable link for
   the application forms that want a URL instead of a file.
-- **Pipeline** — a lightweight CRM for the search: stages, drag-and-drop board, activity
-  timeline, contacts, tasks, and follow-up dates that schedule themselves.
+- **Pipeline** — a lightweight CRM for the search: stages, activity timeline, contacts,
+  tasks, and follow-up dates that schedule themselves. Read it three ways: a drag-and-drop
+  board, a sortable table, or a month calendar of everything that has a date on it.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  52 tools any MCP client can call (64 if you're an admin). Claude, Claude Code, ChatGPT,
+  53 tools any MCP client can call (65 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -166,7 +167,7 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-52 tools across the three areas. The five workflows below are among them: they're published
+53 tools across the three areas. The five workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
 Admins get 12 more tools — and members never even see those in the tool list, so nobody is

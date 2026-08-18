@@ -295,6 +295,33 @@ because the correct wash differs by theme: a pale colour on white, low-alpha hue
 **Applies to:** `globals.css`. `bg-canvas`, `bg-inset`, `text-faint`, `bg-success-tint` and
 friends are real utilities — use them instead of an opacity modifier at the call site.
 
+## 2026-08-18 — The pipeline gets three views; the board stays the default
+**Decision:** `/applications` takes a `?view=` of `board` (default), `list` or `calendar`. The
+view lives in the URL, not in component state, so all three stay server-rendered and a link to
+the calendar is a link to the calendar. List sorts in JS on the server; calendar takes a
+`?month=YYYY-MM` and renders a Monday-first grid of the whole visible window.
+**Why:** a board answers "where is everything", badly answers "what do I chase first", and
+cannot answer "what does next week look like" at all. Those are the two questions the daily
+loop actually asks. The board stays default because drag-to-move is the reason it exists.
+Sorting in JS rather than SQL because the useful default — soonest follow-up first, then
+everything with no date — is not an ordering Postgres gives for free, and this is one person's
+pipeline: tens of rows.
+**Applies to:** `src/components/pipeline/{view-switcher,list,calendar}.tsx`. The calendar is
+deliberately read-only — no dragging, no click-to-create. Dates here are set by the work
+(moving a stage schedules the follow-up), so a second place to edit them would be a second
+source of truth.
+
+## 2026-08-18 — listSchedule merges the three tables that carry dates
+**Decision:** `listSchedule(userId, from, to)` returns follow-ups, task due dates and logged
+activity in one list sorted by date, each tagged with its kind. Exposed as `list_schedule`.
+**Why:** the calendar needed it, but the rule is that a screen may not be able to answer a
+question the conversation can't. "What does my week look like" was previously unanswerable —
+`list_follow_ups` only knows about overdue, `list_tasks` ignores dates. Merging in the data
+layer rather than in the calendar component is what makes both surfaces agree.
+**Applies to:** `src/lib/data/pipeline.ts`. The tool's `to` is pushed to the end of that day
+in `tools.ts` — a bare `YYYY-MM-DD` parses as midnight, so an inclusive end date would
+otherwise silently drop everything that happened on it.
+
 ## 2026-08-18 — A thumbnail measures its container
 **Decision:** `PaperThumb` renders the page at its true 816px and scales it with a factor
 measured by a ResizeObserver, rather than a hardcoded `scale(0.29)`.

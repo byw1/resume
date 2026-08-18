@@ -34,6 +34,8 @@ Three areas:
   New resumes use the Harvard OCS format by default. Any of them can be published to a public
   link with publish_resume, which is what to use when a form or a recruiter wants a URL.
 • PIPELINE — applications, stages, activity timeline, contacts, tasks and follow-up dates.
+  When the question is about a stretch of time rather than one application — this week, last
+  month, what is coming — reach for list_schedule, which merges all three kinds of dated thing.
 ${
   isAdmin(user)
     ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are
