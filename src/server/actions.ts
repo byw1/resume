@@ -579,3 +579,124 @@ export async function snoozeFollowUpAction(id: string, days: number) {
   revalidatePath("/");
   revalidatePath("/applications");
 }
+
+// ---------------------------------------------------------------------------
+// CRM — companies and the people at them
+// ---------------------------------------------------------------------------
+
+export async function saveCompanyAction(
+  id: string,
+  patch: {
+    name?: string;
+    website?: string;
+    industry?: string;
+    size?: string;
+    location?: string;
+    notes?: string;
+  },
+) {
+  const user = await requireUser();
+  const company = await pipeline.updateCompany(user.id, id, patch);
+  revalidatePath(`/crm/companies/${id}`);
+  revalidatePath("/crm/companies");
+  // The website is where the logo comes from, so the pipeline changes too.
+  revalidatePath("/applications");
+  return { name: company.name };
+}
+
+export async function createCompanyAction(input: { name: string; website?: string }) {
+  const user = await requireUser();
+  const company = await pipeline.createCompany(user.id, input);
+  revalidatePath("/crm/companies");
+  return { id: company.id };
+}
+
+export async function deleteCompanyAction(id: string) {
+  const user = await requireUser();
+  await pipeline.deleteCompany(user.id, id);
+  revalidatePath("/crm/companies");
+}
+
+export async function saveContactAction(
+  id: string,
+  patch: {
+    name?: string;
+    title?: string;
+    email?: string;
+    phone?: string;
+    linkedin?: string;
+    relationship?: string;
+    notes?: string;
+    company?: string;
+  },
+) {
+  const user = await requireUser();
+  await pipeline.updateContact(user.id, id, patch);
+  revalidatePath(`/crm/contacts/${id}`);
+  revalidatePath("/crm/contacts");
+}
+
+export async function deleteCrmContactAction(id: string) {
+  const user = await requireUser();
+  await pipeline.deleteContact(user.id, id);
+  revalidatePath("/crm/contacts");
+  revalidatePath("/crm/companies");
+}
+
+/**
+ * The application behind a card, for the side panel.
+ *
+ * The panel opens over the board rather than navigating, so it has to fetch
+ * what the full page would have been given at render time. Same data function,
+ * same ownership check — the id is all that crosses from the client.
+ */
+export async function getApplicationForPanelAction(id: string) {
+  const user = await requireUser();
+  const [application, resumeList] = await Promise.all([
+    pipeline.getApplication(user.id, id),
+    resumes.listResumes(user.id),
+  ]);
+  if (!application) throw new Error("That application is gone.");
+  return {
+    application: {
+      id: application.id,
+      company: application.company.name,
+      companyId: application.companyId,
+      roleTitle: application.roleTitle,
+      stage: application.stage,
+      jobUrl: application.jobUrl,
+      jobDescription: application.jobDescription,
+      location: application.location,
+      workMode: application.workMode,
+      salaryRange: application.salaryRange,
+      source: application.source,
+      excitement: application.excitement,
+      fit: application.fit,
+      notes: application.notes,
+      appliedAt: application.appliedAt?.toISOString() ?? null,
+      nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
+      resumeId: application.resumeId,
+    },
+    activities: application.activities.map((activity) => ({
+      id: activity.id,
+      type: activity.type,
+      body: activity.body,
+      occurredAt: activity.occurredAt.toISOString(),
+    })),
+    contacts: application.contacts.map((contact) => ({
+      id: contact.id,
+      name: contact.name,
+      title: contact.title,
+      email: contact.email,
+      linkedin: contact.linkedin,
+      relationship: contact.relationship,
+    })),
+    tasks: application.tasks.map((task) => ({
+      id: task.id,
+      title: task.title,
+      done: task.done,
+      dueAt: task.dueAt?.toISOString() ?? null,
+    })),
+    resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
+  };
+}

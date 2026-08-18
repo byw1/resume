@@ -5,6 +5,7 @@ import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   BrainIcon,
+  Building2Icon,
   ChevronDownIcon,
   FileTextIcon,
   KanbanIcon,
@@ -37,6 +38,7 @@ const NAV = [
   { href: "/brain", label: "Brain", icon: BrainIcon },
   { href: "/resumes", label: "Resumes", icon: FileTextIcon },
   { href: "/applications", label: "Pipeline", icon: KanbanIcon },
+  { href: "/crm", label: "CRM", icon: Building2Icon },
 ];
 
 // The rail remembers whether you collapsed it. Read after mount so the server

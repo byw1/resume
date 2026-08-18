@@ -26,16 +26,20 @@ async function instructionsFor(user: User) {
   const base = `Resume OS is ${user.name || user.email}'s career knowledge base, resume builder and
 job-search CRM. You are connected as them; every tool reads and writes only their data.
 
-Three areas:
+Four areas:
 • BRAIN — everything about them. Roles each hold an unlimited free-form "brain dump" of raw
   material, plus polished reusable bullets called highlights. There are also notes, projects,
   education, skills and certifications. search_brain is the fastest way in.
 • RESUMES — documents assembled from that material. Call get_resume_format before writing one.
   New resumes use the Harvard OCS format by default. Any of them can be published to a public
   link with publish_resume, which is what to use when a form or a recruiter wants a URL.
-• PIPELINE — applications, stages, activity timeline, contacts, tasks and follow-up dates.
+• PIPELINE — applications, stages, activity timeline, tasks and follow-up dates.
   When the question is about a stretch of time rather than one application — this week, last
   month, what is coming — reach for list_schedule, which merges all three kinds of dated thing.
+• CRM — companies and the people at them, as records in their own right. get_company before
+  writing anything about a company, so you add to their research rather than replacing it. A
+  company's website field is their own domain and nothing else depends on it, but it is what puts
+  their logo on the pipeline, so set it whenever you learn it.
 ${
   isAdmin(user)
     ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are

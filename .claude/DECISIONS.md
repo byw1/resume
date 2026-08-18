@@ -425,3 +425,49 @@ instance-wide setting and does not put it back passes exactly once. Relational a
 also test something stronger than a magic number: that the count in the rail is not a lie.
 **Applies to:** anything new under `scratchpad/*.mjs`. Seed what you assert on, restore what
 you mutate, and prefer "these two numbers agree" over "this number is 8".
+
+## 2026-08-18 — Companies and contacts are records, not rows on an application
+**Decision:** a CRM area with its own nav entry and two halves — `/crm/companies` and
+`/crm/contacts` — each a searchable records table over a detail page. Eight new tools
+(`list_companies`, `get_company`, `create_company`, `update_company`, `delete_company`,
+`get_contact`, `update_contact`, `delete_contact`) so every one of those screens was
+reachable from a conversation before it had a screen.
+**Why:** a company used to be a name hanging off an application, which is fine right up to
+the moment you want to keep what you learned about them — the loop, who you know there, why
+you want it — and there is nowhere to put it. That research is worth more than the
+application it started from, because it survives the rejection.
+**Applies to:** `src/lib/data/pipeline.ts` and `src/app/(app)/crm/`. Deleting a company
+refuses while applications point at it rather than cascading: tidying a company record must
+never take an application with it. Contacts survive and lose their employer, which is the
+correct shape for someone who changed jobs.
+
+## 2026-08-18 — The logo comes from the company's own website, and nothing else
+**Decision:** `companyDomain()` reads `Company.website`, then falls back to the name as a
+domain. The Greenhouse / Lever / Ashby / Workday URL-unwrapping is deleted.
+**Why:** William caught this — job listings live on boards, so a posting URL tells you where
+someone advertises, not who they are. The clever ATS unwrapping was right often enough to
+look like it worked and wrong in a way that showed the board's logo on half the pipeline.
+One field, set on the company page or by `update_company`, and it is obvious where to fix it
+when it is wrong.
+**Applies to:** `src/lib/company.ts`.
+
+## 2026-08-18 — Controls on top, records in a panel
+**Decision:** the pipeline's views, filters and search sit in a horizontal toolbar above the
+board, not in a rail beside it. Opening an application slides it in from the right over the
+board; `/applications/[id]` stays a real page for permalinks, and cmd-click still opens one.
+**Why:** two corrections in one. A rail took 216px out of the widest screen in the product to
+hold nine links, and the board is the thing that needs the width. And replacing the whole page
+to glance at a card meant losing your place on the board every single time — the board is what
+you are working *from*, so the detail belongs over it rather than instead of it.
+**Applies to:** `src/components/pipeline/toolbar.tsx` and `application-panel.tsx`. The panel
+fetches on open rather than shipping every job description to the browser with the board.
+
+## 2026-08-18 — A "use client" file's exports cannot be called from the server
+**Decision:** `parseSort` and `sortRows` live in `src/lib/pipeline-list.ts`, not in the
+component that uses them.
+**Why:** adding `"use client"` to `list.tsx` so a row could open the panel silently turned two
+pure functions into client exports, and the server page calls both. TypeScript is happy, the
+build is happy, and the list view 500s at runtime. Same shape as the `resume-text.ts` split:
+when a component becomes a client component, its pure helpers have to move out first.
+**Applies to:** anywhere a server page imports from a component file. If the page calls it,
+it does not live behind `"use client"`.

@@ -369,12 +369,14 @@ model Company {
   location  String   @default("")
   notes     String   @default("")
   createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
   applications Application[]
   contacts     Contact[]
 
   @@unique([userId, name])
   @@index([userId])
+  @@index([userId, updatedAt])
 }
 
 model Application {
@@ -429,8 +431,10 @@ model Contact {
   applicationId String?
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @default(now()) @updatedAt
 
   @@index([userId])
+  @@index([userId, updatedAt])
 }
 
 model Activity {

@@ -1217,12 +1217,170 @@ export const tools: McpTool[] = [
     inputSchema: object({ id: str("Task id"), done: bool("Default true") }, ["id"]),
     handler: async (args, ctx) => pipeline.setTaskDone(ctx.userId, required(args, "id"), b(args, "done") ?? true),
   },
+  // --- CRM: companies and the people at them -------------------------------
+  {
+    name: "list_companies",
+    title: "List companies",
+    description:
+      "Every company on file, with how many applications and contacts each one has. Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes.",
+    inputSchema: object({ search: str("Match name, industry, location or notes") }),
+    handler: async (args, ctx) => pipeline.listCompanies(ctx.userId, { search: s(args, "search") }),
+  },
+  {
+    name: "get_company",
+    title: "Get a company",
+    description:
+      "Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every contact who works there. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.",
+    inputSchema: object({ id: str("Company id") }, ["id"]),
+    handler: async (args, ctx) => {
+      // Every other get_* raises here rather than returning null, and it has to:
+      // a null serialises as {"ok": true}, which reads like a hit.
+      const company = await pipeline.getCompany(ctx.userId, required(args, "id"));
+      if (!company) throw new Error(`No company with id ${required(args, "id")}`);
+      return company;
+    },
+  },
+  {
+    name: "create_company",
+    title: "Create a company",
+    description:
+      "Add a company before you have applied to them — somewhere to keep research while you decide. Applications create their company automatically, so reach for this only when there is no application yet. Names are unique per person; creating one that already exists is an error rather than a silent merge.",
+    inputSchema: object(
+      {
+        name: str("Company name"),
+        website: str("Their own site, e.g. stripe.com. This is what the logo comes from."),
+        industry: str("e.g. 'Fintech', 'Developer tools'"),
+        size: str("e.g. '200-500', 'Series B'"),
+        location: str("Headquarters or main office"),
+        notes: str("Anything you have learned about them"),
+      },
+      ["name"],
+    ),
+    handler: async (args, ctx) =>
+      pipeline.createCompany(ctx.userId, {
+        name: required(args, "name"),
+        ...defined({
+          website: s(args, "website"),
+          industry: s(args, "industry"),
+          size: s(args, "size"),
+          location: s(args, "location"),
+          notes: s(args, "notes"),
+        }),
+      }),
+  },
+  {
+    name: "update_company",
+    title: "Update a company",
+    description:
+      "Change what you know about a company. Only the fields you pass are touched, but each one REPLACES what was there — notes especially, so call get_company first and write back the whole thing if you are adding to research rather than replacing it. Setting website is the single thing that makes their logo show in the pipeline; a job board URL is not their website.",
+    inputSchema: object(
+      {
+        id: str("Company id"),
+        name: str("Company name"),
+        website: str("Their own site, e.g. stripe.com"),
+        industry: str("Industry"),
+        size: str("Headcount or funding stage"),
+        location: str("Headquarters"),
+        notes: str("Research notes — replaces what is there"),
+      },
+      ["id"],
+    ),
+    handler: async (args, ctx) =>
+      pipeline.updateCompany(
+        ctx.userId,
+        required(args, "id"),
+        defined({
+          name: s(args, "name"),
+          website: s(args, "website"),
+          industry: s(args, "industry"),
+          size: s(args, "size"),
+          location: s(args, "location"),
+          notes: s(args, "notes"),
+        }),
+      ),
+  },
+  {
+    name: "delete_company",
+    title: "Delete a company",
+    description:
+      "Remove a company record. Refuses while applications still point at it — move or delete those first, so tidying up a company can never take an application with it. Contacts survive and simply lose their employer.",
+    inputSchema: object({ id: str("Company id") }, ["id"]),
+    handler: async (args, ctx) => pipeline.deleteCompany(ctx.userId, required(args, "id")),
+  },
   {
     name: "list_contacts",
     title: "List contacts",
-    description: "Recruiters, hiring managers and referrals, optionally for one application.",
-    inputSchema: object({ applicationId: str("Limit to one application") }),
-    handler: async (args, ctx) => pipeline.listContacts(ctx.userId, s(args, "applicationId")),
+    description:
+      "Recruiters, hiring managers and referrals. Narrow by application, by company, or by a search across name, title, email, notes and employer. Returns each person with their company and the application they are attached to.",
+    inputSchema: object({
+      applicationId: str("Limit to one application"),
+      companyId: str("Limit to people at one company"),
+      search: str("Match name, title, email, notes or company"),
+    }),
+    handler: async (args, ctx) =>
+      pipeline.listContacts(ctx.userId, {
+        ...defined({
+          applicationId: s(args, "applicationId"),
+          companyId: s(args, "companyId"),
+          search: s(args, "search"),
+        }),
+      }),
+  },
+  {
+    name: "get_contact",
+    title: "Get a contact",
+    description:
+      "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite.",
+    inputSchema: object({ id: str("Contact id") }, ["id"]),
+    handler: async (args, ctx) => {
+      const contact = await pipeline.getContact(ctx.userId, required(args, "id"));
+      if (!contact) throw new Error(`No contact with id ${required(args, "id")}`);
+      return contact;
+    },
+  },
+  {
+    name: "update_contact",
+    title: "Update a contact",
+    description:
+      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.",
+    inputSchema: object(
+      {
+        id: str("Contact id"),
+        name: str("Their name"),
+        title: str("Their job title"),
+        email: str("Email"),
+        phone: str("Phone"),
+        linkedin: str("LinkedIn URL"),
+        relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
+        notes: str("Notes — replaces what is there"),
+        company: str("Employer, or empty string to detach"),
+        applicationId: str("Application to attach to, or empty string to detach"),
+      },
+      ["id"],
+    ),
+    handler: async (args, ctx) =>
+      pipeline.updateContact(
+        ctx.userId,
+        required(args, "id"),
+        defined({
+          name: s(args, "name"),
+          title: s(args, "title"),
+          email: s(args, "email"),
+          phone: s(args, "phone"),
+          linkedin: s(args, "linkedin"),
+          relationship: s(args, "relationship"),
+          notes: s(args, "notes"),
+          company: s(args, "company"),
+          applicationId: s(args, "applicationId"),
+        }),
+      ),
+  },
+  {
+    name: "delete_contact",
+    title: "Delete a contact",
+    description: "Remove a person. Their company and any application they were attached to stay.",
+    inputSchema: object({ id: str("Contact id") }, ["id"]),
+    handler: async (args, ctx) => pipeline.deleteContact(ctx.userId, required(args, "id")),
   },
   {
     name: "create_contact",

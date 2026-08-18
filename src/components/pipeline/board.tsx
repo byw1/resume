@@ -26,6 +26,7 @@ import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
+import { useOpenApplication } from "@/components/pipeline/application-panel";
 import { cn, relativeDay } from "@/lib/utils";
 import { moveStageAction } from "@/server/actions";
 
@@ -55,6 +56,7 @@ export function PipelineBoard({
   closed: Card[];
   columns?: Stage[];
 }) {
+  const openPanel = useOpenApplication();
   const [cards, setCards] = useState(open);
   const [dragging, setDragging] = useState<Card | null>(null);
   const [, startTransition] = useTransition();
@@ -134,7 +136,15 @@ export function PipelineBoard({
           </h2>
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {closed.map((card) => (
-              <Link key={card.id} href={`/applications/${card.id}`}>
+              <Link
+                key={card.id}
+                href={`/applications/${card.id}`}
+                onClick={(event) => {
+                  if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
+                  event.preventDefault();
+                  openPanel(card.id);
+                }}
+              >
                 <div className="bg-card shadow-hairline hover:bg-accent/40 flex items-center gap-2.5 rounded-card px-3 py-2 transition-colors duration-150">
                   <CompanyAvatar name={card.company} domain={card.domain} size={24} />
                   <div className="min-w-0 flex-1">
@@ -217,6 +227,7 @@ function DraggableCard({ card }: { card: Card }) {
 
 function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: boolean }) {
   const overdue = card.nextFollowUpAt ? new Date(card.nextFollowUpAt) < new Date() : false;
+  const openPanel = useOpenApplication();
 
   return (
     <div
@@ -232,9 +243,16 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
       <div className="flex items-start gap-2">
         <CompanyAvatar name={card.company} domain={card.domain} size={26} className="mt-0.5" />
         <div className="min-w-0 flex-1">
+          {/* A link, so it still opens in a new tab and reads as a
+              destination — but a plain click keeps you on the board. */}
           <Link
             href={`/applications/${card.id}`}
-            onClick={(event) => event.stopPropagation()}
+            onClick={(event) => {
+              event.stopPropagation();
+              if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
+              event.preventDefault();
+              openPanel(card.id);
+            }}
             className="block truncate text-[13px] font-semibold hover:underline"
           >
             {card.company}

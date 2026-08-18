@@ -10,7 +10,8 @@ import {
 } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
 import { PipelineBoard } from "@/components/pipeline/board";
-import { PipelineList, parseSort, sortRows, type ListRow } from "@/components/pipeline/list";
+import { PipelineList } from "@/components/pipeline/list";
+import { parseSort, sortRows, type ListRow } from "@/lib/pipeline-list";
 import {
   PipelineCalendar,
   monthWindow,
@@ -18,12 +19,13 @@ import {
   type CalendarEntry,
 } from "@/components/pipeline/calendar";
 import {
-  PipelineRail,
+  PipelineToolbar,
   parseFilter,
   parseView,
   type PipelineFilter,
   type PipelineView,
-} from "@/components/pipeline/rail";
+} from "@/components/pipeline/toolbar";
+import { ApplicationPanelProvider } from "@/components/pipeline/application-panel";
 import { NewApplicationDialog } from "@/components/pipeline/new-application-dialog";
 import { requireUser } from "@/lib/auth";
 import { companyDomain } from "@/lib/company";
@@ -54,6 +56,7 @@ export default async function ApplicationsPage({
   const one = (key: string) => (Array.isArray(params[key]) ? params[key][0] : params[key]);
   const view = parseView(one("view"));
   const filter = parseFilter(one("f"), STAGES);
+  const search = one("q")?.trim() ?? "";
 
   // Resolved once per request: with logos off, no domain reaches the browser
   // at all, so there is nothing for it to go and fetch.
@@ -62,13 +65,9 @@ export default async function ApplicationsPage({
     listResumes(user.id),
     pipelineStats(user.id),
   ]);
-  const domainFor = (application: { company: { name: string; website: string }; jobUrl: string }) =>
+  const domainFor = (application: { company: { name: string; website: string } }) =>
     companyLogos
-      ? companyDomain({
-          name: application.company.name,
-          website: application.company.website,
-          jobUrl: application.jobUrl,
-        })
+      ? companyDomain({ name: application.company.name, website: application.company.website })
       : null;
 
   const counts = {
@@ -79,24 +78,27 @@ export default async function ApplicationsPage({
   };
 
   const chrome = (content: React.ReactNode) => (
-    <div className="flex min-h-[calc(100svh-4rem)]">
-      <PipelineRail view={view} filter={filter} counts={counts} />
-      <div className="min-w-0 flex-1">
-        <PageShell className="max-w-none">
-          <PageHeader
-            eyebrow={filterLabel(filter) ? `Pipeline · ${filterLabel(filter)}` : "Pipeline"}
-            title="Every conversation in flight"
-            description={BLURB[view]}
-            actions={
-              <NewApplicationDialog
-                resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
-              />
-            }
-          />
-          {content}
-        </PageShell>
-      </div>
-    </div>
+    <ApplicationPanelProvider>
+      <PageShell className="max-w-none">
+        <PageHeader
+          eyebrow={filterLabel(filter) ? `Pipeline · ${filterLabel(filter)}` : "Pipeline"}
+          title="Every conversation in flight"
+          description={BLURB[view]}
+        />
+        <PipelineToolbar
+          view={view}
+          filter={filter}
+          search={search}
+          counts={counts}
+          action={
+            <NewApplicationDialog
+              resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
+            />
+          }
+        />
+        {content}
+      </PageShell>
+    </ApplicationPanelProvider>
   );
 
   if (view === "calendar") {
@@ -107,6 +109,9 @@ export default async function ApplicationsPage({
     // the same way it narrows every other view. Entries with no application —
     // a standalone task — drop out, which is right: they have no stage.
     const kept = schedule.filter((entry) => {
+      if (search && !`${entry.title} ${entry.detail}`.toLowerCase().includes(search.toLowerCase())) {
+        return false;
+      }
       if (filter === "all") return true;
       if (!entry.stage) return false;
       if (filter === "overdue") return entry.kind === "FOLLOW_UP";
@@ -131,7 +136,10 @@ export default async function ApplicationsPage({
     );
   }
 
-  const all = await listApplications(user.id, { includeClosed: true });
+  const all = await listApplications(user.id, {
+    includeClosed: true,
+    ...(search ? { search } : {}),
+  });
   const now = Date.now();
   const matches = (application: (typeof all)[number]) => {
     if (filter === "all") return true;

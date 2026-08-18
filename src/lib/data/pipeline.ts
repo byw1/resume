@@ -1,5 +1,6 @@
 import { ActivityType, Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
+import { pick } from "@/lib/data/patch";
 
 /** Like brain.ts: userId is the required first argument on every query. */
 
@@ -79,12 +80,107 @@ export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN"];
 // Companies
 // ---------------------------------------------------------------------------
 
-export async function listCompanies(userId: string) {
-  return db.company.findMany({
-    where: { userId },
-    orderBy: { name: "asc" },
-    include: { _count: { select: { applications: true } } },
+const companyCounts = { _count: { select: { applications: true, contacts: true } } } as const;
+
+export type CompanyInput = {
+  name: string;
+  website?: string;
+  industry?: string;
+  size?: string;
+  location?: string;
+  notes?: string;
+};
+
+/** Columns a caller may write. Anything else in the patch is dropped. */
+const COMPANY_COLUMNS = ["name", "website", "industry", "size", "location", "notes"] as const;
+const CONTACT_COLUMNS = [
+  "name",
+  "title",
+  "email",
+  "phone",
+  "linkedin",
+  "relationship",
+  "notes",
+] as const;
+
+export async function listCompanies(userId: string, options?: { search?: string }) {
+  const where: Prisma.CompanyWhereInput = { userId };
+  if (options?.search) {
+    where.OR = [
+      { name: { contains: options.search, mode: "insensitive" } },
+      { industry: { contains: options.search, mode: "insensitive" } },
+      { location: { contains: options.search, mode: "insensitive" } },
+      { notes: { contains: options.search, mode: "insensitive" } },
+    ];
+  }
+  return db.company.findMany({ where, orderBy: { name: "asc" }, include: companyCounts });
+}
+
+export async function getCompany(userId: string, id: string) {
+  return db.company.findFirst({
+    where: { id, userId },
+    include: {
+      applications: {
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          roleTitle: true,
+          stage: true,
+          location: true,
+          salaryRange: true,
+          nextFollowUpAt: true,
+          updatedAt: true,
+        },
+      },
+      contacts: { orderBy: { createdAt: "asc" } },
+    },
   });
+}
+
+export async function createCompany(userId: string, input: CompanyInput) {
+  const name = input.name.trim();
+  if (!name) throw new Error("A company needs a name");
+  const existing = await db.company.findFirst({ where: { userId, name } });
+  if (existing) throw new Error(`You already have a company called "${name}"`);
+  return db.company.create({
+    data: { userId, ...pick({ ...input, name }, COMPANY_COLUMNS) },
+    include: companyCounts,
+  });
+}
+
+export async function updateCompany(userId: string, id: string, patch: Partial<CompanyInput>) {
+  const data = pick(patch, COMPANY_COLUMNS);
+  if (data.name !== undefined) {
+    data.name = data.name.trim();
+    if (!data.name) throw new Error("A company needs a name");
+    const clash = await db.company.findFirst({
+      where: { userId, name: data.name, id: { not: id } },
+    });
+    if (clash) throw new Error(`You already have a company called "${data.name}"`);
+  }
+  const { count } = await db.company.updateMany({ where: { id, userId }, data });
+  if (count === 0) throw new Error(`No company with id ${id}`);
+  return db.company.findFirstOrThrow({ where: { id, userId }, include: companyCounts });
+}
+
+/**
+ * Deleting a company leaves its applications and contacts standing — the
+ * schema nulls the link rather than cascading. Losing an application because
+ * you tidied up a company record would be a genuinely bad afternoon.
+ */
+export async function deleteCompany(userId: string, id: string) {
+  const company = await db.company.findFirst({
+    where: { id, userId },
+    include: companyCounts,
+  });
+  if (!company) throw new Error(`No company with id ${id}`);
+  if (company._count.applications > 0) {
+    throw new Error(
+      `"${company.name}" still has ${company._count.applications} application(s). Move or delete those first.`,
+    );
+  }
+  await db.company.delete({ where: { id } });
+  return { id, name: company.name };
 }
 
 export async function upsertCompanyByName(
@@ -471,12 +567,72 @@ export async function createContact(
   });
 }
 
-export async function listContacts(userId: string, applicationId?: string) {
-  return db.contact.findMany({
-    where: { userId, ...(applicationId ? { applicationId } : {}) },
-    orderBy: { createdAt: "desc" },
-    include: { company: true, application: { select: { id: true, roleTitle: true } } },
-  });
+const contactInclude = {
+  company: true,
+  application: { select: { id: true, roleTitle: true, stage: true } },
+} satisfies Prisma.ContactInclude;
+
+export async function listContacts(
+  userId: string,
+  options?: { applicationId?: string; companyId?: string; search?: string },
+) {
+  const where: Prisma.ContactWhereInput = { userId };
+  if (options?.applicationId) where.applicationId = options.applicationId;
+  if (options?.companyId) where.companyId = options.companyId;
+  if (options?.search) {
+    where.OR = [
+      { name: { contains: options.search, mode: "insensitive" } },
+      { title: { contains: options.search, mode: "insensitive" } },
+      { email: { contains: options.search, mode: "insensitive" } },
+      { notes: { contains: options.search, mode: "insensitive" } },
+      { company: { name: { contains: options.search, mode: "insensitive" } } },
+    ];
+  }
+  return db.contact.findMany({ where, orderBy: { name: "asc" }, include: contactInclude });
+}
+
+export async function getContact(userId: string, id: string) {
+  return db.contact.findFirst({ where: { id, userId }, include: contactInclude });
+}
+
+export async function updateContact(
+  userId: string,
+  id: string,
+  patch: Partial<{
+    name: string;
+    title: string;
+    email: string;
+    phone: string;
+    linkedin: string;
+    relationship: string;
+    notes: string;
+    company: string;
+    applicationId: string | null;
+  }>,
+) {
+  const current = await db.contact.findFirst({ where: { id, userId } });
+  if (!current) throw new Error(`No contact with id ${id}`);
+
+  const data: Prisma.ContactUpdateInput = pick(patch, CONTACT_COLUMNS);
+  // Company and application are relations, so they are resolved by hand rather
+  // than picked — and both are re-checked against this user.
+  if (patch.company !== undefined) {
+    data.company = patch.company
+      ? { connect: { id: (await upsertCompanyByName(userId, patch.company)).id } }
+      : { disconnect: true };
+  }
+  if (patch.applicationId !== undefined) {
+    if (patch.applicationId) {
+      const application = await db.application.findFirst({
+        where: { id: patch.applicationId, userId },
+      });
+      if (!application) throw new Error(`No application with id ${patch.applicationId}`);
+      data.application = { connect: { id: patch.applicationId } };
+    } else {
+      data.application = { disconnect: true };
+    }
+  }
+  return db.contact.update({ where: { id }, data, include: contactInclude });
 }
 
 export async function deleteContact(userId: string, id: string) {

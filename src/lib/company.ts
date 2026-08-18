@@ -1,43 +1,17 @@
 /**
- * Working out what a company's website is, from whatever we happen to know.
+ * Working out what a company's website is.
  *
- * Nobody types a company's domain into a job tracker, so it has to be inferred
- * or the logos never appear. Three sources in descending order of trust:
- * the website on the company record, the posting URL, and finally the name.
- * Every one of them can be wrong — a wrong guess just 404s and the monogram
- * shows instead, which is why guessing is worth it at all.
+ * The website on the company record is the answer. A posting URL is not: job
+ * listings live on Greenhouse, Ashby, Workday and a dozen other boards, so a
+ * link to one tells you where the employer advertises, not who they are —
+ * and a logo taken from it is the applicant tracking system's logo, which is
+ * both wrong and confusingly identical across half the pipeline.
+ *
+ * When there is no website we guess the name as a domain, because that is
+ * right often enough to be worth it and the failure is invisible: a wrong
+ * guess 404s and the monogram was already on screen. The company page is
+ * where you correct it.
  */
-
-/**
- * Applicant tracking systems put the company in the path or the subdomain, so
- * a Greenhouse link is worth more than nothing. Job boards that aggregate
- * across employers (LinkedIn, Indeed) tell us only about the board.
- */
-const ATS_PATH: Record<string, true> = {
-  "boards.greenhouse.io": true,
-  "job-boards.greenhouse.io": true,
-  "jobs.lever.co": true,
-  "jobs.ashbyhq.com": true,
-  "apply.workable.com": true,
-  "jobs.smartrecruiters.com": true,
-  "breezy.hr": true,
-  "app.dover.io": true,
-};
-
-const AGGREGATORS = [
-  "linkedin.com",
-  "indeed.com",
-  "glassdoor.com",
-  "ziprecruiter.com",
-  "monster.com",
-  "dice.com",
-  "wellfound.com",
-  "angel.co",
-  "otta.com",
-  "builtin.com",
-  "google.com",
-  "workatastartup.com",
-];
 
 function hostOf(url: string): string | null {
   const trimmed = url.trim();
@@ -61,32 +35,12 @@ function slugify(name: string): string {
 
 /**
  * The best guess at a company's domain, or null when there isn't one worth
- * making. `website` wins outright; a posting URL is used only when it names the
- * employer; the name is a last resort and is only tried when it is short enough
- * to plausibly be a domain.
+ * making. `website` wins outright; the name is a fallback and is only tried
+ * when it is short enough to plausibly be a domain.
  */
-export function companyDomain(input: {
-  name: string;
-  website?: string | null;
-  jobUrl?: string | null;
-}): string | null {
+export function companyDomain(input: { name: string; website?: string | null }): string | null {
   const fromWebsite = hostOf(input.website ?? "");
   if (fromWebsite) return fromWebsite;
-
-  const host = hostOf(input.jobUrl ?? "");
-  if (host && !AGGREGATORS.some((bad) => host === bad || host.endsWith(`.${bad}`))) {
-    // Workday: {company}.wd1.myworkdayjobs.com
-    const workday = /^([a-z0-9-]+)\.wd\d+\.myworkdayjobs\.com$/.exec(host);
-    if (workday) return `${workday[1]}.com`;
-
-    if (ATS_PATH[host]) {
-      const slug = (input.jobUrl ?? "").split(host)[1]?.split("/").filter(Boolean)[0];
-      return slug ? `${slug.toLowerCase()}.com` : null;
-    }
-
-    // Anything else is probably the company's own careers page.
-    return host;
-  }
 
   const slug = slugify(input.name);
   return slug.length >= 2 && slug.length <= 24 ? `${slug}.com` : null;
