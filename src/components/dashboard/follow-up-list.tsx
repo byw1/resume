@@ -33,12 +33,12 @@ export function FollowUpList({ items }: { items: Item[] }) {
 
   if (items.length === 0) {
     return (
-      <div className="flex flex-col items-center py-10 text-center">
-        <div className="bg-[var(--success)]/12 text-[var(--success)] mb-3 flex size-10 items-center justify-center rounded-xl">
+      <div className="flex flex-col items-center py-8 text-center">
+        <div className="bg-success-tint text-success mb-3 flex size-10 items-center justify-center rounded-xl">
           <AlarmClockIcon className="size-4" />
         </div>
-        <p className="text-sm font-medium">Nothing to chase</p>
-        <p className="text-muted-foreground mt-1 text-sm">
+        <p className="text-[13px] font-medium">Nothing to chase</p>
+        <p className="text-muted-foreground mt-1 text-[13px]">
           Every follow-up is scheduled for later.
         </p>
       </div>
@@ -53,26 +53,26 @@ export function FollowUpList({ items }: { items: Item[] }) {
             key={item.id}
             layout
             exit={{ opacity: 0, height: 0 }}
-            className="group flex flex-wrap items-center gap-3 py-2.5 first:pt-0"
+            className="group flex flex-wrap items-center gap-3 py-2 first:pt-0"
           >
             <div
               className={cn(
                 "size-1.5 shrink-0 rounded-full",
-                item.overdue ? "bg-destructive animate-pulse-ring" : "bg-[var(--warning)]",
+                item.overdue ? "bg-destructive" : "bg-warning",
               )}
             />
             <Link href={`/applications/${item.id}`} className="min-w-0 flex-1">
-              <div className="truncate text-sm font-medium group-hover:underline">
+              <div className="truncate text-[13px] font-medium group-hover:underline">
                 {item.company}
               </div>
-              <div className="text-muted-foreground truncate text-xs">{item.roleTitle}</div>
+              <div className="text-faint truncate text-[12px]">{item.roleTitle}</div>
             </Link>
             <Badge variant="outline" className="text-[10px]">
               {STAGE_LABEL[item.stage]}
             </Badge>
             <span
               className={cn(
-                "w-20 text-right text-xs tabular-nums",
+                "nums w-20 text-right text-[12px]",
                 item.overdue ? "text-destructive font-medium" : "text-muted-foreground",
               )}
             >

@@ -113,14 +113,14 @@ export function PipelineBoard({ open, closed }: { open: Card[]; closed: Card[] }
           <div className="grid gap-2 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
             {closed.map((card) => (
               <Link key={card.id} href={`/applications/${card.id}`}>
-                <div className="hover:bg-accent/40 flex items-center gap-3 rounded-xl border px-3 py-2.5 transition-colors">
+                <div className="bg-card shadow-hairline hover:bg-accent/40 flex items-center gap-3 rounded-card px-3 py-2 transition-colors duration-150">
                   <span
                     className="size-1.5 shrink-0 rounded-full"
                     style={{ background: STAGE_TONE[card.stage] }}
                   />
                   <div className="min-w-0 flex-1">
                     <div className="truncate text-[13px] font-medium">{card.company}</div>
-                    <div className="text-muted-foreground truncate text-xs">{card.roleTitle}</div>
+                    <div className="text-faint truncate text-[12px]">{card.roleTitle}</div>
                   </div>
                   <Badge variant="outline" className="shrink-0 text-[10px]">
                     {STAGE_LABEL[card.stage]}
@@ -143,16 +143,14 @@ function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
       <div className="mb-2.5 flex items-center gap-2 px-1">
         <span className="size-2 rounded-full" style={{ background: STAGE_TONE[stage] }} />
         <span className="text-[13px] font-semibold">{STAGE_LABEL[stage]}</span>
-        <span className="text-muted-foreground text-xs tabular-nums">{cards.length}</span>
+        <span className="text-faint nums text-[12px]">{cards.length}</span>
       </div>
 
       <div
         ref={setNodeRef}
         className={cn(
-          "flex min-h-[16rem] flex-1 flex-col gap-2 rounded-xl border border-dashed p-2 transition-all duration-200",
-          isOver
-            ? "border-primary bg-primary/6 scale-[1.01]"
-            : "border-border/60 bg-muted/25",
+          "bg-canvas flex min-h-[11rem] flex-1 flex-col gap-2 rounded-xl p-2 transition-[background-color,box-shadow] duration-200 ease-[var(--ease-settle)]",
+          isOver ? "bg-primary-tint shadow-[0_0_0_1px_var(--primary)]" : "shadow-hairline",
         )}
       >
         <AnimatePresence initial={false}>
@@ -162,7 +160,7 @@ function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
         </AnimatePresence>
 
         {cards.length === 0 && (
-          <div className="text-muted-foreground/60 flex flex-1 items-center justify-center text-xs">
+          <div className="text-faint flex flex-1 items-center justify-center text-[12px]">
             {isOver ? "Drop here" : "Empty"}
           </div>
         )}
@@ -197,8 +195,8 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
   return (
     <div
       className={cn(
-        "group cursor-grab rounded-xl border p-3 transition-shadow active:cursor-grabbing",
-        overlay ? "elev-3" : "elev-1 hover:elev-2",
+        "group bg-card cursor-grab rounded-card p-3 transition-shadow duration-200 ease-[var(--ease-settle)] active:cursor-grabbing",
+        overlay ? "shadow-overlay" : "shadow-card hover:shadow-raised",
       )}
     >
       <div className="flex items-start gap-2">
@@ -210,7 +208,7 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
           >
             {card.company}
           </Link>
-          <div className="text-muted-foreground truncate text-xs">{card.roleTitle}</div>
+          <div className="text-faint truncate text-[12px]">{card.roleTitle}</div>
         </div>
         {card.excitement >= 4 && (
           <FlameIcon className="mt-0.5 size-3 shrink-0 text-[var(--warning)]" />

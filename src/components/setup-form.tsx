@@ -35,7 +35,7 @@ export function SetupForm({ requiresKey }: { requiresKey: boolean }) {
             </p>
           </div>
         ) : (
-          <div className="flex items-start gap-2 rounded-lg border border-[var(--warning)]/35 bg-[var(--warning)]/8 px-3 py-2.5 text-xs">
+          <div className="flex items-start gap-2 rounded-lg bg-warning-tint shadow-[0_0_0_1px_color-mix(in_oklch,var(--warning)_32%,transparent)] px-3 py-2.5 text-xs">
             <TriangleAlertIcon className="mt-0.5 size-3.5 shrink-0 text-[var(--warning)]" />
             <span className="text-muted-foreground">
               No <code className="bg-muted rounded px-1">APP_PASSWORD</code> is set, so this page is

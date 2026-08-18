@@ -73,7 +73,7 @@ export function AuthCard({
       transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
       className="w-full max-w-sm"
     >
-      <div className="bg-card rounded-2xl border p-8 elev-2">
+      <div className="bg-card shadow-raised rounded-2xl p-8">
         <div className="mb-7 flex flex-col items-center text-center">
           <div className="bg-foreground mb-4 flex size-10 items-center justify-center rounded-[10px]">
             <span className="text-background text-[17px] font-semibold">R</span>

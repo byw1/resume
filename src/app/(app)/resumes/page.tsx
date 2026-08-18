@@ -48,7 +48,7 @@ export default async function ResumesPage() {
               <StaggerItem key={resume.id}>
                 <Lift>
                   <Link href={`/resumes/${resume.id}`} className="block">
-                    <Card className="group overflow-hidden p-0 transition-all hover:border-primary/30 hover:elev-3">
+                    <Card className="group overflow-hidden p-0 transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
                       {/* Live thumbnail of the actual document */}
                       <div className="relative h-[15rem] overflow-hidden border-b bg-white">
                         <div

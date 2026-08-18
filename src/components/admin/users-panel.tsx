@@ -76,7 +76,7 @@ export function UsersPanel({
                   className={cn(
                     "flex size-9 shrink-0 items-center justify-center rounded-full text-[13px] font-semibold",
                     user.isActive
-                      ? "bg-primary/12 text-primary"
+                      ? "bg-primary-tint text-primary"
                       : "bg-muted text-muted-foreground",
                   )}
                 >

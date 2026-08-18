@@ -20,7 +20,7 @@ function Toaster(props: ToasterProps) {
       closeButton
       toastOptions={{
         classNames: {
-          toast: "!rounded-xl !border !elev-3 !backdrop-blur-md",
+          toast: "!rounded-xl !shadow-overlay !backdrop-blur-md",
         },
       }}
       style={

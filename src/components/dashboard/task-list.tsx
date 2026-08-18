@@ -39,7 +39,7 @@ export function TaskList({ tasks }: { tasks: Task[] }) {
   return (
     <div className="space-y-3">
       <div className="relative">
-        <PlusIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
+        <PlusIcon className="text-faint pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
         <Input
           value={draft}
           onChange={(event) => setDraft(event.target.value)}
@@ -54,7 +54,7 @@ export function TaskList({ tasks }: { tasks: Task[] }) {
       </div>
 
       {visible.length === 0 ? (
-        <p className="text-muted-foreground py-6 text-center text-sm">All clear.</p>
+        <p className="text-faint py-6 text-center text-[13px]">All clear.</p>
       ) : (
         <ul className="space-y-0.5">
           <AnimatePresence initial={false}>
@@ -76,12 +76,12 @@ export function TaskList({ tasks }: { tasks: Task[] }) {
                   {(task.context || task.due) && (
                     <div className="mt-0.5 flex items-center gap-1.5 text-[11px]">
                       {task.context && (
-                        <span className="text-muted-foreground">{task.context}</span>
+                        <span className="text-faint">{task.context}</span>
                       )}
                       {task.due && (
                         <span
                           className={cn(
-                            task.overdue ? "text-destructive font-medium" : "text-muted-foreground",
+                            task.overdue ? "text-destructive font-medium" : "text-faint",
                           )}
                         >
                           {task.due}

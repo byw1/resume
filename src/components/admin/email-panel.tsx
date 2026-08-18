@@ -67,8 +67,8 @@ export function EmailPanel({
             <div
               className={
                 configured
-                  ? "bg-[var(--success)]/12 text-[var(--success)] flex size-9 items-center justify-center rounded-xl"
-                  : "bg-[var(--warning)]/14 text-[var(--warning)] flex size-9 items-center justify-center rounded-xl"
+                  ? "bg-success-tint text-success flex size-9 items-center justify-center rounded-xl"
+                  : "bg-warning-tint text-warning flex size-9 items-center justify-center rounded-xl"
               }
             >
               {configured ? (

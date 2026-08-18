@@ -9,7 +9,7 @@ function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxP
   return (
     <CheckboxPrimitive.Root
       className={cn(
-        "peer border-input size-4 shrink-0 cursor-pointer rounded-[5px] border shadow-xs transition-all outline-none",
+        "peer border-input size-4 shrink-0 cursor-pointer rounded-[5px] border shadow-field transition-all duration-150 outline-none",
         "data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground",
         "focus-visible:ring-ring/40 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
         className,

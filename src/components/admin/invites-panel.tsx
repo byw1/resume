@@ -137,8 +137,8 @@ export function InvitesPanel({
                     <div
                       className={
                         item.emailSent
-                          ? "bg-[var(--success)]/12 text-[var(--success)] flex size-8 shrink-0 items-center justify-center rounded-lg"
-                          : "bg-[var(--warning)]/14 text-[var(--warning)] flex size-8 shrink-0 items-center justify-center rounded-lg"
+                          ? "bg-success-tint text-success flex size-8 shrink-0 items-center justify-center rounded-lg"
+                          : "bg-warning-tint text-warning flex size-8 shrink-0 items-center justify-center rounded-lg"
                       }
                     >
                       {item.emailSent ? (

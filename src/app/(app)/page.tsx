@@ -62,7 +62,6 @@ export default async function DashboardPage() {
       <PageHeader
         eyebrow={greeting()}
         title={firstName ? `Let's go, ${firstName}.` : "Your career, in one place."}
-        description="Everything you know about yourself, the resumes you build from it, and every conversation in flight."
         actions={
           <>
             <Button asChild variant="outline">
@@ -82,8 +81,8 @@ export default async function DashboardPage() {
       {isEmpty ? (
         <Onboarding />
       ) : (
-        <div className="space-y-6">
-          <Stagger className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <div className="space-y-4">
+          <Stagger className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
             <StatCard
               icon={TargetIcon}
               label="In flight"
@@ -111,7 +110,7 @@ export default async function DashboardPage() {
             />
           </Stagger>
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid items-start gap-4 lg:grid-cols-3">
             <FadeIn delay={0.1} className="lg:col-span-2">
               <Card className="h-full">
                 <CardHeader className="flex-row items-center justify-between">
@@ -165,7 +164,7 @@ export default async function DashboardPage() {
             </FadeIn>
           </div>
 
-          <div className="grid gap-6 lg:grid-cols-3">
+          <div className="grid items-start gap-4 lg:grid-cols-3">
             <FadeIn delay={0.2}>
               <Card className="h-full">
                 <CardHeader>
@@ -175,8 +174,8 @@ export default async function DashboardPage() {
                   {BOARD_STAGES.map((stage) => (
                     <div key={stage}>
                       <div className="mb-1.5 flex items-baseline justify-between text-sm">
-                        <span className="text-muted-foreground">{STAGE_LABEL[stage]}</span>
-                        <span className="font-medium tabular-nums">{stats.counts[stage]}</span>
+                        <span className="text-muted-foreground text-[13px]">{STAGE_LABEL[stage]}</span>
+                        <span className="nums text-[13px] font-medium">{stats.counts[stage]}</span>
                       </div>
                       <Progress
                         value={(stats.counts[stage] / maxStage) * 100}
@@ -215,14 +214,14 @@ export default async function DashboardPage() {
                             <Badge variant="outline" className="text-[10px]">
                               {ACTIVITY_LABEL[activity.type]}
                             </Badge>
-                            <span className="text-muted-foreground ml-auto text-xs">
+                            <span className="text-faint nums ml-auto text-[11.5px]">
                               {activity.occurredAt.toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
                               })}
                             </span>
                           </div>
-                          <p className="text-muted-foreground mt-0.5 text-sm">
+                          <p className="text-muted-foreground mt-0.5 text-[13px]">
                             {truncate(activity.body, 140)}
                           </p>
                         </li>
@@ -254,18 +253,18 @@ function StatCard({
 }) {
   return (
     <StaggerItem>
-      <Card className="group relative overflow-hidden transition-shadow hover:elev-2">
-        <CardContent className="relative pt-5">
-          <div className="flex items-center gap-2">
-            <Icon className="text-muted-foreground size-3.5" />
-            <span className="text-muted-foreground text-[12px] font-medium tracking-wide">
-              {label}
-            </span>
+      <Card className="group relative overflow-hidden transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
+        <CardContent className="relative px-4 pt-3.5 pb-3.5">
+          <div className="flex items-center gap-1.5">
+            <Icon className="text-faint size-3.5" />
+            <span className="text-muted-foreground text-[11.5px] font-medium">{label}</span>
           </div>
-          <div className="mt-2 text-[30px] leading-none font-semibold tracking-tight">
+          {/* Tabular figures so the four numbers line up as a row rather than
+              jittering against each other. */}
+          <div className="nums mt-1.5 text-[26px] leading-none font-semibold tracking-tight">
             <AnimatedNumber value={value} suffix={suffix} />
           </div>
-          <p className="text-muted-foreground mt-2 text-xs">{hint}</p>
+          <p className="text-faint mt-1.5 text-[11.5px]">{hint}</p>
         </CardContent>
       </Card>
     </StaggerItem>
@@ -301,9 +300,9 @@ function Onboarding() {
     <Stagger className="grid gap-4 md:grid-cols-3">
       {steps.map((step, i) => (
         <StaggerItem key={step.title}>
-          <Card className="group h-full transition-shadow hover:elev-2">
+          <Card className="group h-full transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
             <CardContent className="flex h-full flex-col pt-6">
-              <div className="bg-primary/10 text-primary mb-4 flex size-10 items-center justify-center rounded-xl">
+              <div className="bg-primary-tint text-primary mb-4 flex size-10 items-center justify-center rounded-xl">
                 <step.icon className="size-[18px]" />
               </div>
               <div className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase">

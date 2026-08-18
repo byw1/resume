@@ -8,7 +8,7 @@ function Switch({ className, ...props }: React.ComponentProps<typeof SwitchPrimi
   return (
     <SwitchPrimitive.Root
       className={cn(
-        "peer inline-flex h-[1.2rem] w-8 shrink-0 cursor-pointer items-center rounded-full border border-transparent shadow-xs transition-all outline-none",
+        "peer inline-flex h-[1.2rem] w-8 shrink-0 cursor-pointer items-center rounded-full border border-transparent shadow-btn transition-all duration-150 outline-none",
         "data-[state=checked]:bg-primary data-[state=unchecked]:bg-input",
         "focus-visible:ring-ring/40 focus-visible:ring-[3px] disabled:cursor-not-allowed disabled:opacity-50",
         className,

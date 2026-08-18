@@ -39,7 +39,7 @@ export function RolesPanel({ roles }: { roles: RoleCard[] }) {
         <StaggerItem key={role.id}>
           <Lift>
             <Link href={`/brain/${role.id}`} className="block h-full">
-              <Card className="group relative h-full overflow-hidden transition-all hover:border-primary/30 hover:elev-2">
+              <Card className="group relative h-full overflow-hidden transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
                 <CardContent className="relative flex h-full flex-col pt-5">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0">

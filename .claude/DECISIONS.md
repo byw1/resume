@@ -259,3 +259,38 @@ for REJECTED. The values are CSS variables rather than literals.
 arbitrary hues never did — nobody remembers that teal meant "interviewing". Variables rather
 than fixed colours because the old literals were tuned for dark mode and went muddy in light.
 **Applies to:** `STAGE_TONE` in `src/lib/data/pipeline.ts`, `--stage-*` in `globals.css`.
+
+## 2026-08-18 — Elevation is a hairline ring plus a soft shadow, and the ring flips in the dark
+**Decision:** every raised surface gets `0 0 0 1px <rim>` plus a many-stop shadow, exposed as
+six tokens: `shadow-hairline`, `shadow-btn`, `shadow-field`, `shadow-card`, `shadow-raised`,
+`shadow-overlay`. In the light theme the rim is a grey hairline. In the dark theme it becomes
+`oklch(100% 0 0 / 0.09–0.13)` — a faint *highlight* rather than a darker line. Components ask
+for the name of the thing (`shadow-card`) rather than a height number, and a component that
+carries a ring no longer also carries a `border`.
+**Why:** the previous pass made everything flat with a hairline border, which is correct in
+light and invisible in dark — a dark border on a dark surface has nowhere to go, so the dark
+theme read as one flat wall with text on it. Real objects are lit from above: their top edge
+catches light. Flipping the ring to a highlight is one line and it is most of the reason the
+dark theme now reads as cards. The many small shadow stops (six at 2–4% rather than two at
+10%) matter too: a few big stops read as a slide-deck drop shadow, many small ones read as
+light falling off an edge.
+**Applies to:** `--rim` and the `--shadow-*` tokens in `globals.css`. Never hand-roll a
+`box-shadow` at a call site, and never put `border` on something that already has a ring —
+the doubled hairline is what makes an edge look muddy.
+**Where it came from:** beautifului.dev, which the whole material layer here is modelled on.
+Its catalogue is mostly chat-agent primitives that this product deliberately doesn't need —
+the conversation lives in Claude, not in a panel in the app — but its material system is
+better than what we had and cost nothing to adopt.
+
+## 2026-08-18 — Four surfaces and three inks
+**Decision:** the surface stack is `--background` (page) → `--canvas` (a recessed working area,
+e.g. a pipeline column) → `--card` → `--popover`, plus `--inset` for wells and fields. Ink is
+`--foreground` → `--muted-foreground` → `--faint`. Status hues each carry a `*-tint` token for
+the wash behind a chip.
+**Why:** two surfaces and two inks isn't enough vocabulary for a dense screen, so every
+component was inventing its own — `bg-muted/25` here, `bg-[var(--success)]/12` there, and each
+one wrong in one of the two themes. Fields in particular were raised (`shadow-xs`) when a
+field is a hole you put something into; they're inset now. And the tints have to be tokens
+because the correct wash differs by theme: a pale colour on white, low-alpha hue on dark.
+**Applies to:** `globals.css`. `bg-canvas`, `bg-inset`, `text-faint`, `bg-success-tint` and
+friends are real utilities — use them instead of an opacity modifier at the call site.

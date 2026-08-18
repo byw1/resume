@@ -20,13 +20,30 @@
 :root {
   --radius: 0.625rem;
 
-  /* Greys carry a trace of blue so they read as neutral rather than muddy. */
+  /* --- Surfaces -----------------------------------------------------------
+     Four levels, and they are a stack, not a set of greys picked by eye. The
+     page is the ground; canvas is a recessed working area inside it; card is
+     the thing you read; popover is the thing that floats over everything. In
+     the light theme surfaces get lighter as they rise. In the dark theme they
+     also get lighter as they rise — light does not get darker as it comes
+     towards you, and an interface that pretends otherwise reads as flat.
+     Greys carry a trace of blue so they read as neutral rather than muddy. */
   --background: oklch(0.979 0.001 265);
-  --foreground: oklch(0.18 0.006 265);
+  --canvas: oklch(0.962 0.002 265);
   --card: oklch(1 0 0);
-  --card-foreground: oklch(0.18 0.006 265);
   --popover: oklch(1 0 0);
+  --inset: oklch(0.968 0.002 265);
+  --foreground: oklch(0.18 0.006 265);
+  --card-foreground: oklch(0.18 0.006 265);
   --popover-foreground: oklch(0.18 0.006 265);
+
+  /* --- Ink ----------------------------------------------------------------
+     Three levels, because two is not enough. Primary is what you came to read,
+     muted is the label attached to it, faint is metadata you only look at when
+     you go looking — timestamps, row numbers, keyboard hints. Collapsing faint
+     into muted is what makes a dense screen look like undifferentiated soup. */
+  --muted-foreground: oklch(0.505 0.008 265);
+  --faint: oklch(0.665 0.008 265);
 
   /* The one accent. Used for the primary button, links and selection. */
   --primary: oklch(0.55 0.17 254);
@@ -35,15 +52,21 @@
   --secondary: oklch(0.955 0.002 265);
   --secondary-foreground: oklch(0.26 0.007 265);
   --muted: oklch(0.962 0.002 265);
-  --muted-foreground: oklch(0.505 0.008 265);
   --accent: oklch(0.945 0.003 265);
   --accent-foreground: oklch(0.22 0.007 265);
 
-  /* Status. These are the only other hues in the system. */
+  /* Status. These are the only other hues in the system. Each carries a tint:
+     the wash behind a chip of that status. In the light theme a tint is a pale
+     colour; in the dark theme it is the hue itself at low alpha, so it sits on
+     whatever surface it lands on instead of punching a light hole in it. */
   --destructive: oklch(0.58 0.21 25);
   --destructive-foreground: oklch(1 0 0);
+  --destructive-tint: oklch(0.956 0.017 25);
   --success: oklch(0.6 0.13 152);
+  --success-tint: oklch(0.958 0.017 158);
   --warning: oklch(0.72 0.14 70);
+  --warning-tint: oklch(0.964 0.021 75);
+  --primary-tint: oklch(0.96 0.019 253);
 
   --border: oklch(0.905 0.003 265);
   --input: oklch(0.895 0.003 265);
@@ -52,6 +75,34 @@
   --sidebar: oklch(0.968 0.002 265);
   --sidebar-foreground: oklch(0.24 0.006 265);
   --sidebar-border: oklch(0.9 0.003 265);
+
+
+  /* --- Elevation ----------------------------------------------------------
+     Every raised surface is a hairline ring plus a soft, many-stop shadow. The
+     ring does the separating; the shadow only says how far off the page the
+     thing is. Many small stops at low alpha read as light falling on an edge.
+     Two big stops read as a drop shadow in a slide deck. */
+  --rim: oklch(0.905 0.003 265);
+  --shadow-hairline: 0 0 0 1px var(--rim);
+  --shadow-btn:
+    0 0 0 1px var(--input),
+    0 1px 1.5px oklch(0 0 0 / 0.04);
+  --shadow-field: inset 0 1px 2px oklch(0 0 0 / 0.05);
+  --shadow-card:
+    0 0 0 1px var(--rim),
+    0 1px 1.5px oklch(0 0 0 / 0.028),
+    0 3px 6px oklch(0 0 0 / 0.022),
+    0 8px 18px oklch(0 0 0 / 0.018);
+  --shadow-raised:
+    0 0 0 1px var(--rim),
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 4px 10px oklch(0 0 0 / 0.035),
+    0 12px 26px oklch(0 0 0 / 0.03);
+  --shadow-overlay:
+    0 0 0 1px var(--rim),
+    0 2px 4px oklch(0 0 0 / 0.05),
+    0 8px 20px oklch(0 0 0 / 0.06),
+    0 24px 56px oklch(0 0 0 / 0.09);
 
   /* Pipeline progress: one ramp, darkening as an application advances. */
   --stage-1: oklch(0.82 0.004 265);
@@ -64,26 +115,34 @@
 
 .dark {
   --background: oklch(0.165 0.004 265);
+  --canvas: oklch(0.192 0.004 265);
+  --card: oklch(0.213 0.004 265);
+  --popover: oklch(0.238 0.005 265);
+  --inset: oklch(0.186 0.004 265);
   --foreground: oklch(0.968 0.002 265);
-  --card: oklch(0.203 0.004 265);
   --card-foreground: oklch(0.968 0.002 265);
-  --popover: oklch(0.223 0.005 265);
   --popover-foreground: oklch(0.968 0.002 265);
+
+  --muted-foreground: oklch(0.68 0.008 265);
+  --faint: oklch(0.53 0.009 265);
 
   --primary: oklch(0.65 0.17 252);
   --primary-foreground: oklch(1 0 0);
 
-  --secondary: oklch(0.253 0.005 265);
+  --secondary: oklch(0.263 0.005 265);
   --secondary-foreground: oklch(0.95 0.002 265);
-  --muted: oklch(0.253 0.005 265);
-  --muted-foreground: oklch(0.66 0.008 265);
-  --accent: oklch(0.283 0.006 265);
+  --muted: oklch(0.263 0.005 265);
+  --accent: oklch(0.293 0.006 265);
   --accent-foreground: oklch(0.96 0.002 265);
 
   --destructive: oklch(0.66 0.19 25);
   --destructive-foreground: oklch(1 0 0);
+  --destructive-tint: oklch(0.66 0.19 25 / 0.15);
   --success: oklch(0.7 0.14 154);
+  --success-tint: oklch(0.7 0.14 154 / 0.15);
   --warning: oklch(0.78 0.14 72);
+  --warning-tint: oklch(0.78 0.14 72 / 0.15);
+  --primary-tint: oklch(0.65 0.17 252 / 0.17);
 
   --border: oklch(1 0 0 / 9%);
   --input: oklch(1 0 0 / 13%);
@@ -92,6 +151,27 @@
   --sidebar: oklch(0.185 0.004 265);
   --sidebar-foreground: oklch(0.94 0.002 265);
   --sidebar-border: oklch(1 0 0 / 7%);
+
+
+  /* In the dark the ring flips: a dark hairline on a dark surface is invisible,
+     so the rim becomes a faint highlight along the top edge of the object, the
+     way a lit edge actually behaves. This one line is most of the reason a
+     dark interface reads as objects rather than as a flat wall. */
+  --rim: oklch(1 0 0 / 0.1);
+  --shadow-btn:
+    0 0 0 1px oklch(1 0 0 / 0.1),
+    0 1px 2px oklch(0 0 0 / 0.3);
+  --shadow-field: inset 0 1px 2px oklch(0 0 0 / 0.32);
+  --shadow-card:
+    0 0 0 1px oklch(1 0 0 / 0.09),
+    0 1px 2px oklch(0 0 0 / 0.24),
+    0 2px 6px oklch(0 0 0 / 0.2);
+  --shadow-raised:
+    0 0 0 1px oklch(1 0 0 / 0.11),
+    0 2px 10px oklch(0 0 0 / 0.28);
+  --shadow-overlay:
+    0 0 0 1px oklch(1 0 0 / 0.13),
+    0 8px 28px oklch(0 0 0 / 0.42);
 
   /* Inverted: in the dark the ramp brightens as it advances. */
   --stage-1: oklch(0.38 0.005 265);
@@ -105,22 +185,29 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
+  --color-canvas: var(--canvas);
+  --color-inset: var(--inset);
   --color-card: var(--card);
   --color-card-foreground: var(--card-foreground);
   --color-popover: var(--popover);
   --color-popover-foreground: var(--popover-foreground);
   --color-primary: var(--primary);
   --color-primary-foreground: var(--primary-foreground);
+  --color-primary-tint: var(--primary-tint);
   --color-secondary: var(--secondary);
   --color-secondary-foreground: var(--secondary-foreground);
   --color-muted: var(--muted);
   --color-muted-foreground: var(--muted-foreground);
+  --color-faint: var(--faint);
   --color-accent: var(--accent);
   --color-accent-foreground: var(--accent-foreground);
   --color-destructive: var(--destructive);
   --color-destructive-foreground: var(--destructive-foreground);
+  --color-destructive-tint: var(--destructive-tint);
   --color-success: var(--success);
+  --color-success-tint: var(--success-tint);
   --color-warning: var(--warning);
+  --color-warning-tint: var(--warning-tint);
   --color-border: var(--border);
   --color-input: var(--input);
   --color-ring: var(--ring);
@@ -128,6 +215,21 @@
   --color-sidebar-foreground: var(--sidebar-foreground);
   --color-sidebar-border: var(--sidebar-border);
 
+  /* Elevation as utilities: shadow-card, shadow-raised, shadow-overlay,
+     shadow-btn, shadow-field, shadow-hairline. Reach for the name that says
+     what the thing is, not for a number. */
+  --shadow-hairline: var(--shadow-hairline);
+  --shadow-btn: var(--shadow-btn);
+  --shadow-field: var(--shadow-field);
+  --shadow-card: var(--shadow-card);
+  --shadow-raised: var(--shadow-raised);
+  --shadow-overlay: var(--shadow-overlay);
+
+  /* Radius by the size of the thing: a 20px chip at a 10px radius is a pill,
+     and a card at a 6px radius looks like a table cell. */
+  --radius-chip: 6px;
+  --radius-control: 8px;
+  --radius-card: 10px;
   --radius-sm: calc(var(--radius) - 4px);
   --radius-md: calc(var(--radius) - 2px);
   --radius-lg: var(--radius);
@@ -137,6 +239,11 @@
   --font-sans: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system,
     "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+
+  /* Two curves. Both decelerate hard and then coast, which is what makes a
+     transition feel like an object settling rather than a value animating. */
+  --ease-settle: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-enter: cubic-bezier(0.16, 1, 0.3, 1);
 
   /* One entrance animation, used once per screen. Nothing loops. */
   --animate-in-up: inUp 0.4s cubic-bezier(0.16, 1, 0.3, 1) both;
@@ -230,33 +337,17 @@
     -webkit-backdrop-filter: saturate(180%) blur(20px);
   }
 
-  /* Elevation is nearly absent by design: a hairline border does the
-     separating, and shadow is kept for things that genuinely float. */
+  /* The three elevations, kept as aliases of the tokens so existing call sites
+     keep working. New code should say what the thing is — shadow-card,
+     shadow-raised, shadow-overlay — rather than how high it sits. */
   .elev-1 {
-    box-shadow: 0 1px 2px oklch(0 0 0 / 0.04);
+    box-shadow: var(--shadow-card);
   }
   .elev-2 {
-    box-shadow:
-      0 1px 2px oklch(0 0 0 / 0.04),
-      0 4px 12px oklch(0 0 0 / 0.05);
+    box-shadow: var(--shadow-raised);
   }
   .elev-3 {
-    box-shadow:
-      0 2px 6px oklch(0 0 0 / 0.06),
-      0 12px 32px oklch(0 0 0 / 0.12);
-  }
-  .dark .elev-1 {
-    box-shadow: 0 1px 2px oklch(0 0 0 / 0.4);
-  }
-  .dark .elev-2 {
-    box-shadow:
-      0 1px 2px oklch(0 0 0 / 0.4),
-      0 4px 14px oklch(0 0 0 / 0.35);
-  }
-  .dark .elev-3 {
-    box-shadow:
-      0 2px 8px oklch(0 0 0 / 0.5),
-      0 16px 40px oklch(0 0 0 / 0.5);
+    box-shadow: var(--shadow-overlay);
   }
 
   .no-scrollbar::-webkit-scrollbar {

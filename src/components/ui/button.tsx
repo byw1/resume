@@ -10,16 +10,20 @@ import { cn } from "@/lib/utils";
  *
  * Press feedback is a fast opacity shift rather than a scale bounce: at this
  * size a transform reads as a wobble, and it fights the pointer.
+ *
+ * The raised variants carry shadow-btn — a hairline ring and a 1px shadow, so
+ * the button sits a millimetre proud of the surface. It is the smallest amount
+ * of elevation that still says "this is pressable".
  */
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md text-[13px] font-medium transition-[background-color,border-color,color,opacity] duration-150 outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 active:opacity-80 select-none",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-control text-[13px] font-medium transition-[background-color,border-color,color,opacity,box-shadow] duration-150 ease-[var(--ease-settle)] outline-none focus-visible:ring-2 focus-visible:ring-ring/50 focus-visible:ring-offset-1 focus-visible:ring-offset-background disabled:pointer-events-none disabled:opacity-40 [&_svg]:pointer-events-none [&_svg:not([class*='size-'])]:size-4 shrink-0 active:opacity-80 select-none",
   {
     variants: {
       variant: {
         default: "bg-primary text-primary-foreground hover:bg-primary/90",
         destructive: "bg-destructive text-destructive-foreground hover:bg-destructive/90",
-        outline: "border bg-card hover:bg-accent",
-        secondary: "bg-secondary text-secondary-foreground hover:bg-accent",
+        outline: "bg-card shadow-btn hover:bg-accent",
+        secondary: "bg-secondary text-secondary-foreground shadow-btn hover:bg-accent",
         ghost: "hover:bg-accent",
         link: "text-primary underline-offset-4 hover:underline",
       },
@@ -27,7 +31,7 @@ const buttonVariants = cva(
         default: "h-8 px-3.5 has-[>svg]:px-3",
         sm: "h-7 gap-1.5 px-2.5 text-[12.5px] has-[>svg]:px-2",
         xs: "h-6 gap-1 px-2 text-[12px] [&_svg:not([class*='size-'])]:size-3.5",
-        lg: "h-10 rounded-lg px-5 text-[14px] has-[>svg]:px-4",
+        lg: "h-10 rounded-card px-5 text-[14px] has-[>svg]:px-4",
         icon: "size-8",
         "icon-sm": "size-7 [&_svg:not([class*='size-'])]:size-3.5",
       },

@@ -6,10 +6,11 @@ function Card({ className, ...props }: React.ComponentProps<"div">) {
     <div
       data-slot="card"
       className={cn(
-        // A hairline and a flat fill. No shadow: on a grey ground the border
-        // already separates the panel, and stacking shadows is what makes an
-        // interface look like a pile of boxes.
-        "bg-card text-card-foreground flex flex-col rounded-xl border",
+        // The ring is the border, so no `border` class: a real border plus a
+        // ring would double the hairline. shadow-card carries both, which is
+        // what makes a card read as an object in the dark theme, where a dark
+        // border on a dark surface is invisible.
+        "bg-card text-card-foreground shadow-card flex flex-col rounded-xl",
         className,
       )}
       {...props}

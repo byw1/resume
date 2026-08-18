@@ -10,8 +10,8 @@ export function SecurityPanel({ configured }: { configured: boolean }) {
           <div
             className={
               configured
-                ? "bg-[var(--success)]/12 text-[var(--success)] flex size-9 items-center justify-center rounded-xl"
-                : "bg-[var(--warning)]/14 text-[var(--warning)] flex size-9 items-center justify-center rounded-xl"
+                ? "bg-success-tint text-success flex size-9 items-center justify-center rounded-xl"
+                : "bg-warning-tint text-warning flex size-9 items-center justify-center rounded-xl"
             }
           >
             {configured ? (
@@ -53,7 +53,7 @@ export function SecurityPanel({ configured }: { configured: boolean }) {
         </div>
 
         {!configured && (
-          <div className="rounded-lg border border-[var(--warning)]/35 bg-[var(--warning)]/8 px-3.5 py-3 text-sm">
+          <div className="rounded-lg bg-warning-tint shadow-[0_0_0_1px_color-mix(in_oklch,var(--warning)_32%,transparent)] px-3.5 py-3 text-sm">
             <p className="font-medium">No password set</p>
             <p className="text-muted-foreground mt-1">
               Add an <code className="bg-muted rounded px-1 py-0.5 font-mono text-xs">APP_PASSWORD</code>{" "}
