@@ -44,18 +44,36 @@ export type Card = {
   domain: string | null;
 };
 
-export function PipelineBoard({ open, closed }: { open: Card[]; closed: Card[] }) {
+export function PipelineBoard({
+  open,
+  closed,
+  // Which columns to draw. Filtering to one stage should show that column on
+  // its own rather than five empty ones beside it.
+  columns = BOARD_STAGES,
+}: {
+  open: Card[];
+  closed: Card[];
+  columns?: Stage[];
+}) {
   const [cards, setCards] = useState(open);
   const [dragging, setDragging] = useState<Card | null>(null);
   const [, startTransition] = useTransition();
   const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
 
+  // Re-seed when the filter changes: `open` is a prop, and useState only reads
+  // its initial value, so without this the board keeps showing the last cut.
+  const [seed, setSeed] = useState(open);
+  if (seed !== open) {
+    setSeed(open);
+    setCards(open);
+  }
+
   const byStage = useMemo(() => {
     const map = new Map<Stage, Card[]>();
-    for (const stage of BOARD_STAGES) map.set(stage, []);
+    for (const stage of columns) map.set(stage, []);
     for (const card of cards) map.get(card.stage)?.push(card);
     return map;
-  }, [cards]);
+  }, [cards, columns]);
 
   const onDragStart = (event: DragStartEvent) => {
     setDragging(cards.find((card) => card.id === event.active.id) ?? null);
@@ -92,15 +110,17 @@ export function PipelineBoard({ open, closed }: { open: Card[]; closed: Card[] }
         onDragEnd={onDragEnd}
         onDragCancel={() => setDragging(null)}
       >
-        <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 md:-mx-8 md:px-8">
-          {BOARD_STAGES.map((stage) => (
-            <Column key={stage} stage={stage} cards={byStage.get(stage) ?? []} />
-          ))}
-        </div>
+        {columns.length > 0 && (
+          <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 md:-mx-8 md:px-8">
+            {columns.map((stage) => (
+              <Column key={stage} stage={stage} cards={byStage.get(stage) ?? []} />
+            ))}
+          </div>
+        )}
 
         <DragOverlay dropAnimation={{ duration: 220, easing: "cubic-bezier(0.16,1,0.3,1)" }}>
           {dragging && (
-            <div className="w-[17rem] rotate-2 opacity-95">
+            <div className="w-[15.5rem] rotate-2 opacity-95">
               <ApplicationCard card={dragging} overlay />
             </div>
           )}
@@ -141,7 +161,7 @@ function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
 
   return (
-    <div className="flex w-[17.5rem] shrink-0 flex-col">
+    <div className="flex w-[16rem] shrink-0 flex-col">
       <div className="mb-2.5 flex items-center gap-2 px-1">
         <span
           className="stage-chip rounded-chip px-1.5 py-0.5 text-[12px] font-semibold"

@@ -399,3 +399,29 @@ Settings and Admin left the rail entirely, since a link that is also in the prof
 is a second door to the same room. The rail is four destinations and nothing else. When
 collapsed, the expand control replaces the `R` mark on hover rather than taking a row of
 its own — a rail that is 4.5rem wide cannot spend vertical space on chrome.
+during render — reading `localStorage` while rendering would hydrate-mismatch.
+## 2026-08-18 — The pipeline gets its own rail
+**Decision:** `/applications` has a second rail between the app nav and the content, holding
+Views (Board / List / Calendar) and Filter (Everything, Needs a nudge, each stage with its
+count, Closed). One filter at a time, carried in `?f=`, and it survives a view change. The
+old top-right segmented switcher is gone.
+**Why:** the app nav answers "which part of the product"; the rail answers "which cut of this
+part". Those are different questions and they should never share a control — which is the
+split every CRM makes between its object list and its saved views. The counts are the real
+payload: "Needs a nudge 2" answers the daily question before you have clicked anything.
+**Applies to:** `src/components/pipeline/rail.tsx`. Filtering to one stage draws one column
+rather than five empty ones beside it, and filtering to Closed draws no columns at all,
+because closed applications live under the board rather than in it — see the `columns` prop
+on `PipelineBoard`. Nothing here needed a new tool: `list_applications` already filters by
+stage and `list_follow_ups` already answers the overdue question.
+
+## 2026-08-18 — Test fixtures have to be the suite's own
+**Decision:** `avatar-test.mjs` seeds the companies it reasons about and restores the
+instance setting it flips; `rail-test.mjs` asserts relationships — the rail says Screening is
+3, so the Screening list must have 3 rows — instead of fixed numbers.
+**Why:** this is the fourth time in this repo that a green suite went red with no regression
+behind it, because it was reading state another suite left behind. A suite that flips an
+instance-wide setting and does not put it back passes exactly once. Relational assertions
+also test something stronger than a magic number: that the count in the rail is not a lie.
+**Applies to:** anything new under `scratchpad/*.mjs`. Seed what you assert on, restore what
+you mutate, and prefer "these two numbers agree" over "this number is 8".

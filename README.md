@@ -10,8 +10,9 @@ yourself, wired into Claude so you can just *talk* to it.
   OCS format; four other templates, live preview, real PDF export, and a shareable link for
   the application forms that want a URL instead of a file.
 - **Pipeline** — a lightweight CRM for the search: stages, activity timeline, contacts,
-  tasks, and follow-up dates that schedule themselves. Read it three ways: a drag-and-drop
-  board, a sortable table, or a month calendar of everything that has a date on it.
+  tasks, and follow-up dates that schedule themselves. A rail down the side picks the view —
+  a drag-and-drop board, a sortable table, or a month calendar of everything that has a date
+  on it — and the cut: one stage, everything that needs chasing, or the closed ones.
 - **AI connections** — every person gets their own URL that turns all of the above into
   53 tools any MCP client can call (66 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
