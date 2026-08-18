@@ -394,4 +394,8 @@ mis-click, and frees the rail to be only navigation. Theme is a preference, and
 preferences live in Settings.
 **Applies to:** `src/components/shell.tsx`,
 `src/components/settings/appearance-panel.tsx`. Collapse state is read in an effect, not
-during render — reading `localStorage` while rendering would hydrate-mismatch.
+during render — reading `localStorage` while rendering would hydrate-mismatch. Follow-on:
+Settings and Admin left the rail entirely, since a link that is also in the profile menu
+is a second door to the same room. The rail is four destinations and nothing else. When
+collapsed, the expand control replaces the `R` mark on hover rather than taking a row of
+its own — a rail that is 4.5rem wide cannot spend vertical space on chrome.

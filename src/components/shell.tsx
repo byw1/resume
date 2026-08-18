@@ -30,15 +30,14 @@ import {
 import { CommandPalette, type PaletteIndex } from "@/components/command-palette";
 import { logoutAction } from "@/server/actions";
 
+// Navigation only. Settings and Admin are account actions, so they live in the
+// profile menu at the top right rather than in the rail.
 const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/brain", label: "Brain", icon: BrainIcon },
   { href: "/resumes", label: "Resumes", icon: FileTextIcon },
   { href: "/applications", label: "Pipeline", icon: KanbanIcon },
-  { href: "/settings", label: "Settings", icon: SettingsIcon },
 ];
-
-const ADMIN_NAV = { href: "/admin", label: "Admin", icon: ShieldIcon };
 
 // The rail remembers whether you collapsed it. Read after mount so the server
 // and the first client render agree.
@@ -58,7 +57,6 @@ export function Shell({
   user: ShellUser;
 }) {
   const canAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
-  const nav = canAdmin ? [...NAV, ADMIN_NAV] : NAV;
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
@@ -104,11 +102,27 @@ export function Shell({
             collapsed ? "justify-center px-2" : "px-5",
           )}
         >
-          <div className="bg-foreground flex size-[26px] shrink-0 items-center justify-center rounded-[7px]">
-            <span className="text-background text-[13px] font-semibold">R</span>
-          </div>
-          {!collapsed && (
+          {collapsed ? (
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <button
+                  onClick={toggleCollapsed}
+                  aria-label="Expand sidebar"
+                  className="hover:bg-accent group relative flex size-9 items-center justify-center rounded-lg transition-colors"
+                >
+                  <span className="bg-foreground flex size-[26px] items-center justify-center rounded-[7px] transition-opacity group-hover:opacity-0">
+                    <span className="text-background text-[13px] font-semibold">R</span>
+                  </span>
+                  <PanelLeftOpenIcon className="text-muted-foreground absolute size-4 opacity-0 transition-opacity group-hover:opacity-100" />
+                </button>
+              </TooltipTrigger>
+              <TooltipContent side="right">Expand sidebar</TooltipContent>
+            </Tooltip>
+          ) : (
             <>
+              <div className="bg-foreground flex size-[26px] shrink-0 items-center justify-center rounded-[7px]">
+                <span className="text-background text-[13px] font-semibold">R</span>
+              </div>
               <div className="min-w-0 leading-tight">
                 <div className="truncate text-[15px] font-semibold tracking-tight">Resume OS</div>
                 <div className="text-muted-foreground truncate text-[11px]">
@@ -127,25 +141,6 @@ export function Shell({
             </>
           )}
         </div>
-
-        {collapsed && (
-          <div className="flex justify-center px-2 pb-1">
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button
-                  variant="ghost"
-                  size="icon-sm"
-                  className="text-muted-foreground"
-                  onClick={toggleCollapsed}
-                  aria-label="Expand sidebar"
-                >
-                  <PanelLeftOpenIcon />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent side="right">Expand sidebar</TooltipContent>
-            </Tooltip>
-          </div>
-        )}
 
         <div className={cn("pb-2", collapsed ? "px-2" : "px-3")}>
           {collapsed ? (
@@ -176,7 +171,7 @@ export function Shell({
         </div>
 
         <nav className={cn("flex flex-1 flex-col gap-0.5", collapsed ? "px-2" : "px-3")}>
-          {nav.map((item) => {
+          {NAV.map((item) => {
             const active = isActive(item.href);
             const link = (
               <Link
@@ -233,7 +228,7 @@ export function Shell({
         {/* Top bar */}
         <header className="glass sticky top-0 z-20 flex h-16 items-center gap-2 border-b px-4 md:px-7">
           <nav className="flex items-center gap-1 md:hidden">
-            {nav.map((item) => (
+            {NAV.map((item) => (
               <Link key={item.href} href={item.href}>
                 <Button
                   variant={isActive(item.href) ? "secondary" : "ghost"}
