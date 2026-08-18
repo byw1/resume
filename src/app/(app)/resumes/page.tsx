@@ -8,6 +8,7 @@ import { listResumes } from "@/lib/data/resumes";
 import { parseResumeDoc } from "@/lib/resume-schema";
 import { NewResumeDialog } from "@/components/resume/new-resume-dialog";
 import { ResumePaper } from "@/components/resume/resume-paper";
+import { PaperThumb } from "@/components/resume/paper-thumb";
 import { db } from "@/lib/db";
 import { requireUser } from "@/lib/auth";
 
@@ -50,11 +51,8 @@ export default async function ResumesPage() {
                   <Link href={`/resumes/${resume.id}`} className="block">
                     <Card className="group overflow-hidden p-0 transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
                       {/* Live thumbnail of the actual document */}
-                      <div className="relative h-[15rem] overflow-hidden border-b bg-white">
-                        <div
-                          className="absolute top-0 left-0 origin-top-left"
-                          style={{ transform: "scale(0.29)", width: "8.5in" }}
-                        >
+                      <div className="relative border-b">
+                        <PaperThumb>
                           <ResumePaper
                             doc={doc}
                             settings={{
@@ -66,8 +64,10 @@ export default async function ResumesPage() {
                               pageMargin: resume.pageMargin,
                             }}
                           />
-                        </div>
-                        <div className="absolute inset-0 bg-gradient-to-t from-black/12 via-transparent to-transparent opacity-0 transition-opacity group-hover:opacity-100" />
+                        </PaperThumb>
+                        {/* The page is cropped, so fade the cut rather than
+                            ending it on a hard line mid-sentence. */}
+                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
                       </div>
 
                       <CardContent className="pt-4">

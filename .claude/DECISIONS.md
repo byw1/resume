@@ -294,3 +294,12 @@ field is a hole you put something into; they're inset now. And the tints have to
 because the correct wash differs by theme: a pale colour on white, low-alpha hue on dark.
 **Applies to:** `globals.css`. `bg-canvas`, `bg-inset`, `text-faint`, `bg-success-tint` and
 friends are real utilities — use them instead of an opacity modifier at the call site.
+
+## 2026-08-18 — A thumbnail measures its container
+**Decision:** `PaperThumb` renders the page at its true 816px and scales it with a factor
+measured by a ResizeObserver, rather than a hardcoded `scale(0.29)`.
+**Why:** the resume grid is responsive, so one fixed scale fits exactly one breakpoint. At
+every other the document sat stranded to one side of a white card. CSS cannot do this — `calc`
+cannot divide a length by a length — so the measuring is the one bit of client work; the
+document itself still renders on the server and comes in as a slot.
+**Applies to:** `src/components/resume/paper-thumb.tsx`.
