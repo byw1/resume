@@ -547,3 +547,38 @@ diagnosis is trustworthy instead of inferred.
 **Applies to:** anything reading stage history. Read `toStage`, never parse the body — the
 backfill leaves nulls where a note had already destroyed the evidence, which is correct: we
 genuinely do not know, and guessing would be worse than a gap.
+
+## 2026-08-19 — The favicon service only serves six sizes
+
+**Decision:** `logoUrl` snaps the requested pixel size up to the nearest size
+twenty-icons.com actually serves (16, 32, 64, 128, 180, 192) instead of passing
+through whatever the caller asked for.
+**Why:** it does not serve arbitrary sizes — anything else is a 400 with the body
+"Invalid size". Every avatar in the app asked for double its rendered size (48,
+52, 88), so every single request was a 400 and no favicon had ever loaded
+anywhere, in the pipeline or the CRM. The failure was invisible because a missing
+logo is indistinguishable from a company that has none: the monogram is drawn
+underneath and looks deliberate either way, which is the right fallback and also
+the reason this survived two rounds of looking at it.
+**What I gave up:** exact-size images. Rounding up means a 26px avatar downloads a
+64px icon, which is a few hundred wasted bytes and a sharper result. Rounding down
+would have been the cheaper wrong answer.
+**Where it belongs:** in `logoUrl`, not at the call sites. The service's size list
+is a fact about the service, and the UI should keep picking sizes from the layout.
+
+## 2026-08-19 — The failed Railway deploy was not the code
+
+**Decision:** treated deployment 31191df4 (commit d2b7451) as an infrastructure
+failure and redeployed rather than reverting or bisecting.
+**Why:** the build stage succeeded end to end — types checked, all five static
+pages generated, the full route table printed, image pushed at 566MB. What failed
+was the deploy stage, and both its log streams came back completely empty, as did
+the HTTP stream, so nothing ever served a request. The build was also scheduled 40
+minutes after the deployment was created, which is queue time, not build time. The
+same commit boots locally against a real Postgres in under a second and answers
+the healthcheck path with a 200, and all eight migrations apply clean to an empty
+database in order.
+**Worth remembering:** "build failed" in the Railway UI can mean the deploy failed.
+The distinction matters because it changes what you go looking for, and because
+production keeps serving the previous commit either way — which is why the app
+looked alive while the new work was missing from it.

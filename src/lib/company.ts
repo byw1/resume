@@ -66,7 +66,19 @@ export function monogramHue(name: string): number {
   return hash;
 }
 
-/** twenty-icons.com is Twenty CRM's free favicon service. */
+/**
+ * twenty-icons.com is Twenty CRM's free favicon service. It serves a fixed set
+ * of sizes and answers 400 Invalid size for anything else — so asking for the
+ * 52 pixels a 26px avatar actually wants gets you no logo at all, silently,
+ * which is indistinguishable from the company not having one.
+ *
+ * Snapping happens here rather than at the call sites so the UI can keep
+ * choosing whatever size the layout needs. Round up, never down: a larger
+ * source scaled into a smaller box stays sharp, the reverse does not.
+ */
+const ICON_SIZES = [16, 32, 64, 128, 180, 192];
+
 export function logoUrl(domain: string, size = 64): string {
-  return `https://twenty-icons.com/${domain}/${size}`;
+  const served = ICON_SIZES.find((candidate) => candidate >= size) ?? ICON_SIZES[ICON_SIZES.length - 1];
+  return `https://twenty-icons.com/${domain}/${served}`;
 }
