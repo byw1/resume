@@ -38,8 +38,8 @@ const NAV = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/brain", label: "Brain", icon: BrainIcon },
   { href: "/resumes", label: "Resumes", icon: FileTextIcon },
-  { href: "/applications", label: "Pipeline", icon: KanbanIcon },
   { href: "/crm", label: "CRM", icon: Building2Icon },
+  { href: "/applications", label: "Pipeline", icon: KanbanIcon },
 ];
 
 // The rail remembers whether you collapsed it. Read after mount so the server
