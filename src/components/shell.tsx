@@ -30,6 +30,7 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { CommandPalette, type PaletteIndex } from "@/components/command-palette";
+import { HiredMark } from "@/components/hired-mark";
 import { logoutAction } from "@/server/actions";
 
 // Navigation only. Settings and Admin are account actions, so they live in the
@@ -44,7 +45,7 @@ const NAV = [
 
 // The rail remembers whether you collapsed it. Read after mount so the server
 // and the first client render agree.
-const COLLAPSE_KEY = "resume-os:sidebar-collapsed";
+const COLLAPSE_KEY = "hired:sidebar-collapsed";
 
 export type ShellUser = { name: string; email: string; role: string };
 
@@ -113,9 +114,7 @@ export function Shell({
                   aria-label="Expand sidebar"
                   className="hover:bg-accent group relative flex size-9 items-center justify-center rounded-lg transition-colors"
                 >
-                  <span className="bg-foreground flex size-[26px] items-center justify-center rounded-[7px] transition-opacity group-hover:opacity-0">
-                    <span className="text-background text-[13px] font-semibold">R</span>
-                  </span>
+                  <HiredMark size={26} className="transition-opacity group-hover:opacity-0" />
                   <PanelLeftOpenIcon className="text-muted-foreground absolute size-4 opacity-0 transition-opacity group-hover:opacity-100" />
                 </button>
               </TooltipTrigger>
@@ -123,13 +122,14 @@ export function Shell({
             </Tooltip>
           ) : (
             <>
-              <div className="bg-foreground flex size-[26px] shrink-0 items-center justify-center rounded-[7px]">
-                <span className="text-background text-[13px] font-semibold">R</span>
-              </div>
+              <HiredMark size={26} className="shrink-0" />
               <div className="min-w-0 leading-tight">
-                <div className="truncate text-[15px] font-semibold tracking-tight">Resume OS</div>
-                <div className="text-muted-foreground truncate text-[11px]">
-                  Career operating system
+                <div className="truncate text-[15px] font-semibold tracking-tight">Hired</div>
+                {/* 10.5px, not 11px: the line is five pixels too wide for this
+                    rail at 11 and ellipsises to "on the rec…", and a clipped
+                    tagline is worse than a slightly smaller one. */}
+                <div className="text-muted-foreground truncate text-[10.5px] tracking-[-0.004em]">
+                  Your career, on the record
                 </div>
               </div>
               <Button

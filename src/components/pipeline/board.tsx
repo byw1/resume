@@ -179,7 +179,7 @@ function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
         >
           {STAGE_LABEL[stage]}
         </span>
-        <span className="text-faint nums text-[12px]">{cards.length}</span>
+        <span className="text-faint meta text-[12px]">{cards.length}</span>
       </div>
 
       <div

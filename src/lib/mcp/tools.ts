@@ -1792,7 +1792,7 @@ If the research on file is thin, say so and offer to run research_company first.
       { name: "email", description: "Who to invite", required: true },
       { name: "role", description: "MEMBER or ADMIN" },
     ],
-    build: (args) => `Invite ${args.email ?? "someone"} to this Resume OS instance.
+    build: (args) => `Invite ${args.email ?? "someone"} to this Hired instance.
 
 1. Call admin_get_email_config. If email is not configured, tell me plainly and carry on —
    the invite still works, I will just send the link myself.

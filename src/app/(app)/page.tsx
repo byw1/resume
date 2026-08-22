@@ -221,7 +221,7 @@ export default async function DashboardPage() {
                             <Badge variant="outline" className="text-[10px]">
                               {ACTIVITY_LABEL[activity.type]}
                             </Badge>
-                            <span className="text-faint nums ml-auto text-[11.5px]">
+                            <span className="text-faint meta ml-auto text-[11.5px]">
                               {activity.occurredAt.toLocaleDateString("en-US", {
                                 month: "short",
                                 day: "numeric",
@@ -264,7 +264,7 @@ function StatCard({
         <CardContent className="relative px-4 pt-3.5 pb-3.5">
           <div className="flex items-center gap-1.5">
             <Icon className="text-faint size-3.5" />
-            <span className="text-muted-foreground text-[11.5px] font-medium">{label}</span>
+            <span className="text-muted-foreground meta text-[11px] font-medium">{label}</span>
           </div>
           {/* Tabular figures so the four numbers line up as a row rather than
               jittering against each other. */}

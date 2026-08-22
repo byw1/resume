@@ -17,13 +17,13 @@ const SUPPORTED_PROTOCOL_VERSIONS = ["2025-06-18", "2025-03-26", "2024-11-05"];
 const LATEST_PROTOCOL_VERSION = "2025-06-18";
 
 const SERVER_INFO = {
-  name: "resume-os",
-  title: "Resume OS",
+  name: "hired",
+  title: "Hired",
   version: "2.0.0",
 };
 
 async function instructionsFor(user: User) {
-  const base = `Resume OS is ${user.name || user.email}'s career knowledge base, resume builder and
+  const base = `Hired is ${user.name || user.email}'s career knowledge base, resume builder and
 job-search CRM. You are connected as them; every tool reads and writes only their data.
 
 Four areas:
@@ -345,7 +345,7 @@ export function mcpUnauthorized() {
     {
       error: "unauthorized",
       message:
-        "Missing, invalid or suspended token. Copy your personal connection URL from the Settings page of your Resume OS.",
+        "Missing, invalid or suspended token. Copy your personal connection URL from the Settings page of your Hired.",
     },
     401,
   );

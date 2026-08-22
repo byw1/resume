@@ -582,3 +582,54 @@ database in order.
 The distinction matters because it changes what you go looking for, and because
 production keeps serving the previous commit either way — which is why the app
 looked alive while the new work was missing from it.
+
+## 2026-08-19 — Resume OS becomes Hired
+
+**Decision:** renamed the product to Hired (hired.tools) in one pass — mark, wordmark,
+metadata, MCP server identity, client setup recipes, the three Skills, README, boot banner,
+package name. MCP *tool* names were deliberately left alone.
+**Why the tool names stayed:** they are an API. An assistant's saved config, and any habit a
+client has formed, keys off `search_brain` and `create_resume`. None of them carried the old
+brand anyway, so renaming would have been churn with a breakage risk and no upside. The
+server identity and the setup alias did carry it, and those are safe to change: a client
+stores the URL and token, not the server's name.
+**What I gave up:** the skill at `skills/resume-os/` moved to `skills/hired/`, so its
+download URL changed. Anyone who already installed it keeps their copy; only a fresh
+download uses the new path.
+
+## 2026-08-19 — The session cookie renamed without signing anyone out
+
+**Decision:** `resume_os_session` became `hired_session`, and the read path checks the old
+name as a fallback. There is a dated note saying the fallback can be deleted after 30 days.
+**Why:** sessions are rows in the database keyed by token, not by cookie name, so reading
+either name resolves the same session. Without the fallback, the deploy that renamed the
+cookie would have silently signed out every person on the instance — an alarming thing to
+happen on a day when the logo also changed, and impossible to tell apart from a bug.
+**The alternative I rejected:** leaving the cookie named `resume_os_session` forever. It is
+invisible to users, but it is a stale brand string sitting in the auth path, and the next
+person to read that file would have to work out whether it was load-bearing.
+
+## 2026-08-19 — The mark is three bars, not a letter
+
+**Decision:** the mark is three stacked bars of increasing length, monochrome, cut out of
+`--foreground` so it inverts with the theme. No letter, no gradient, no brand hue.
+**Why no letter:** a lettered square is what everything in this category looks like, and it
+ties the mark to the name — this one survives another rename. **Why no colour:** twelve hues
+are already load-bearing (nine stages, three statuses). A thirteenth would either read as a
+stage or shout over one. The brand colour is the existing `--primary` blue and nothing else.
+**The one exception:** the stage rotation is allowed as a marketing motif, scoped to a
+`.marketing` class so it cannot reach app chrome. Inside the product a stage hue means a
+stage, everywhere.
+
+## 2026-08-19 — Inter was declared for months and never loaded
+
+**Decision:** load Inter and JetBrains Mono through `next/font`, and point `--font-sans` and
+`--font-mono` at them.
+**Why it matters:** `--font-sans` named `"Inter var", Inter` and nothing ever fetched it, so
+every screen was rendering in whatever the system happened to have. The type scale in this
+repo — 10.5px eyebrows, 12.5px rows, 26px stat numbers — was tuned against Inter's metrics,
+so loading it is a correction, not a restyle.
+**The resume renderer is deliberately excluded.** It keeps its own `.font-serif-resume` and
+`.font-mono-resume` stacks, which name real system faces and reference none of the new
+variables. The README promises that no webfont is fetched for a resume and that the output
+is metrically identical across platforms; that promise survives.

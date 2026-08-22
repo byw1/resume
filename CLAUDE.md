@@ -1,4 +1,4 @@
-# Resume OS — working agreement
+# Hired — working agreement
 
 Read this before writing code. It is the difference between a change that fits and a
 change that has to be reverted.

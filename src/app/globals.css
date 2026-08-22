@@ -126,6 +126,27 @@
 
   /* How much of the ink shows through the wash behind a chip. */
   --stage-wash: 12%;
+
+  /* --- Brand --------------------------------------------------------------
+     The mark has no colour of its own. It is cut out of the foreground ink, so
+     it inverts with the theme like everything else — which is the whole reason
+     there is no thirteenth hue in this file. Twelve are already spoken for by
+     nine stages and three statuses, and a brand colour beside them would either
+     be mistaken for a stage or shout over one. */
+  --brand-ink: var(--foreground);
+  --brand-mono-eyebrow: var(--faint);
+}
+
+/* --- Marketing ------------------------------------------------------------
+   The stage rotation is the most distinctive thing in the system, and on a
+   landing page or an OG card it is an asset rather than a status. It is scoped
+   to this class so it cannot reach app chrome by accident: inside the product a
+   stage hue means a stage, everywhere, without exception. */
+.marketing {
+  --motif-1: var(--stage-applied);
+  --motif-2: var(--stage-screen);
+  --motif-3: var(--stage-interview);
+  --motif-4: var(--stage-offer);
 }
 
 .dark {
@@ -257,9 +278,13 @@
   --radius-xl: calc(var(--radius) + 4px);
   --radius-2xl: calc(var(--radius) + 8px);
 
-  --font-sans: "Inter var", Inter, ui-sans-serif, system-ui, -apple-system,
+  /* Both faces are loaded by next/font in src/app/fonts.ts and reach this file
+     as CSS variables on <html>. The fallbacks matter: display is "swap", so a
+     slow network shows the fallback first and the metrics should not jump. */
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, -apple-system,
     "SF Pro Text", "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
-  --font-mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, monospace;
+  --font-mono: var(--font-jetbrains), ui-monospace, SFMono-Regular, "SF Mono", Menlo,
+    monospace;
 
   /* Two curves. Both decelerate hard and then coast, which is what makes a
      transition feel like an object settling rather than a value animating. */
@@ -381,6 +406,30 @@
 
   /* Tabular figures for anything you compare down a column. */
   .nums {
+    font-variant-numeric: tabular-nums;
+    font-feature-settings: "tnum";
+  }
+
+  /* The small caps label above a section. One utility rather than the same six
+     classes repeated on thirty elements — and it is the single place the mono
+     face gets applied to labels, so changing that is one edit rather than a
+     grep. Mono is already wide, so the tracking is lighter than it would be
+     for Inter at the same size. */
+  .eyebrow {
+    font-family: var(--font-mono);
+    font-size: 10.5px;
+    font-weight: 500;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    color: var(--brand-mono-eyebrow);
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Metadata set in mono: tool names, connection URLs, counts, dates. Carries
+     the face and tabular figures and nothing else, so size and colour stay
+     with the thing it is labelling. */
+  .meta {
+    font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
   }

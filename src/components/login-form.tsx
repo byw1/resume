@@ -7,6 +7,7 @@ import { LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { HiredMark } from "@/components/hired-mark";
 import { loginAction } from "@/server/actions";
 
 export function LoginForm({ instanceName }: { instanceName: string }) {
@@ -75,9 +76,7 @@ export function AuthCard({
     >
       <div className="bg-card shadow-raised rounded-2xl p-8">
         <div className="mb-7 flex flex-col items-center text-center">
-          <div className="bg-foreground mb-4 flex size-10 items-center justify-center rounded-[10px]">
-            <span className="text-background text-[17px] font-semibold">R</span>
-          </div>
+          <HiredMark size={40} className="mb-4" />
           <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
           <p className="text-muted-foreground mt-1.5 text-sm text-balance">{subtitle}</p>
         </div>

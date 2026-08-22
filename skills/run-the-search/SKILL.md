@@ -1,6 +1,6 @@
 ---
 name: run-the-search
-description: Running a job search day to day in a connected Resume OS instance — capturing a posting, logging what happened, researching a company, chasing follow-ups, and the weekly review. Use when someone mentions applying somewhere, hearing back, a call or interview they had, a company they are curious about, or asks what they should be doing this week.
+description: Running a job search day to day in a connected Hired instance — capturing a posting, logging what happened, researching a company, chasing follow-ups, and the weekly review. Use when someone mentions applying somewhere, hearing back, a call or interview they had, a company they are curious about, or asks what they should be doing this week.
 ---
 
 # Running the search

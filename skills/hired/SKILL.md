@@ -1,11 +1,11 @@
 ---
-name: resume-os
-description: Orientation for a connected Resume OS instance — a person's career knowledge base, resume builder and job-search CRM. Use whenever a Resume OS connector is available and the conversation touches their career history, a resume, a job application, a company they are considering, or someone they are talking to there. Read this before the first tool call, not after the first mistake.
+name: hired
+description: Orientation for a connected Hired instance — a person's career knowledge base, resume builder and job-search CRM. Use whenever a Hired connector is available and the conversation touches their career history, a resume, a job application, a company they are considering, or someone they are talking to there. Read this before the first tool call, not after the first mistake.
 ---
 
-# Working in someone's Resume OS
+# Working in someone's Hired
 
-Resume OS is one person's career, on their own server. Everything you touch through
+Hired is one person's career, on their own server. Everything you touch through
 the connector is theirs, it is real, and it is the material a resume gets built from.
 There is no draft copy and no undo.
 

@@ -1,6 +1,6 @@
 ---
 name: tailor-a-resume
-description: How to tailor a resume to a specific job posting using a connected Resume OS instance — reading the posting for what it actually rewards, mining the brain for real evidence, and writing bullets that survive an interview. Use when someone shares a job description and wants a resume for it, asks to tailor or adapt an existing resume, or asks which of their experience matters for a particular role.
+description: How to tailor a resume to a specific job posting using a connected Hired instance — reading the posting for what it actually rewards, mining the brain for real evidence, and writing bullets that survive an interview. Use when someone shares a job description and wants a resume for it, asks to tailor or adapt an existing resume, or asks which of their experience matters for a particular role.
 ---
 
 # Tailoring a resume

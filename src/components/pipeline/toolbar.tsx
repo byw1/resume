@@ -169,7 +169,7 @@ function Chip({
       {children}
       <span
         className={cn(
-          "nums text-[11.5px]",
+          "meta text-[11.5px]",
           emphasis ? "text-destructive font-medium" : "text-faint",
         )}
       >

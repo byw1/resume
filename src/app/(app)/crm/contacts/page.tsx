@@ -52,7 +52,7 @@ export default async function ContactsPage({
         />
       ) : (
         <div className="bg-card shadow-card overflow-hidden rounded-xl">
-          <div className="text-faint bg-inset flex items-center gap-3 px-4 py-2 text-[11px] font-medium tracking-[0.04em] uppercase">
+          <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
             <div className="min-w-0 flex-1">Name</div>
             <div className="hidden w-44 shrink-0 md:block">Company</div>
             <div className="hidden w-32 shrink-0 lg:block">Relationship</div>

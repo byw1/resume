@@ -30,10 +30,10 @@ export async function getSettings(): Promise<InstanceSettings> {
   });
   const map = new Map(rows.map((row) => [row.key, row.value]));
   return {
-    instanceName: map.get(SETTING_KEYS.instanceName) ?? "Resume OS",
+    instanceName: map.get(SETTING_KEYS.instanceName) ?? "Hired",
     resendApiKey: map.get(SETTING_KEYS.resendApiKey) ?? "",
     resendFromEmail: map.get(SETTING_KEYS.resendFromEmail) ?? "",
-    resendFromName: map.get(SETTING_KEYS.resendFromName) ?? "Resume OS",
+    resendFromName: map.get(SETTING_KEYS.resendFromName) ?? "Hired",
     publicUrl: map.get(SETTING_KEYS.publicUrl) ?? "",
     // On by default: a job tracker with no logos looks unfinished, and the
     // switch exists for the person who would rather twenty-icons.com not see

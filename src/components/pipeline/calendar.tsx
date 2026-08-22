@@ -126,7 +126,7 @@ export function PipelineCalendar({
         </div>
       </div>
 
-      <div className="text-faint bg-inset grid grid-cols-7 text-[11px] font-medium tracking-[0.04em] uppercase">
+      <div className="eyebrow bg-inset grid grid-cols-7">
         {WEEKDAYS.map((day) => (
           <div key={day} className="px-2 py-1.5">
             {day}

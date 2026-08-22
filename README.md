@@ -1,4 +1,4 @@
-# Resume OS
+# Hired
 
 Your career brain, a resume builder, and a job-search CRM — all in one app you host
 yourself, wired into Claude so you can just *talk* to it.
@@ -65,7 +65,7 @@ That's the only variable. Everything else is configured inside the app.
 ### 4. Give it a web address
 
 **Settings** → **Networking** → **Generate Domain**. You'll get something like
-`resume-os-production.up.railway.app`.
+`hired-production.up.railway.app`.
 
 ### 5. Get your password from the logs
 
@@ -73,9 +73,9 @@ On first boot the app creates your owner account and prints the credentials once
 
 ```
 ╔══════════════════════════════════════════════════════════════╗
-║ Resume OS is ready — this is your owner account.             ║
+║ Hired is ready — this is your owner account.                 ║
 ║                                                              ║
-║   Sign in   https://resume-os-production.up.railway.app      ║
+║   Sign in   https://hired-production.up.railway.app          ║
 ║   Email     owner@localhost                                  ║
 ║   Password  quartz-meadow-falcon-7391                        ║
 ║                                                              ║
@@ -109,7 +109,7 @@ with your URL, ready to copy.
 | Client | What you paste |
 | --- | --- |
 | **Claude** (web, desktop, mobile) | The URL, under Settings → Connectors → Add custom connector |
-| **Claude Code** | `claude mcp add --transport http --scope user resume-os "<your URL>"` |
+| **Claude Code** | `claude mcp add --transport http --scope user hired "<your URL>"` |
 | **ChatGPT** | The URL, as a custom connector |
 | **Cursor** | A three-line block in `~/.cursor/mcp.json` |
 | **VS Code** | One `code --add-mcp` command, or `.vscode/mcp.json` |

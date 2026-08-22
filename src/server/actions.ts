@@ -178,7 +178,7 @@ export async function testConnectionAction(id: string) {
   try {
     const response = await fetch(`${proto}://${host}/api/mcp/${connection.token}`, {
       method: "POST",
-      headers: { "Content-Type": "application/json", "user-agent": "resume-os-selftest" },
+      headers: { "Content-Type": "application/json", "user-agent": "hired-selftest" },
       body: JSON.stringify({ jsonrpc: "2.0", id: 1, method: "tools/list" }),
       cache: "no-store",
     });

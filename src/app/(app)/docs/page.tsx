@@ -109,7 +109,7 @@ export default async function DocsPage() {
       <PageHeader
         eyebrow="Docs"
         title="How to drive this thing"
-        description="Resume OS is built to be talked to. This page is what your assistant can do once it is connected, the workflows that come with it, and the skills worth installing so it knows how to behave before you have to tell it."
+        description="Hired is built to be talked to. This page is what your assistant can do once it is connected, the workflows that come with it, and the skills worth installing so it knows how to behave before you have to tell it."
         actions={
           <Button asChild variant="default">
             <Link href="/settings">
@@ -329,7 +329,7 @@ export default async function DocsPage() {
 
         {/* --- Contents ------------------------------------------------------ */}
         <nav className="sticky top-20 hidden h-fit space-y-px lg:block">
-          <div className="text-faint mb-1.5 px-2 text-[11px] font-medium tracking-[0.06em] uppercase">
+          <div className="eyebrow mb-1.5 px-2">
             On this page
           </div>
           {[

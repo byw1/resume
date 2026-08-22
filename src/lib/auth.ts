@@ -8,7 +8,22 @@ import { redirect } from "next/navigation";
 import type { User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 
-const SESSION_COOKIE = "resume_os_session";
+const SESSION_COOKIE = "hired_session";
+
+/**
+ * The name this cookie had before the rename. Sessions are rows in the
+ * database keyed by token, not by cookie name, so reading the old name keeps
+ * everyone signed in through the deploy that renamed it — otherwise a branding
+ * change silently logs out every person on the instance.
+ *
+ * Safe to delete once every live session predating the rename has expired,
+ * which is 30 days after it shipped.
+ */
+const LEGACY_SESSION_COOKIE = "resume_os_session";
+
+async function sessionToken(jar: Awaited<ReturnType<typeof cookies>>) {
+  return jar.get(SESSION_COOKIE)?.value ?? jar.get(LEGACY_SESSION_COOKIE)?.value;
+}
 const SESSION_DAYS = 30;
 
 // ---------------------------------------------------------------------------
@@ -166,7 +181,7 @@ export async function createEphemeralSession(userId: string, seconds = 120) {
       token,
       userId,
       expiresAt: new Date(Date.now() + seconds * 1000),
-      userAgent: "resume-os-pdf-renderer",
+      userAgent: "hired-pdf-renderer",
     },
   });
   return token;
@@ -178,9 +193,10 @@ export async function destroySession(token: string) {
 
 export async function endSession() {
   const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  const token = await sessionToken(jar);
   if (token) await db.session.deleteMany({ where: { token } });
   jar.delete(SESSION_COOKIE);
+  jar.delete(LEGACY_SESSION_COOKIE);
 }
 
 /** Sign every device out — used when a password changes. */
@@ -190,7 +206,7 @@ export async function endAllSessions(userId: string) {
 
 export async function getCurrentUser(): Promise<User | null> {
   const jar = await cookies();
-  const token = jar.get(SESSION_COOKIE)?.value;
+  const token = await sessionToken(jar);
   if (!token) return null;
 
   const session = await db.session.findUnique({ where: { token }, include: { user: true } });

@@ -20,7 +20,7 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: SearchDiagnosis }) {
     <Card>
       <CardContent className="space-y-4 px-5 py-4">
         <div>
-          <div className="text-faint mb-1.5 text-[11px] font-medium tracking-[0.06em] uppercase">
+          <div className="eyebrow mb-1.5">
             What&apos;s working
           </div>
           <h2 className="text-[17px] leading-snug font-semibold tracking-tight">{headline}</h2>
@@ -78,7 +78,7 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: SearchDiagnosis }) {
 
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
-            <div className="text-faint mb-1.5 text-[11px] font-medium tracking-[0.06em] uppercase">
+            <div className="eyebrow mb-1.5">
               Sent, by week
             </div>
             <div className="flex items-end gap-1.5">
@@ -104,7 +104,7 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: SearchDiagnosis }) {
 
           {byResume.length > 0 && (
             <div>
-              <div className="text-faint mb-1.5 text-[11px] font-medium tracking-[0.06em] uppercase">
+              <div className="eyebrow mb-1.5">
                 By resume
               </div>
               <ul className="space-y-1">

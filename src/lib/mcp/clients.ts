@@ -29,7 +29,7 @@ export type McpClientRecipe = {
   steps: (url: string) => SetupStep[];
 };
 
-const SERVER_NAME = "resume-os";
+const SERVER_NAME = "hired";
 
 /** JSON with the URL substituted, pretty-printed the way a config file wants. */
 const json = (value: unknown) => JSON.stringify(value, null, 2);
@@ -45,7 +45,7 @@ export const MCP_CLIENTS: McpClientRecipe[] = [
     steps: (url) => [
       { text: "Open Claude and go to Settings → Connectors." },
       { text: 'Click "Add custom connector".' },
-      { text: "Name it Resume OS and paste this as the URL:", code: url, codeLabel: "Connection URL" },
+      { text: "Name it Hired and paste this as the URL:", code: url, codeLabel: "Connection URL" },
       { text: "Save. Claude can now read and write your brain, resumes and pipeline." },
     ],
   },

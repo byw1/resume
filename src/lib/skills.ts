@@ -61,7 +61,7 @@ export async function listSkills(): Promise<Skill[]> {
 }
 
 /** Orientation first; the task skills read as if you have already seen it. */
-const ORDER = ["resume-os", "tailor-a-resume", "run-the-search"];
+const ORDER = ["hired", "tailor-a-resume", "run-the-search"];
 
 export async function getSkill(slug: string): Promise<Skill | null> {
   // Never let a path segment escape the skills directory.

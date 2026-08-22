@@ -90,7 +90,7 @@ export async function ensureOwner() {
 
   const url = publicUrl();
   banner([
-    "Resume OS is ready — this is your owner account.",
+    "Hired is ready — this is your owner account.",
     "",
     ...(url ? [`  Sign in   ${url}`] : []),
     `  Email     ${email}`,

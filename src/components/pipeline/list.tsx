@@ -41,7 +41,7 @@ export function PipelineList({
 
   return (
     <div className="bg-card shadow-card overflow-hidden rounded-xl">
-      <div className="text-faint bg-inset flex items-center gap-3 px-4 py-2 text-[11px] font-medium tracking-[0.04em] uppercase">
+      <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
         {COLUMNS.map((column) => (
           <div key={column.label} className={column.className}>
             {column.key ? (

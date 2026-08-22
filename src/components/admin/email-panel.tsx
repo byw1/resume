@@ -153,7 +153,7 @@ export function EmailPanel({
               <Input
                 value={values.resendFromName}
                 onChange={(event) => setValues({ ...values, resendFromName: event.target.value })}
-                placeholder="Resume OS"
+                placeholder="Hired"
               />
             </div>
 
@@ -162,7 +162,7 @@ export function EmailPanel({
               <Input
                 value={values.instanceName}
                 onChange={(event) => setValues({ ...values, instanceName: event.target.value })}
-                placeholder="Resume OS"
+                placeholder="Hired"
               />
               <p className="text-muted-foreground text-xs">Shown on the sign-in page and in emails.</p>
             </div>
