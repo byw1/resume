@@ -1,0 +1,73 @@
+# Hired, self-hosted. One command:
+#
+#     docker compose up -d
+#
+# Nothing to configure. This starts the app and a Postgres it talks to over a
+# private network, applies migrations, creates your owner account and prints
+# its password once — read it with:
+#
+#     docker compose logs app
+#
+# then sign in at http://localhost:3000. The database keeps its data in the
+# db-data volume across restarts and upgrades. To upgrade later:
+#
+#     docker compose pull && docker compose up -d
+#
+# Every variable below is optional. Set them in a .env file next to this one
+# if you want them:
+#
+#   ADMIN_EMAIL        Owner email instead of owner@localhost
+#   APP_PASSWORD       Owner password instead of a generated one
+#   PUBLIC_URL         The address you serve this at, once it has one —
+#                      used to build invite links and the sign-in URL
+#   POSTGRES_PASSWORD  Database password. The database is not reachable from
+#                      outside this compose network, which is why a default is
+#                      acceptable; set one anyway if your host is shared.
+#   PORT               Host port to listen on (container stays on 3000)
+
+services:
+  app:
+    image: ghcr.io/byw1/hired:latest
+    build: .
+    ports:
+      - "${PORT:-3000}:3000"
+    environment:
+      DATABASE_URL: postgresql://hired:${POSTGRES_PASSWORD:-hired}@db:5432/hired
+      ADMIN_EMAIL: ${ADMIN_EMAIL:-}
+      APP_PASSWORD: ${APP_PASSWORD:-}
+      PUBLIC_URL: ${PUBLIC_URL:-}
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      # The image is slim and ships no curl; Node 20 has fetch.
+      test:
+        [
+          "CMD",
+          "node",
+          "-e",
+          "fetch('http://127.0.0.1:3000/login').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))",
+        ]
+      interval: 5s
+      timeout: 5s
+      retries: 36
+      start_period: 15s
+    restart: unless-stopped
+
+  db:
+    image: postgres:16
+    environment:
+      POSTGRES_USER: hired
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-hired}
+      POSTGRES_DB: hired
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U hired -d hired"]
+      interval: 5s
+      timeout: 5s
+      retries: 12
+    restart: unless-stopped
+
+volumes:
+  db-data:

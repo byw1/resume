@@ -17,3 +17,5 @@ prisma/dev.db-journal
 
 # Personal working context — CLAUDE.md is the committed, public one
 CLAUDE.local.md
+ca-verify.crt
+Dockerfile.proxyverify

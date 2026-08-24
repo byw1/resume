@@ -18,7 +18,7 @@ yourself, wired into Claude so you can just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  64 tools any MCP client can call (77 if you're an admin). Claude, Claude Code, ChatGPT,
+  64 tools any MCP client can call (81 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -29,7 +29,50 @@ yourself, wired into Claude so you can just *talk* to it.
 
 ---
 
-## Self-host it on Railway
+## Get it
+
+Two ways in. Both are the full product.
+
+**Hosted** — [hired.tools](https://hired.tools). I run an instance at
+app.hired.tools and host people on it for a monthly fee: pay, get an invite, connect
+your assistant, start. Your workspace is private — instance admins manage accounts,
+never content — and if you stop paying it's suspended, not deleted.
+
+**Self-host** — free, AGPL, yours forever. One command if you have Docker, or five
+clicks on Railway if you'd rather never open a terminal. Both below.
+
+## Self-host with Docker
+
+On any machine with Docker installed:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/byw1/resume/main/docker-compose.yml
+docker compose up -d
+docker compose logs app   # your sign-in details are printed here, once
+```
+
+That's the whole procedure. It pulls the published image, starts the app and a
+Postgres it talks to over a private network, applies migrations, creates your owner
+account and prints the password. Sign in at http://localhost:3000, and read the top
+of [docker-compose.yml](docker-compose.yml) for the optional variables (owner email,
+port, a public URL once you have one).
+
+PDF export works out of the box here — the image carries the browser and fonts the
+renderer needs, which is the one thing the Railway path below can't give you.
+
+To upgrade:
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Your data lives in a named volume and survives upgrades and restarts. Back it up with
+`docker compose exec db pg_dump -U hired hired > backup.sql`.
+
+The image is built from this repository on every push and published at
+`ghcr.io/byw1/hired`. Building it yourself is `docker compose build`.
+
+## Self-host on Railway (no terminal)
 
 **One variable, five minutes, no terminal.** You don't invent a password, run a migration,
 or configure anything — the app provisions itself on first boot.
@@ -117,7 +160,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 52, or 64 if you're an admin.
+would, then tells you how many tools answered — 64, or 81 if you're an admin.
 
 #### One connection per client
 
@@ -141,6 +184,21 @@ land in their own empty workspace.
 
 Email is optional. Until you set up Resend, creating an invite gives you a link to send
 however you like — it stays valid for 14 days. Nothing is blocked on email being configured.
+
+### Charging for it (optional)
+
+If you host an instance for other people and want them to pay for it, wire it to Stripe
+from **Admin → Billing**: paste your secret key and a webhook signing secret, register the
+webhook URL the panel shows you, and put your Stripe Payment Link wherever you send people.
+Someone new who pays through the link is invited automatically. If their subscription
+lapses they're suspended — sign-in and assistant access stop, data stays — and paying again
+turns them back on. An *existing* member who starts paying is connected by you, on purpose,
+with `admin_link_billing`: the checkout email is whatever the payer typed, so the webhook
+never attaches a subscription to an account that already exists. The owner and anyone you
+invited for free are never touched by billing, and a **Resync from Stripe** button
+reconciles everything if a webhook ever goes missing. All of it is also reachable by
+conversation: `admin_get_billing_config`, `admin_set_billing_config`, `admin_sync_billing`,
+`admin_link_billing`.
 
 ### Roles
 
@@ -175,7 +233,7 @@ this key and send a test."*
 64 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 13 more tools — and members never even see those in the tool list, so nobody is
+Admins get 17 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |
@@ -294,11 +352,12 @@ nothing to download.
 <details>
 <summary>If your host has no headless browser</summary>
 
-Server-side rendering needs a Chromium on the machine. Railway's default image doesn't ship
-one, so on a stock deploy the **PDF** button reports that and the fallback still works:
-**⋯ → Open print view**, then your browser's **Save as PDF** with margins set to **None**.
-Same document, one more step. `export_resume_pdf` says the same thing rather than failing
-silently.
+Server-side rendering needs a Chromium on the machine. The Docker image ships one, so a
+compose deploy has working one-click PDF from the first boot. Railway's Nixpacks image does
+not — on a stock Railway deploy the **PDF** button reports that and the fallback still
+works: **⋯ → Open print view**, then your browser's **Save as PDF** with margins set to
+**None**. Same document, one more step. `export_resume_pdf` says the same thing rather than
+failing silently.
 
 To get the one-click version the image needs a Chromium and a Times-metric serif, and then
 `PDF_CHROMIUM_PATH` pointed at the browser (or one of the usual paths, which are checked
@@ -364,7 +423,12 @@ The two things worth knowing before changing anything:
 
 ## License
 
-MIT — see [LICENSE](LICENSE).
+AGPL-3.0 — see [LICENSE](LICENSE).
+
+In practice: self-host it, modify it, run it for yourself and your friends, all free,
+forever. The one obligation is that if you run a modified copy as a service for other
+people, you publish your modifications. If you'd rather keep changes private, run it
+unmodified — or talk to me.
 
 ## How it's built
 

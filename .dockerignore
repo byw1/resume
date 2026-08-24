@@ -1,0 +1,19 @@
+# Anything the image builds for itself, or must never end up inside it.
+#
+# One rule here is load-bearing: skills/ must NOT be excluded. The docs page
+# reads skills/*/SKILL.md from disk at runtime, so a blanket *.md exclusion
+# (which this file used to have) ships an image whose docs section is silently
+# empty.
+node_modules
+.next
+.git
+.env
+.env*.local
+npm-debug.log*
+.claude
+CLAUDE.md
+CLAUDE.local.md
+README.md
+site
+docker-compose.yml
+Dockerfile

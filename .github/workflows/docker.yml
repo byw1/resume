@@ -1,0 +1,29 @@
+# Builds the self-hosting image and publishes it to GitHub Container Registry
+# on every push to main. docker-compose.yml pulls ghcr.io/byw1/hired:latest,
+# which is what makes "docker compose up" work without cloning the repo.
+name: Publish the Docker image
+
+on:
+  push:
+    branches: [main]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          push: true
+          tags: |
+            ghcr.io/byw1/hired:latest
+            ghcr.io/byw1/hired:${{ github.sha }}
