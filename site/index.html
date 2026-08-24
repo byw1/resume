@@ -1,0 +1,345 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Hired — your career, on the record</title>
+<meta name="description" content="Hired keeps the record of every job you've had, and turns it into resumes, applications and follow-ups on request. Self-hosted. Nothing invented.">
+<meta property="og:title" content="Hired">
+<meta property="og:description" content="Everything that happens before the word. The record of every job you've had, and an AI that writes from it — resumes, applications, follow-ups. Self-hosted. Nothing invented.">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://hired.tools">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23F4F5F6'/%3E%3Crect x='16' y='17' width='13' height='7' rx='1.5' fill='%23191A1E'/%3E%3Crect x='16' y='28.5' width='22.5' height='7' rx='1.5' fill='%23191A1E'/%3E%3Crect x='16' y='40' width='32' height='7' rx='1.5' fill='%23191A1E'/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  /* The marketing surface of the app's own dark theme. Values are the dark
+     tokens from the product's globals.css, verbatim — this page should feel
+     like the app because it is dressed in the app. */
+  :root {
+    --background: oklch(0.165 0.004 265);
+    --canvas: oklch(0.192 0.004 265);
+    --card: oklch(0.213 0.004 265);
+    --inset: oklch(0.186 0.004 265);
+    --foreground: oklch(0.968 0.002 265);
+    --muted: oklch(0.68 0.008 265);
+    --faint: oklch(0.53 0.009 265);
+    --primary: oklch(0.65 0.17 252);
+    --rim: oklch(1 0 0 / 0.1);
+    --shadow-card: 0 0 0 1px oklch(1 0 0 / 0.09), 0 1px 2px oklch(0 0 0 / 0.24), 0 2px 6px oklch(0 0 0 / 0.2);
+    /* The stage rotation — the one place outside the app it is allowed. */
+    --motif-1: oklch(0.72 0.12 235);
+    --motif-2: oklch(0.72 0.14 268);
+    --motif-3: oklch(0.73 0.15 300);
+    --motif-4: oklch(0.74 0.15 340);
+    --motif-5: oklch(0.79 0.13 75);
+    --motif-6: oklch(0.75 0.13 152);
+    --sans: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    --mono: "JetBrains Mono", ui-monospace, SFMono-Regular, monospace;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  html { scroll-behavior: smooth; }
+  body {
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.6;
+    -webkit-font-smoothing: antialiased;
+  }
+  a { color: inherit; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 24px; }
+
+  header.nav {
+    display: flex; align-items: center; gap: 14px;
+    padding: 18px 0;
+  }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 600; font-size: 15px; text-decoration: none; }
+  .nav-links { margin-left: auto; display: flex; align-items: center; gap: 18px; font-size: 13.5px; }
+  .nav-links a { color: var(--muted); text-decoration: none; }
+  .nav-links a:hover { color: var(--foreground); }
+  .gh { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 12.5px; }
+  .gh svg { width: 15px; height: 15px; fill: currentColor; }
+
+  .eyebrow {
+    font-family: var(--mono); font-size: 11px; font-weight: 500;
+    letter-spacing: 0.05em; text-transform: uppercase; color: var(--faint);
+  }
+
+  .hero { padding: 72px 0 40px; }
+  .hero h1 {
+    font-size: clamp(30px, 5.4vw, 46px); font-weight: 600;
+    letter-spacing: -0.025em; line-height: 1.12; max-width: 17ch;
+  }
+  .hero p.sub { color: var(--muted); max-width: 52ch; margin-top: 16px; font-size: 16px; }
+  .ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 26px; }
+  .btn {
+    display: inline-block; padding: 9px 16px; border-radius: 8px;
+    font-size: 13.5px; font-weight: 500; text-decoration: none;
+    transition: opacity 0.15s ease;
+  }
+  .btn:hover { opacity: 0.88; }
+  .btn-primary { background: var(--primary); color: oklch(1 0 0); }
+  .btn-ghost { box-shadow: 0 0 0 1px var(--rim); color: var(--foreground); }
+
+  .motif { display: flex; height: 3px; border-radius: 2px; overflow: hidden; margin: 48px 0; }
+  .motif span { flex: 1; }
+
+  .transcript {
+    background: var(--canvas); border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 22px; margin-top: 44px; font-size: 13.5px;
+  }
+  .transcript .turn { display: flex; gap: 12px; margin-bottom: 16px; }
+  .transcript .turn:last-child { margin-bottom: 0; }
+  .transcript .who {
+    flex-shrink: 0; width: 44px; text-align: right;
+    font-family: var(--mono); font-size: 11px; color: var(--faint);
+    padding-top: 3px; text-transform: uppercase; letter-spacing: 0.04em;
+  }
+  .transcript .what { color: var(--muted); max-width: 62ch; }
+  .transcript .turn.you .what { color: var(--foreground); }
+  .transcript .what .did {
+    font-family: var(--mono); font-size: 12px; color: var(--faint);
+    display: block; margin-top: 6px;
+  }
+  .transcript .what a { color: var(--primary); text-decoration: none; }
+
+  section { padding: 44px 0; }
+  section h2 { font-size: 24px; font-weight: 600; letter-spacing: -0.02em; margin: 8px 0 10px; }
+  section > .wrap > p { color: var(--muted); max-width: 60ch; }
+
+  .grid4 { display: grid; grid-template-columns: repeat(auto-fit, minmax(210px, 1fr)); gap: 14px; margin-top: 26px; }
+  .part {
+    background: var(--card); border-radius: 10px; box-shadow: var(--shadow-card);
+    padding: 18px;
+  }
+  .part .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-bottom: 10px; }
+  .part h3 { font-size: 14.5px; font-weight: 600; margin-bottom: 6px; }
+  .part p { color: var(--muted); font-size: 13px; }
+
+  .invented {
+    background: var(--canvas); border-radius: 12px; box-shadow: var(--shadow-card);
+    padding: 28px; margin-top: 8px;
+  }
+  .invented p { color: var(--muted); max-width: 62ch; }
+  .invented p strong { color: var(--foreground); font-weight: 600; }
+
+  .doors { display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 14px; margin-top: 26px; }
+  .door { background: var(--card); border-radius: 12px; box-shadow: var(--shadow-card); padding: 24px; display: flex; flex-direction: column; }
+  .door h3 { font-size: 17px; font-weight: 600; }
+  .door .price { font-family: var(--mono); font-size: 12px; color: var(--faint); margin: 2px 0 12px; }
+  .door p { color: var(--muted); font-size: 13.5px; flex: 1; }
+  .door pre {
+    background: var(--inset); border-radius: 8px; box-shadow: 0 0 0 1px var(--rim);
+    padding: 12px 14px; margin: 14px 0; overflow-x: auto;
+    font-family: var(--mono); font-size: 12px; line-height: 1.7; color: var(--foreground);
+  }
+  .door .btn { align-self: flex-start; margin-top: 4px; }
+
+  .clients { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 18px; }
+  .clients span {
+    font-family: var(--mono); font-size: 12px; color: var(--muted);
+    padding: 5px 11px; border-radius: 6px; box-shadow: 0 0 0 1px var(--rim);
+  }
+
+  footer { padding: 36px 0 48px; }
+  footer .wrap { display: flex; flex-wrap: wrap; align-items: center; gap: 16px; color: var(--faint); font-size: 12.5px; }
+  footer a { color: var(--muted); text-decoration: none; }
+  footer a:hover { color: var(--foreground); }
+  footer .spacer { flex: 1; }
+</style>
+</head>
+<body>
+
+<div class="wrap">
+  <header class="nav">
+    <a class="brand" href="/">
+      <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
+        <rect width="64" height="64" rx="15" fill="#F4F5F6"/>
+        <rect x="16" y="17" width="13" height="7" rx="1.5" fill="#191A1E"/>
+        <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="#191A1E"/>
+        <rect x="16" y="40" width="32" height="7" rx="1.5" fill="#191A1E"/>
+      </svg>
+      Hired
+    </a>
+    <nav class="nav-links">
+      <a class="gh" href="https://github.com/byw1/resume">
+        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
+        <span id="stars">GitHub</span>
+      </a>
+      <a href="#self-host">Self-host</a>
+      <a href="#hosted" class="btn btn-primary" style="padding:7px 13px">Get hosted</a>
+    </nav>
+  </header>
+
+  <section class="hero" style="padding-bottom:0">
+    <div class="eyebrow">The career OS you talk to</div>
+    <h1 style="margin-top:10px">Everything that happens before the word.</h1>
+    <p class="sub">
+      Hired keeps the record of every job you've had, and turns it into resumes,
+      applications and follow-ups on request. Self-hosted. Nothing invented.
+    </p>
+    <div class="ctas">
+      <a class="btn btn-primary" href="#self-host">Deploy your own</a>
+      <a class="btn btn-ghost" href="https://github.com/byw1/resume">Read the source</a>
+    </div>
+
+    <div class="transcript" aria-label="A conversation with Hired">
+      <div class="turn you">
+        <div class="who">You</div>
+        <div class="what">Closed the Meridian rollout this week — three regions, two days early, churn flat. File it.</div>
+      </div>
+      <div class="turn">
+        <div class="who">Claude</div>
+        <div class="what">Filed to VP Operations at Meridian. That's the strongest delivery metric on this role, so I drafted a highlight from it too.
+          <span class="did">append_role_brain_dump · create_highlights</span>
+        </div>
+      </div>
+      <div class="turn you">
+        <div class="who">You</div>
+        <div class="what">Tailor my resume to this posting and give me a link for the form. [paste]</div>
+      </div>
+      <div class="turn">
+        <div class="who">Claude</div>
+        <div class="what">Done — one page, built on eleven highlights across three roles. Two requirements had no evidence in your brain, so they are not on it. <a>hired.tools/r/ops-director-k7m2qx</a>
+          <span class="did">search_brain · duplicate_resume · preview_resume_text · publish_resume</span>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <div class="motif" role="presentation">
+    <span style="background:var(--motif-1)"></span>
+    <span style="background:var(--motif-2)"></span>
+    <span style="background:var(--motif-3)"></span>
+    <span style="background:var(--motif-4)"></span>
+    <span style="background:var(--motif-5)"></span>
+    <span style="background:var(--motif-6)"></span>
+  </div>
+
+  <section style="padding-top:0">
+    <div class="wrap" style="padding:0">
+      <div class="eyebrow">Four parts, one record</div>
+      <h2>The app is where you look. The conversation is where you work.</h2>
+      <p>
+        Everything below is reachable from a conversation — 64 tools over MCP, plus the
+        screens for when you want to see, adjust or print the result.
+      </p>
+      <div class="grid4">
+        <div class="part">
+          <span class="dot" style="background:var(--motif-1)"></span>
+          <h3>Brain</h3>
+          <p>Everything you know about every job you've had. No length limit, no structure required — numbers, stories, praise, screw-ups. The raw material everything else is built from.</p>
+        </div>
+        <div class="part">
+          <span class="dot" style="background:var(--motif-2)"></span>
+          <h3>Resumes</h3>
+          <p>Tailored documents assembled from that material. Harvard format by default, live preview, real server-rendered PDF, and a public link for application forms.</p>
+        </div>
+        <div class="part">
+          <span class="dot" style="background:var(--motif-3)"></span>
+          <h3>Pipeline</h3>
+          <p>Applications on a board, list or calendar, with follow-ups that chase you. The dashboard reads your funnel and tells you which step is losing people.</p>
+        </div>
+        <div class="part">
+          <span class="dot" style="background:var(--motif-4)"></span>
+          <h3>CRM</h3>
+          <p>Companies and the people at them, as records of their own. Research outlives the application it started from.</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap" style="padding:0">
+      <div class="invented">
+        <div class="eyebrow" style="margin-bottom:10px">The rule the whole thing is built on</div>
+        <p>
+          <strong>Nothing on a resume is invented.</strong> Every connected assistant is
+          instructed to never make up experience, employers, dates or metrics. Every bullet
+          traces back to something you put in your brain — and when a posting asks for
+          evidence you don't have, it says so instead of writing it anyway. The quiet
+          upgrade — a credit that becomes a hire, a "helped with" that becomes a "led" —
+          is the way resumes actually go wrong, and it is the specific thing this refuses
+          to do.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <section>
+    <div class="wrap" style="padding:0">
+      <div class="eyebrow">Works where you already talk</div>
+      <h2>One connection per client, any assistant that speaks MCP.</h2>
+      <p>
+        Each client gets its own private URL, shown with exact setup steps inside the app.
+        Rotate or revoke one without touching the others.
+      </p>
+      <div class="clients">
+        <span>Claude</span><span>Claude Code</span><span>ChatGPT</span><span>Cursor</span><span>VS Code</span><span>Windsurf</span><span>anything streamable-http</span>
+      </div>
+    </div>
+  </section>
+
+  <section id="get">
+    <div class="wrap" style="padding:0">
+      <div class="eyebrow">Two ways in</div>
+      <h2>Run it yourself, or let me run it for you.</h2>
+      <div class="doors">
+        <div class="door" id="self-host">
+          <h3>Self-host</h3>
+          <div class="price">free · AGPL-3.0 · yours forever</div>
+          <p>
+            One command on any machine with Docker. It brings up the app and its database,
+            creates your owner account and prints the password once. PDF export included.
+          </p>
+          <pre>curl -fsSLO https://raw.githubusercontent.com/byw1/resume/main/docker-compose.yml
+docker compose up -d
+docker compose logs app   # your sign-in details</pre>
+          <a class="btn btn-ghost" href="https://github.com/byw1/resume#self-hosting">Full instructions</a>
+        </div>
+        <div class="door" id="hosted">
+          <h3>Hosted</h3>
+          <div class="price">monthly · cancel any time · your data stays yours</div>
+          <p>
+            The same product at app.hired.tools, run and kept current by the person who
+            built it. Pay monthly, get an invite, connect your assistant, start. If you
+            stop paying your workspace is suspended, not deleted — and you can always
+            export to your own instance instead.
+          </p>
+          <!-- Replace the href with the Stripe Payment Link once it exists
+               (Admin → Billing holds the same URL). -->
+          <a class="btn btn-primary" href="https://github.com/byw1/resume#hosted">Get an invite</a>
+        </div>
+      </div>
+    </div>
+  </section>
+</div>
+
+<footer>
+  <div class="wrap">
+    <span>Hired — your career, on the record</span>
+    <span class="spacer"></span>
+    <a href="https://github.com/byw1/resume">GitHub</a>
+    <a href="https://github.com/byw1/resume/blob/main/LICENSE">AGPL-3.0</a>
+    <a href="https://app.hired.tools">Sign in</a>
+  </div>
+</footer>
+
+<script>
+  // The one live number on the page. Fails silently to the word "GitHub".
+  fetch("https://api.github.com/repos/byw1/resume")
+    .then((r) => (r.ok ? r.json() : null))
+    .then((repo) => {
+      if (repo && typeof repo.stargazers_count === "number") {
+        document.getElementById("stars").textContent =
+          repo.stargazers_count >= 1000
+            ? (repo.stargazers_count / 1000).toFixed(1) + "k"
+            : String(repo.stargazers_count);
+      }
+    })
+    .catch(() => {});
+</script>
+</body>
+</html>

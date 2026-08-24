@@ -633,3 +633,89 @@ so loading it is a correction, not a restyle.
 `.font-mono-resume` stacks, which name real system faces and reference none of the new
 variables. The README promises that no webfont is fetched for a resume and that the output
 is metrically identical across platforms; that promise survives.
+
+## 2026-08-24 — AGPLv3, because the business is hosting
+
+**Decision:** relicensed from MIT to AGPLv3 (LICENSE, package.json). The full text comes
+from SPDX verbatim.
+**Why:** the plan is Twenty's plan — free to self-host, paid to be hosted — and every
+project running that model at any scale chose AGPL for the same documented reason:
+Plausible started MIT, watched a company close-source their code and sell it against them,
+and switched. AGPL changes nothing for a self-hoster and requires a commercial host who
+modifies the code to publish their modifications. MIT was the friendlier portfolio signal;
+the portfolio argument lost to the business argument because the license is also part of
+the story now.
+**Reversibility:** as sole author William can relicense future versions any direction;
+released versions stay as released.
+
+## 2026-08-24 — Paid hosting is one shared instance, not instance-per-customer
+
+**Decision:** the hosted product is William's single instance with paying members, driven
+by four Stripe objects he creates by hand in the Dashboard (product, price, payment link,
+webhook) and three values pasted into Admin → Billing. No provisioning code.
+**Why:** the codebase was already multi-user with compile-level tenant isolation, invites,
+roles, and a suspension that kills sessions and MCP access — the entire per-customer
+lifecycle existed; only payment was missing. Instance-per-customer means being an ops team.
+Every comparable project (Cal.com, Plausible, Documenso, Rallly) runs shared multi-tenant
+below enterprise price points.
+**How sync works, and why it looks like the MCP transport:** the webhook never trusts an
+event beyond the customer id — it re-fetches the customer's subscriptions from Stripe and
+converges local state to that answer (Documenso's pattern). Late, duplicate and out-of-order
+deliveries all land on the same state. `past_due` still counts as entitled: Stripe's retry
+window is the grace period. Suspension keeps all data; paying again reactivates the same
+workspace. The owner is structurally untouchable by billing, and `admin_sync_billing` is
+the missed-webhook recovery. No Stripe SDK — it is three GETs and an HMAC, in the same
+raw-fetch style as the Resend client.
+**The checkout→invite gap:** a payer who isn't a user yet gets an invite that CARRIES the
+Stripe customer id, and acceptInvite copies it onto the new User. Without that, a person
+who paid and accepted between webhooks would be invisible to billing forever.
+
+## 2026-08-24 — Docker is the self-host front door; Railway keeps Nixpacks
+
+**Decision:** the Dockerfile is back (recovered from da8780d, which was proven to build),
+plus docker-compose.yml with zero required configuration, plus a GitHub Action publishing
+ghcr.io/byw1/hired on every push. railway.json still pins NIXPACKS, so William's own
+production deploy is untouched by all of it.
+**Why compose over Twenty's four containers:** Twenty needs server+worker+postgres+redis
+and three required env vars. Hired needs app+postgres and zero — the compose file
+hardcodes an internal DATABASE_URL on a private network, which beats the reference product
+at its own quickstart. The old blocker ("a ten-minute job with a daemon") was real: with a
+daemon available, the image built first try and the full stack came up healthy.
+**What the image fixes that Railway can't:** PDF export. Chromium and the Times-metric
+fonts ride in the image, so a compose self-hoster gets one-click PDF on first boot.
+**Verification honesty:** the local build injects proxy-CA trust lines generated FROM the
+shipped Dockerfile (never a parallel copy); the shipped file itself is verified by the
+GitHub Action on clean egress.
+
+## 2026-08-24 — hired.tools is a static page in site/, deployed by Pages
+
+**Decision:** the landing page is one static HTML file in site/, published to GitHub Pages
+by a workflow, with hired.tools as the CNAME. The app stays at the root of every instance;
+William's instance will live at app.hired.tools. No route moves, no links break.
+**Why:** Twenty splits marketing (twenty.com) from app (app.twenty.com) and keeps the
+website in the product repo. The alternative — moving the app to /app to make room for
+marketing at the instance root — would put a personal marketing page inside every
+self-hoster's deployment, which is exactly backwards. The landing page belongs to the
+project, not to each instance.
+**What it borrows from the teardown:** open source as positioning not CTA, a live star
+count as the one dynamic number, a DOM-built product mock instead of screenshots (the
+transcript IS the product thesis), one primary CTA repeated, and no pricing table — the
+hosted door states its terms in a sentence. The transcript only shows tools that exist.
+
+## 2026-08-24 — Billing may create accounts, never claim them
+
+**Decision:** the webhook never attaches a Stripe customer to an existing member. A
+checkout from an unknown email still becomes an invite (safe: only the holder of that
+inbox can accept it, and the invite carries the customer id). A checkout whose email
+matches an existing member does nothing, and connecting that member to their subscription
+is a deliberate admin act — `admin_link_billing`, which finds the customer in Stripe's own
+records for that email and refuses ambiguity. Unlink is the recovery hatch and ends
+billing's authority over the account. A pending invite the owner already sent is never
+stamped with a customer id either — a free invitation must not silently become a billed one.
+**Why:** the tenant audit caught the hole before it shipped. The first version matched
+existing members by the checkout email — which is typed by the payer, not verified —
+so anyone holding the public payment link could bind a member's account to their own
+subscription and then suspend that member by cancelling it, with no admin surface to undo
+the link. The rule that fixes it is worth stating as a rule because it generalises: an
+unattended webhook may only ever touch state it created or state explicitly delegated to
+it, and identity claims inside webhook payloads are attacker-controlled input.
