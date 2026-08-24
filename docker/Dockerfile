@@ -3,9 +3,15 @@
 # This is what docker-compose.yml builds and what CI publishes to
 # ghcr.io/byw1/hired. It exists so that self-hosting is one command with no
 # configuration, and so the server can render a PDF: that needs a real
-# browser, and a stock Node image has none. Railway deploys of this repo keep
-# using Nixpacks (railway.json pins the builder), so this file changes nothing
-# for anyone deploying from GitHub to Railway.
+# browser, and a stock Node image has none.
+#
+# It lives in docker/, not the repo root, and that placement is load-bearing:
+# Railway auto-detects a root Dockerfile and uses it over the configured
+# builder, and this image does not come up on Railway's Docker runtime (the
+# healthcheck never sees it listen — twice observed, unexplained). Down here
+# Railway can't find it, deploys from GitHub keep building the way they always
+# have, and Docker stays what it is for: compose self-hosting and the GHCR
+# image.
 #
 # The browser costs build time and image size and buys one-click PDF export.
 # Everything else about the app is the same in and out of Docker: DATABASE_URL

@@ -28,7 +28,9 @@
 services:
   app:
     image: ghcr.io/byw1/hired:latest
-    build: .
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
     ports:
       - "${PORT:-3000}:3000"
     environment:

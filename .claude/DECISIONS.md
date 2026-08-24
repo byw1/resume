@@ -719,3 +719,18 @@ subscription and then suspend that member by cancelling it, with no admin surfac
 the link. The rule that fixes it is worth stating as a rule because it generalises: an
 unattended webhook may only ever touch state it created or state explicitly delegated to
 it, and identity claims inside webhook payloads are attacker-controlled input.
+
+## 2026-08-24 — The Dockerfile lives in docker/, and the placement is the fix
+
+**Decision:** moved Dockerfile to docker/Dockerfile; compose and the GHCR workflow point
+at it explicitly.
+**Why:** the moment a Dockerfile existed at the repo root, Railway used it — despite
+railway.json saying NIXPACKS and the service settings saying RAILPACK — and the deploy
+died on the same healthcheck-never-sees-it-listen failure as on Aug 17. That's now been
+observed twice and diagnosed zero times, and it doesn't need to be: Railway was never the
+audience for this image. Auto-detection can't find a file that isn't at the root, so the
+builder question is closed structurally rather than by configuration that has already
+lost an argument with auto-detection once.
+**Cost:** anyone hand-building must say `-f docker/Dockerfile` (compose and CI already
+do). Production kept serving the previous commit throughout — a failed deploy never
+replaces a running one.
