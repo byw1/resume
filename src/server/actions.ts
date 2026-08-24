@@ -21,6 +21,7 @@ import {
 } from "@/lib/auth";
 import { getSettings, updateSettings } from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
+import { syncAllBilling } from "@/lib/billing";
 
 /**
  * Every action resolves the caller from their session cookie. No action ever
@@ -281,6 +282,36 @@ export async function saveEmailSettingsAction(patch: {
   revalidatePath("/admin");
   revalidatePath("/applications");
   return { ok: true as const };
+}
+
+export async function saveBillingSettingsAction(patch: {
+  stripeSecretKey?: string;
+  stripeWebhookSecret?: string;
+  stripePaymentLink?: string;
+}) {
+  await requireAdmin();
+  // Empty secret fields mean "leave it alone", not "clear it" — same rule as
+  // the Resend key above.
+  const clean = { ...patch };
+  if (clean.stripeSecretKey !== undefined && clean.stripeSecretKey.trim() === "") delete clean.stripeSecretKey;
+  if (clean.stripeWebhookSecret !== undefined && clean.stripeWebhookSecret.trim() === "") delete clean.stripeWebhookSecret;
+  await updateSettings(clean);
+  revalidatePath("/admin");
+  return { ok: true as const };
+}
+
+export async function syncBillingAction(email?: string) {
+  await requireAdmin();
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+  try {
+    const results = await syncAllBilling(`${proto}://${host}`, email?.trim() || undefined);
+    revalidatePath("/admin");
+    return { ok: true as const, results };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Sync failed." };
+  }
 }
 
 export async function sendTestEmailAction(to?: string) {

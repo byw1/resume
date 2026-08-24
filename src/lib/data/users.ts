@@ -203,6 +203,9 @@ export async function acceptInvite(input: { token: string; name: string; passwor
             role: invite.role,
             isActive: true,
             invitedById: invite.invitedById,
+            // A checkout-created invite carries the payer's Stripe customer
+            // id; landing it here is what lets billing find them later.
+            ...(invite.stripeCustomerId ? { stripeCustomerId: invite.stripeCustomerId } : {}),
           },
         })
       : await tx.user.create({
@@ -212,6 +215,7 @@ export async function acceptInvite(input: { token: string; name: string; passwor
             passwordHash: hashPassword(input.password),
             role: invite.role,
             invitedById: invite.invitedById,
+            ...(invite.stripeCustomerId ? { stripeCustomerId: invite.stripeCustomerId } : {}),
           },
         });
     await tx.invite.update({ where: { id: invite.id }, data: { acceptedAt: new Date() } });

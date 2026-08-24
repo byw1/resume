@@ -6,7 +6,9 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/animated-number";
 import { requireAdmin } from "@/lib/auth";
 import { instanceStats, listInvites, listUsers } from "@/lib/data/users";
-import { emailIsConfigured, getSettings, maskSecret } from "@/lib/settings";
+import { billingIsConfigured, emailIsConfigured, getSettings, maskSecret } from "@/lib/settings";
+import { billedUserCount } from "@/lib/billing";
+import { BillingPanel } from "@/components/admin/billing-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
 import { InvitesPanel } from "@/components/admin/invites-panel";
 import { EmailPanel } from "@/components/admin/email-panel";
@@ -29,6 +31,8 @@ export default async function AdminPage() {
   ]);
 
   const emailReady = emailIsConfigured(settings);
+  const billingReady = billingIsConfigured(settings);
+  const billedUsers = await billedUserCount();
 
   return (
     <PageShell className="max-w-6xl">
@@ -74,6 +78,7 @@ export default async function AdminPage() {
             Email
             {!emailReady && <span className="ml-1 text-[var(--warning)]">•</span>}
           </TabsTrigger>
+          <TabsTrigger value="billing">Billing</TabsTrigger>
         </TabsList>
 
         <TabsContent value="people">
@@ -129,6 +134,23 @@ export default async function AdminPage() {
                 companyLogos: settings.companyLogos,
               }}
               ownEmail={actor.email}
+            />
+          </FadeIn>
+        </TabsContent>
+
+        <TabsContent value="billing">
+          <FadeIn>
+            <BillingPanel
+              configured={billingReady}
+              settings={{
+                stripeSecretKeyMasked: maskSecret(settings.stripeSecretKey),
+                hasSecretKey: Boolean(settings.stripeSecretKey),
+                stripeWebhookSecretMasked: maskSecret(settings.stripeWebhookSecret),
+                hasWebhookSecret: Boolean(settings.stripeWebhookSecret),
+                stripePaymentLink: settings.stripePaymentLink,
+              }}
+              billedUsers={billedUsers}
+              webhookUrl={`${settings.publicUrl || `${proto}://${host}`}/api/stripe/webhook`}
             />
           </FadeIn>
         </TabsContent>

@@ -12,6 +12,9 @@ export const SETTING_KEYS = {
   resendFromName: "resend_from_name",
   publicUrl: "public_url",
   companyLogos: "company_logos",
+  stripeSecretKey: "stripe_secret_key",
+  stripeWebhookSecret: "stripe_webhook_secret",
+  stripePaymentLink: "stripe_payment_link",
 } as const;
 
 export type InstanceSettings = {
@@ -22,6 +25,11 @@ export type InstanceSettings = {
   publicUrl: string;
   /** Off means no request ever leaves the browser for a logo. */
   companyLogos: boolean;
+  /** Stripe, for the instance owner who hosts other people for a fee. */
+  stripeSecretKey: string;
+  stripeWebhookSecret: string;
+  /** A Stripe Payment Link — the public checkout URL for this instance. */
+  stripePaymentLink: string;
 };
 
 export async function getSettings(): Promise<InstanceSettings> {
@@ -39,6 +47,9 @@ export async function getSettings(): Promise<InstanceSettings> {
     // switch exists for the person who would rather twenty-icons.com not see
     // which companies they are applying to.
     companyLogos: (map.get(SETTING_KEYS.companyLogos) ?? "1") !== "0",
+    stripeSecretKey: map.get(SETTING_KEYS.stripeSecretKey) ?? "",
+    stripeWebhookSecret: map.get(SETTING_KEYS.stripeWebhookSecret) ?? "",
+    stripePaymentLink: map.get(SETTING_KEYS.stripePaymentLink) ?? "",
   };
 }
 
@@ -58,6 +69,9 @@ export async function updateSettings(patch: Partial<InstanceSettings>) {
     [SETTING_KEYS.resendFromName, patch.resendFromName],
     [SETTING_KEYS.publicUrl, patch.publicUrl],
     [SETTING_KEYS.companyLogos, patch.companyLogos === undefined ? undefined : patch.companyLogos ? "1" : "0"],
+    [SETTING_KEYS.stripeSecretKey, patch.stripeSecretKey],
+    [SETTING_KEYS.stripeWebhookSecret, patch.stripeWebhookSecret],
+    [SETTING_KEYS.stripePaymentLink, patch.stripePaymentLink],
   ];
   for (const [key, value] of entries) {
     if (value !== undefined) await setSetting(key, value.trim());
@@ -66,6 +80,10 @@ export async function updateSettings(patch: Partial<InstanceSettings>) {
 
 export function emailIsConfigured(settings: InstanceSettings) {
   return Boolean(settings.resendApiKey && settings.resendFromEmail);
+}
+
+export function billingIsConfigured(settings: InstanceSettings) {
+  return Boolean(settings.stripeSecretKey && settings.stripeWebhookSecret);
 }
 
 /** Never send the raw key to the browser. */

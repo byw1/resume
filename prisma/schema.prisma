@@ -33,6 +33,10 @@ model User {
   passwordHash String
   role         UserRole  @default(MEMBER)
   isActive     Boolean   @default(true)
+  /// Set when this person pays for the hosted instance through Stripe. Empty
+  /// for the owner and anyone invited for free. When set, billing drives
+  /// isActive: a lapsed subscription suspends, a recovered one reactivates.
+  stripeCustomerId String @default("")
   lastLoginAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
@@ -60,6 +64,7 @@ model User {
   tasks          Task[]
 
   @@index([role])
+  @@index([stripeCustomerId])
 }
 
 model Session {
@@ -108,6 +113,11 @@ model Invite {
   /// Whether the invite email actually went out, so the UI can offer the raw link.
   emailSent   Boolean   @default(false)
   emailError  String    @default("")
+  /// Set when this invite was created by a Stripe checkout, so the customer
+  /// link survives the gap between paying and accepting: acceptInvite copies
+  /// it onto the new User, and billing can suspend a lapsed subscription even
+  /// if no webhook fires between those two moments.
+  stripeCustomerId String @default("")
   createdAt   DateTime  @default(now())
 
   @@index([email])

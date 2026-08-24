@@ -3,7 +3,8 @@ import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as users from "@/lib/data/users";
-import { getSettings, updateSettings, emailIsConfigured, maskSecret } from "@/lib/settings";
+import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
+import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/billing";
 import { sendEmail, testEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
@@ -1632,6 +1633,83 @@ export const tools: McpTool[] = [
         ? { ok: true, to, id: result.id }
         : { ok: false, to, error: result.error };
     },
+  },
+  {
+    name: "admin_get_billing_config",
+    title: "Check billing configuration",
+    description:
+      "Whether Stripe billing is wired up for hosting other people on this instance for a fee, how many users currently pay, and the exact webhook URL to paste into the Stripe Dashboard. Keys come back masked. Billing only governs users who arrived through a Stripe checkout — the owner and free invitees are never touched by it.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async (_args, ctx) => {
+      const settings = await getSettings();
+      return {
+        configured: billingIsConfigured(settings),
+        stripeSecretKey: maskSecret(settings.stripeSecretKey),
+        stripeWebhookSecret: maskSecret(settings.stripeWebhookSecret),
+        paymentLink: settings.stripePaymentLink,
+        billedUsers: await billedUserCount(),
+        webhookUrl: `${ctx.baseUrl}/api/stripe/webhook`,
+        help: "In Stripe: create a Product with a recurring Price and a Payment Link for it, then a webhook pointed at webhookUrl with the events checkout.session.completed, customer.subscription.created, customer.subscription.updated, customer.subscription.deleted and invoice.payment_failed. Someone who pays through the link is invited automatically; a lapsed subscription suspends them, and paying again reactivates the same workspace.",
+      };
+    },
+  },
+  {
+    name: "admin_set_billing_config",
+    title: "Configure billing",
+    description:
+      "Set the Stripe secret key, the webhook signing secret, and the public Payment Link for this instance. Only the fields you pass are changed. Follow with admin_get_billing_config to see the webhook URL to register in Stripe.",
+    inputSchema: object({
+      stripeSecretKey: str("Stripe secret key, starts with sk_"),
+      stripeWebhookSecret: str("Webhook signing secret, starts with whsec_"),
+      stripePaymentLink: str("The Stripe Payment Link people pay through, e.g. https://buy.stripe.com/..."),
+    }),
+    adminOnly: true,
+    handler: async (args) => {
+      await updateSettings(
+        defined({
+          stripeSecretKey: s(args, "stripeSecretKey"),
+          stripeWebhookSecret: s(args, "stripeWebhookSecret"),
+          stripePaymentLink: s(args, "stripePaymentLink"),
+        }),
+      );
+      const settings = await getSettings();
+      return { configured: billingIsConfigured(settings), paymentLink: settings.stripePaymentLink };
+    },
+  },
+  {
+    name: "admin_sync_billing",
+    title: "Resync billing from Stripe",
+    description:
+      "Asks Stripe for the current subscription state and reconciles this instance against it — the recovery path for a missed webhook. Pass an email to sync one billed user, or nothing to sync everyone with a Stripe customer attached. Reports what changed per person: activated, suspended, or unchanged. Safe to run any time.",
+    inputSchema: object({ email: str("One billed user's email. Omit to sync all billed users.") }),
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const results = await syncAllBilling(ctx.baseUrl, s(args, "email") || undefined);
+      return { synced: results.length, results };
+    },
+  },
+  {
+    name: "admin_link_billing",
+    title: "Link or unlink a member and their Stripe customer",
+    description:
+      "Attaches an EXISTING member to their Stripe customer so billing starts governing their access. This never happens automatically: a checkout email is whatever the payer typed, so the unattended webhook only ever invites strangers — connecting a current member to a subscription is a deliberate admin act, and this tool is that act. Pass their email; their Stripe customer is found by the same email in Stripe's records, or pass customerId when Stripe holds several. Pass unlink true to detach someone from billing entirely — the recovery hatch if a link was wrong; it also ends billing's authority over their account. The owner can never be linked.",
+    inputSchema: object(
+      {
+        email: str("The member's email on this instance"),
+        customerId: str("A specific Stripe customer id (cus_...), when email alone is ambiguous"),
+        unlink: bool("True to detach this member from billing instead of linking"),
+      },
+      ["email"],
+    ),
+    adminOnly: true,
+    handler: async (args, ctx) =>
+      linkBillingCustomer({
+        email: required(args, "email"),
+        customerId: s(args, "customerId") || undefined,
+        unlink: b(args, "unlink") ?? false,
+        baseUrl: ctx.baseUrl,
+      }),
   },
 ];
 
