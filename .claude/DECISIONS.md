@@ -734,3 +734,16 @@ lost an argument with auto-detection once.
 **Cost:** anyone hand-building must say `-f docker/Dockerfile` (compose and CI already
 do). Production kept serving the previous commit throughout — a failed deploy never
 replaces a running one.
+
+## 2026-08-25 — The repo moved to the shifulaboratories org
+
+**Decision (William's):** byw1/resume became shifulaboratories/resume. Every hardcoded
+reference followed in one commit: the GHCR image is now ghcr.io/shifulaboratories/hired,
+the landing page's links and live star count, the README's self-host curl, and the compose
+file's image. The Pages address for the www record is shifulaboratories.github.io.
+**Why the sweep couldn't wait:** GitHub forwards old repo URLs after a transfer, but the
+forwarding dies the moment anyone creates a new repo named byw1/resume — a squat on the
+old name would silently take over the self-host quickstart and the star count. Links that
+matter don't get to depend on a redirect.
+**Watch for:** Railway's GitHub connection was made to the repo under byw1; if pushes stop
+auto-deploying, the GitHub app needs installing on the org and the service re-linking.

@@ -46,7 +46,7 @@ clicks on Railway if you'd rather never open a terminal. Both below.
 On any machine with Docker installed:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/byw1/resume/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/shifulaboratories/resume/main/docker-compose.yml
 docker compose up -d
 docker compose logs app   # your sign-in details are printed here, once
 ```
@@ -70,7 +70,7 @@ Your data lives in a named volume and survives upgrades and restarts. Back it up
 `docker compose exec db pg_dump -U hired hired > backup.sql`.
 
 The image is built from this repository on every push and published at
-`ghcr.io/byw1/hired`. Building it yourself is `docker compose build`.
+`ghcr.io/shifulaboratories/hired`. Building it yourself is `docker compose build`.
 
 ## Self-host on Railway (no terminal)
 

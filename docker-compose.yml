@@ -27,7 +27,7 @@
 
 services:
   app:
-    image: ghcr.io/byw1/hired:latest
+    image: ghcr.io/shifulaboratories/hired:latest
     build:
       context: .
       dockerfile: docker/Dockerfile

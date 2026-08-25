@@ -1,5 +1,5 @@
 # Builds the self-hosting image and publishes it to GitHub Container Registry
-# on every push to main. docker-compose.yml pulls ghcr.io/byw1/hired:latest,
+# on every push to main. docker-compose.yml pulls ghcr.io/shifulaboratories/hired:latest,
 # which is what makes "docker compose up" work without cloning the repo.
 name: Publish the Docker image
 
@@ -26,5 +26,5 @@ jobs:
           file: docker/Dockerfile
           push: true
           tags: |
-            ghcr.io/byw1/hired:latest
-            ghcr.io/byw1/hired:${{ github.sha }}
+            ghcr.io/shifulaboratories/hired:latest
+            ghcr.io/shifulaboratories/hired:${{ github.sha }}
