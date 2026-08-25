@@ -1,13 +1,16 @@
-# Deploys site/ — the hired.tools landing page — to GitHub Pages on every push
-# that touches it. One-time setup in the repo: Settings → Pages → Source:
-# GitHub Actions. Then point hired.tools DNS at GitHub Pages and the CNAME
-# file in site/ does the rest.
+# Deploys site/ — the hired.tools landing page — to GitHub Pages. The
+# configure-pages step below creates the Pages site itself on first run, so
+# there is no switch to flip in the repository settings; the whole thing is
+# hands-off after a push.
 name: Publish the landing page
 
 on:
   push:
     branches: [main]
-    paths: [site/**]
+    paths:
+      - site/**
+      - .github/workflows/site.yml
+  workflow_dispatch:
 
 permissions:
   contents: read
@@ -22,6 +25,9 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      - uses: actions/configure-pages@v5
+        with:
+          enablement: true
       - uses: actions/upload-pages-artifact@v3
         with:
           path: site
