@@ -188,7 +188,8 @@ however you like — it stays valid for 14 days. Nothing is blocked on email bei
 ### Charging for it (optional)
 
 If you host an instance for other people and want them to pay for it, wire it to Stripe
-from **Admin → Billing**: paste your secret key and a webhook signing secret, register the
+from **Admin → Billing**: paste an API key — a restricted key with read-only Customers and
+Subscriptions is all it needs, and safer than your full secret key — and a webhook signing secret, register the
 webhook URL the panel shows you, and put your Stripe Payment Link wherever you send people.
 Someone new who pays through the link is invited automatically. If their subscription
 lapses they're suspended — sign-in and assistant access stop, data stays — and paying again

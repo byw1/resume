@@ -1658,9 +1658,9 @@ export const tools: McpTool[] = [
     name: "admin_set_billing_config",
     title: "Configure billing",
     description:
-      "Set the Stripe secret key, the webhook signing secret, and the public Payment Link for this instance. Only the fields you pass are changed. Follow with admin_get_billing_config to see the webhook URL to register in Stripe.",
+      "Set the Stripe API key, the webhook signing secret, and the public Payment Link for this instance. Only the fields you pass are changed. Prefer a RESTRICTED key (rk_...) with read-only Customers and Subscriptions over the full secret key — reading those two things is all this app ever does with Stripe, and a restricted key that leaks cannot move money or alter the Stripe account. Follow with admin_get_billing_config to see the webhook URL to register in Stripe.",
     inputSchema: object({
-      stripeSecretKey: str("Stripe secret key, starts with sk_"),
+      stripeSecretKey: str("Stripe API key — a restricted rk_ key with read-only Customers and Subscriptions is enough and safer than the full sk_ key"),
       stripeWebhookSecret: str("Webhook signing secret, starts with whsec_"),
       stripePaymentLink: str("The Stripe Payment Link people pay through, e.g. https://buy.stripe.com/..."),
     }),

@@ -131,7 +131,7 @@ export function BillingPanel({
             <Input
               id="stripe-key"
               type="password"
-              placeholder={settings.hasSecretKey ? settings.stripeSecretKeyMasked : "sk_live_…"}
+              placeholder={settings.hasSecretKey ? settings.stripeSecretKeyMasked : "rk_live_… or sk_live_…"}
               value={values.stripeSecretKey}
               onChange={(e) => setValues((v) => ({ ...v, stripeSecretKey: e.target.value }))}
             />
@@ -147,6 +147,11 @@ export function BillingPanel({
             />
           </div>
         </div>
+        <p className="text-faint text-[12px]">
+          Use a restricted key (Developers → API keys → Create restricted key) with
+          read-only Customers and Subscriptions — that&apos;s all this app ever reads, and a
+          stolen restricted key can&apos;t move money or change anything in Stripe.
+        </p>
         <div className="space-y-1.5">
           <Label htmlFor="stripe-link">Payment link</Label>
           <Input
