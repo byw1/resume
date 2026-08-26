@@ -747,3 +747,59 @@ old name would silently take over the self-host quickstart and the star count. L
 matter don't get to depend on a redirect.
 **Watch for:** Railway's GitHub connection was made to the repo under byw1; if pushes stop
 auto-deploying, the GitHub app needs installing on the org and the service re-linking.
+
+## 2026-08-26 — The landing page shows the app instead of describing it
+
+**Decision:** hired.tools is rebuilt as `site/index.html` + `site/styles.css` + `site/motion.js`
++ `site/media/`, still static, still deployed to Pages by the same workflow. The page is a
+guided tour of real screens: the dashboard, a role in the brain, the resume editor, the
+pipeline board and the companies table are all rebuilt in HTML using the product's own
+tokens, inside a browser frame, and the whole drawing is laid out at a 1440px logical width
+and then `transform: scale()`d to fit its column.
+**Why the scaler matters more than it looks:** a mock that reflows into a 900px column stops
+being a picture of the app — the type goes large relative to the chrome, columns disappear,
+and the reader is looking at a diagram. Scaling one object keeps every proportion the app
+actually has. `motion.js` sets the factor from one ResizeObserver and gives the host the
+scaled height; below a 0.72 floor it stops shrinking and lets the frame pan sideways, because
+past that the app's 12.5px rows are a smudge and a phone cannot honestly do better.
+**Why three files instead of one:** the previous page was one file and that was right at 345
+lines. At ~1,900 it is not. The deploy is unchanged — the workflow uploads the whole folder.
+**Applies to:** `site/`, `.github/workflows/site.yml` (unchanged, still uploads `site/`).
+
+## 2026-08-26 — The signature moment is the assistant refusing
+
+**Decision:** the "Nothing invented" section leads with a transcript where the assistant is
+asked to add a team it cannot evidence, `search_brain` returns nothing, and it says no —
+with the literal instructions block from `handler.ts` and the user's own guardrails printed
+underneath it. It is the only tool chip on the page whose dot goes amber instead of green.
+**Why:** every AI product on the internet is demoed saying yes. The property being sold here
+is that this one says no, and the mechanism — a briefing sent on connect, plus notes the user
+wrote once — is visible in the same frame. A judged panel of three landing-page directions
+independently nominated this as the strongest thing available, over anything about features.
+**What it cost:** the hero transcript went back to two exchanges. Two scripted refusals on one
+page is repetition dressed as evidence.
+**Applies to:** `site/index.html` `#honest`.
+
+## 2026-08-26 — Every product picture is a rebuild first and a screenshot slot second
+
+**Decision:** six named slots (`hero-resume`, `brain-role`, `resume-editor`, `pipeline-board`,
+`crm-companies`, `dashboard-diagnosis`) plus a video slot (`demo`). Each renders a real HTML
+rebuild by default; `motion.js` probes `media/<slot>.png` (or `.mp4`) on load and swaps it in
+only if it loads. `?slots` on the URL outlines every slot and prints its filename.
+**Why:** an empty `media/` folder is a finished page rather than a page of grey boxes, adding
+art is dropping a file in with no markup to edit, and a rebuild never goes stale against a
+screenshot taken three releases ago. `site/media/README.md` carries the shot list, the sizes
+and the capture rules.
+**Applies to:** `site/motion.js`, `site/media/`.
+
+## 2026-08-26 — Counts on the page are generated from tools.ts, not remembered
+
+**Decision:** the catalogue's 64 cards are the real member-visible surface — 58 tools plus 6
+prompts — each carrying the first sentence of its actual description, extracted from
+`src/lib/mcp/tools.ts`. The page states 64 for a member and 81 for an admin.
+**Why:** the numbers were already drifting (README and the old page both said 64, which is
+right; "sixteen admin tools" is not — it is sixteen tools *and* one admin-only prompt, so an
+admin sees seventeen more). Anything counted on a marketing page should be counted from the
+source at the time it is written, and re-counted whenever a tool is added.
+**Watch for:** adding or removing a tool means regenerating the catalogue and the three places
+the totals appear — the hero fact line, the figures row and the `#tools` heading.
