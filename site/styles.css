@@ -1070,6 +1070,16 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 }
 .strip .c:hover { color: var(--foreground); }
 .strip .c svg { width: 17px; height: 17px; opacity: 0.9; }
+
+/* Each client's own mark, at its own ground. Rounded to one radius so six
+   different icon shapes read as one row rather than six stickers. */
+.mark {
+  width: 18px;
+  height: 18px;
+  border-radius: 5px;
+  flex-shrink: 0;
+  object-fit: contain;
+}
 .strip .c.plain { font-family: var(--mono); font-size: 12px; color: var(--faint); }
 
 /* ===========================================================================
@@ -1166,6 +1176,81 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   flex-wrap: wrap;
   gap: 6px;
 }
+
+/* ===========================================================================
+   WHAT YOU SAY
+
+   The tool catalogue is the proof, not the pitch. This is the pitch: six
+   sentences a person would actually say, and what exists afterwards.
+   =========================================================================== */
+
+.says {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(310px, 1fr));
+  gap: 12px;
+}
+
+.say {
+  display: flex;
+  flex-direction: column;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+  padding: 20px 22px;
+  transition: box-shadow 0.25s var(--settle);
+}
+.say:hover { box-shadow: var(--shadow-raised); }
+
+.say .q {
+  font-size: 16.5px;
+  line-height: 1.45;
+  letter-spacing: -0.012em;
+  text-wrap: pretty;
+}
+.say .q::before { content: "\201C"; color: var(--faint); }
+.say .q::after { content: "\201D"; color: var(--faint); }
+
+.say .then {
+  display: flex;
+  gap: 9px;
+  margin-top: 12px;
+  font-size: 13.5px;
+  line-height: 1.55;
+  color: var(--muted);
+  flex: 1;
+}
+.say .then svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px; color: var(--tone); }
+
+.say .via {
+  margin-top: 16px;
+  padding-top: 12px;
+  box-shadow: inset 0 1px 0 var(--rim);
+  font-family: var(--mono);
+  font-size: 11px;
+  color: var(--faint);
+}
+
+/* The catalogue, folded away. It is for the person who wants to check, and it
+   should not be the first thing anybody has to read. */
+.under { margin-top: 36px; }
+.under > summary {
+  display: inline-flex;
+  align-items: center;
+  gap: 9px;
+  cursor: pointer;
+  list-style: none;
+  padding: 9px 15px;
+  border-radius: var(--r-control);
+  box-shadow: var(--shadow-hairline);
+  font-size: 13.5px;
+  color: var(--muted);
+  transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle);
+}
+.under > summary::-webkit-details-marker { display: none; }
+.under > summary:hover { color: var(--foreground); box-shadow: 0 0 0 1px oklch(1 0 0 / 0.18); }
+.under > summary svg { width: 13px; height: 13px; transition: transform 0.25s var(--settle); }
+.under[open] > summary svg { transform: rotate(90deg); }
+.under .inner { margin-top: 26px; }
 
 /* ===========================================================================
    THE TOOL CATALOGUE
@@ -1353,6 +1438,7 @@ footer { padding-block: 44px 56px; }
   transition: color 0.15s var(--settle), background-color 0.15s var(--settle), box-shadow 0.15s var(--settle);
 }
 .tab svg { width: 15px; height: 15px; }
+.tab .mark { width: 17px; height: 17px; border-radius: 4px; }
 .tab:hover { color: var(--foreground); }
 .tab.on {
   color: var(--foreground);

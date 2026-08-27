@@ -42,6 +42,17 @@ six seconds, silent, and encoded so the first frame is worth looking at — they
 and loop, and anyone who has asked their system to calm down gets a paused clip with
 controls rather than motion.
 
+## The client marks — don't delete these
+
+`clients/` holds each connected app's own icon: `claude.png`, `chatgpt.png`, `cursor.png`,
+`vscode.png`, `windsurf.png`. These are **not** placeholders waiting for you to replace
+them — the page references them directly. They were fetched once from each product's own
+favicon and rendered to a uniform 64px PNG, so the page makes no third-party request and
+nothing breaks if one of those services changes its icon URL.
+
+To refresh one, download that product's favicon and re-render it to 64 × 64 with a
+transparent background. Keep the filename.
+
 ## The share card
 
 `site/og.png` is the 1200×630 image that appears when the link is pasted anywhere. It is
