@@ -1,10 +1,14 @@
 /* ===========================================================================
-   hired.tools — the marketing surface of the app's own dark theme.
+   hired.tools — the page in the app's light theme, the product in its dark one.
 
-   Every token below is lifted verbatim from the product's globals.css dark
-   block. That is deliberate: this page should feel like the app because it is
-   dressed in the app, and the product mocks further down are pixel-honest
-   rebuilds of real screens rather than drawings of them.
+   Every token below is lifted verbatim from the product's globals.css. The page
+   wears the light palette; anything inside `.app-dark` — the browser frames and
+   the diagnosis card — wears the dark one, because the app ships with dark as
+   its default theme and a screenshot of it should look like what you get.
+
+   That split is also why site/media/README.md tells you to capture screenshots
+   in dark mode: a real capture dropped into a slot lands on top of a mock that
+   is already dark, and the two agree.
 
    Three things this file will not do, because the product doesn't:
    - use colour that isn't carrying information (the one exception is the stage
@@ -15,57 +19,75 @@
 
 :root {
   /* --- Surfaces. A stack, not a set of greys: page -> canvas -> card -> popover. */
-  --background: oklch(0.165 0.004 265);
-  --canvas: oklch(0.192 0.004 265);
-  --card: oklch(0.213 0.004 265);
-  --popover: oklch(0.238 0.005 265);
-  --inset: oklch(0.186 0.004 265);
+  --background: oklch(0.979 0.001 265);
+  --canvas: oklch(0.962 0.002 265);
+  --card: oklch(1 0 0);
+  --popover: oklch(1 0 0);
+  --inset: oklch(0.968 0.002 265);
+  --rail-bg: oklch(0.968 0.002 265);
 
   /* --- Ink. Three levels: what you came to read, its label, its metadata. */
-  --foreground: oklch(0.968 0.002 265);
-  --muted: oklch(0.68 0.008 265);
-  --faint: oklch(0.53 0.009 265);
+  --foreground: oklch(0.18 0.006 265);
+  --muted: oklch(0.505 0.008 265);
+  --faint: oklch(0.665 0.008 265);
 
   /* --- The one accent. */
-  --primary: oklch(0.65 0.17 252);
-  --primary-tint: oklch(0.65 0.17 252 / 0.17);
+  --primary: oklch(0.55 0.17 254);
+  --primary-tint: oklch(0.96 0.019 253);
   --on-primary: oklch(1 0 0);
 
-  --success: oklch(0.7 0.14 154);
-  --warning: oklch(0.78 0.14 72);
-  --destructive: oklch(0.66 0.19 25);
+  --success: oklch(0.6 0.13 152);
+  --warning: oklch(0.72 0.14 70);
+  --destructive: oklch(0.58 0.21 25);
 
   /* --- The stage rotation. Hue turns one way as an application advances, so
          two chips read as "further along" without knowing the labels. */
-  --stage-wishlist: oklch(0.72 0.012 265);
-  --stage-applied: oklch(0.72 0.12 235);
-  --stage-screen: oklch(0.72 0.14 268);
-  --stage-interview: oklch(0.73 0.15 300);
-  --stage-final: oklch(0.74 0.15 340);
-  --stage-offer: oklch(0.79 0.13 75);
-  --stage-accepted: oklch(0.75 0.13 152);
-  --stage-rejected: oklch(0.7 0.17 25);
-  --stage-wash: 20%;
+  --stage-wishlist: oklch(0.6 0.012 265);
+  --stage-applied: oklch(0.55 0.13 235);
+  --stage-screen: oklch(0.53 0.15 268);
+  --stage-interview: oklch(0.52 0.17 300);
+  --stage-final: oklch(0.55 0.18 340);
+  --stage-offer: oklch(0.58 0.14 68);
+  --stage-accepted: oklch(0.55 0.13 152);
+  --stage-rejected: oklch(0.55 0.19 25);
+  --stage-wash: 12%;
+
+  /* --- Overlays. Named rather than written inline, because "a bit of white on
+         top" only works on a dark ground and this page now has both. */
+  --wash: oklch(0 0 0 / 0.04);
+  --rim-strong: oklch(0.8 0.004 265);
+  --dot: oklch(0.86 0.004 265);
+  --grid-line: oklch(0 0 0 / 0.05);
+
+  /* --- The mark has no colour of its own: the tile is the page's ink and the
+         three bars are cut out of it, so it inverts with the surface. */
+  --brand-tile: var(--foreground);
+  --brand-cut: var(--background);
 
   /* --- Elevation. The rim does the separating; the shadow says how far off
-         the page. In the dark the rim is a lit top edge, not a hairline. */
-  --rim: oklch(1 0 0 / 0.1);
+         the page. Many small stops read as light falling on an edge. */
+  --rim: oklch(0.905 0.003 265);
   --shadow-hairline: 0 0 0 1px var(--rim);
   --shadow-card:
-    0 0 0 1px oklch(1 0 0 / 0.09),
-    0 1px 2px oklch(0 0 0 / 0.24),
-    0 2px 6px oklch(0 0 0 / 0.2);
+    0 0 0 1px var(--rim),
+    0 1px 1.5px oklch(0 0 0 / 0.028),
+    0 3px 6px oklch(0 0 0 / 0.022),
+    0 8px 18px oklch(0 0 0 / 0.018);
   --shadow-raised:
-    0 0 0 1px oklch(1 0 0 / 0.11),
-    0 2px 10px oklch(0 0 0 / 0.28);
+    0 0 0 1px var(--rim),
+    0 1px 2px oklch(0 0 0 / 0.04),
+    0 4px 10px oklch(0 0 0 / 0.035),
+    0 12px 26px oklch(0 0 0 / 0.03);
   --shadow-overlay:
-    0 0 0 1px oklch(1 0 0 / 0.13),
-    0 8px 28px oklch(0 0 0 / 0.42);
+    0 0 0 1px var(--rim),
+    0 2px 4px oklch(0 0 0 / 0.05),
+    0 8px 20px oklch(0 0 0 / 0.06),
+    0 24px 56px oklch(0 0 0 / 0.09);
   --shadow-lift:
-    0 0 0 1px oklch(1 0 0 / 0.12),
-    0 2px 6px oklch(0 0 0 / 0.3),
-    0 18px 50px oklch(0 0 0 / 0.45),
-    0 48px 100px oklch(0 0 0 / 0.35);
+    0 0 0 1px var(--rim),
+    0 2px 6px oklch(0 0 0 / 0.05),
+    0 18px 44px oklch(0 0 0 / 0.09),
+    0 44px 92px oklch(0 0 0 / 0.07);
 
   /* --- Radius by the size of the thing. */
   --r-chip: 6px;
@@ -84,6 +106,66 @@
 
   --gutter: 24px;
   --measure: 1280px;
+}
+
+/* ---------------------------------------------------------------------------
+   The product, in its own theme.
+
+   The app ships with dark as its default, so a picture of it should be dark
+   whatever the page around it is doing. Redeclaring the tokens on this one
+   class flips every mock inside it — rails, cards, chips, bars, tables — with
+   no component needing to know which theme it is in.
+   --------------------------------------------------------------------------- */
+
+.app-dark {
+  --background: oklch(0.165 0.004 265);
+  --canvas: oklch(0.192 0.004 265);
+  --card: oklch(0.213 0.004 265);
+  --popover: oklch(0.238 0.005 265);
+  --inset: oklch(0.186 0.004 265);
+  --rail-bg: oklch(0.185 0.004 265);
+
+  --foreground: oklch(0.968 0.002 265);
+  --muted: oklch(0.68 0.008 265);
+  --faint: oklch(0.53 0.009 265);
+
+  --primary: oklch(0.65 0.17 252);
+  --primary-tint: oklch(0.65 0.17 252 / 0.17);
+
+  --success: oklch(0.7 0.14 154);
+  --warning: oklch(0.78 0.14 72);
+  --destructive: oklch(0.66 0.19 25);
+
+  --stage-wishlist: oklch(0.72 0.012 265);
+  --stage-applied: oklch(0.72 0.12 235);
+  --stage-screen: oklch(0.72 0.14 268);
+  --stage-interview: oklch(0.73 0.15 300);
+  --stage-final: oklch(0.74 0.15 340);
+  --stage-offer: oklch(0.79 0.13 75);
+  --stage-accepted: oklch(0.75 0.13 152);
+  --stage-rejected: oklch(0.7 0.17 25);
+  --stage-wash: 20%;
+
+  --wash: oklch(1 0 0 / 0.05);
+  --rim-strong: oklch(1 0 0 / 0.18);
+  --dot: oklch(1 0 0 / 0.14);
+
+  /* In the dark the rim flips: a dark hairline on a dark surface is invisible,
+     so it becomes a faint highlight along the lit edge of the object. */
+  --rim: oklch(1 0 0 / 0.1);
+  --shadow-card:
+    0 0 0 1px oklch(1 0 0 / 0.09),
+    0 1px 2px oklch(0 0 0 / 0.24),
+    0 2px 6px oklch(0 0 0 / 0.2);
+  --shadow-raised:
+    0 0 0 1px oklch(1 0 0 / 0.11),
+    0 2px 10px oklch(0 0 0 / 0.28);
+  --shadow-overlay:
+    0 0 0 1px oklch(1 0 0 / 0.13),
+    0 8px 28px oklch(0 0 0 / 0.42);
+
+  color: var(--foreground);
+  background: var(--background);
 }
 
 *,
@@ -259,7 +341,7 @@ section { position: relative; }
 }
 
 .btn-ghost { box-shadow: var(--shadow-hairline); color: var(--foreground); }
-.btn-ghost:hover { background: oklch(1 0 0 / 0.05); box-shadow: 0 0 0 1px oklch(1 0 0 / 0.18); }
+.btn-ghost:hover { background: var(--wash); box-shadow: 0 0 0 1px var(--rim-strong); }
 
 .btn-quiet { color: var(--muted); padding-inline: 10px; }
 .btn-quiet:hover { color: var(--foreground); }
@@ -399,7 +481,7 @@ pre, code { font-family: var(--mono); }
   width: 9px;
   height: 9px;
   border-radius: 50%;
-  background: oklch(1 0 0 / 0.14);
+  background: var(--dot);
 }
 .frame-url {
   flex: 1;
@@ -449,8 +531,8 @@ pre, code { font-family: var(--mono); }
 .rail {
   width: 240px;
   flex-shrink: 0;
-  background: oklch(0.185 0.004 265);
-  box-shadow: inset -1px 0 0 oklch(1 0 0 / 0.07);
+  background: var(--rail-bg);
+  box-shadow: inset -1px 0 0 var(--rim);
   padding: 12px 10px;
   display: flex;
   flex-direction: column;
@@ -489,7 +571,7 @@ pre, code { font-family: var(--mono); }
   color: var(--muted);
   transition: background-color 0.15s var(--settle), color 0.15s var(--settle);
 }
-.rail .rail-item.on { background: oklch(1 0 0 / 0.07); color: var(--foreground); font-weight: 500; }
+.rail .rail-item.on { background: var(--wash); color: var(--foreground); font-weight: 500; }
 .rail-item svg { width: 14px; height: 14px; opacity: 0.85; }
 .rail-spacer { flex: 1; }
 
@@ -651,10 +733,11 @@ pre, code { font-family: var(--mono); }
   font-size: 10px;
   font-weight: 600;
   letter-spacing: 0.01em;
-  color: oklch(0.82 0.075 var(--hue));
-  background: oklch(0.32 0.035 var(--hue));
+  color: oklch(0.5 0.075 var(--hue));
+  background: oklch(0.945 0.028 var(--hue));
   user-select: none;
 }
+.app-dark .mono-av { color: oklch(0.82 0.075 var(--hue)); background: oklch(0.32 0.035 var(--hue)); }
 .mono-av.lg { width: 28px; height: 28px; font-size: 11px; }
 
 /* A hairline table. Column gaps would break the rules into dashes, so the
@@ -904,7 +987,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   color: var(--muted);
   transition: color 0.15s var(--settle), background-color 0.15s var(--settle);
 }
-.nav-links a.link:hover { color: var(--foreground); background: oklch(1 0 0 / 0.05); }
+.nav-links a.link:hover { color: var(--foreground); background: var(--wash); }
 
 .gh {
   display: inline-flex;
@@ -918,7 +1001,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   color: var(--muted);
   transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle);
 }
-.gh:hover { color: var(--foreground); box-shadow: 0 0 0 1px oklch(1 0 0 / 0.18); }
+.gh:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
 .gh svg { width: 14px; height: 14px; fill: currentColor; }
 
 /* The scroll progress line, wearing the stage rotation. It is the only place
@@ -967,10 +1050,12 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   height: 860px;
   z-index: -1;
   pointer-events: none;
+  /* On a light ground the same light source has to be much weaker: a colour
+     that reads as a glow against near-black reads as a stain against paper. */
   background:
-    radial-gradient(50% 46% at 22% 30%, color-mix(in oklch, var(--primary) 30%, transparent), transparent 72%),
-    radial-gradient(46% 46% at 74% 12%, color-mix(in oklch, var(--stage-interview) 24%, transparent), transparent 74%),
-    radial-gradient(34% 36% at 96% 40%, color-mix(in oklch, var(--stage-final) 15%, transparent), transparent 76%);
+    radial-gradient(50% 46% at 22% 30%, color-mix(in oklch, var(--primary) 13%, transparent), transparent 72%),
+    radial-gradient(46% 46% at 74% 12%, color-mix(in oklch, var(--stage-interview) 11%, transparent), transparent 74%),
+    radial-gradient(34% 36% at 96% 40%, color-mix(in oklch, var(--stage-final) 8%, transparent), transparent 76%);
   mask-image: linear-gradient(to bottom, black, black 42%, transparent 94%);
   -webkit-mask-image: linear-gradient(to bottom, black, black 42%, transparent 94%);
 }
@@ -983,8 +1068,8 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   z-index: -2;
   pointer-events: none;
   background-image:
-    linear-gradient(to right, oklch(1 0 0 / 0.055) 1px, transparent 1px),
-    linear-gradient(to bottom, oklch(1 0 0 / 0.055) 1px, transparent 1px);
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
   background-size: 64px 64px;
   mask-image: radial-gradient(82% 66% at 46% 18%, black, transparent 76%);
   -webkit-mask-image: radial-gradient(82% 66% at 46% 18%, black, transparent 76%);
@@ -1010,7 +1095,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   color: var(--muted);
   transition: box-shadow 0.16s var(--settle), color 0.16s var(--settle);
 }
-.pill:hover { color: var(--foreground); box-shadow: 0 0 0 1px oklch(1 0 0 / 0.2); }
+.pill:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
 .pill em {
   font-style: normal;
   font-family: var(--mono);
@@ -1052,7 +1137,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 }
 .panel-head .eyebrow { margin-right: auto; }
 .panel-head .dotline { display: flex; gap: 5px; }
-.panel-head .dotline i { width: 6px; height: 6px; border-radius: 50%; background: oklch(1 0 0 / 0.14); }
+.panel-head .dotline i { width: 6px; height: 6px; border-radius: 50%; background: var(--dot); }
 
 /* ===========================================================================
    CLIENT STRIP
@@ -1162,7 +1247,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transform-origin: left;
   transition: scale 0.4s var(--enter), opacity 0.25s linear;
 }
-.chapter.on { background: oklch(1 0 0 / 0.04); }
+.chapter.on { background: var(--wash); }
 .chapter.on::before { scale: 1 1; opacity: 1; }
 .chapter .ct { display: block; font-size: 14px; font-weight: 600; letter-spacing: -0.012em; color: var(--muted); transition: color 0.25s var(--settle); }
 .chapter.on .ct { color: var(--foreground); }
@@ -1247,7 +1332,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle);
 }
 .under > summary::-webkit-details-marker { display: none; }
-.under > summary:hover { color: var(--foreground); box-shadow: 0 0 0 1px oklch(1 0 0 / 0.18); }
+.under > summary:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
 .under > summary svg { width: 13px; height: 13px; transition: transform 0.25s var(--settle); }
 .under[open] > summary svg { transform: rotate(90deg); }
 .under .inner { margin-top: 26px; }
@@ -1486,7 +1571,7 @@ footer { padding-block: 44px 56px; }
   box-shadow: var(--shadow-hairline);
   transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle);
 }
-.copy:hover { color: var(--foreground); box-shadow: 0 0 0 1px oklch(1 0 0 / 0.2); }
+.copy:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
 
 /* ---------------------------------------------------------------------------
    The no-fabrication panel

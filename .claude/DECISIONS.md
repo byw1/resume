@@ -842,3 +842,28 @@ written back as attributes, so an attribute can never disagree with the CSS rule
 styles it.
 **Applies to:** `site/index.html`. Any new inline SVG needs `width` and `height` on the tag,
 not only a CSS rule.
+
+## 2026-08-27 — The page is light; the product inside it stays dark
+
+**Decision (William's):** hired.tools is now the app's **light** palette, lifted verbatim from
+the `:root` block of `globals.css`. The product mocks are not: `.frame` and the diagnosis
+card carry `.app-dark`, which redeclares the same tokens with the dark values, so every
+rail, card, chip, bar and table inside them flips without any component knowing which theme
+it is in.
+**Why the split:** the app's own `ThemeProvider` has `defaultTheme="dark"`, so dark is what
+a person actually sees when they open it — a light mock would be a picture of a state most
+users never choose. It also keeps `site/media/README.md` honest: a real screenshot is still
+captured in dark mode and still lands on top of a mock that agrees with it.
+**What the flip actually cost:** the token swap was the easy half. The hard half was 17
+places that had `oklch(1 0 0 / …)` written inline — hover washes, hover rims, window-chrome
+dots, the rail surface, the hero grid — every one of which is invisible on a light ground.
+Those are now `--wash`, `--rim-strong`, `--dot`, `--grid-line` and `--rail-bg`, declared
+once per theme. **If you add a hover state, use the token; a literal white overlay only
+works on one of the two grounds this page now has.**
+**The mark:** `--brand-tile: var(--foreground)` and `--brand-cut: var(--background)`, so the
+tile is the ink of whatever surface it sits on and the three bars are cut out of it. That is
+why the same markup reads correctly in the light nav and inside a dark frame. Both carry a
+literal fallback in the `fill` attribute, because `var()` with no fallback resolves to black
+and the no-stylesheet state would otherwise be a solid black square.
+**Also flipped:** `og.png` and its source, and the `theme-color` meta.
+**Applies to:** `site/styles.css`, `site/index.html`, `site/media/og-source.html`.

@@ -5,8 +5,8 @@
   * { box-sizing: border-box; margin: 0; }
   body {
     width: 1200px; height: 630px; overflow: hidden;
-    background: oklch(0.165 0.004 265);
-    color: oklch(0.968 0.002 265);
+    background: oklch(0.979 0.001 265);
+    color: oklch(0.18 0.006 265);
     font-family: Inter, sans-serif;
     -webkit-font-smoothing: antialiased;
     position: relative;
@@ -14,45 +14,45 @@
   .grid {
     position: absolute; inset: 0;
     background-image:
-      linear-gradient(to right, oklch(1 0 0 / 0.05) 1px, transparent 1px),
-      linear-gradient(to bottom, oklch(1 0 0 / 0.05) 1px, transparent 1px);
+      linear-gradient(to right, oklch(0 0 0 / 0.05) 1px, transparent 1px),
+      linear-gradient(to bottom, oklch(0 0 0 / 0.05) 1px, transparent 1px);
     background-size: 64px 64px;
     mask-image: radial-gradient(80% 70% at 40% 30%, black, transparent 78%);
   }
   .glow {
     position: absolute; inset: -120px 0 auto; height: 780px;
     background:
-      radial-gradient(46% 46% at 20% 40%, oklch(0.65 0.17 252 / 0.34), transparent 72%),
-      radial-gradient(46% 46% at 76% 18%, oklch(0.73 0.15 300 / 0.26), transparent 74%),
-      radial-gradient(32% 34% at 96% 44%, oklch(0.74 0.15 340 / 0.16), transparent 76%);
+      radial-gradient(46% 46% at 20% 40%, oklch(0.55 0.17 254 / 0.15), transparent 72%),
+      radial-gradient(46% 46% at 76% 18%, oklch(0.52 0.17 300 / 0.12), transparent 74%),
+      radial-gradient(32% 34% at 96% 44%, oklch(0.55 0.18 340 / 0.09), transparent 76%);
     mask-image: linear-gradient(to bottom, black, black 44%, transparent 94%);
   }
   .pad { position: relative; padding: 76px 80px; height: 100%; display: flex; flex-direction: column; }
   .brand { display: flex; align-items: center; gap: 14px; font-size: 27px; font-weight: 600; letter-spacing: -0.02em; }
   h1 { margin-top: auto; font-size: 82px; line-height: 1.02; letter-spacing: -0.04em; font-weight: 600; max-width: 17ch; }
-  p { margin-top: 26px; font-size: 25px; line-height: 1.45; color: oklch(0.68 0.008 265); max-width: 42ch; }
+  p { margin-top: 26px; font-size: 25px; line-height: 1.45; color: oklch(0.505 0.008 265); max-width: 42ch; }
   .foot { margin-top: auto; display: flex; align-items: center; gap: 18px; }
   .motif { display: flex; height: 4px; width: 210px; border-radius: 2px; overflow: hidden; }
   .motif i { flex: 1; }
-  .meta { font-family: "JetBrains Mono", monospace; font-size: 17px; color: oklch(0.53 0.009 265); letter-spacing: 0.02em; }
+  .meta { font-family: "JetBrains Mono", monospace; font-size: 17px; color: oklch(0.665 0.008 265); letter-spacing: 0.02em; }
 </style></head>
 <body>
   <div class="grid"></div><div class="glow"></div>
   <div class="pad">
     <div class="brand">
-      <svg width="42" height="42" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#F4F5F6"/><rect x="16" y="17" width="13" height="7" rx="1.5" fill="#191A1E"/><rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="#191A1E"/><rect x="16" y="40" width="32" height="7" rx="1.5" fill="#191A1E"/></svg>
+      <svg width="42" height="42" viewBox="0 0 64 64"><rect width="64" height="64" rx="15" fill="#191A1E"/><rect x="16" y="17" width="13" height="7" rx="1.5" fill="#F9F9FA"/><rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="#F9F9FA"/><rect x="16" y="40" width="32" height="7" rx="1.5" fill="#F9F9FA"/></svg>
       Hired
     </div>
     <h1>Write your career down once.</h1>
     <p>The record of every job you've had, and the resumes, applications and follow-ups that come out of it. Nothing invented.</p>
     <div class="foot">
       <div class="motif">
-        <i style="background:oklch(0.72 0.012 265)"></i>
-        <i style="background:oklch(0.72 0.12 235)"></i>
-        <i style="background:oklch(0.72 0.14 268)"></i>
-        <i style="background:oklch(0.73 0.15 300)"></i>
-        <i style="background:oklch(0.74 0.15 340)"></i>
-        <i style="background:oklch(0.79 0.13 75)"></i>
+        <i style="background:oklch(0.6 0.012 265)"></i>
+        <i style="background:oklch(0.55 0.13 235)"></i>
+        <i style="background:oklch(0.53 0.15 268)"></i>
+        <i style="background:oklch(0.52 0.17 300)"></i>
+        <i style="background:oklch(0.55 0.18 340)"></i>
+        <i style="background:oklch(0.58 0.14 68)"></i>
       </div>
       <span class="meta">hired.tools · self-hosted · AGPL-3.0</span>
     </div>
