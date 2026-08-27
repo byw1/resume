@@ -867,3 +867,24 @@ literal fallback in the `fill` attribute, because `var()` with no fallback resol
 and the no-stylesheet state would otherwise be a solid black square.
 **Also flipped:** `og.png` and its source, and the `theme-color` meta.
 **Applies to:** `site/styles.css`, `site/index.html`, `site/media/og-source.html`.
+
+## 2026-08-27 — Everything light, mocks included
+
+**Decision (William's):** the split from earlier today is reverted. The product frames and
+the diagnosis card no longer carry `.app-dark`; the whole page, screenshots and app UI
+included, is the light theme. The `.app-dark` scope is deleted rather than left unused —
+git has it if the split is ever wanted back.
+**Why the split didn't survive:** it was my call, not a requirement, and the argument for it
+(dark is the app's default, so a picture of it should be dark) lost to the simpler one — a
+page asked to be light should be light all the way down, and a reader should not have to
+work out why two surfaces on one page disagree.
+**The one token the app doesn't have:** `--page`, a step deeper than `--background`. The
+app's own background is near-white, so a frame containing it had nothing to sit on and the
+window edge disappeared into the page. `--page` is the page ground only — `body`, the stuck
+nav and the tour's chapter bar. Everything inside a frame still uses `--background`, so the
+mock is the app's real colour and the separation comes from the page, not from faking the
+app.
+**Consequence for captures:** `site/media/README.md` now says shoot in **light** mode, and
+says the part people forget — Hired defaults to dark, so its theme has to be switched
+before the screenshot is taken or it will not match the frame it lands in.
+**Supersedes:** the entry above it. Left in place as the record of what was tried.

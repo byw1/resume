@@ -1,14 +1,15 @@
 /* ===========================================================================
-   hired.tools — the page in the app's light theme, the product in its dark one.
+   hired.tools — the page and the product both in the app's light theme.
 
-   Every token below is lifted verbatim from the product's globals.css. The page
-   wears the light palette; anything inside `.app-dark` — the browser frames and
-   the diagnosis card — wears the dark one, because the app ships with dark as
-   its default theme and a screenshot of it should look like what you get.
+   Every token below is lifted verbatim from the light `:root` block of the
+   product's globals.css, so the mocks further down are the app's own light
+   theme rather than an approximation of it. `--page` is the one value with no
+   counterpart in the app: it is a step deeper than `--background` so a product
+   frame, which is the app's near-white, reads as a lit object on it.
 
-   That split is also why site/media/README.md tells you to capture screenshots
-   in dark mode: a real capture dropped into a slot lands on top of a mock that
-   is already dark, and the two agree.
+   Screenshots dropped into the slots therefore have to be captured in light
+   mode — see site/media/README.md. The app defaults to dark, so that means
+   switching its theme before you shoot.
 
    Three things this file will not do, because the product doesn't:
    - use colour that isn't carrying information (the one exception is the stage
@@ -19,6 +20,7 @@
 
 :root {
   /* --- Surfaces. A stack, not a set of greys: page -> canvas -> card -> popover. */
+  --page: oklch(0.955 0.002 265);
   --background: oklch(0.979 0.001 265);
   --canvas: oklch(0.962 0.002 265);
   --card: oklch(1 0 0);
@@ -84,10 +86,10 @@
     0 8px 20px oklch(0 0 0 / 0.06),
     0 24px 56px oklch(0 0 0 / 0.09);
   --shadow-lift:
-    0 0 0 1px var(--rim),
-    0 2px 6px oklch(0 0 0 / 0.05),
-    0 18px 44px oklch(0 0 0 / 0.09),
-    0 44px 92px oklch(0 0 0 / 0.07);
+    0 0 0 1px oklch(0.885 0.003 265),
+    0 2px 6px oklch(0 0 0 / 0.06),
+    0 14px 32px oklch(0 0 0 / 0.08),
+    0 38px 80px oklch(0 0 0 / 0.09);
 
   /* --- Radius by the size of the thing. */
   --r-chip: 6px;
@@ -108,66 +110,6 @@
   --measure: 1280px;
 }
 
-/* ---------------------------------------------------------------------------
-   The product, in its own theme.
-
-   The app ships with dark as its default, so a picture of it should be dark
-   whatever the page around it is doing. Redeclaring the tokens on this one
-   class flips every mock inside it — rails, cards, chips, bars, tables — with
-   no component needing to know which theme it is in.
-   --------------------------------------------------------------------------- */
-
-.app-dark {
-  --background: oklch(0.165 0.004 265);
-  --canvas: oklch(0.192 0.004 265);
-  --card: oklch(0.213 0.004 265);
-  --popover: oklch(0.238 0.005 265);
-  --inset: oklch(0.186 0.004 265);
-  --rail-bg: oklch(0.185 0.004 265);
-
-  --foreground: oklch(0.968 0.002 265);
-  --muted: oklch(0.68 0.008 265);
-  --faint: oklch(0.53 0.009 265);
-
-  --primary: oklch(0.65 0.17 252);
-  --primary-tint: oklch(0.65 0.17 252 / 0.17);
-
-  --success: oklch(0.7 0.14 154);
-  --warning: oklch(0.78 0.14 72);
-  --destructive: oklch(0.66 0.19 25);
-
-  --stage-wishlist: oklch(0.72 0.012 265);
-  --stage-applied: oklch(0.72 0.12 235);
-  --stage-screen: oklch(0.72 0.14 268);
-  --stage-interview: oklch(0.73 0.15 300);
-  --stage-final: oklch(0.74 0.15 340);
-  --stage-offer: oklch(0.79 0.13 75);
-  --stage-accepted: oklch(0.75 0.13 152);
-  --stage-rejected: oklch(0.7 0.17 25);
-  --stage-wash: 20%;
-
-  --wash: oklch(1 0 0 / 0.05);
-  --rim-strong: oklch(1 0 0 / 0.18);
-  --dot: oklch(1 0 0 / 0.14);
-
-  /* In the dark the rim flips: a dark hairline on a dark surface is invisible,
-     so it becomes a faint highlight along the lit edge of the object. */
-  --rim: oklch(1 0 0 / 0.1);
-  --shadow-card:
-    0 0 0 1px oklch(1 0 0 / 0.09),
-    0 1px 2px oklch(0 0 0 / 0.24),
-    0 2px 6px oklch(0 0 0 / 0.2);
-  --shadow-raised:
-    0 0 0 1px oklch(1 0 0 / 0.11),
-    0 2px 10px oklch(0 0 0 / 0.28);
-  --shadow-overlay:
-    0 0 0 1px oklch(1 0 0 / 0.13),
-    0 8px 28px oklch(0 0 0 / 0.42);
-
-  color: var(--foreground);
-  background: var(--background);
-}
-
 *,
 *::before,
 *::after {
@@ -183,7 +125,7 @@ html {
 }
 
 body {
-  background: var(--background);
+  background: var(--page);
   color: var(--foreground);
   font-family: var(--sans);
   font-size: 15px;
@@ -737,7 +679,6 @@ pre, code { font-family: var(--mono); }
   background: oklch(0.945 0.028 var(--hue));
   user-select: none;
 }
-.app-dark .mono-av { color: oklch(0.82 0.075 var(--hue)); background: oklch(0.32 0.035 var(--hue)); }
 .mono-av.lg { width: 28px; height: 28px; font-size: 11px; }
 
 /* A hairline table. Column gaps would break the rules into dashes, so the
@@ -969,7 +910,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transition: height 0.25s var(--settle);
 }
 .nav.stuck {
-  background: color-mix(in oklch, var(--background) 78%, transparent);
+  background: color-mix(in oklch, var(--page) 78%, transparent);
   backdrop-filter: saturate(180%) blur(20px);
   -webkit-backdrop-filter: saturate(180%) blur(20px);
   box-shadow: 0 1px 0 var(--rim);
@@ -1215,7 +1156,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   gap: 4px;
   margin-bottom: 40px;
   padding: 8px 0;
-  background: color-mix(in oklch, var(--background) 93%, transparent);
+  background: color-mix(in oklch, var(--page) 93%, transparent);
   backdrop-filter: saturate(180%) blur(22px);
   -webkit-backdrop-filter: saturate(180%) blur(22px);
   box-shadow: inset 0 -1px 0 var(--rim);

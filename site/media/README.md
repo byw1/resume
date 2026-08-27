@@ -25,10 +25,10 @@ itself and prints its name in the corner. That is the authoritative list. As of 
 
 ## Taking them
 
-- Shoot in **dark mode** at **1440 × 900** or wider, at 2× device pixel ratio. The page
-  itself is light, but every product frame on it is dark — the app ships with dark as its
-  default theme, so that is what a picture of it should show. A light capture dropped into
-  a dark frame will look like a different product.
+- Shoot in **light mode** at **1440 × 900** or wider, at 2× device pixel ratio. The whole
+  page is light, mocks included, so a dark capture will look like a different product.
+  **Hired defaults to dark**, so switch its theme before you shoot — this is the step
+  people forget.
 - Include the window chrome only if you are replacing a slot that already draws it — the
   slots inside a `.frame` already have a title bar above them, so shoot the app's own
   viewport and nothing else.
