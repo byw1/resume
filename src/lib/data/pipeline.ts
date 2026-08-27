@@ -1,6 +1,7 @@
 import { ActivityType, Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
+import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
 /** Like brain.ts: userId is the required first argument on every query. */
 
@@ -315,6 +316,52 @@ export async function createApplication(userId: string, input: ApplicationInput)
   });
 
   return application;
+}
+
+export type CaptureResult =
+  | { captured: true; application: Awaited<ReturnType<typeof createApplication>>; parsed: ParsedPosting }
+  | { captured: false; parsed: ParsedPosting; reason: string };
+
+/**
+ * One move from a posting URL to a tracked application: fetch the page, read
+ * the JobPosting data most boards embed, match or create the company, and
+ * create the application on the wishlist with the description filled.
+ *
+ * When the page doesn't say who the employer is or what the role is called,
+ * nothing is created — whatever WAS readable comes back so the caller can
+ * complete it and create the application deliberately. Guessing an employer's
+ * name from a URL is how a pipeline fills with companies that don't exist.
+ */
+export async function captureJobPosting(userId: string, url: string): Promise<CaptureResult> {
+  const parsed = await loadPosting(url);
+
+  if (!parsed.roleTitle || !parsed.company) {
+    const missing = [
+      !parsed.roleTitle ? "the role title" : null,
+      !parsed.company ? "the employer" : null,
+    ]
+      .filter(Boolean)
+      .join(" or ");
+    return {
+      captured: false,
+      parsed,
+      reason: `The page didn't state ${missing} in a readable way. Nothing was created.`,
+    };
+  }
+
+  const application = await createApplication(userId, {
+    company: parsed.company,
+    companyWebsite: parsed.companyWebsite || undefined,
+    roleTitle: parsed.roleTitle,
+    stage: "WISHLIST",
+    jobUrl: url.trim(),
+    jobDescription: parsed.jobDescription,
+    location: parsed.location,
+    workMode: parsed.workMode,
+    salaryRange: parsed.salaryRange,
+    source: parsed.source,
+  });
+  return { captured: true, application, parsed };
 }
 
 export async function updateApplication(

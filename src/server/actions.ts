@@ -22,6 +22,7 @@ import {
 import { getSettings, updateSettings } from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
+import { loadPosting } from "@/lib/posting";
 
 /**
  * Every action resolves the caller from their session cookie. No action ever
@@ -282,6 +283,22 @@ export async function saveEmailSettingsAction(patch: {
   revalidatePath("/admin");
   revalidatePath("/applications");
   return { ok: true as const };
+}
+
+/**
+ * Fetch a posting URL and hand back what the page says, for the new-application
+ * dialog to prefill. Deliberately creates nothing: in the UI a person reviews
+ * the fields before tracking the job, so the parse and the create stay
+ * separate. (The capture_job_posting tool is the one-move version for
+ * assistants.)
+ */
+export async function parsePostingAction(url: string) {
+  await requireUser();
+  try {
+    return { ok: true as const, parsed: await loadPosting(url) };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not fetch that." };
+  }
 }
 
 export async function saveBillingSettingsAction(patch: {

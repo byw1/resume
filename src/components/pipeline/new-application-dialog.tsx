@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { LoaderCircleIcon, PlusIcon } from "lucide-react";
+import { LoaderCircleIcon, PlusIcon, SparklesIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -26,7 +26,7 @@ import {
 } from "@/components/ui/select";
 import { BOARD_STAGES, STAGE_LABEL } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
-import { createApplicationAction } from "@/server/actions";
+import { createApplicationAction, parsePostingAction } from "@/server/actions";
 import { RatingInput } from "@/components/pipeline/rating-input";
 
 export function NewApplicationDialog({ resumes }: { resumes: { id: string; name: string }[] }) {
@@ -34,6 +34,7 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
   const [pending, startTransition] = useTransition();
+  const [fetching, startFetching] = useTransition();
   const [form, setForm] = useState({
     company: "",
     roleTitle: "",
@@ -50,6 +51,38 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
   useEffect(() => {
     if (params.get("new")) setOpen(true);
   }, [params]);
+
+  // Paste a link, get the form filled. The fields stay editable — the page's
+  // answer is a draft, not a decision.
+  const fetchPosting = () => {
+    const url = form.jobUrl.trim();
+    if (!url) {
+      toast.error("Paste the posting's link first.");
+      return;
+    }
+    startFetching(async () => {
+      const result = await parsePostingAction(url);
+      if (!result.ok) {
+        toast.error(result.error);
+        return;
+      }
+      const parsed = result.parsed;
+      setForm((current) => ({
+        ...current,
+        company: current.company || parsed.company,
+        roleTitle: current.roleTitle || parsed.roleTitle,
+        location: current.location || parsed.location,
+        salaryRange: current.salaryRange || parsed.salaryRange,
+        source: current.source || parsed.source,
+        jobDescription: current.jobDescription || parsed.jobDescription,
+      }));
+      toast.success(
+        parsed.roleTitle && parsed.company
+          ? "Filled from the posting — check it over."
+          : "Read what it could; the rest is yours to fill.",
+      );
+    });
+  };
 
   const submit = () => {
     if (!form.company.trim() || !form.roleTitle.trim()) {
@@ -83,10 +116,28 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
         </DialogHeader>
 
         <div className="grid gap-4 sm:grid-cols-2">
+          <div className="space-y-1.5 sm:col-span-2">
+            <Label>Job link</Label>
+            <div className="flex gap-2">
+              <Input
+                autoFocus
+                value={form.jobUrl}
+                onChange={(event) => setForm({ ...form, jobUrl: event.target.value })}
+                onKeyDown={(event) => {
+                  if (event.key === "Enter") fetchPosting();
+                }}
+                placeholder="https://…  — paste a posting and let it fill the form"
+              />
+              <Button variant="outline" onClick={fetchPosting} disabled={fetching}>
+                {fetching ? <LoaderCircleIcon className="animate-spin" /> : <SparklesIcon />}
+                Fill from link
+              </Button>
+            </div>
+          </div>
+
           <div className="space-y-1.5">
             <Label>Company</Label>
             <Input
-              autoFocus
               value={form.company}
               onChange={(event) => setForm({ ...form, company: event.target.value })}
               placeholder="Stripe"
@@ -157,14 +208,6 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
             />
           </div>
 
-          <div className="space-y-1.5">
-            <Label>Job link</Label>
-            <Input
-              value={form.jobUrl}
-              onChange={(event) => setForm({ ...form, jobUrl: event.target.value })}
-              placeholder="https://…"
-            />
-          </div>
           <div className="space-y-1.5">
             <Label>Source</Label>
             <Input

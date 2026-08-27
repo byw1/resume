@@ -18,7 +18,7 @@ yourself, wired into Claude so you can just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  64 tools any MCP client can call (81 if you're an admin). Claude, Claude Code, ChatGPT,
+  65 tools any MCP client can call (82 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -160,7 +160,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 64, or 81 if you're an admin.
+would, then tells you how many tools answered — 65, or 82 if you're an admin.
 
 #### One connection per client
 
@@ -269,7 +269,9 @@ committing. `publish_resume` turns one into a shareable link and hands back the 
 `unpublish_resume` destroys it. `export_resume_pdf` renders a real PDF server-side and
 reports the page count it actually came out to.
 
-**Pipeline** — applications and stages, an activity timeline, tasks, `list_follow_ups` for
+**Pipeline** — `capture_job_posting` turns a posting URL into a tracked application in one
+move, company and description included. Then applications and stages, an activity timeline,
+tasks, `list_follow_ups` for
 what's overdue, `list_schedule` for a whole window of dated work at once, `pipeline_stats` for
 the shape of your search, and `diagnose_search`, which reads the funnel and tells you which
 step is losing people rather than handing you six numbers to interpret.

@@ -1000,6 +1000,14 @@ export const tools: McpTool[] = [
     },
   },
   {
+    name: "capture_job_posting",
+    title: "Capture a job posting from its URL",
+    description:
+      "The FIRST tool to call when someone shares a link to a job posting. Fetches the page server-side, reads the structured posting data most job boards publish, and creates the application in one move: company matched or created (with its own website when the posting names one, which puts their logo on the pipeline), role title, full description, location, compensation and source all filled, starting on the wishlist. Returns captured true with the new application and its id. When the page doesn't state the employer or the role readably, returns captured false plus whatever WAS parsed and creates NOTHING — in that case show the person what was found, ask for the missing pieces, and use create_application. Never guess an employer's name from a URL. If they applied already, follow with move_application_stage.",
+    inputSchema: object({ url: str("The posting's URL, e.g. a Greenhouse, Lever, Ashby, Workday or LinkedIn job link") }, ["url"]),
+    handler: async (args, ctx) => pipeline.captureJobPosting(ctx.userId, required(args, "url")),
+  },
+  {
     name: "create_application",
     title: "Create an application",
     description:
