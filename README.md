@@ -46,7 +46,7 @@ clicks on Railway if you'd rather never open a terminal. Both below.
 On any machine with Docker installed:
 
 ```bash
-curl -fsSLO https://raw.githubusercontent.com/shifulaboratories/resume/main/docker-compose.yml
+curl -fsSLO https://raw.githubusercontent.com/shifulaboratories/Hired/main/docker-compose.yml
 docker compose up -d
 docker compose logs app   # your sign-in details are printed here, once
 ```

@@ -803,3 +803,22 @@ admin sees seventeen more). Anything counted on a marketing page should be count
 source at the time it is written, and re-counted whenever a tool is added.
 **Watch for:** adding or removing a tool means regenerating the catalogue and the three places
 the totals appear — the hero fact line, the figures row and the `#tools` heading.
+
+## 2026-08-27 — The repo became shifulaboratories/Hired, and the links followed again
+
+**Decision:** every hardcoded `shifulaboratories/resume` URL is now
+`shifulaboratories/Hired` — the landing page's ten links, the star-count fetch in
+`site/motion.js`, and the README's self-host `curl`. The git remote moved with them. The
+GHCR image did not: `docker.yml` writes `ghcr.io/shifulaboratories/hired` literally rather
+than deriving it from the repo name, so the published image and `docker-compose.yml` are
+untouched.
+**Why immediately, again:** this is the second rename, and the reasoning from the first one
+holds without modification — GitHub forwards the old paths, and the forward dies the day
+anyone creates a repo at the old name. A squat on `shifulaboratories/resume` would silently
+take over the self-host quickstart and the star count. Links that matter don't get to
+depend on a redirect.
+**Verified:** `raw.githubusercontent.com/shifulaboratories/Hired/main/docker-compose.yml`
+returns 200; the old path still 301s, which is exactly the redirect being removed from the
+critical path rather than relied on.
+**Note:** the entry above this one is left as written. It records what was true in August,
+and rewriting a decision log to match the present makes it useless as a record.

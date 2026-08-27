@@ -440,7 +440,7 @@
 
   var stars = $("#stars");
   if (stars) {
-    fetch("https://api.github.com/repos/shifulaboratories/resume")
+    fetch("https://api.github.com/repos/shifulaboratories/Hired")
       .then(function (r) { return r.ok ? r.json() : null; })
       .then(function (repo) {
         if (!repo || typeof repo.stargazers_count !== "number") return;
