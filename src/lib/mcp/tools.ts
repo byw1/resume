@@ -1133,21 +1133,23 @@ export const tools: McpTool[] = [
   },
   {
     name: "log_activity",
-    title: "Log activity on an application",
+    title: "Log activity on an application or a contact",
     description:
-      "Append to an application's timeline: a recruiter call, an email you sent, an interview, a note to self.",
+      "Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered.",
     inputSchema: object(
       {
-        applicationId: str("Application id"),
+        applicationId: str("Application id — for events on an application"),
+        contactId: str("Contact id — for events with a person"),
         type: { type: "string", enum: ACTIVITY_VALUES, description: "Kind of activity. Default NOTE." },
         body: str("What happened"),
         occurredAt: str("ISO datetime it happened. Defaults to now."),
       },
-      ["applicationId", "body"],
+      ["body"],
     ),
     handler: async (args, ctx) =>
       pipeline.addActivity(ctx.userId, {
-        applicationId: required(args, "applicationId"),
+        applicationId: s(args, "applicationId"),
+        contactId: s(args, "contactId"),
         body: required(args, "body"),
         type: s(args, "type") as ActivityType | undefined,
         occurredAt: s(args, "occurredAt"),
@@ -1168,11 +1170,18 @@ export const tools: McpTool[] = [
     name: "list_follow_ups",
     title: "List follow-ups that are due",
     description:
-      "Applications whose follow-up date has arrived or passed. This is the 'who do I need to chase today' tool.",
+      "The 'who do I need to chase today' tool. Returns two lists: applications whose follow-up date has arrived or passed, and contacts whose ping date has — the people you meant to get back in touch with. Both are due work; plan a day from the pair.",
     inputSchema: object({
       withinDays: num("Look ahead this many days. 0 = due now, 7 = due within a week."),
     }),
-    handler: async (args, ctx) => pipeline.followUpsDue(ctx.userId, n(args, "withinDays") ?? 0),
+    handler: async (args, ctx) => {
+      const withinDays = n(args, "withinDays") ?? 0;
+      const [applications, contacts] = await Promise.all([
+        pipeline.followUpsDue(ctx.userId, withinDays),
+        pipeline.contactFollowUpsDue(ctx.userId, withinDays),
+      ]);
+      return { applications, contacts };
+    },
   },
   {
     name: "diagnose_search",
@@ -1347,7 +1356,7 @@ export const tools: McpTool[] = [
     name: "get_contact",
     title: "Get a contact",
     description:
-      "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite.",
+      "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
     handler: async (args, ctx) => {
       const contact = await pipeline.getContact(ctx.userId, required(args, "id"));
@@ -1372,6 +1381,7 @@ export const tools: McpTool[] = [
         notes: str("Notes — replaces what is there"),
         company: str("Employer, or empty string to detach"),
         applicationId: str("Application to attach to, or empty string to detach"),
+        nextFollowUpAt: str("ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard."),
       },
       ["id"],
     ),
@@ -1389,6 +1399,7 @@ export const tools: McpTool[] = [
           notes: s(args, "notes"),
           company: s(args, "company"),
           applicationId: s(args, "applicationId"),
+          nextFollowUpAt: s(args, "nextFollowUpAt"),
         }),
       ),
   },

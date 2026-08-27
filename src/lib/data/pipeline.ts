@@ -500,21 +500,34 @@ export async function reorderApplications(userId: string, ids: string[]) {
 export async function addActivity(
   userId: string,
   input: {
-    applicationId: string;
+    applicationId?: string;
+    contactId?: string;
     type?: ActivityType;
     body: string;
     occurredAt?: Date | string;
   },
 ) {
-  const application = await db.application.findFirst({
-    where: { id: input.applicationId, userId },
-  });
-  if (!application) throw new Error(`No application with id ${input.applicationId}`);
+  // Exactly one parent. An entry lives on one timeline — an application's or
+  // a person's — and a caller passing both hasn't decided which.
+  if (Boolean(input.applicationId) === Boolean(input.contactId)) {
+    throw new Error("Attach an activity to exactly one thing: an application or a contact.");
+  }
+  if (input.applicationId) {
+    const application = await db.application.findFirst({
+      where: { id: input.applicationId, userId },
+    });
+    if (!application) throw new Error(`No application with id ${input.applicationId}`);
+  }
+  if (input.contactId) {
+    const contact = await db.contact.findFirst({ where: { id: input.contactId, userId } });
+    if (!contact) throw new Error(`No contact with id ${input.contactId}`);
+  }
 
   return db.activity.create({
     data: {
       userId,
-      applicationId: input.applicationId,
+      applicationId: input.applicationId ?? null,
+      contactId: input.contactId ?? null,
       type: input.type ?? "NOTE",
       body: input.body,
       occurredAt: toDate(input.occurredAt) ?? new Date(),
@@ -527,7 +540,10 @@ export async function listActivities(userId: string, applicationId?: string, lim
     where: { userId, ...(applicationId ? { applicationId } : {}) },
     orderBy: { occurredAt: "desc" },
     take: limit,
-    include: { application: { include: { company: true } } },
+    include: {
+      application: { include: { company: true } },
+      contact: { select: { id: true, name: true } },
+    },
   });
 }
 
@@ -639,11 +655,22 @@ export async function listContacts(
       { company: { name: { contains: options.search, mode: "insensitive" } } },
     ];
   }
-  return db.contact.findMany({ where, orderBy: { name: "asc" }, include: contactInclude });
+  return db.contact.findMany({
+    where,
+    orderBy: { name: "asc" },
+    include: {
+      ...contactInclude,
+      // The most recent touch, for "when did I last talk to them" in a list.
+      activities: { select: { occurredAt: true }, orderBy: { occurredAt: "desc" as const }, take: 1 },
+    },
+  });
 }
 
 export async function getContact(userId: string, id: string) {
-  return db.contact.findFirst({ where: { id, userId }, include: contactInclude });
+  return db.contact.findFirst({
+    where: { id, userId },
+    include: { ...contactInclude, activities: { orderBy: { occurredAt: "desc" as const } } },
+  });
 }
 
 export async function updateContact(
@@ -659,12 +686,14 @@ export async function updateContact(
     notes: string;
     company: string;
     applicationId: string | null;
+    nextFollowUpAt: Date | string | null;
   }>,
 ) {
   const current = await db.contact.findFirst({ where: { id, userId } });
   if (!current) throw new Error(`No contact with id ${id}`);
 
   const data: Prisma.ContactUpdateInput = pick(patch, CONTACT_COLUMNS);
+  if (patch.nextFollowUpAt !== undefined) data.nextFollowUpAt = toDate(patch.nextFollowUpAt);
   // Company and application are relations, so they are resolved by hand rather
   // than picked — and both are re-checked against this user.
   if (patch.company !== undefined) {
@@ -712,6 +741,18 @@ export async function followUpsDue(userId: string, withinDays = 0) {
   });
 }
 
+/** People whose ping date has arrived (or passed). */
+export async function contactFollowUpsDue(userId: string, withinDays = 0) {
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + withinDays);
+  cutoff.setHours(23, 59, 59, 999);
+  return db.contact.findMany({
+    where: { userId, nextFollowUpAt: { lte: cutoff } },
+    orderBy: { nextFollowUpAt: "asc" },
+    include: { company: { select: { name: true, website: true } } },
+  });
+}
+
 /**
  * Everything with a date on it, in one window.
  *
@@ -730,6 +771,8 @@ export type ScheduleEntry = {
   detail: string;
   company: string | null;
   applicationId: string | null;
+  /** Set when the entry belongs to a person rather than an application. */
+  contactId: string | null;
   stage: Stage | null;
   done: boolean | null;
   activityType: ActivityType | null;
@@ -744,10 +787,14 @@ export async function listSchedule(
   const end = toDate(to) ?? new Date();
   const range = { gte: start, lte: end };
 
-  const [followUps, tasks, activities] = await Promise.all([
+  const [followUps, contactPings, tasks, activities] = await Promise.all([
     db.application.findMany({
       where: { userId, nextFollowUpAt: range, stage: { notIn: TERMINAL_STAGES } },
       include: { company: true },
+    }),
+    db.contact.findMany({
+      where: { userId, nextFollowUpAt: range },
+      include: { company: { select: { name: true } } },
     }),
     db.task.findMany({
       where: { userId, dueAt: range },
@@ -755,7 +802,10 @@ export async function listSchedule(
     }),
     db.activity.findMany({
       where: { userId, occurredAt: range },
-      include: { application: { include: { company: true } } },
+      include: {
+        application: { include: { company: true } },
+        contact: { select: { id: true, name: true } },
+      },
     }),
   ]);
 
@@ -768,7 +818,21 @@ export async function listSchedule(
       detail: application.roleTitle,
       company: application.company.name,
       applicationId: application.id,
+      contactId: null,
       stage: application.stage,
+      done: null,
+      activityType: null,
+    })),
+    ...contactPings.map((contact) => ({
+      kind: "FOLLOW_UP" as const,
+      id: contact.id,
+      date: contact.nextFollowUpAt!,
+      title: `Ping ${contact.name}`,
+      detail: [contact.title, contact.company?.name].filter(Boolean).join(" · "),
+      company: contact.company?.name ?? null,
+      applicationId: null,
+      contactId: contact.id,
+      stage: null,
       done: null,
       activityType: null,
     })),
@@ -780,6 +844,7 @@ export async function listSchedule(
       detail: task.detail,
       company: task.application?.company.name ?? null,
       applicationId: task.applicationId,
+      contactId: null,
       stage: task.application?.stage ?? null,
       done: task.done,
       activityType: null,
@@ -788,11 +853,14 @@ export async function listSchedule(
       kind: "ACTIVITY" as const,
       id: activity.id,
       date: activity.occurredAt,
-      title: `${ACTIVITY_LABEL[activity.type]} · ${activity.application.company.name}`,
+      title: `${ACTIVITY_LABEL[activity.type]} · ${
+        activity.application?.company.name ?? activity.contact?.name ?? "Note"
+      }`,
       detail: activity.body,
-      company: activity.application.company.name,
+      company: activity.application?.company.name ?? null,
       applicationId: activity.applicationId,
-      stage: activity.application.stage,
+      contactId: activity.contactId,
+      stage: activity.application?.stage ?? null,
       done: null,
       activityType: activity.type,
     })),
@@ -887,6 +955,9 @@ export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {
 
   const byApplication = new Map<string, typeof transitions>();
   for (const transition of transitions) {
+    // Stage transitions only exist on application activities; the null check
+    // is for the type, not an expected case.
+    if (!transition.applicationId) continue;
     const list = byApplication.get(transition.applicationId);
     if (list) list.push(transition);
     else byApplication.set(transition.applicationId, [transition]);

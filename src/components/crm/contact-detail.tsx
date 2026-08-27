@@ -13,7 +13,9 @@ import { Textarea } from "@/components/ui/textarea";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
-import { deleteCrmContactAction, saveContactAction } from "@/server/actions";
+import { addActivityAction, deleteCrmContactAction, saveContactAction } from "@/server/actions";
+import { ACTIVITY_LABEL } from "@/lib/data/pipeline";
+import type { ActivityType } from "@prisma/client";
 
 export type ContactFields = {
   id: string;
@@ -25,21 +27,48 @@ export type ContactFields = {
   relationship: string;
   notes: string;
   company: string;
+  /** ISO date (yyyy-mm-dd) or empty — when to next get in touch. */
+  nextFollowUpAt: string;
+};
+
+export type ContactTouch = {
+  id: string;
+  type: ActivityType;
+  body: string;
+  occurredAt: string;
 };
 
 export function ContactDetail({
   contact,
   companyId,
   application,
+  touches,
 }: {
   contact: ContactFields;
   companyId: string | null;
   application: { id: string; roleTitle: string } | null;
+  touches: ContactTouch[];
 }) {
   const [values, setValues] = useState(contact);
   const [state, setState] = useState<SaveState>("idle");
+  const [note, setNote] = useState("");
+  const [logging, startLogging] = useTransition();
   const [, startTransition] = useTransition();
   const router = useRouter();
+
+  const logTouch = () => {
+    const body = note.trim();
+    if (!body) return;
+    startLogging(async () => {
+      try {
+        await addActivityAction({ contactId: contact.id, body });
+        setNote("");
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not log that.");
+      }
+    });
+  };
 
   const commit = (patch: Partial<ContactFields>) => {
     const changed = Object.entries(patch).some(
@@ -121,20 +150,68 @@ export function ContactDetail({
       </div>
 
       <div className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_22rem]">
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-[15px]">Notes</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <Textarea
-              value={values.notes}
-              onChange={(event) => set({ notes: event.target.value })}
-              onBlur={() => commit({ notes: values.notes })}
-              placeholder="How you met, what they said, what they care about, what you owe them. The things that make a follow-up sound like a person rather than a template."
-              className="min-h-48 resize-y"
-            />
-          </CardContent>
-        </Card>
+        <div className="space-y-4">
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[15px]">Notes</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <Textarea
+                value={values.notes}
+                onChange={(event) => set({ notes: event.target.value })}
+                onBlur={() => commit({ notes: values.notes })}
+                placeholder="How you met, what they said, what they care about, what you owe them. The things that make a follow-up sound like a person rather than a template."
+                className="min-h-48 resize-y"
+              />
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[15px]">
+                Timeline
+                {touches.length > 0 && (
+                  <span className="text-faint nums ml-1.5 font-normal">{touches.length}</span>
+                )}
+              </CardTitle>
+            </CardHeader>
+            <CardContent className="space-y-4">
+              <div className="flex gap-2">
+                <Input
+                  value={note}
+                  onChange={(event) => setNote(event.target.value)}
+                  onKeyDown={(event) => {
+                    if (event.key === "Enter") logTouch();
+                  }}
+                  placeholder="Called about the referral — she'll intro me to the EM."
+                />
+                <Button variant="outline" onClick={logTouch} disabled={logging || !note.trim()}>
+                  Log it
+                </Button>
+              </div>
+              {touches.length === 0 ? (
+                <p className="text-muted-foreground py-2 text-center text-[13px]">
+                  Nothing logged yet. Every call, coffee and reply you note here is what
+                  &quot;when did I last talk to them&quot; will be answered from.
+                </p>
+              ) : (
+                <ol className="relative space-y-3.5 pl-5">
+                  <span className="bg-border absolute top-1.5 bottom-1.5 left-[3px] w-px" />
+                  {touches.map((touch) => (
+                    <li key={touch.id} className="relative">
+                      <span className="bg-border ring-card absolute top-1.5 -left-5 size-[7px] rounded-full ring-4" />
+                      <div className="flex items-baseline gap-2">
+                        <span className="text-[12px] font-medium">{ACTIVITY_LABEL[touch.type]}</span>
+                        <span className="text-faint meta ml-auto text-[11.5px]">{touch.occurredAt}</span>
+                      </div>
+                      <p className="text-muted-foreground mt-0.5 text-[13px]">{touch.body}</p>
+                    </li>
+                  ))}
+                </ol>
+              )}
+            </CardContent>
+          </Card>
+        </div>
 
         <div className="space-y-4">
           <Card>
@@ -148,6 +225,19 @@ export function ContactDetail({
               <Field label="Email" value={values.email} placeholder="name@company.com" onChange={(email) => set({ email })} onCommit={() => commit({ email: values.email })} />
               <Field label="Phone" value={values.phone} placeholder="+1 555 0100" onChange={(phone) => set({ phone })} onCommit={() => commit({ phone: values.phone })} />
               <Field label="LinkedIn" value={values.linkedin} placeholder="linkedin.com/in/…" onChange={(linkedin) => set({ linkedin })} onCommit={() => commit({ linkedin: values.linkedin })} />
+              <div className="space-y-1.5">
+                <Label htmlFor="contact-ping">Ping them next</Label>
+                <Input
+                  id="contact-ping"
+                  type="date"
+                  value={values.nextFollowUpAt}
+                  onChange={(event) => set({ nextFollowUpAt: event.target.value })}
+                  onBlur={() => commit({ nextFollowUpAt: values.nextFollowUpAt })}
+                />
+                <p className="text-faint text-xs leading-snug">
+                  Shows up with your follow-ups on the dashboard and the calendar.
+                </p>
+              </div>
             </CardContent>
           </Card>
 

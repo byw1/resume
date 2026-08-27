@@ -25,12 +25,14 @@ import {
   BOARD_STAGES,
   STAGE_LABEL,
   STAGE_TONE,
+  contactFollowUpsDue,
   diagnoseSearch,
   followUpsDue,
   listActivities,
   listTasks,
   pipelineStats,
 } from "@/lib/data/pipeline";
+import type { Stage } from "@prisma/client";
 import { getProfile } from "@/lib/data/brain";
 import { relativeDay, truncate } from "@/lib/utils";
 import { TaskList } from "@/components/dashboard/task-list";
@@ -41,10 +43,12 @@ export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [stats, diagnosis, followUps, tasks, activities, profile, counts] = await Promise.all([
+  const [stats, diagnosis, followUps, contactPings, tasks, activities, profile, counts] =
+    await Promise.all([
     pipelineStats(user.id),
     diagnoseSearch(user.id),
     followUpsDue(user.id, 3),
+    contactFollowUpsDue(user.id, 3),
     listTasks(user.id, { done: false, limit: 8 }),
     listActivities(user.id, undefined, 8),
     getProfile(user.id),
@@ -56,6 +60,26 @@ export default async function DashboardPage() {
   ]);
 
   const [roleCount, resumeCount, highlightCount] = counts;
+
+  // One chase list: applications to follow up and people to ping, due first.
+  const chase = [
+    ...followUps.map((item) => ({
+      id: item.id,
+      company: item.company.name,
+      roleTitle: item.roleTitle,
+      stage: item.stage as Stage | null,
+      dueAt: item.nextFollowUpAt,
+      kind: "application" as const,
+    })),
+    ...contactPings.map((contact) => ({
+      id: contact.id,
+      company: contact.name,
+      roleTitle: [contact.title, contact.company?.name].filter(Boolean).join(" · ") || "Contact",
+      stage: null,
+      dueAt: contact.nextFollowUpAt,
+      kind: "contact" as const,
+    })),
+  ].sort((a, b) => (a.dueAt?.getTime() ?? 0) - (b.dueAt?.getTime() ?? 0));
   const firstName = (profile.fullName || user.name).split(" ")[0];
   const isEmpty = roleCount === 0 && stats.total === 0 && resumeCount === 0;
   const maxStage = Math.max(1, ...BOARD_STAGES.map((stage) => stats.counts[stage]));
@@ -133,13 +157,14 @@ export default async function DashboardPage() {
                 </CardHeader>
                 <CardContent>
                   <FollowUpList
-                    items={followUps.map((item) => ({
+                    items={chase.map((item) => ({
                       id: item.id,
-                      company: item.company.name,
+                      company: item.company,
                       roleTitle: item.roleTitle,
                       stage: item.stage,
-                      due: item.nextFollowUpAt ? relativeDay(item.nextFollowUpAt) : "",
-                      overdue: item.nextFollowUpAt ? item.nextFollowUpAt < new Date() : false,
+                      due: item.dueAt ? relativeDay(item.dueAt) : "",
+                      overdue: item.dueAt ? item.dueAt < new Date() : false,
+                      kind: item.kind,
                     }))}
                   />
                 </CardContent>
@@ -213,10 +238,16 @@ export default async function DashboardPage() {
                           <span className="bg-border ring-background absolute top-1.5 -left-5 size-[7px] rounded-full ring-4" />
                           <div className="flex flex-wrap items-baseline gap-x-2">
                             <Link
-                              href={`/applications/${activity.applicationId}`}
+                              href={
+                                activity.applicationId
+                                  ? `/applications/${activity.applicationId}`
+                                  : `/crm/contacts/${activity.contactId}`
+                              }
                               className="text-sm font-medium hover:underline"
                             >
-                              {activity.application.company.name}
+                              {activity.application?.company.name ??
+                                activity.contact?.name ??
+                                "Note"}
                             </Link>
                             <Badge variant="outline" className="text-[10px]">
                               {ACTIVITY_LABEL[activity.type]}

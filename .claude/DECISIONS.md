@@ -919,3 +919,19 @@ when nobody is pointing at it. The large corner mark is static, at 5% opacity, a
 behind the content on `z-index: -1` — which needs `isolation: isolate` on the footer, the
 same trap the hero glow hit: `position: relative` alone does not make a stacking context,
 so the mark would have painted behind `body` and vanished.
+
+## 2026-08-26 — An activity belongs to exactly one thing
+
+**Decision:** Activity.applicationId went nullable and contactId arrived, with the data
+layer enforcing exactly-one-parent. Not both: an entry lives on one timeline, and a caller
+passing both hasn't decided which. Contact deletion cascades its timeline; the funnel
+diagnosis filters to application-attached transitions and is unaffected.
+**Why this shape and not a Touch table:** contacts needed history and the Activity table
+already was one — same fields, same rendering, same schedule integration. A parallel table
+would have meant a second timeline component, a second merge in list_schedule, and a
+"which table does a call go in" question forever.
+**What fell out for free:** last-touched on the contact list, due pings beside due
+follow-ups everywhere follow-ups appear (dashboard, calendar, list_follow_ups), and
+"ping Sarah in two weeks" as a date on the person. No new tools — log_activity,
+update_contact and list_follow_ups grew instead, so the tool count is unchanged and the
+descriptions carry the routing.

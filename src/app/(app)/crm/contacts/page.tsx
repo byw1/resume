@@ -57,6 +57,7 @@ export default async function ContactsPage({
             <div className="hidden w-44 shrink-0 md:block">Company</div>
             <div className="hidden w-32 shrink-0 lg:block">Relationship</div>
             <div className="hidden w-56 shrink-0 xl:block">Email</div>
+            <div className="w-24 shrink-0 text-right">Last touch</div>
           </div>
 
           <ul className="divide-y">
@@ -109,6 +110,14 @@ export default async function ContactsPage({
                   </div>
                   <div className="text-faint hidden w-56 shrink-0 truncate text-[12px] xl:block">
                     {contact.email || "—"}
+                  </div>
+                  <div className="nums text-faint w-24 shrink-0 text-right text-[12px]">
+                    {contact.activities[0]
+                      ? contact.activities[0].occurredAt.toLocaleDateString("en-US", {
+                          month: "short",
+                          day: "numeric",
+                        })
+                      : "never"}
                   </div>
                 </Link>
               </li>

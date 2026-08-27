@@ -563,13 +563,15 @@ export async function deleteApplicationAction(id: string) {
 }
 
 export async function addActivityAction(input: {
-  applicationId: string;
+  applicationId?: string;
+  contactId?: string;
   type?: ActivityType;
   body: string;
 }) {
   const user = await requireUser();
   await pipeline.addActivity(user.id, input);
-  revalidatePath(`/applications/${input.applicationId}`);
+  if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
+  if (input.contactId) revalidatePath(`/crm/contacts/${input.contactId}`);
   revalidatePath("/");
 }
 
@@ -628,6 +630,16 @@ export async function snoozeFollowUpAction(id: string, days: number) {
   revalidatePath("/applications");
 }
 
+export async function snoozeContactFollowUpAction(id: string, days: number) {
+  const user = await requireUser();
+  const next = new Date();
+  next.setDate(next.getDate() + days);
+  next.setHours(9, 0, 0, 0);
+  await pipeline.updateContact(user.id, id, { nextFollowUpAt: next });
+  revalidatePath("/");
+  revalidatePath("/crm/contacts");
+}
+
 // ---------------------------------------------------------------------------
 // CRM — companies and the people at them
 // ---------------------------------------------------------------------------
@@ -676,10 +688,16 @@ export async function saveContactAction(
     relationship?: string;
     notes?: string;
     company?: string;
+    /** "yyyy-mm-dd" from a date input; empty string clears the date. */
+    nextFollowUpAt?: string;
   },
 ) {
   const user = await requireUser();
-  await pipeline.updateContact(user.id, id, patch);
+  const { nextFollowUpAt, ...rest } = patch;
+  await pipeline.updateContact(user.id, id, {
+    ...rest,
+    ...(nextFollowUpAt !== undefined ? { nextFollowUpAt: nextFollowUpAt || null } : {}),
+  });
   revalidatePath(`/crm/contacts/${id}`);
   revalidatePath("/crm/contacts");
 }
