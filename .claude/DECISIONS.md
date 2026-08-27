@@ -822,3 +822,23 @@ returns 200; the old path still 301s, which is exactly the redirect being remove
 critical path rather than relied on.
 **Note:** the entry above this one is left as written. It records what was true in August,
 and rewriting a decision log to match the present makes it useless as a record.
+
+## 2026-08-27 — Every inline icon carries its own size
+
+**Decision:** all 81 `<svg>` elements in `site/index.html` now have explicit `width` and
+`height` attributes, and an inline `<style>` in the head sets `svg:not([width])` to `1em`
+as a floor for anything added later.
+**Why:** an `<svg>` with only a `viewBox` has no intrinsic size, so the moment the
+stylesheet is late, blocked or missing it falls back to the SVG default of 300×150. On this
+page that was 57 icons at once: the document went from 14,000px tall to 83,000px and the
+first thing on screen was a full-viewport blue arrow. Reported from the live site, and
+reproduced exactly by aborting the request for `styles.css`.
+**What it does not fix:** the page still needs `styles.css` to look like anything. The point
+is only that its absence now degrades to a plain readable document instead of a screenful
+of giant arrows — a stylesheet that is slow is a worse failure than one that never arrives,
+because the giant state is what the visitor sees first either way.
+**How the sizes were set:** measured from the rendered page with the stylesheet applied and
+written back as attributes, so an attribute can never disagree with the CSS rule that
+styles it.
+**Applies to:** `site/index.html`. Any new inline SVG needs `width` and `height` on the tag,
+not only a CSS rule.

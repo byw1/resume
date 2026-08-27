@@ -24,6 +24,13 @@
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="styles.css">
+<style>
+  /* An <svg> with no width/height attribute has no intrinsic size and
+     falls back to 300x150. Inline so it holds even if styles.css is
+     slow, blocked or missing — the page degrades to small icons rather
+     than a screenful of giant ones. */
+  svg:not([width]) { width: 1em; height: 1em; }
+</style>
 <script>
   /* Opts the page into being animated. Without this — scripting off, or the
      stylesheet arriving before motion.js — nothing is hidden and the page is
@@ -111,7 +118,7 @@
   <div class="wrap">
     <a class="pill" href="https://github.com/shifulaboratories/Hired" rel="noopener" data-reveal>
       <em>Open source</em> AGPL-3.0<span class="long"> · self-host in one command</span>
-      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+      <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
     </a>
 
     <h1 class="h-display hero-copy" data-reveal style="--i:1; margin-top:22px">
@@ -128,7 +135,7 @@
     <div class="hero-ctas" data-reveal style="--i:3">
       <a class="btn btn-primary" href="#get">
         Get started
-        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
       </a>
       <a class="btn btn-ghost" href="#tour">See it work</a>
     </div>
@@ -320,12 +327,12 @@
             Hired
           </div>
           <div class="rail-tagline">Your career, on the record</div>
-          <div class="rail-search"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
-          <div class="rail-item on"><svg viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-          <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
-          <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
-          <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
-          <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
+          <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
+          <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
+          <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+          <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
+          <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
+          <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
         </div>
 
         <div class="pane">
@@ -335,29 +342,29 @@
               <div class="pane-title">Let&rsquo;s go, Dana.</div>
             </div>
             <span style="margin-left:auto; display:flex; gap:8px">
-              <span class="btn btn-ghost btn-sm" style="pointer-events:none"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-brain"/></svg>Brain dump</span>
-              <span class="btn btn-primary btn-sm" style="pointer-events:none"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sparkle"/></svg>New resume</span>
+              <span class="btn btn-ghost btn-sm" style="pointer-events:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-brain"/></svg>Brain dump</span>
+              <span class="btn btn-primary btn-sm" style="pointer-events:none"><svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-sparkle"/></svg>New resume</span>
             </span>
           </div>
 
           <div class="stat-grid">
             <div class="app-card stat">
-              <div class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg>In flight</div>
+              <div class="stat-label"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-target"/></svg>In flight</div>
               <div class="stat-value">9</div>
               <div class="stat-hint">41 tracked all-time</div>
             </div>
             <div class="app-card stat">
-              <div class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trend"/></svg>Response rate</div>
+              <div class="stat-label"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-trend"/></svg>Response rate</div>
               <div class="stat-value">32%</div>
               <div class="stat-hint">4 in interviews</div>
             </div>
             <div class="app-card stat">
-              <div class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-flame"/></svg>Applied this week</div>
+              <div class="stat-label"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-flame"/></svg>Applied this week</div>
               <div class="stat-value">3</div>
               <div class="stat-hint">Keep the streak</div>
             </div>
             <div class="app-card stat">
-              <div class="stat-label"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-brain"/></svg>Brain</div>
+              <div class="stat-label"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-brain"/></svg>Brain</div>
               <div class="stat-value">214</div>
               <div class="stat-hint">7 roles · 3 resumes</div>
             </div>
@@ -488,12 +495,12 @@
                   Hired
                 </div>
                 <div class="rail-tagline">Your career, on the record</div>
-                <div class="rail-search"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-                <div class="rail-item on"><svg viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
+                <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
+                <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
               </div>
               <div class="pane">
                 <div class="pane-head">
@@ -761,12 +768,12 @@
                   Hired
                 </div>
                 <div class="rail-tagline">Your career, on the record</div>
-                <div class="rail-search"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
-                <div class="rail-item on"><svg viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
+                <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
+                <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
               </div>
               <div class="pane">
                 <div class="pane-head">
@@ -811,8 +818,8 @@
                           <svg width="11" height="11" viewBox="0 0 24 24" style="color:var(--warning); flex-shrink:0; margin-top:2px" aria-hidden="true"><use href="#i-flame"/></svg>
                         </div>
                         <div class="app-row-meta">
-                          <span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pin"/></svg>Chicago, IL</span>
-                          <span><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-money"/></svg>$210k – $250k</span>
+                          <span><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-pin"/></svg>Chicago, IL</span>
+                          <span><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-money"/></svg>$210k – $250k</span>
                         </div>
                         <div class="app-row-foot">
                           <span style="display:inline-flex; align-items:center; gap:4px"><svg width="10" height="10" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-clock"/></svg>in 4d</span>
@@ -942,12 +949,12 @@
                   Hired
                 </div>
                 <div class="rail-tagline">Your career, on the record</div>
-                <div class="rail-search"><svg viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
-                <div class="rail-item on"><svg viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
-                <div class="rail-item"><svg viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
+                <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
+                <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
               </div>
               <div class="pane">
                 <div class="pane-head">
@@ -958,7 +965,7 @@
                   <span style="margin-left:auto; display:flex; align-items:center; gap:12px">
                     <span class="meta" style="font-size:11.5px; color:var(--faint)">8 companies</span>
                     <span class="search" style="min-width:196px; padding:6px 12px; margin-left:0">
-                      <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+                      <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
                       <span style="font-size:11.5px; color:var(--faint); font-family:var(--mono)">Search companies…</span>
                     </span>
                   </span>
@@ -1211,23 +1218,23 @@
           </p>
           <div class="refusal">
             <div class="req yes">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
               <div><div class="t">Multi-region rollouts</div><div class="s">Meridian · 3 highlights</div></div>
             </div>
             <div class="req yes">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
               <div><div class="t">Org growth past 30</div><div class="s">Meridian · 1 highlight</div></div>
             </div>
             <div class="req yes">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>
               <div><div class="t">Carrier network cost</div><div class="s">Northbeam · 2 highlights</div></div>
             </div>
             <div class="req no">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-no"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-no"/></svg>
               <div><div class="t">P&amp;L ownership</div><div class="s">No evidence in your brain — left off</div></div>
             </div>
             <div class="req no">
-              <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-no"/></svg>
+              <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-no"/></svg>
               <div><div class="t">SOC 2 audit experience</div><div class="s">No evidence in your brain — left off</div></div>
             </div>
           </div>
@@ -1290,7 +1297,7 @@
       <article class="say" style="--tone:var(--stage-applied)" data-reveal>
         <p class="q">Here's everything I did at Vertex last quarter.</p>
         <p class="then">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
           Filed against that job, and the parts strong enough to go on a resume are pulled out
           as reusable bullets.
         </p>
@@ -1300,7 +1307,7 @@
       <article class="say" style="--tone:var(--stage-screen)" data-reveal>
         <p class="q">Tailor my resume to this posting and give me a link.</p>
         <p class="then">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
           A one-page document built only from evidence you actually have, and a URL you can
           paste into the form.
         </p>
@@ -1310,7 +1317,7 @@
       <article class="say" style="--tone:var(--stage-interview)" data-reveal>
         <p class="q">What do I need to chase this week?</p>
         <p class="then">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
           What has gone quiet, who to nudge, which step of your search is losing people, and
           what to do about it.
         </p>
@@ -1320,7 +1327,7 @@
       <article class="say" style="--tone:var(--stage-final)" data-reveal>
         <p class="q">Tell me about Ramp before Thursday.</p>
         <p class="then">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
           Research written into the company's record instead of into a chat you will never
           find again.
         </p>
@@ -1330,7 +1337,7 @@
       <article class="say" style="--tone:var(--stage-offer)" data-reveal>
         <p class="q">I've got a system design round at Project44.</p>
         <p class="then">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
           A prep sheet drawn from the application, the company, the people you have met and
           your own evidence.
         </p>
@@ -1340,7 +1347,7 @@
       <article class="say" style="--tone:var(--stage-accepted)" data-reveal>
         <p class="q">Rough week. Two rejections, one final round booked, and I fixed the thing.</p>
         <p class="then">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
           Every part of that lands where it belongs — stages moved, notes filed, the win added
           to your brain.
         </p>
@@ -1350,7 +1357,7 @@
 
     <details class="under" data-reveal>
       <summary>
-        <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+        <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
         Under the hood: all 64 things it can do
       </summary>
       <div class="inner">
@@ -1372,7 +1379,7 @@
         <button class="filter" data-group="workflows" style="--tone:var(--stage-offer)">Workflows <span class="meta">6</span></button>
         <button class="filter" data-group="account" style="--tone:var(--stage-wishlist)">Account <span class="meta">1</span></button>
         <label class="search">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
+          <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
           <input type="search" placeholder="filter by name or word…" aria-label="Filter tools">
         </label>
       </div>
@@ -1685,7 +1692,7 @@
           VS Code
         </button>
         <button class="tab" data-tab="any" role="tab" id="tab-any" aria-controls="pane-any" aria-selected="false">
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-zap"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-zap"/></svg>
           Anything else
         </button>
       </div>
@@ -1805,14 +1812,14 @@
 docker compose up -d
 docker compose logs app   <span class="c"># your sign-in details, once</span></pre>
         <ul>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export works on first boot — the browser and the Times-metric fonts ride in the image.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your data lives in a named volume and survives upgrades. <code>docker compose pull</code> is the upgrade.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Or five clicks on Railway if you'd rather never open a terminal.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export works on first boot — the browser and the Times-metric fonts ride in the image.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your data lives in a named volume and survives upgrades. <code>docker compose pull</code> is the upgrade.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Or five clicks on Railway if you'd rather never open a terminal.</span></li>
         </ul>
         <div class="fill"></div>
         <a class="btn btn-ghost" href="https://github.com/shifulaboratories/Hired#self-host-with-docker" rel="noopener">
           Full instructions
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-out"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-out"/></svg>
         </a>
       </div>
 
@@ -1824,18 +1831,18 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
           it. Pay, get an invite, connect your assistant, start.
         </p>
         <ul>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your workspace is private. Instance admins manage accounts, never content.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Stop paying and it is suspended, not deleted.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export and public resume links included. There is no smaller version of this.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Migrations run on every boot, so the instance is always on the current build.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Leave whenever you like — the self-hosted build is the same build.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your workspace is private. Instance admins manage accounts, never content.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Stop paying and it is suspended, not deleted.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export and public resume links included. There is no smaller version of this.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Migrations run on every boot, so the instance is always on the current build.</span></li>
+          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Leave whenever you like — the self-hosted build is the same build.</span></li>
         </ul>
         <div class="fill"></div>
         <!-- Replace the href with the Stripe Payment Link once it exists
              (Admin → Billing holds the same URL). -->
         <a class="btn btn-primary" href="https://github.com/shifulaboratories/Hired#get-it" rel="noopener">
           Get an invite
-          <svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
         </a>
       </div>
     </div>
@@ -1923,7 +1930,7 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
       Write down what you actually did there. Everything after that is the tool's problem.
     </p>
     <div class="hero-ctas" data-reveal style="--i:2; justify-content:center">
-      <a class="btn btn-primary" href="#get">Get started<svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg></a>
+      <a class="btn btn-primary" href="#get">Get started<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg></a>
       <a class="btn btn-ghost" href="https://github.com/shifulaboratories/Hired" rel="noopener">Read the source</a>
     </div>
 
