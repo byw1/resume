@@ -1772,7 +1772,48 @@ Work in this order:
 6. Save it with create_resume, naming it "<Company> — <Role>", and set targetRole/targetCompany.
 7. Tell me what you emphasised, what you cut, and which requirements you could not evidence.
 
-Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the brain dump.`,
+Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the brain dump.
+
+Finish with a gap report: which of the posting's requirements the resume evidences, which it half-covers, and which have nothing behind them. Never paper over the third list — it is what the person needs to see.`,
+  },
+  {
+    name: "gap_report",
+    title: "Gap report: a posting against the brain",
+    description:
+      "Before tailoring — or before deciding whether to apply at all — check a job posting against the evidence that actually exists in the brain. Returns three lists: requirements with real evidence behind them, requirements with only thin or indirect signal, and requirements with nothing. Nothing is written or saved; this is the reading that decides what happens next.",
+    arguments: [
+      { name: "job_description", description: "The full job posting, or an application id whose stored posting to use" },
+    ],
+    build: (args) => `Check this posting against what the brain can actually evidence.
+
+<job_posting>
+${args.job_description ?? "No posting pasted — if this looks like an application id, call get_application and use its jobDescription; otherwise ask for the posting."}
+</job_posting>
+
+The rule that governs everything here: nothing goes on a resume that the brain cannot back.
+The quiet upgrade — "helped with" becoming "led", a credit becoming a hire — is the way
+resumes actually go wrong, and this report exists to make that impossible to do by accident.
+
+1. Pull out the 8-12 requirements the posting actually rewards, in priority order. Read
+   past the boilerplate: "5+ years of X" and "strong communication" matter less than the
+   two or three lines that describe the actual job.
+2. For each requirement, call search_brain with the terms a person would have used when
+   dumping — the tool searches raw notes, not polished bullets, so search for the work,
+   not the buzzword.
+3. Sort every requirement into exactly one of three lists:
+   BACKED — direct evidence exists. Quote the strongest piece and name the role it came from.
+   THIN — something adjacent exists but it would be a stretch to claim the requirement
+   outright. Say precisely what exists and what the gap is.
+   MISSING — the brain has nothing. Say so plainly.
+4. Report the three lists in that order, then say what the report means: roughly how much
+   of the posting's core is covered, and whether tailoring is worth it or the fit isn't there.
+5. For each MISSING and THIN item, ask one concrete question that would surface the
+   evidence if it exists — people forget their own work constantly. Anything they answer
+   goes into the brain with append_role_brain_dump, and then it is BACKED for every future
+   application, not just this one.
+
+Never move an item to BACKED to be encouraging. A gap named now costs a rewrite; a gap
+discovered in an interview costs the interview.`,
   },
   {
     name: "mine_brain_dump",

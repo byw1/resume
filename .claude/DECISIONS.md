@@ -935,3 +935,18 @@ follow-ups everywhere follow-ups appear (dashboard, calendar, list_follow_ups), 
 "ping Sarah in two weeks" as a date on the person. No new tools — log_activity,
 update_contact and list_follow_ups grew instead, so the tool count is unchanged and the
 descriptions carry the routing.
+
+## 2026-08-26 — The gap report is a prompt, not a server computation
+
+**Decision:** gap_report ships as a workflow prompt (exposed as a tool like the others),
+not as a data-layer function. The server cannot judge whether "ran a rollout across three
+regions" evidences "experience leading distributed teams" — that reading is the
+assistant's job — so the server's contribution is the recipe: extract what the posting
+rewards, search the brain for the work rather than the buzzword, sort into
+BACKED / THIN / MISSING, and never upgrade an item to be encouraging.
+**The loop that matters:** every MISSING item ends in a question, because people forget
+their own work constantly — and an answered question goes into the brain via
+append_role_brain_dump, where it is evidence for every future posting. The gap report is
+secretly the brain's best intake funnel.
+**tailor_resume** now ends with the same three-list report, so the trust property the
+landing page advertises is something a user actually sees after every tailoring.

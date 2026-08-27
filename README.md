@@ -18,7 +18,7 @@ yourself, wired into Claude so you can just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  65 tools any MCP client can call (82 if you're an admin). Claude, Claude Code, ChatGPT,
+  66 tools any MCP client can call (83 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -160,7 +160,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 65, or 82 if you're an admin.
+would, then tells you how many tools answered — 66, or 83 if you're an admin.
 
 #### One connection per client
 
@@ -240,6 +240,7 @@ tempted by a permission they don't have.
 | Workflow | What it does |
 | --- | --- |
 | **Tailor a resume to a job** | Reads a posting, mines your brain for real evidence, drafts and saves a tailored resume, and tells you what it couldn't back up. |
+| **Gap report** | Checks a posting against your brain before you write anything: which requirements you can evidence, which are thin, which are missing — and the questions that would fill the gaps. |
 | **Mine a brain dump into highlights** | Turns a raw, rambling brain dump into polished, reusable resume bullets. |
 | **Weekly pipeline review** | What's stalled, who needs chasing, what to do next — with the follow-up messages drafted. |
 | **Research a company into the CRM** | Gathers what's known, works out what's missing, and writes it back to their record without flattening what was already there. |
