@@ -1,7 +1,7 @@
 # The self-hosting image.
 #
 # This is what docker-compose.yml builds and what CI publishes to
-# ghcr.io/byw1/hired. It exists so that self-hosting is one command with no
+# ghcr.io/shifulaboratories/hired. It exists so that self-hosting is one command with no
 # configuration, and so the server can render a PDF: that needs a real
 # browser, and a stock Node image has none.
 #
