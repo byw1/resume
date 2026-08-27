@@ -38,6 +38,10 @@
   --primary-tint: oklch(0.96 0.019 253);
   --on-primary: oklch(1 0 0);
 
+  /* Shifu Labs' signal orange, from shifulab.com. It belongs to the studio and
+     not to Hired, so it is only ever worn by the studio's mark in the footer. */
+  --signal: #ff4d00;
+
   --success: oklch(0.6 0.13 152);
   --warning: oklch(0.72 0.14 70);
   --destructive: oklch(0.58 0.21 25);
@@ -1436,11 +1440,86 @@ details.q .a p + p { margin-top: 10px; }
   text-wrap: pretty;
 }
 
-footer { padding-block: 44px 56px; }
-.foot { display: flex; flex-wrap: wrap; align-items: center; gap: 12px 20px; font-size: 12.5px; color: var(--faint); }
-.foot a { color: var(--muted); transition: color 0.15s var(--settle); }
-.foot a:hover { color: var(--foreground); }
-.foot .fill { flex: 1; }
+/* ---------------------------------------------------------------------------
+   FOOTER
+   Hired is one of several Shifu Labs tools, and this is where that gets said.
+   The mark, the signal orange and the social set are the studio's, taken from
+   shifulab.com; the layout, the type and the restraint are this page's. The
+   studio's mark spins on its own site — here it doesn't, because nothing on
+   this page loops. It turns a quarter when you point at it instead.
+   --------------------------------------------------------------------------- */
+
+footer { position: relative; isolation: isolate; overflow: hidden; padding-block: 44px 40px; }
+
+.foot {
+  display: grid;
+  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.95fr);
+  gap: 40px 56px;
+  align-items: start;
+}
+
+.foot-brand { display: flex; flex-direction: column; align-items: flex-start; gap: 14px; max-width: 36ch; }
+.foot-line { margin: -3px 0 0; font-size: 13px; line-height: 1.6; color: var(--muted); }
+
+.shifu-tag { display: inline-flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); transition: color 0.15s var(--settle); }
+.shifu-tag b { font-weight: 600; color: var(--foreground); }
+.shifu-tag svg { color: var(--signal); transition: rotate 0.45s var(--settle); }
+.shifu-tag:hover { color: var(--foreground); }
+.shifu-tag:hover svg { rotate: 90deg; }
+
+.socials { display: flex; align-items: center; gap: 8px; }
+.socials a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 999px;
+  border: 1px solid var(--rim);
+  background: var(--card);
+  color: var(--muted);
+  transition: color 0.15s var(--settle), border-color 0.15s var(--settle), background 0.15s var(--settle);
+}
+.socials a:hover { color: var(--foreground); border-color: var(--rim-strong); background: var(--inset); }
+
+.foot-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
+.foot-h {
+  margin: 0 0 11px;
+  font-family: var(--mono);
+  font-size: 10.5px;
+  text-transform: uppercase;
+  letter-spacing: 0.14em;
+  color: var(--faint);
+}
+.foot-cols ul { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 8px; }
+.foot-cols a { font-size: 13px; color: var(--muted); transition: color 0.15s var(--settle); }
+.foot-cols a:hover { color: var(--foreground); }
+
+.foot-base {
+  margin-top: 40px;
+  padding-top: 18px;
+  border-top: 1px solid var(--rim);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 8px 20px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+.foot-base .fill { flex: 1; }
+
+/* The studio mark, large and almost gone, behind the last line of the page. */
+.foot-mark {
+  position: absolute;
+  right: -72px;
+  bottom: -84px;
+  z-index: -1;
+  width: clamp(180px, 21vw, 270px);
+  height: auto;
+  color: var(--signal);
+  opacity: 0.05;
+  pointer-events: none;
+}
 
 
 /* Transcript turns arrive one at a time as the tape plays. */
@@ -1578,10 +1657,15 @@ footer { padding-block: 44px 56px; }
   .hero-copy { max-width: 100%; }
   .cell, .cell.third { grid-column: span 6; }
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .foot { grid-template-columns: 1fr; gap: 36px; }
+  .foot-brand { max-width: 52ch; }
 }
 
 @media (max-width: 720px) {
   :root { --gutter: 18px; }
+  .foot-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .foot-base .fill { flex: 0 0 100%; }
+  .foot-mark { right: -104px; bottom: -104px; }
   .hero-note { display: block; }
   .hero-note .sep { display: none; }
   .hero-note span { display: block; }

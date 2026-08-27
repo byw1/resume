@@ -888,3 +888,34 @@ app.
 says the part people forget — Hired defaults to dark, so its theme has to be switched
 before the screenshot is taken or it will not match the frame it lands in.
 **Supersedes:** the entry above it. Left in place as the record of what was tried.
+
+## 2026-08-27 — The footer says who made this
+
+**Decision (William's):** hired.tools carries a Shifu Labs footer, modelled on the one at
+viral.bywilliaml.com — brand block, "A Shifu Labs tool" with the studio's mark, the
+studio's social set, and the studio's domain, all in the page's own type and light theme.
+
+**What came from where.** The mark is the `viewBox="0 0 96 96"` path from shifulab.com,
+inlined into the sprite as `#i-shifu`. The signal orange is `#ff4d00`, the studio's own
+accent, added as `--signal` and worn only by that mark — Hired's accent is still the one
+blue, and nothing else on the page gained a second colour. The socials are Shifu's
+(`linkedin.com/company/shifulabs`, `instagram.com/shifu`, `x.com/shifulab`), not William's
+personal ones; the viral footer links the personal set, and copying that would have
+credited the wrong account.
+
+**The domain, deliberately not the one asked for.** The brief said `shifulabs.com`. That
+host is a GoDaddy parking page — its only outbound link is to GoDaddy's site builder. The
+real studio site is `shifulab.com` (singular lab), which is also what viral.bywilliaml.com
+links, and whose canonical is `shifulaboratories.com` — currently unreachable, connection
+reset, so linking that would be worse. The footer links `shifulab.com` and shows that
+string verbatim. If the plural is registered and pointed at the real site later, it is a
+one-line change in three places.
+
+**The studio's mark does not spin here.** shifulab.com rotates it continuously
+(`spin-slow`). This page's rule is that nothing loops — everything plays once on entry and
+holds — and an ambient rotation in the footer would have been the only exception on the
+page. The mark turns a quarter on hover instead, which keeps the gesture and costs nothing
+when nobody is pointing at it. The large corner mark is static, at 5% opacity, and sits
+behind the content on `z-index: -1` — which needs `isolation: isolate` on the footer, the
+same trap the hero glow hit: `position: relative` alone does not make a stacking context,
+so the mark would have painted behind `body` and vanished.

@@ -72,6 +72,12 @@
     <g id="i-layers" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="m12.83 2.18a2 2 0 0 0-1.66 0L2.6 6.08a1 1 0 0 0 0 1.83l8.58 3.91a2 2 0 0 0 1.66 0l8.58-3.9a1 1 0 0 0 0-1.83Z"/><path d="m6.08 10.37-3.5 1.6a1 1 0 0 0 0 1.81l8.6 3.91a2 2 0 0 0 1.65 0l8.58-3.9a1 1 0 0 0 0-1.83l-3.5-1.59"/></g>
     <g id="i-sparkle" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9.94 15.5A2 2 0 0 0 8.5 14.06l-6.14-1.58a.5.5 0 0 1 0-.96L8.5 9.94A2 2 0 0 0 9.94 8.5l1.58-6.14a.5.5 0 0 1 .96 0L14.06 8.5A2 2 0 0 0 15.5 9.94l6.14 1.58a.5.5 0 0 1 0 .96L15.5 14.06a2 2 0 0 0-1.44 1.44l-1.58 6.14a.5.5 0 0 1-.96 0Z"/></g>
     <g id="i-gh"><path fill="currentColor" d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82a7.42 7.42 0 0 1 4 0c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8Z"/></g>
+    <!-- Shifu Labs: the studio mark, and the studio's social set. Taken from
+         shifulab.com so the two sites are wearing the same identity. -->
+    <g id="i-shifu"><path fill="currentColor" d="M61 2L35 2L35 94L61 94ZM94.34 36.26L81.34 13.74L1.66 59.74L14.66 82.26ZM81.34 82.26L94.34 59.74L14.66 13.74L1.66 36.26Z"/></g>
+    <g id="i-in" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M16 8a6 6 0 0 1 6 6v7h-4v-7a2 2 0 0 0-2-2 2 2 0 0 0-2 2v7h-4v-7a6 6 0 0 1 6-6z"/><rect width="4" height="12" x="2" y="9"/><circle cx="4" cy="4" r="2"/></g>
+    <g id="i-ig" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="20" x="2" y="2" rx="5" ry="5"/><path d="M16 11.37A4 4 0 1 1 12.63 8 4 4 0 0 1 16 11.37z"/><path d="M17.5 6.5h.01"/></g>
+    <g id="i-x"><path fill="currentColor" d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231Zm-1.161 17.52h1.833L7.084 4.126H5.117Z"/></g>
   </defs>
 </svg>
 
@@ -1944,27 +1950,87 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
 
 </main>
 
+<!-- ==========================================================================
+     FOOTER
+     Hired is one of several Shifu Labs tools and the footer is where that gets
+     said. The mark, the signal orange and the social set come from
+     shifulab.com, so the studio reads the same wherever you meet it.
+     ========================================================================== -->
 <footer>
   <div class="wrap">
-    <hr class="fold" style="margin-bottom:32px">
+    <hr class="fold" style="margin-bottom:36px">
+
     <div class="foot">
-      <a class="brand" href="/" style="font-size:14px">
-        <svg width="20" height="20" viewBox="0 0 64 64" aria-hidden="true">
-          <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
-          <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-          <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-          <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-        </svg>
-        Hired
-      </a>
-      <span>Your career, on the record</span>
+      <div class="foot-brand">
+        <a class="brand" href="/" style="font-size:15px">
+          <svg width="22" height="22" viewBox="0 0 64 64" aria-hidden="true">
+            <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
+            <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+            <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+            <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          </svg>
+          Hired
+        </a>
+        <p class="foot-line">Your career, on the record. A brain, a resume builder and a pipeline, all of it reachable from the assistant you already talk to.</p>
+
+        <a class="shifu-tag" href="https://shifulab.com" rel="noopener">
+          <svg width="15" height="15" viewBox="0 0 96 96" aria-hidden="true"><use href="#i-shifu"/></svg>
+          <span>A <b>Shifu Labs</b> tool</span>
+        </a>
+
+        <div class="socials">
+          <a href="https://linkedin.com/company/shifulabs" rel="me noopener" title="Shifu Labs on LinkedIn" aria-label="Shifu Labs on LinkedIn">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-in"/></svg>
+          </a>
+          <a href="https://instagram.com/shifu" rel="me noopener" title="Shifu Labs on Instagram" aria-label="Shifu Labs on Instagram">
+            <svg width="16" height="16" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-ig"/></svg>
+          </a>
+          <a href="https://x.com/shifulab" rel="me noopener" title="Shifu Labs on X" aria-label="Shifu Labs on X">
+            <svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-x"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <nav class="foot-cols" aria-label="Footer">
+        <div>
+          <p class="foot-h">Product</p>
+          <ul>
+            <li><a href="#tour">The tour</a></li>
+            <li><a href="#honest">What it refuses</a></li>
+            <li><a href="#tools">How it works</a></li>
+            <li><a href="#connect">Connect a client</a></li>
+            <li><a href="#get">Get it</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="foot-h">Source</p>
+          <ul>
+            <li><a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a></li>
+            <li><a href="https://github.com/shifulaboratories/Hired/blob/main/README.md" rel="noopener">Docs</a></li>
+            <li><a href="https://github.com/shifulaboratories/Hired/blob/main/LICENSE" rel="noopener">AGPL-3.0</a></li>
+            <li><a href="https://app.hired.tools">Sign in</a></li>
+          </ul>
+        </div>
+        <div>
+          <p class="foot-h">Shifu Labs</p>
+          <ul>
+            <li><a href="https://shifulab.com" rel="noopener">shifulab.com</a></li>
+            <li><a href="https://venturecapital.gold" rel="noopener">VentureCapital.Gold</a></li>
+            <li><a href="https://privateequity.tools" rel="noopener">PrivateEquity.Tools</a></li>
+            <li><a href="mailto:studio@shifulaboratories.com">studio@shifulaboratories.com</a></li>
+          </ul>
+        </div>
+      </nav>
+    </div>
+
+    <div class="foot-base">
+      <span>&copy; 2026 Shifu Labs</span>
       <span class="fill"></span>
-      <a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a>
-      <a href="https://github.com/shifulaboratories/Hired/blob/main/README.md" rel="noopener">Docs</a>
-      <a href="https://github.com/shifulaboratories/Hired/blob/main/LICENSE" rel="noopener">AGPL-3.0</a>
-      <a href="https://app.hired.tools">Sign in</a>
+      <span>Built by hand. Shipped from the studio.</span>
     </div>
   </div>
+
+  <svg class="foot-mark" width="120" height="120" viewBox="0 0 96 96" aria-hidden="true" role="presentation"><use href="#i-shifu"/></svg>
 </footer>
 
 <script src="motion.js" defer></script>
