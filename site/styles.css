@@ -1362,6 +1362,142 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
    DOORS, FAQ, FOOTER
    =========================================================================== */
 
+/* ---------------------------------------------------------------------------
+   REQUEST ACCESS
+   Hosting is invite-only, so the primary action on this page is an email
+   address rather than a sign-up. One form, used twice — hero and close — and
+   posted to the instance by motion.js without leaving the page.
+   --------------------------------------------------------------------------- */
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  padding: 0;
+  margin: -1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+  border: 0;
+}
+
+.joinform { max-width: 480px; }
+.joinform-row { display: flex; flex-wrap: wrap; gap: 8px; }
+.joinform input[type="email"] {
+  flex: 1 1 210px;
+  min-width: 0;
+  padding: 11px 14px;
+  font: inherit;
+  font-size: 14px;
+  color: var(--foreground);
+  background: var(--card);
+  border: 1px solid var(--rim);
+  border-radius: var(--r-control);
+  transition: border-color 0.16s var(--settle), box-shadow 0.16s var(--settle);
+}
+.joinform input[type="email"]::placeholder { color: var(--faint); }
+.joinform input[type="email"]:focus {
+  outline: none;
+  border-color: var(--primary);
+  box-shadow: 0 0 0 3px var(--primary-tint);
+}
+.joinform button[type="submit"] { flex: 0 0 auto; }
+.joinform button[disabled] { opacity: 0.6; pointer-events: none; }
+
+/* The honeypot. Moved off-screen rather than display:none, because a bot that
+   skips hidden inputs will still fill a positioned one. */
+.joinform .hp {
+  position: absolute;
+  left: -9999px;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+}
+
+.joinform-note { margin-top: 11px; font-size: 12.5px; color: var(--faint); }
+.joinform-said { margin-top: 11px; font-size: 13px; color: var(--muted); }
+.joinform-said:empty { display: none; }
+.joinform-said.bad { color: var(--destructive); }
+
+/* Once it has gone through, the form is replaced by its own answer rather than
+   cleared — there is nothing useful left to do with it. */
+.joinform.done .joinform-row,
+.joinform.done .joinform-note { display: none; }
+.joinform.done .joinform-said {
+  display: flex;
+  gap: 9px;
+  align-items: flex-start;
+  margin-top: 0;
+  font-size: 14.5px;
+  line-height: 1.55;
+  color: var(--foreground);
+}
+.joinform.done .joinform-said svg { flex-shrink: 0; margin-top: 3px; color: var(--success); }
+
+/* Centred variant, for the close. */
+.joinform.mid { margin-inline: auto; }
+.joinform.mid .joinform-row { justify-content: center; }
+.joinform.mid .joinform-note,
+.joinform.mid .joinform-said { text-align: center; }
+.joinform.mid.done .joinform-said { justify-content: center; text-align: left; }
+
+/* ---------------------------------------------------------------------------
+   PRICING
+   Three columns, one of them real. Self-host is available now; the two hosted
+   tiers are marked and their CTAs go to the form rather than to a checkout.
+   --------------------------------------------------------------------------- */
+
+.tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 14px; }
+.tier {
+  display: flex;
+  flex-direction: column;
+  padding: 22px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+}
+.tier.lit { box-shadow: var(--shadow-raised), 0 0 0 1px var(--primary); }
+.tier h3 { font-size: 15px; }
+.tier .price { display: flex; align-items: baseline; gap: 6px; margin: 14px 0 0; }
+.tier .price b {
+  font-size: 34px;
+  font-weight: 600;
+  letter-spacing: -0.035em;
+  font-variant-numeric: tabular-nums;
+}
+.tier .price span { font-size: 13px; color: var(--faint); }
+.tier .terms { font-family: var(--mono); font-size: 11.5px; color: var(--faint); margin: 6px 0 16px; }
+.tier ul { list-style: none; margin: 0 0 18px; display: flex; flex-direction: column; gap: 8px; }
+.tier li { display: flex; gap: 9px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.tier li svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px; color: var(--success); }
+.tier .fill { flex: 1; }
+.tier .btn { align-self: stretch; justify-content: center; }
+
+/* "Not yet" said once, in the same place on every card that needs it. */
+.soon {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  padding: 3px 8px;
+  border-radius: var(--r-chip);
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--warning);
+  background: color-mix(in oklch, var(--warning) 12%, transparent);
+}
+.tier-head { display: flex; align-items: center; gap: 9px; flex-wrap: wrap; }
+
+.checks { list-style: none; margin: 16px 0 0; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+.checks li { display: flex; gap: 9px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.checks li svg { width: 14px; height: 14px; flex-shrink: 0; margin-top: 3px; color: var(--success); }
+
+/* Feature lists inside the bento cells. */
+.cell ul { list-style: none; margin: 14px 0 0; display: flex; flex-direction: column; gap: 8px; }
+.cell li { display: flex; gap: 9px; font-size: 13px; line-height: 1.5; color: var(--muted); }
+.cell li svg { width: 13px; height: 13px; flex-shrink: 0; margin-top: 3.5px; color: var(--tone, var(--primary)); }
+
 .doors { display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 14px; }
 .door {
   display: flex;
@@ -1653,7 +1789,7 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 }
 
 @media (max-width: 900px) {
-  .stage { grid-template-columns: 1fr; }
+  .stage { grid-template-columns: minmax(0, 1fr); }
   .hero-copy { max-width: 100%; }
   .cell, .cell.third { grid-column: span 6; }
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
@@ -1663,6 +1799,8 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 
 @media (max-width: 720px) {
   :root { --gutter: 18px; }
+  .bento { grid-template-columns: minmax(0, 1fr); }
+  .cell, .cell.wide, .cell.third { grid-column: span 1; }
   .foot-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .foot-base .fill { flex: 0 0 100%; }
   .foot-mark { right: -104px; bottom: -104px; }

@@ -956,3 +956,45 @@ shows up in Admin as one rather than looking like nothing happened.
 
 **The landing page's tool count is unchanged at 64.** All three new tools are `adminOnly`,
 and the figure on hired.tools is what a *member* sees.
+
+## 2026-08-28 — The landing page is for someone looking for a job
+
+**Decision (William's):** the page was written for someone who already knew what
+self-hosting was. The audience is a job seeker, mostly non-technical, and the page should
+sell getting hired. Modelled on 21st.dev's shape: scannable capability grid, pricing on the
+page, one obvious action.
+
+**What changed.**
+- The headline is an outcome — "Get hired on what you actually did" — rather than an
+  instruction ("Write your career down once").
+- A new `#features` grid, four cards, sixteen concrete capabilities. This is the section a
+  first-time reader scans before deciding whether to keep going, and the old page had no
+  equivalent: it went straight from the problem into a product tour.
+- The tour stopped being the inventory and became the demo. Its heading was "Four parts,
+  one record", which now collides with the features grid, so it is "What each part actually
+  looks like".
+- `#get` — two co-equal doors, self-host and hosted — is gone. It has become `#pricing`
+  (three tiers) plus one compact `#selfhost` band. Self-hosting is still there, still true,
+  and no longer half the page.
+- The FAQ is rewritten for someone who has never deployed anything: "do I need to be
+  technical", "can I use it now", "how long until it's useful", "who can see my stuff".
+- MCP is never named. It was already demoted to "you just say it" last week; the nav item
+  is "How it works" and the jargon is gone from the tour lede too.
+
+**The prices are placeholders and say so in the markup.** $0 / $12 a month / $99 a year.
+They appear in exactly two places — the tier cards and the FAQ answer — with a comment
+naming both, so changing them is not a search-and-hope.
+
+**Hosting is presented as closed, because it is.** Both hosted CTAs go to the form, not to
+a checkout. The Stripe Payment Link already exists as a setting; it replaces the hrefs when
+hosting opens.
+
+**Two bugs the restructure surfaced.**
+`.stage { grid-template-columns: 1fr }` in the 900px query is `minmax(auto, 1fr)`, so the
+track could not shrink below the min-content of the compose block's unbroken URL and the
+whole page scrolled sideways at 390px. `minmax(0, 1fr)` lets `.code`'s own `overflow-x`
+do its job. This never showed before because the old self-host column used `.doors`, whose
+`auto-fit minmax` already had the zero floor.
+The audit script's "inputs without a label" check only looked for `aria-label` and a
+wrapping `<label>`, so it reported the new form's correctly-labelled inputs as failures. It
+now follows `label[for]` and skips `aria-hidden` honeypots.

@@ -435,6 +435,87 @@
   if (/[?&]slots\b/.test(location.search)) document.body.classList.add("show-slots");
 
   // -------------------------------------------------------------------------
+  // Request access.
+  //
+  // The form works without this file: it is a real <form>, and with scripting
+  // off the browser posts it to the endpoint below and shows whatever JSON
+  // comes back. Ugly, but it goes through, which is the part that matters. All
+  // this adds is staying on the page.
+  //
+  // The endpoint is the app instance, not this static site. Self-hosters point
+  // it at their own; there is nothing else to change.
+  // -------------------------------------------------------------------------
+
+  var JOIN_ENDPOINT = "https://app.hired.tools/api/waitlist";
+
+  $$("[data-join]").forEach(function (form) {
+    form.setAttribute("action", JOIN_ENDPOINT);
+    form.setAttribute("method", "post");
+
+    var said = $(".joinform-said", form);
+    var button = $("button[type=submit]", form);
+    var input = $("input[type=email]", form);
+    var busy = false;
+
+    function say(message, bad) {
+      if (!said) return;
+      said.textContent = message;
+      said.classList.toggle("bad", !!bad);
+    }
+
+    function done(message) {
+      form.classList.add("done");
+      if (!said) return;
+      said.innerHTML =
+        '<svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>' +
+        "<span></span>";
+      $("span", said).textContent = message;
+    }
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      if (busy) return;
+
+      var email = input ? input.value.trim() : "";
+      if (!email || email.indexOf("@") < 1 || email.indexOf(".") < 0) {
+        say("That doesn't look like an email address.", true);
+        if (input) input.focus();
+        return;
+      }
+
+      busy = true;
+      if (button) button.disabled = true;
+      say("Sending\u2026");
+
+      fetch(JOIN_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          email: email,
+          website: form.website ? form.website.value : "",
+        }),
+      })
+        .then(function (response) {
+          return response.json().catch(function () { return { ok: response.ok }; });
+        })
+        .then(function (body) {
+          if (body && body.ok) {
+            done("You're on the list. I'll email you an invite from this address — it comes from a person, not a drip campaign.");
+          } else {
+            say((body && body.error) || "That didn't go through. Try again in a moment.", true);
+            busy = false;
+            if (button) button.disabled = false;
+          }
+        })
+        .catch(function () {
+          say("Couldn't reach the server. Try again in a moment.", true);
+          busy = false;
+          if (button) button.disabled = false;
+        });
+    });
+  });
+
+  // -------------------------------------------------------------------------
   // The one live number on the page. Fails silently to the word "GitHub".
   // -------------------------------------------------------------------------
 

@@ -73,8 +73,11 @@ export async function POST(request: Request) {
   });
   if (recent >= BURST_LIMIT) return json({ ok: true });
 
-  // The origin of the page that posted, not anything the body claimed.
-  const source = (request.headers.get("origin") ?? "").replace(/^https?:\/\//, "").slice(0, 200);
+  // The origin of the page that posted, not anything the body claimed. A
+  // file:// page and some privacy modes send the literal string "null"; record
+  // that as nothing rather than as a source called null.
+  const origin = request.headers.get("origin") ?? "";
+  const source = origin === "null" ? "" : origin.replace(/^https?:\/\//, "").slice(0, 200);
 
   const result = await addWaitlistSignup({
     email,

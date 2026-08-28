@@ -95,15 +95,15 @@
       Hired
     </a>
     <nav class="nav-links" aria-label="Main">
-      <a class="link" href="#tour">Product</a>
+      <a class="link" href="#features">Features</a>
       <a class="link" href="#tools">How it works</a>
-      <a class="link" href="#connect">Connect</a>
-      <a class="link" href="#get">Get it</a>
+      <a class="link" href="#pricing">Pricing</a>
+      <a class="link" href="#selfhost">Self-host</a>
       <a class="gh" href="https://github.com/shifulaboratories/Hired" rel="noopener">
         <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><use href="#i-gh"/></svg>
         <span id="stars">GitHub</span>
       </a>
-      <a class="btn btn-primary btn-sm" href="#get">Get started</a>
+      <a class="btn btn-primary btn-sm" href="#join">Request access</a>
     </nav>
   </div>
 </header>
@@ -122,36 +122,46 @@
   <div class="hero-grid" aria-hidden="true"></div>
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="wrap">
-    <a class="pill" href="https://github.com/shifulaboratories/Hired" rel="noopener" data-reveal>
-      <em>Open source</em> AGPL-3.0<span class="long"> · self-host in one command</span>
+    <a class="pill" href="#join" data-reveal>
+      <em>Invite-only</em> while it's being built<span class="long"> · ask for a place</span>
       <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
     </a>
 
     <h1 class="h-display hero-copy" data-reveal style="--i:1; margin-top:22px">
-      Write your career<br>down once.
+      <span class="accent">Get hired</span> on what<br>you actually did.
     </h1>
 
     <p class="lede" data-reveal style="--i:2">
-      Hired keeps the record of every job you've had — the numbers, the projects, the
-      screw-ups — and assembles resumes, applications and follow-ups out of it on request.
-      You talk to it from Claude, Cursor or anything that speaks MCP. Nothing on a resume
-      is invented.
+      Hired remembers every job, project and number you've been part of, writes each resume
+      out of what's actually in there, and keeps track of every application until someone
+      says yes. You talk to it in plain sentences. It does the filing.
     </p>
 
-    <div class="hero-ctas" data-reveal style="--i:3">
-      <a class="btn btn-primary" href="#get">
-        Get started
-        <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
-      </a>
-      <a class="btn btn-ghost" href="#tour">See it work</a>
-    </div>
+    <!-- The primary action on the page. Posts to the instance; see motion.js. -->
+    <form class="joinform" id="join" data-join data-reveal style="--i:3; margin-top:26px" novalidate>
+      <div class="joinform-row">
+        <label class="sr-only" for="join-hero">Your email address</label>
+        <input id="join-hero" type="email" name="email" autocomplete="email"
+               placeholder="you@example.com" required>
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-primary" type="submit">
+          Request access
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+        </button>
+      </div>
+      <p class="joinform-note">
+        No card, no account yet. It emails me, and I send you an invite.
+        Or <a href="#selfhost" style="color:var(--muted);text-decoration:underline;text-underline-offset:2px">run it yourself today</a> — that part is free and open.
+      </p>
+      <p class="joinform-said" role="status" aria-live="polite"></p>
+    </form>
 
     <p class="hero-note" data-reveal style="--i:4">
       <span><b>Free</b> to self-host, forever</span>
       <span class="sep" aria-hidden="true">·</span>
       <span>Works inside <b>Claude</b>, <b>ChatGPT</b> and <b>Cursor</b></span>
       <span class="sep" aria-hidden="true">·</span>
-      <span><b>One</b> environment variable</span>
+      <span><b>Nothing</b> on a resume is invented</span>
     </p>
 
     <div class="stage">
@@ -271,9 +281,10 @@
       <h2 class="h-section">You have done more than you can remember, and the resume is written from memory.</h2>
       <p class="lede">
         Every search starts the same way: a blank document, a vague recollection of what the
-        last three years were, and a number you can't source. The material was never the
-        problem — it was never written down anywhere durable. Hired is that place, and the
-        assistant that reads it back to you when it matters.
+        last three years were, and a number you can't source. So the resume gets thinner than
+        the career, the good work goes unmentioned, and the application that would have landed
+        never gets sent. The material was never the problem — it was never written down
+        anywhere durable.
       </p>
     </div>
 
@@ -297,6 +308,80 @@
         <div class="n">&infin;</div>
         <div class="l">Words per role</div>
         <div class="h">Length is a feature, not a limit to manage</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<div class="wrap"><hr class="fold"></div>
+
+<!-- ==========================================================================
+     WHAT'S IN IT
+
+     Four cards, one per area, each listing things you can actually point at in
+     the product. This is the section a first-time reader scans before deciding
+     whether the rest of the page is worth their time, so every line is a
+     capability rather than a claim.
+     ========================================================================== -->
+<section class="band" id="features">
+  <div class="wrap">
+    <div class="section-head" data-reveal>
+      <p class="eyebrow">What's in it</p>
+      <h2 class="h-section">Four parts, and each one makes the next better.</h2>
+      <p class="lede">
+        The brain is why the resumes are good. The pipeline is why you follow up. The record
+        of who you spoke to is why the second conversation goes better than the first. It is
+        one thing, not four apps to keep in sync.
+      </p>
+    </div>
+
+    <div class="bento" style="margin-top:36px">
+      <div class="cell" data-reveal style="--tone:var(--stage-applied); --i:1">
+        <div class="cell-dot" aria-hidden="true"></div>
+        <h3>The brain</h3>
+        <p>Everything you've done, in your own words, at any length. This is the part that makes the rest work.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Every role, project, number and screw-up — no character limit to manage</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Dump a paragraph after a good week and never think about it again</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Searchable by what a posting is actually asking for</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Guardrails: the things you never want appearing on a resume, remembered</span></li>
+        </ul>
+      </div>
+
+      <div class="cell" data-reveal style="--tone:var(--stage-screen); --i:2">
+        <div class="cell-dot" aria-hidden="true"></div>
+        <h3>Resumes</h3>
+        <p>Built out of the brain for one specific job, in the format that gets read rather than the one that looks clever.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Tailored to a posting in a single ask, from evidence you already wrote</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The Harvard format: one column, real text, no graphics for a parser to choke on</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>A PDF, or a link you can paste straight into an application form</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Length checked before you commit, so it fits on the page it has to fit on</span></li>
+        </ul>
+      </div>
+
+      <div class="cell" data-reveal style="--tone:var(--stage-final); --i:3">
+        <div class="cell-dot" aria-hidden="true"></div>
+        <h3>Pipeline</h3>
+        <p>Where every application actually stands, so nothing dies quietly in an inbox.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Nine stages from wishlist to offer — drag a card, or just say it moved</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Follow-ups that surface before a conversation goes cold</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Which resume you sent where, and what happened afterwards</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The read: which step is losing people, and how long each one takes you</span></li>
+        </ul>
+      </div>
+
+      <div class="cell" data-reveal style="--tone:var(--stage-offer); --i:4">
+        <div class="cell-dot" aria-hidden="true"></div>
+        <h3>People and prep</h3>
+        <p>The companies and humans behind the applications, and what to say to them next.</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Every company, contact and conversation, attached to the job it belongs to</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Interview prep read back off your own record before you walk in</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Who you already know somewhere, before you apply cold</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Notes that outlive this search and are still there for the next one</span></li>
+        </ul>
       </div>
     </div>
   </div>
@@ -443,11 +528,12 @@
 <section class="band" id="tour">
   <div class="wrap">
     <div class="section-head" data-reveal style="margin-bottom:52px">
-      <p class="eyebrow">The product</p>
-      <h2 class="h-section">Four parts, one record.</h2>
+      <p class="eyebrow">See it work</p>
+      <h2 class="h-section">What each part actually looks like.</h2>
       <p class="lede">
-        The app is where you look. The conversation is where you work. Everything on these
-        screens is reachable from either side, because both call the same data layer.
+        The app is where you look. Talking to it is where the work gets done. Anything on
+        these screens can be done either way, and it's the same record underneath, so a card
+        you drag is a card you can ask about a minute later.
       </p>
     </div>
 
@@ -1666,7 +1752,7 @@
   <div class="wrap">
     <div class="section-head" data-reveal>
       <p class="eyebrow">Works where you already talk</p>
-      <h2 class="h-section">Setup is one paste, and it's the same paste everywhere.</h2>
+      <h2 class="h-section">Setup is one copy and paste, and it's the same one everywhere.</h2>
       <p class="lede">
         Each app you connect gets its own private link, with the exact steps shown inside
         Hired. Lose the laptop with one of them on it and you revoke that link alone — the
@@ -1797,59 +1883,130 @@
 <!-- ==========================================================================
      TWO DOORS
      ========================================================================== -->
-<section class="band" id="get">
+<!-- ==========================================================================
+     PRICING
+
+     PLACEHOLDER NUMBERS. Three prices live in this section and nowhere else on
+     the page except the FAQ answer below ("What does it cost?") — change both
+     together. Neither hosted tier has a checkout yet: both CTAs go to the form,
+     and the Stripe Payment Link (Admin -> Billing holds the same URL) replaces
+     them when hosting opens.
+     ========================================================================== -->
+<section class="band" id="pricing">
   <div class="wrap">
     <div class="section-head" data-reveal>
-      <p class="eyebrow">Two ways in</p>
-      <h2 class="h-section">Run it yourself, or let me run it for you.</h2>
-      <p class="lede">Both are the whole product. Neither is a trial of the other.</p>
+      <p class="eyebrow">Pricing</p>
+      <h2 class="h-section">Free if you run it. Cheap if I run it.</h2>
+      <p class="lede">
+        Self-hosting is open today and always will be. Hosting isn't open yet — I'm letting
+        people in a few at a time so I can fix what breaks. Ask for a place and I'll send an
+        invite when one comes free.
+      </p>
     </div>
 
-    <div class="doors" style="margin-top:32px">
-      <div class="door" id="self-host" data-reveal style="--i:1">
-        <h3>Self-host</h3>
-        <p class="terms">free · AGPL-3.0 · yours forever</p>
-        <p>
-          One command on any machine with Docker. It brings up the app and its database,
-          applies migrations, creates your owner account and prints the password once.
-        </p>
-        <div class="code-head" style="margin-top:16px"><span class="label">Terminal</span><button class="copy" data-copy="c-compose">Copy</button></div>
-        <pre class="code" id="c-compose">curl -fsSLO https://raw.githubusercontent.com/shifulaboratories/Hired/main/docker-compose.yml
-docker compose up -d
-docker compose logs app   <span class="c"># your sign-in details, once</span></pre>
+    <div class="tiers" style="margin-top:32px">
+      <div class="tier" data-reveal style="--i:1">
+        <div class="tier-head"><h3>Self-host</h3></div>
+        <p class="price"><b>$0</b> <span>forever</span></p>
+        <p class="terms">available now · AGPL-3.0</p>
         <ul>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export works on first boot — the browser and the Times-metric fonts ride in the image.</span></li>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your data lives in a named volume and survives upgrades. <code>docker compose pull</code> is the upgrade.</span></li>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Or five clicks on Railway if you'd rather never open a terminal.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The whole product. There is no smaller version of it.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>One command with Docker, or five clicks on Railway if you'd rather not open a terminal.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your database, your machine, your backups.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Runs on the smallest box any host sells.</span></li>
         </ul>
         <div class="fill"></div>
-        <a class="btn btn-ghost" href="https://github.com/shifulaboratories/Hired#self-host-with-docker" rel="noopener">
-          Full instructions
-          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-out"/></svg>
+        <a class="btn btn-ghost" href="#selfhost">How to run it</a>
+      </div>
+
+      <div class="tier lit" data-reveal style="--i:2">
+        <div class="tier-head"><h3>Hosted</h3><span class="soon">Coming soon</span></div>
+        <p class="price"><b>$12</b> <span>/ month</span></p>
+        <p class="terms">cancel any time · invite-only for now</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Everything in self-host, without the hosting.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Backed up, kept current, and on the latest build every boot.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your workspace is private. Admins manage accounts, never content.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Stop paying and it's suspended, not deleted.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Leave whenever you like — the self-hosted build is the same build.</span></li>
+        </ul>
+        <div class="fill"></div>
+        <a class="btn btn-primary" href="#join">
+          Request access
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
         </a>
       </div>
 
-      <div class="door lit" id="hosted" data-reveal style="--i:2">
-        <h3>Hosted</h3>
-        <p class="terms">monthly · cancel any time · your data stays yours</p>
-        <p>
-          The same product at app.hired.tools, run and kept current by the person who built
-          it. Pay, get an invite, connect your assistant, start.
-        </p>
+      <div class="tier" data-reveal style="--i:3">
+        <div class="tier-head"><h3>Founding</h3><span class="soon">Coming soon</span></div>
+        <p class="price"><b>$99</b> <span>/ year</span></p>
+        <p class="terms">the first hundred people off the list</p>
         <ul>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your workspace is private. Instance admins manage accounts, never content.</span></li>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Stop paying and it is suspended, not deleted.</span></li>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export and public resume links included. There is no smaller version of this.</span></li>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Migrations run on every boot, so the instance is always on the current build.</span></li>
-          <li><svg width="14" height="14" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Leave whenever you like — the self-hosted build is the same build.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The hosted plan, at the price it launches with.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>That price stays yours for as long as you keep it.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>You get asked what to build next, and I listen.</span></li>
         </ul>
         <div class="fill"></div>
-        <!-- Replace the href with the Stripe Payment Link once it exists
-             (Admin → Billing holds the same URL). -->
-        <a class="btn btn-primary" href="https://github.com/shifulaboratories/Hired#get-it" rel="noopener">
-          Get an invite
-          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
-        </a>
+        <a class="btn btn-ghost" href="#join">Request access</a>
+      </div>
+    </div>
+
+    <p class="spec meta" data-reveal style="--i:4">
+      Prices in USD · no free trial, because self-hosting is the free version ·
+      the hosted instance runs the same code as the repository, on the same day
+    </p>
+  </div>
+</section>
+
+<div class="wrap"><hr class="fold"></div>
+
+<!-- ==========================================================================
+     SELF-HOST
+
+     Demoted from a co-equal door to one band. It stays because it is true and
+     because it is the answer to "what happens if you lose interest", but the
+     page is no longer addressed to someone who came here to read a compose file.
+     ========================================================================== -->
+<section class="band-tight" id="selfhost">
+  <div class="wrap">
+    <div class="stage" style="align-items:start; margin-top:0">
+      <div data-reveal>
+        <p class="eyebrow">Or run it yourself</p>
+        <h2 class="h-section" style="font-size:clamp(22px,2.8vw,30px); margin:10px 0 12px">
+          It's yours either way.
+        </h2>
+        <p class="lede" style="font-size:15px">
+          One command on any machine with Docker. It brings up the app and its database,
+          applies migrations, creates your account and prints the password once. There is one
+          setting to supply — the database address — and everything else is configured inside
+          the app afterwards.
+        </p>
+        <p class="lede" style="font-size:15px; margin-top:14px">
+          You don't need this to be true to use the hosted version. It matters because it
+          means nobody can take the thing away from you, including me.
+        </p>
+        <div class="hero-ctas" style="margin-top:20px">
+          <a class="btn btn-ghost" href="https://github.com/shifulaboratories/Hired#self-host-with-docker" rel="noopener">
+            Full instructions
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-out"/></svg>
+          </a>
+          <a class="btn btn-ghost" href="https://github.com/shifulaboratories/Hired#self-host-on-railway-no-terminal" rel="noopener">
+            No-terminal version
+            <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-out"/></svg>
+          </a>
+        </div>
+      </div>
+
+      <div data-reveal style="--i:1">
+        <div class="code-head"><span class="label">Terminal</span><button class="copy" data-copy="c-compose">Copy</button></div>
+        <pre class="code" id="c-compose">curl -fsSLO https://raw.githubusercontent.com/shifulaboratories/Hired/main/docker-compose.yml
+docker compose up -d
+docker compose logs app   <span class="c"># your sign-in details, once</span></pre>
+        <ul class="checks">
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>PDF export works on first boot — the browser and the fonts ride in the image.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your data lives in a named volume and survives upgrades. <code>docker compose pull</code> is the upgrade.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Invite friends into your own instance and each of them gets a private workspace.</span></li>
+        </ul>
       </div>
     </div>
   </div>
@@ -1868,49 +2025,59 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
         <h2 class="h-section">The questions that come up.</h2>
       </div>
 
-      <div class="faq" data-reveal>
+      <div class="qa" data-reveal style="--i:1">
         <details class="q">
-          <summary>Do I need Claude to use it?<span class="plus" aria-hidden="true"></span></summary>
+          <summary>Do I need to be technical to use this?<span class="plus" aria-hidden="true"></span></summary>
           <div class="a">
-            <p>No. The web app is complete on its own — you can write your brain, build resumes, export PDFs and run the pipeline without ever connecting an assistant. But the product was designed conversation-first, and roughly everything gets faster when you can say "file this" instead of opening a form.</p>
+            <p>No. On the hosted version you get a link, pick a password, and you're in — it's a website. The only setup is pasting one address into Claude or ChatGPT, and that screen gives you the address and tells you where it goes. Self-hosting is the part that needs a terminal, and it's optional.</p>
           </div>
         </details>
         <details class="q">
-          <summary>Who can see what I write?<span class="plus" aria-hidden="true"></span></summary>
+          <summary>Can I use it now?<span class="plus" aria-hidden="true"></span></summary>
           <div class="a">
-            <p>On your own instance, you. On the hosted one, you — admins manage accounts, never content, and there is no code path that lets one person read another's brain, resumes or applications. Every data function takes the owning user id as its first argument, which is what makes that a compile-time property rather than a promise.</p>
-            <p>The one deliberate exception is a resume you publish. That page is readable by anyone holding its link, and it is the only anonymous read in the system.</p>
+            <p>You can self-host it now — that's finished and free. Hosting is invite-only while I let people in a few at a time and fix what they find. Put your email in the box and I'll send you an invite when a place opens; nothing else happens to your address.</p>
           </div>
         </details>
         <details class="q">
-          <summary>Is a published resume link actually private?<span class="plus" aria-hidden="true"></span></summary>
+          <summary>What does it cost?<span class="plus" aria-hidden="true"></span></summary>
           <div class="a">
-            <p>It's unlisted, not secret. The slug carries about sixty bits of entropy so it can't be guessed, and the page tells search engines not to index it. There are no per-viewer permissions, because everyone you'd send it to is someone you already decided to send it to.</p>
-            <p>Withdrawing a link destroys the address rather than pausing it. Publishing again gives you a different one — the reason you withdraw a link is usually that it went somewhere you regret, and a pause you can undo doesn't fix that.</p>
+            <p>Nothing if you run it yourself, forever. Hosted is $12 a month, or $99 a year for the first hundred people off the waitlist. There's no free trial of the hosted plan because self-hosting <em>is</em> the free version, and it's the same software rather than a cut-down one.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>Will it invent things to put on my resume?<span class="plus" aria-hidden="true"></span></summary>
+          <div class="a">
+            <p>No, and that's the rule the whole thing is built on. Every connected assistant is told, in writing, never to invent an employer, a date, a title or a number. If a posting wants something you haven't got, it says so and asks you rather than filling the gap. There's a section above showing exactly what that refusal looks like.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>How long until it's useful?<span class="plus" aria-hidden="true"></span></summary>
+          <div class="a">
+            <p>One job. Write down what you actually did at one place you can still remember, in whatever order it comes out, and you can produce a tailored resume from it that afternoon. It gets better every time you add something, which is the point — but it does not need your whole life before it does anything.</p>
+          </div>
+        </details>
+        <details class="q">
+          <summary>Do I have to talk to an AI to use it?<span class="plus" aria-hidden="true"></span></summary>
+          <div class="a">
+            <p>No. Everything has a screen: the brain, the resume editor, the board, the contacts. Talking to it is faster for the boring parts — logging what happened, moving a card, tailoring a resume — and the two are the same data, so you can do a thing by hand and ask about it a minute later.</p>
           </div>
         </details>
         <details class="q">
           <summary>Will the PDF get through an ATS?<span class="plus" aria-hidden="true"></span></summary>
           <div class="a">
-            <p>The document is real text in a real page, not an image, and the default template is a faithful port of the Harvard OCS format — everything one size, no colour, no columns. The PDF is rendered headless from that same page, so what you see is what gets parsed.</p>
+            <p>The document is real text in a real page, not an image, and the default template is a faithful port of the Harvard OCS format — everything one size, no colour, no columns. The PDF is rendered from that same page, so what you see is what gets parsed.</p>
           </div>
         </details>
         <details class="q">
-          <summary>What happens if I stop paying?<span class="plus" aria-hidden="true"></span></summary>
+          <summary>Who can see my stuff?<span class="plus" aria-hidden="true"></span></summary>
           <div class="a">
-            <p>Your workspace is suspended, not deleted. The self-hosted build is the same build, so moving to your own instance is always available and never a downgrade.</p>
+            <p>You. Every workspace is private, including from whoever runs the instance — admins manage accounts, never content, and that's enforced in the code rather than by policy. The one exception is a resume you deliberately publish as a link, and you choose when that happens and can unpublish it.</p>
           </div>
         </details>
         <details class="q">
-          <summary>How much does self-hosting actually cost to run?<span class="plus" aria-hidden="true"></span></summary>
+          <summary>What happens if I stop paying, or you stop caring?<span class="plus" aria-hidden="true"></span></summary>
           <div class="a">
-            <p>An app container and a Postgres. It runs on the smallest box any host sells. There is one required environment variable — <code>DATABASE_URL</code> — and everything else is configured inside the app, so there is no second config file to keep in sync.</p>
-          </div>
-        </details>
-        <details class="q">
-          <summary>Can I get my data out?<span class="plus" aria-hidden="true"></span></summary>
-          <div class="a">
-            <p>It's your Postgres. <code>pg_dump</code> it. On the hosted instance, <code>get_brain_snapshot</code> returns the entire knowledge base in one call, and every resume exports as a PDF.</p>
+            <p>Stop paying and your workspace is suspended, not deleted. If I disappear, the software is AGPL-3.0 and the self-hosted build is the same build, so moving to your own instance is always available and never a downgrade. It's your Postgres either way — <code>pg_dump</code> it, or ask for the whole brain back in one call.</p>
           </div>
         </details>
       </div>
@@ -1935,10 +2102,23 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
     <p class="lede" data-reveal style="--i:1; margin:16px auto 0; text-align:center">
       Write down what you actually did there. Everything after that is the tool's problem.
     </p>
-    <div class="hero-ctas" data-reveal style="--i:2; justify-content:center">
-      <a class="btn btn-primary" href="#get">Get started<svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg></a>
-      <a class="btn btn-ghost" href="https://github.com/shifulaboratories/Hired" rel="noopener">Read the source</a>
-    </div>
+
+    <form class="joinform mid" data-join data-reveal style="--i:2; margin-top:26px" novalidate>
+      <div class="joinform-row">
+        <label class="sr-only" for="join-close">Your email address</label>
+        <input id="join-close" type="email" name="email" autocomplete="email"
+               placeholder="you@example.com" required>
+        <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+        <button class="btn btn-primary" type="submit">
+          Request access
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+        </button>
+      </div>
+      <p class="joinform-note">
+        Or skip the queue and <a href="#selfhost" style="color:var(--muted);text-decoration:underline;text-underline-offset:2px">run it yourself</a> — free, today.
+      </p>
+      <p class="joinform-said" role="status" aria-live="polite"></p>
+    </form>
 
     <p class="spec meta" data-reveal style="--i:3">
       AGPL-3.0 · Next.js 15 · PostgreSQL · MCP Streamable HTTP, stateless ·
@@ -1998,8 +2178,9 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
             <li><a href="#tour">The tour</a></li>
             <li><a href="#honest">What it refuses</a></li>
             <li><a href="#tools">How it works</a></li>
+            <li><a href="#selfhost">Self-host</a></li>
             <li><a href="#connect">Connect a client</a></li>
-            <li><a href="#get">Get it</a></li>
+            <li><a href="#pricing">Pricing</a></li>
           </ul>
         </div>
         <div>
