@@ -19,8 +19,9 @@ function SelectTrigger({
     <SelectPrimitive.Trigger
       data-size={size}
       className={cn(
-        "border-input bg-inset shadow-field flex w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-sm whitespace-nowrap transition-[color,box-shadow,border-color] duration-150 outline-none",
-        "data-[size=default]:h-9 data-[size=sm]:h-8",
+        // text-base below md keeps iOS from zooming the viewport on focus.
+        "border-input bg-inset shadow-field flex w-full items-center justify-between gap-2 rounded-control border px-3 py-2 text-base whitespace-nowrap transition-[color,box-shadow,border-color] duration-150 outline-none md:text-sm",
+        "data-[size=default]:h-10 data-[size=sm]:h-9 md:data-[size=default]:h-9 md:data-[size=sm]:h-8",
         "focus-visible:border-ring focus-visible:ring-ring/35 focus-visible:ring-[3px]",
         "disabled:cursor-not-allowed disabled:opacity-50",
         "[&_svg]:pointer-events-none [&_svg]:shrink-0 [&_svg:not([class*='size-'])]:size-4 [&>span]:line-clamp-1",

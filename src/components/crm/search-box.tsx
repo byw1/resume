@@ -58,7 +58,7 @@ export function SearchBox({
           }}
           placeholder={placeholder}
           aria-label={placeholder}
-          className="h-8 pr-7 pl-8 text-[13px]"
+          className="h-10 pr-7 pl-8 text-base md:h-8 md:text-[13px]"
         />
         {value && (
           <button
@@ -68,7 +68,7 @@ export function SearchBox({
               typed.current = true;
               setValue("");
             }}
-            className="text-faint hover:text-foreground absolute top-1/2 right-2 -translate-y-1/2 transition-colors"
+            className="text-faint hover:text-foreground touch-target absolute top-1/2 right-2 -translate-y-1/2 transition-colors"
           >
             <XIcon className="size-3.5" />
           </button>

@@ -12,6 +12,7 @@ import {
   KanbanIcon,
   LayoutDashboardIcon,
   LogOutIcon,
+  MenuIcon,
   PanelLeftCloseIcon,
   PanelLeftOpenIcon,
   SearchIcon,
@@ -29,6 +30,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { CommandPalette, type PaletteIndex } from "@/components/command-palette";
 import { HiredMark } from "@/components/hired-mark";
 import { logoutAction } from "@/server/actions";
@@ -63,7 +65,13 @@ export function Shell({
   const canAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+
+  // Navigating is the reason the drawer was opened, so arriving closes it.
+  useEffect(() => {
+    setDrawerOpen(false);
+  }, [pathname]);
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
@@ -230,25 +238,28 @@ export function Shell({
       <div className="flex min-w-0 flex-1 flex-col">
         {/* Top bar */}
         <header className="glass sticky top-0 z-20 flex h-16 items-center gap-2 border-b px-4 md:px-7">
-          <nav className="flex items-center gap-1 md:hidden">
-            {NAV.map((item) => (
-              <Link key={item.href} href={item.href}>
-                <Button
-                  variant={isActive(item.href) ? "secondary" : "ghost"}
-                  size="icon-sm"
-                  aria-label={item.label}
-                >
-                  <item.icon />
-                </Button>
-              </Link>
-            ))}
-          </nav>
+          <div className="flex min-w-0 items-center gap-2 md:hidden">
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-9"
+              onClick={() => setDrawerOpen(true)}
+              aria-label="Open menu"
+            >
+              <MenuIcon />
+            </Button>
+            {/* Five unlabelled icons told you nothing about where you were.
+                The drawer holds the navigation; the bar just names the page. */}
+            <span className="truncate text-[15px] font-semibold tracking-tight">
+              {NAV.find((item) => isActive(item.href))?.label ?? "Hired"}
+            </span>
+          </div>
 
           <div className="ml-auto flex items-center gap-1.5">
             <Button
               variant="ghost"
               size="icon-sm"
-              className="md:hidden"
+              className="size-9 md:hidden"
               onClick={() => setPaletteOpen(true)}
               aria-label="Search"
             >
@@ -258,11 +269,124 @@ export function Shell({
           </div>
         </header>
 
+        <MobileNav
+          open={drawerOpen}
+          onOpenChange={setDrawerOpen}
+          isActive={isActive}
+          followUpCount={followUpCount}
+          canAdmin={canAdmin}
+          onSearch={() => {
+            setDrawerOpen(false);
+            setPaletteOpen(true);
+          }}
+        />
+
         <main className="min-w-0 flex-1">{children}</main>
       </div>
 
       <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} index={index} />
     </div>
+  );
+}
+
+/**
+ * The phone's navigation. Everything the desktop rail holds, plus the account
+ * links that live in the profile menu — because on a phone the profile menu is
+ * a 28px avatar and "where is Settings" should not depend on finding it.
+ */
+function MobileNav({
+  open,
+  onOpenChange,
+  isActive,
+  followUpCount,
+  canAdmin,
+  onSearch,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  isActive: (href: string) => boolean;
+  followUpCount: number;
+  canAdmin: boolean;
+  onSearch: () => void;
+}) {
+  const secondary = [
+    { href: "/docs", label: "Docs", icon: BookOpenIcon },
+    { href: "/settings", label: "Settings", icon: SettingsIcon },
+    ...(canAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldIcon }] : []),
+  ];
+
+  return (
+    <Sheet open={open} onOpenChange={onOpenChange}>
+      <SheetContent side="left" showClose={false} className="gap-0 p-0 md:hidden">
+        <SheetTitle className="sr-only">Menu</SheetTitle>
+
+        <div className="flex h-16 items-center gap-2.5 px-5">
+          <HiredMark size={26} className="shrink-0" />
+          <div className="min-w-0 leading-tight">
+            <div className="truncate text-[15px] font-semibold tracking-tight">Hired</div>
+            <div className="text-muted-foreground truncate text-[10.5px] tracking-[-0.004em]">
+              Your career, on the record
+            </div>
+          </div>
+        </div>
+
+        <div className="px-3 pb-2">
+          <button
+            onClick={onSearch}
+            className="text-muted-foreground hover:text-foreground hover:bg-accent bg-card flex h-11 w-full items-center gap-2 rounded-md border px-3 text-[14px] transition-colors"
+          >
+            <SearchIcon className="size-4" />
+            <span>Search…</span>
+          </button>
+        </div>
+
+        <nav className="flex flex-col gap-0.5 px-3">
+          {NAV.map((item) => {
+            const active = isActive(item.href);
+            return (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={cn(
+                  "flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors",
+                  active ? "bg-accent text-foreground" : "text-muted-foreground",
+                )}
+              >
+                <item.icon className={cn("size-4 shrink-0", active && "text-primary")} />
+                <span>{item.label}</span>
+                {item.href === "/applications" && followUpCount > 0 && (
+                  <span className="bg-muted text-muted-foreground ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+                    {followUpCount}
+                  </span>
+                )}
+              </Link>
+            );
+          })}
+        </nav>
+
+        <div className="mt-auto flex flex-col gap-0.5 border-t px-3 py-3">
+          {secondary.map((item) => (
+            <Link
+              key={item.href}
+              href={item.href}
+              className="text-muted-foreground flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors"
+            >
+              <item.icon className="size-4 shrink-0" />
+              <span>{item.label}</span>
+            </Link>
+          ))}
+          <form action={logoutAction}>
+            <button
+              type="submit"
+              className="text-muted-foreground flex h-11 w-full items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors"
+            >
+              <LogOutIcon className="size-4 shrink-0" />
+              <span>Sign out</span>
+            </button>
+          </form>
+        </div>
+      </SheetContent>
+    </Sheet>
   );
 }
 
@@ -279,7 +403,7 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
         <button
-          className="hover:bg-accent flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-2.5 transition-colors"
+          className="hover:bg-accent touch-target flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-2.5 transition-colors"
           aria-label="Account menu"
         >
           <span className="bg-foreground text-background flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">

@@ -48,7 +48,7 @@ export function TaskList({ tasks }: { tasks: Task[] }) {
           }}
           onBlur={add}
           placeholder="Add a task…"
-          className="h-8 pl-8 text-[13px]"
+          className="h-10 pl-8 text-base md:h-8 md:text-[13px]"
           disabled={pending}
         />
       </div>

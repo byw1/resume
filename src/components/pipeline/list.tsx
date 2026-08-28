@@ -47,7 +47,7 @@ export function PipelineList({
             {column.key ? (
               <Link
                 href={sortHref(column.key, sort, desc)}
-                className="hover:text-foreground inline-flex items-center gap-1 transition-colors duration-150"
+                className="hover:text-foreground touch-target inline-flex min-h-11 items-center gap-1 transition-colors duration-150 md:min-h-0"
               >
                 {column.label}
                 {sort === column.key &&

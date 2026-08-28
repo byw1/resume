@@ -9,7 +9,10 @@ function Input({ className, type, ...props }: React.ComponentProps<"input">) {
       className={cn(
         // A field is a well, not a raised object: it gets an inset shadow so
         // the eye reads it as somewhere to put something.
-        "border-input bg-inset shadow-field flex h-9 w-full min-w-0 rounded-control border px-3 py-1 text-sm transition-[color,box-shadow,border-color] duration-150 outline-none",
+        // text-base on mobile is not a style choice: iOS Safari zooms the
+        // whole viewport when you focus a field under 16px, and it does not
+        // zoom back out. 14px returns at md, where there is no such behaviour.
+        "border-input bg-inset shadow-field flex h-10 w-full min-w-0 rounded-control border px-3 py-1 text-base transition-[color,box-shadow,border-color] duration-150 outline-none md:h-9 md:text-sm",
         "file:inline-flex file:h-7 file:border-0 file:bg-transparent file:text-sm file:font-medium",
         "placeholder:text-faint",
         "focus-visible:border-ring focus-visible:ring-ring/25 focus-visible:ring-2",

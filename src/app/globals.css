@@ -318,6 +318,47 @@
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     text-rendering: optimizeLegibility;
+    /* A phone held sideways puts the notch over the left or right edge. This
+       is the whole safe-area story for this app: the shell's own padding
+       handles the top, and nothing is pinned to the bottom. */
+    padding-left: env(safe-area-inset-left);
+    padding-right: env(safe-area-inset-right);
+  }
+
+  /* Nothing may make the page scroll sideways. A phone user who can pan the
+     whole document horizontally has lost the ability to scroll it vertically
+     without drift, and every layout below is built to fit instead. */
+  html {
+    overflow-x: hidden;
+  }
+
+  /* Touch targets. The desktop design is deliberately dense — a 28px icon
+     button is right under a mouse — and inflating every control on mobile
+     would cost exactly the density the design is built on. So on a coarse
+     pointer a control keeps its size and gains an invisible, centred 44px hit
+     area: it looks identical and catches a thumb.
+
+     :where() holds the position rule at zero specificity so a Tailwind
+     position utility on the same element still wins. That is not caution for
+     its own sake — see the .ring-highlight entry in .claude/DECISIONS.md,
+     where a custom rule setting `position` silently beat `.fixed` and dropped
+     every dialog to the bottom of the page. */
+  @media (pointer: coarse) {
+    :where([data-slot="button"], [data-slot="checkbox"], [data-slot="switch"]) {
+      position: relative;
+    }
+
+    :where([data-slot="button"], [data-slot="checkbox"], [data-slot="switch"])::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      height: 100%;
+      width: 100%;
+      min-height: 44px;
+      min-width: 44px;
+      transform: translate(-50%, -50%);
+    }
   }
 
   /* Optical sizing: large text wants tighter tracking, small text wants none.
@@ -408,6 +449,31 @@
   .nums {
     font-variant-numeric: tabular-nums;
     font-feature-settings: "tnum";
+  }
+
+  /* The same 44px hit area the coarse-pointer rule gives every Button, for the
+     things that are not Buttons — a filter chip, a view switch, a row action.
+     Opt-in rather than automatic, because applying it to every link would have
+     each one silently overlapping the text around it.
+
+     :where() keeps `position` at zero specificity so a Tailwind position
+     utility on the same element still wins. */
+  :where(.touch-target) {
+    position: relative;
+  }
+
+  @media (pointer: coarse) {
+    .touch-target::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      height: 100%;
+      width: 100%;
+      min-height: 44px;
+      min-width: 44px;
+      transform: translate(-50%, -50%);
+    }
   }
 
   /* The small caps label above a section. One utility rather than the same six
