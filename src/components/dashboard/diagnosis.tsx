@@ -42,10 +42,14 @@ export function DiagnosisCard({ diagnosis }: { diagnosis: SearchDiagnosis }) {
                     isWeak && "stage-chip",
                   )}
                 >
-                  <span className="text-muted-foreground w-48 shrink-0 truncate text-[12.5px]">
+                  {/* Three fixed columns plus gaps is 348px, which is wider
+                      than a 360px phone has to give. The label takes the
+                      remaining space below md instead of forcing the page
+                      sideways; the counts wait for a screen with room. */}
+                  <span className="text-muted-foreground min-w-0 flex-1 truncate text-[12.5px] md:w-48 md:flex-none">
                     {STAGE_LABEL[step.from]} → {STAGE_LABEL[step.to]}
                   </span>
-                  <span className="nums text-faint w-16 shrink-0 text-[12px]">
+                  <span className="nums text-faint hidden w-16 shrink-0 text-[12px] sm:block">
                     {step.advanced} of {step.reached}
                   </span>
                   <span

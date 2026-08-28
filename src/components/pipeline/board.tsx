@@ -5,7 +5,8 @@ import { useMemo, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
-  PointerSensor,
+  MouseSensor,
+  TouchSensor,
   useDraggable,
   useDroppable,
   useSensor,
@@ -60,7 +61,18 @@ export function PipelineBoard({
   const [cards, setCards] = useState(open);
   const [dragging, setDragging] = useState<Card | null>(null);
   const [, startTransition] = useTransition();
-  const sensors = useSensors(useSensor(PointerSensor, { activationConstraint: { distance: 6 } }));
+  // Mouse and touch are separated deliberately. One PointerSensor covered both,
+  // and on a phone every gesture is a pointer gesture: a 6px movement is the
+  // start of a scroll far more often than the start of a drag, so the board
+  // grabbed a card whenever you tried to scroll past it and the column could
+  // not be scrolled at all. Touch now needs a 220ms hold before a card moves,
+  // which is the gesture a person already expects for "pick this up", and a
+  // swipe below that threshold scrolls the way it should. Tapping a card still
+  // opens the panel, where the stage Select moves it without any dragging.
+  const sensors = useSensors(
+    useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
+    useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
+  );
 
   // Re-seed when the filter changes: `open` is a prop, and useState only reads
   // its initial value, so without this the board keeps showing the last cut.
@@ -218,7 +230,14 @@ function DraggableCard({ card }: { card: Card }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
-      className="touch-none"
+      // touch-none here meant "the browser may not scroll from this element",
+      // and since the cards cover the board, that disabled scrolling over the
+      // whole thing — vertically as well as sideways. touch-manipulation gives
+      // scrolling back and still suppresses double-tap zoom; the TouchSensor's
+      // 220ms hold is what distinguishes a drag now, so the browser no longer
+      // has to be locked out to make dragging possible. select-none stops the
+      // hold from starting a text selection instead of picking the card up.
+      className="touch-manipulation select-none"
     >
       <ApplicationCard card={card} />
     </motion.div>

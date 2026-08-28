@@ -155,7 +155,7 @@ export function ResumeEditor({
         <Input
           value={meta.name}
           onChange={(event) => setMetaValue("name", event.target.value)}
-          className="h-8 w-auto min-w-[10rem] max-w-[22rem] border-0 bg-transparent px-1 text-sm font-semibold shadow-none focus-visible:ring-0"
+          className="h-9 w-auto min-w-[10rem] max-w-[22rem] border-0 bg-transparent px-1 text-base font-semibold shadow-none focus-visible:ring-0 md:h-8 md:text-sm"
         />
 
         <SaveIndicator state={state} />

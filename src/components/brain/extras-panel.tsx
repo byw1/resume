@@ -134,7 +134,7 @@ function SkillGroupRow({ group, onRemoved }: { group: SkillGroup; onRemoved: () 
         <Input
           value={values.name}
           onChange={(event) => set({ name: event.target.value })}
-          className="h-7 border-0 bg-transparent px-0 text-[13px] font-semibold shadow-none focus-visible:ring-0"
+          className="h-9 border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0 md:h-7 md:text-[13px]"
         />
         <SaveIndicator state={state} />
         <Button
@@ -227,7 +227,7 @@ function EducationRow({ item, onRemoved }: { item: Education; onRemoved: () => v
         <Input
           value={values.school}
           onChange={(event) => set({ school: event.target.value })}
-          className="h-7 border-0 bg-transparent px-0 text-[13px] font-semibold shadow-none focus-visible:ring-0"
+          className="h-9 border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0 md:h-7 md:text-[13px]"
         />
         <SaveIndicator state={state} />
         <Button
@@ -342,7 +342,7 @@ function ProjectRow({ item, onRemoved }: { item: Project; onRemoved: () => void 
         <Input
           value={values.name}
           onChange={(event) => set({ name: event.target.value })}
-          className="h-7 border-0 bg-transparent px-0 text-[13px] font-semibold shadow-none focus-visible:ring-0"
+          className="h-9 border-0 bg-transparent px-0 text-base font-semibold shadow-none focus-visible:ring-0 md:h-7 md:text-[13px]"
         />
         <SaveIndicator state={state} />
         <Button

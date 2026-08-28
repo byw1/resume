@@ -8,6 +8,7 @@ import { cn } from "@/lib/utils";
 function Checkbox({ className, ...props }: React.ComponentProps<typeof CheckboxPrimitive.Root>) {
   return (
     <CheckboxPrimitive.Root
+      data-slot="checkbox"
       className={cn(
         "peer border-input size-4 shrink-0 cursor-pointer rounded-[5px] border shadow-field transition-all duration-150 outline-none",
         "data-[state=checked]:bg-primary data-[state=checked]:border-primary data-[state=checked]:text-primary-foreground",

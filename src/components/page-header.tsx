@@ -30,7 +30,12 @@ export function PageHeader({
           floating in the middle of empty space. */}
       <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
         <h1 className="min-w-0 text-[21px] leading-[1.2] font-semibold md:text-[24px]">{title}</h1>
-        {actions && <div className="flex shrink-0 flex-wrap items-center gap-2">{actions}</div>}
+        {/* shrink-0 only once there is room to shrink into. On a 360px screen a
+            tab group plus a button is wider than the line, and refusing to
+            shrink pushed the page sideways instead of wrapping. */}
+        {actions && (
+          <div className="flex min-w-0 flex-wrap items-center gap-2 md:shrink-0">{actions}</div>
+        )}
       </div>
       {description && (
         <p className="text-muted-foreground mt-1.5 max-w-2xl text-[13px] leading-relaxed">

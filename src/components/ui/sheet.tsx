@@ -20,8 +20,13 @@ function SheetContent({
   className,
   children,
   showClose = true,
+  side = "right",
   ...props
-}: React.ComponentProps<typeof DialogPrimitive.Content> & { showClose?: boolean }) {
+}: React.ComponentProps<typeof DialogPrimitive.Content> & {
+  showClose?: boolean;
+  /** Which edge it comes from. Left is the mobile navigation drawer. */
+  side?: "left" | "right";
+}) {
   return (
     <DialogPrimitive.Portal>
       <DialogPrimitive.Overlay
@@ -33,8 +38,11 @@ function SheetContent({
       <DialogPrimitive.Content
         data-slot="sheet-content"
         className={cn(
-          "bg-background shadow-overlay fixed inset-y-0 right-0 z-50 flex w-full flex-col overflow-y-auto sm:max-w-[46rem]",
-          "duration-250 data-[state=open]:animate-in data-[state=closed]:animate-out data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right",
+          "bg-background shadow-overlay fixed inset-y-0 z-50 flex w-full flex-col overflow-y-auto",
+          "duration-250 data-[state=open]:animate-in data-[state=closed]:animate-out",
+          side === "right"
+            ? "right-0 data-[state=closed]:slide-out-to-right data-[state=open]:slide-in-from-right sm:max-w-[46rem]"
+            : "left-0 data-[state=closed]:slide-out-to-left data-[state=open]:slide-in-from-left max-w-[19rem]",
           className,
         )}
         {...props}

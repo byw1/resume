@@ -1088,6 +1088,58 @@ heading centres too — which now matches the hero.
 
 The price appears in exactly two places, the card and the FAQ answer, and the comment above
 the section names both.
+## 2026-08-28 — The phone gets the same app, not a smaller one
+
+**Decision:** a mobile pass across every screen, mobile-first with the desktop restored at
+`md`. Desktop renders identically to before — that was the constraint the whole pass was
+built around, and it is verified rather than asserted.
+
+**The four real defects**, in the order they mattered:
+
+1. **The board could not be scrolled at all.** Every card carried `touch-none`
+(`touch-action: none`), and the cards cover the board, so the browser was forbidden from
+scrolling anywhere a finger would naturally land — vertically as well as sideways. It was
+there because the `PointerSensor` had a 6px activation distance, and on a touch screen a
+6px movement is the beginning of a scroll far more often than the beginning of a drag; the
+only way to make dragging work at all was to switch scrolling off. Now `MouseSensor` and
+`TouchSensor` are separate: mouse keeps 6px, touch needs a **220ms hold**, and the cards
+are `touch-manipulation` so the browser scrolls again. Tapping a card still opens the panel,
+whose stage Select is the no-drag way to move something — which is what most people will
+use on a phone regardless.
+
+2. **Navigation was five unlabelled 28px icons.** No labels, no current-page indicator, and
+Settings/Docs/Admin reachable only through a 28px avatar. Replaced with a hamburger, a
+drawer holding every destination with its name, and a header that says which page you are
+on. The desktop rail is untouched.
+
+3. **Every input zoomed the viewport.** iOS Safari zooms when a focused field is under 16px
+and does not zoom back out. All fields are `text-base` below `md`, `text-sm`/`13px` above.
+Watch for this on any new field, including the five that override the shared sizing.
+
+4. **Three pages scrolled sideways at 360px** — the diagnosis row's three fixed columns, an
+unbounded `TabsList`, and `PageHeader`'s `shrink-0` actions. `html { overflow-x: hidden }`
+is the backstop, but each cause was fixed at its source rather than hidden.
+
+**Touch targets — the part worth remembering.** The desktop design is deliberately dense and
+inflating every control to 44px on mobile would have cost exactly that density. So on
+`pointer: coarse` a control keeps its size and gains an invisible centred 44px hit area via
+`::after`, plus a `.touch-target` utility for things that are not Buttons. **The catch, found
+by measurement: an `overflow` ancestor clips the pseudo-element.** Anything inside a scroll
+strip, a `truncate`, or an animating `overflow-hidden` panel needs real height instead —
+which is why the filter chips, tabs, calendar links and connection buttons are `h-11 md:h-7`
+rather than relying on the trick. Both `position: relative` rules are wrapped in `:where()`
+so a Tailwind position utility still wins; see the `.ring-highlight` entry above for why
+that is not optional in this codebase.
+
+**How it was checked:** a Playwright pass over eleven pages at 360/390/430px asserting no
+horizontal overflow, no sub-44px hit area (probed with `elementFromPoint`, not
+`getBoundingClientRect` — the box is not the target) and no field under 16px, plus a
+behavioural suite for the drawer and both board gestures. 14 failing page-viewport
+combinations before, 0 after; 20/20 behavioural checks; desktop screenshots unchanged.
+
+**Applies to:** `globals.css` (the coarse-pointer block, `.touch-target`), `ui/` primitives,
+`shell.tsx`, `board.tsx`, and any new control — if it sits inside an overflow container, give
+it real height.
 
 ## 2026-08-28 — Free is self-hosting, and the card says why
 

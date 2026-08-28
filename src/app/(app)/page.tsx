@@ -109,7 +109,10 @@ export default async function DashboardPage() {
         <Onboarding />
       ) : (
         <div className="space-y-4">
-          <Stagger className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          {/* Two up from the narrowest screen. One card per row made the four
+              numbers a four-screen scroll on a phone, which is the opposite of
+              what a summary is for. */}
+          <Stagger className="grid grid-cols-2 gap-3 lg:grid-cols-4">
             <StatCard
               icon={TargetIcon}
               label="In flight"

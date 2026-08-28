@@ -109,7 +109,7 @@ export function PipelineCalendar({
               hand is not. */}
           <Link
             href="/applications?view=calendar"
-            className="text-muted-foreground hover:text-foreground hover:bg-accent flex h-6 items-center rounded-chip px-2 text-[12px] font-medium transition-colors duration-150"
+            className="text-muted-foreground hover:text-foreground hover:bg-accent flex h-11 items-center rounded-chip px-2 text-[12px] font-medium transition-colors duration-150 md:h-6"
           >
             Today
           </Link>
@@ -224,7 +224,7 @@ function MonthLink({
   return (
     <Link
       href={`/applications?view=calendar&month=${target}`}
-      className="text-muted-foreground hover:text-foreground hover:bg-accent flex size-6 items-center justify-center rounded-chip transition-colors duration-150"
+      className="text-muted-foreground hover:text-foreground hover:bg-accent touch-target flex size-11 items-center justify-center rounded-chip md:size-6 transition-colors duration-150"
       {...props}
     >
       {children}

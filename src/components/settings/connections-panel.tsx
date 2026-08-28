@@ -198,13 +198,13 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
                   setRenaming(false);
                 }
               }}
-              className="h-7 max-w-56 text-sm"
+              className="h-9 max-w-56 text-base md:h-7 md:text-sm"
             />
           ) : (
             <button
               type="button"
               onClick={() => setRenaming(true)}
-              className="hover:text-primary truncate text-sm font-medium transition-colors"
+              className="hover:text-primary min-h-11 max-w-full truncate text-sm font-medium transition-colors md:min-h-0"
               title="Rename"
             >
               {name}
@@ -301,7 +301,10 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
                       type="button"
                       onClick={() => setClient(entry.id)}
                       className={cn(
-                        "rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors",
+                        // Real height rather than a ::after hit area: the panel
+                        // that holds these animates open behind overflow-hidden,
+                        // which would clip anything reaching outside the box.
+                        "min-h-11 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors md:min-h-0",
                         client === entry.id
                           ? "border-primary/50 bg-muted text-muted-foreground"
                           : "hover:bg-accent/60",
@@ -418,6 +421,9 @@ export function ConnectionsPanel({
                 key={entry.id}
                 variant="outline"
                 size="sm"
+                // The card around this is overflow-hidden, which clips the
+                // coarse-pointer hit area, so the height has to be real.
+                className="min-h-11 md:min-h-0"
                 disabled={pending}
                 onClick={() => add(entry.id)}
               >

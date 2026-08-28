@@ -23,7 +23,7 @@ export function CrmTabs({ current }: { current: "companies" | "contacts" }) {
             href={href}
             aria-current={active ? "page" : undefined}
             className={cn(
-              "flex h-7 items-center gap-1.5 rounded-chip px-2.5 text-[12.5px] font-medium transition-colors duration-150",
+              "touch-target flex h-11 items-center gap-1.5 rounded-chip px-2.5 text-[12.5px] font-medium transition-colors duration-150 md:h-7",
               active
                 ? "bg-card text-foreground shadow-btn"
                 : "text-muted-foreground hover:text-foreground",
