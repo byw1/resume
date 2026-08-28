@@ -1,7 +1,11 @@
 # Hired
 
-Your career brain, a resume builder, and a job-search CRM — all in one app you host
-yourself, wired into Claude so you can just *talk* to it.
+An applicant tracking system, for applicants.
+
+Every company you apply to runs one. Theirs keeps a record on you, scores what you sent and
+decides what happens next. This one keeps the record on them — a career brain, a resume
+builder and a job-search CRM in one app you host yourself, wired into Claude so you can
+just *talk* to it.
 
 - **Brain** — dump everything you know about every job you've had. No length limit, no
   structure required. Numbers, projects, stories, praise, screw-ups. This is the raw

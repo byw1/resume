@@ -1169,3 +1169,34 @@ and about ten minutes" — greyed, with the refusal icon instead of a check.
 **"There is no smaller version of it" survives**, which was the point of choosing this
 split. The free column is not a trial and not a cut-down build; the difference between the
 two cards is who runs the server, and the fine print says exactly that.
+
+## 2026-08-28 — The page is an ATS, and the acronym does the work
+
+**Decision (William's):** the positioning is "Applicant Tracking System (ATS, for
+applicants)". Not "the inverse ATS" — the words stay exactly what they always were, and
+only the owner flips. Every job seeker already knows the term and already resents it, so
+the headline borrows recognition that took the recruiting industry twenty years to build.
+
+**Why it survives contact with the product.** The parallel is not a metaphor, it is a
+feature map, which is what makes it safe to run through the whole page: their candidate
+database is the brain, their resume screening is the resume builder, their hiring pipeline
+is the pipeline, and the notes a recruiter keeps on you are the notes you keep on them.
+Their funnel report is the diagnosis section, almost line for line. Nothing had to be
+invented or overstated to draw it.
+
+**Where the angle went.** Hero headline and gloss; the "why it exists" band, which now
+states the asymmetry outright ("They have a system. You have a folder called final_v3");
+the features heading, which draws the four-way parallel explicitly; the read, which is now
+"Recruiters get a funnel report. Now you get one."; the close; the title, meta description,
+og:title and og:description; the share card, re-rendered; and the README's opening.
+
+**What deliberately did not change.** `#honest` — "Nothing on a resume is invented" — was
+left alone. It is the one place the analogy would turn against the product: their ATS
+rewards keyword-stuffing, and the answer to that is not a better stuffer. And the footer
+keeps "Your career, on the record" as the brand line; a tagline and a positioning line are
+different jobs.
+
+**Typography.** "Applicant Tracking System" is 25 characters and the hero's 18ch measure
+broke it into an orphan, so the measure is 22ch and it sets on one line at desktop, two on
+a phone. The gloss under it is mono, so it reads as a definition rather than a subtitle and
+the joke lands a beat after the headline rather than inside it.

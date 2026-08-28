@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hired — your career, on the record</title>
-<meta name="description" content="Hired keeps the record of every job you've had, and builds resumes, applications and follow-ups out of it on request. Self-hosted, open source, and driven from Claude or any MCP client. Nothing invented.">
+<title>Hired — an applicant tracking system, for applicants</title>
+<meta name="description" content="Every company you apply to runs an applicant tracking system. This one is yours: your record, the resumes it builds from it, and every application still in play. Free to self-host.">
 <link rel="canonical" href="https://hired.tools/">
 <meta name="theme-color" content="#f9f9fa">
-<meta property="og:title" content="Hired — your career, on the record">
-<meta property="og:description" content="The record of every job you've had, and an assistant that writes from it — resumes, applications, follow-ups. Self-hosted. Nothing invented.">
+<meta property="og:title" content="Hired — an applicant tracking system, for applicants">
+<meta property="og:description" content="Theirs keeps a record on you. This one keeps the record on them — what you've done, what you sent where, and who still owes you an answer.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://hired.tools/">
 <meta property="og:site_name" content="Hired">
 <meta property="og:image" content="https://hired.tools/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Hired — write your career down once.">
+<meta property="og:image:alt" content="Hired — an applicant tracking system, for applicants.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://hired.tools/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23F4F5F6'/%3E%3Crect x='16' y='17' width='13' height='7' rx='1.5' fill='%23191A1E'/%3E%3Crect x='16' y='28.5' width='22.5' height='7' rx='1.5' fill='%23191A1E'/%3E%3Crect x='16' y='40' width='32' height='7' rx='1.5' fill='%23191A1E'/%3E%3C/svg%3E">
@@ -129,17 +129,19 @@
     </a>
 
     <h1 class="h-display hero-copy" data-reveal style="--i:1; margin-top:22px">
-      <span class="accent">Get hired</span> on what<br>you actually did.
+      Applicant Tracking System
     </h1>
+    <p class="hero-flip" data-reveal style="--i:2">(ATS, <b>for applicants</b>)</p>
 
-    <p class="lede" data-reveal style="--i:2">
-      Hired remembers every job, project and number you've been part of, writes each resume
-      out of what's actually in there, and keeps track of every application until someone
-      says yes. You talk to it in plain sentences. It does the filing.
+    <p class="lede" data-reveal style="--i:3">
+      Every company you apply to runs one of these. Theirs keeps a record on you, scores what
+      you sent and decides what happens next — and you never get to see it. This one keeps
+      the record on them: what you've actually done, what you sent where, and who still owes
+      you an answer.
     </p>
 
     <!-- The primary action on the page. Posts to the instance; see motion.js. -->
-    <form class="joinform mid" id="join" data-join data-reveal style="--i:3; margin-top:26px" novalidate>
+    <form class="joinform mid" id="join" data-join data-reveal style="--i:4; margin-top:26px" novalidate>
       <div class="joinform-row">
         <label class="sr-only" for="join-hero">Your email address</label>
         <input id="join-hero" type="email" name="email" autocomplete="email"
@@ -154,7 +156,7 @@
       <p class="joinform-said" role="status" aria-live="polite"></p>
     </form>
 
-    <p class="hero-note" data-reveal style="--i:4">
+    <p class="hero-note" data-reveal style="--i:5">
       <span><a href="#selfhost"><b>Free</b> to self-host, forever</a></span>
       <span class="sep" aria-hidden="true">·</span>
       <span>Works inside <b>Claude</b>, <b>ChatGPT</b> and <b>Cursor</b></span>
@@ -277,13 +279,13 @@
   <div class="wrap">
     <div class="section-head" data-reveal>
       <p class="eyebrow">Why it exists</p>
-      <h2 class="h-section">You have done more than you can remember, and the resume is written from memory.</h2>
+      <h2 class="h-section">They have a system. You have a folder called <span class="accent">final_v3</span>.</h2>
       <p class="lede">
-        Every search starts the same way: a blank document, a vague recollection of what the
-        last three years were, and a number you can't source. So the resume gets thinner than
-        the career, the good work goes unmentioned, and the application that would have landed
-        never gets sent. The material was never the problem — it was never written down
-        anywhere durable.
+        On their side of the application is software that has been keeping score since the
+        first time you applied: what you sent, when, against which req, and what the recruiter
+        typed afterwards. On your side there's a resume written from memory, a spreadsheet you
+        stopped updating in March, and three years of work you can no longer describe in
+        detail. Nobody loses a job to a better candidate as often as they lose it to that gap.
       </p>
     </div>
 
@@ -326,11 +328,12 @@
   <div class="wrap">
     <div class="section-head" data-reveal>
       <p class="eyebrow">What's in it</p>
-      <h2 class="h-section">Four parts, and each one makes the next better.</h2>
+      <h2 class="h-section">Everything theirs does, pointed the other way.</h2>
       <p class="lede">
-        The brain is why the resumes are good. The pipeline is why you follow up. The record
-        of who you spoke to is why the second conversation goes better than the first. It is
-        one thing, not four apps to keep in sync.
+        Their candidate database becomes a record of what you've actually done. Their resume
+        screening becomes your resume building. Their hiring pipeline becomes your pipeline.
+        The notes a recruiter keeps on you become the notes you keep on them. Four parts, one
+        record, and each one makes the next better.
       </p>
     </div>
 
@@ -1144,11 +1147,12 @@
   <div class="wrap">
     <div class="section-head" data-reveal>
       <p class="eyebrow">The read</p>
-      <h2 class="h-section">It tells you which step is losing people.</h2>
+      <h2 class="h-section">Recruiters get a funnel report. Now you get one.</h2>
       <p class="lede">
-        Every other tracker shows you six numbers and leaves the interpreting to you. Hired
-        states the problem in a sentence, marks the step that is failing, and shows its
-        working underneath — including which of your resumes is actually getting answers.
+        Theirs says where candidates drop out. Yours says where you do — and unlike the six
+        numbers every other tracker leaves you to interpret, it states the problem in a
+        sentence, marks the step that is failing, and shows its working underneath, including
+        which of your resumes is actually getting answers.
       </p>
     </div>
 
@@ -2102,7 +2106,8 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
     </div>
     <h2 class="h-section" data-reveal style="max-width:22ch; margin-inline:auto">Start with one job you can still remember.</h2>
     <p class="lede" data-reveal style="--i:1; margin:16px auto 0; text-align:center">
-      Write down what you actually did there. Everything after that is the tool's problem.
+      Write down what you actually did there. Everything after that — the resumes, the
+      tracking, the follow-ups — is the system's problem, and for once the system is yours.
     </p>
 
     <form class="joinform mid" data-join data-reveal style="--i:2; margin-top:26px" novalidate>
