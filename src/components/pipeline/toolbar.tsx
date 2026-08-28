@@ -25,13 +25,29 @@ export function parseView(value: string | undefined): PipelineView {
     : "board";
 }
 
-/** `all`, `overdue`, `closed`, or one stage. One at a time, like a saved view. */
+/** `all`, `overdue`, `closed`, or one stage. */
 export type PipelineFilter = "all" | "overdue" | "closed" | Stage;
 
-export function parseFilter(value: string | undefined, stages: readonly Stage[]): PipelineFilter {
-  if (value === "overdue" || value === "closed") return value;
-  if (value && (stages as readonly string[]).includes(value)) return value as Stage;
-  return "all";
+/**
+ * The filter is a set, not a single choice.
+ *
+ * It reads from one comma-separated `f` param — "SCREEN,INTERVIEW" — because
+ * the URL is the state here and a link you can paste to yourself is worth more
+ * than a tidier query string. An empty or unrecognised value means everything,
+ * so an old single-stage link still works exactly as it did.
+ *
+ * `overdue` and `closed` are cuts across stages rather than stages, so they do
+ * not combine: picking one replaces the set.
+ */
+export function parseFilters(value: string | undefined, stages: readonly Stage[]): PipelineFilter[] {
+  const parts = (value ?? "")
+    .split(",")
+    .map((part) => part.trim())
+    .filter(Boolean);
+  if (parts.includes("overdue")) return ["overdue"];
+  if (parts.includes("closed")) return ["closed"];
+  const picked = parts.filter((part) => (stages as readonly string[]).includes(part)) as Stage[];
+  return picked.length > 0 ? picked : ["all"];
 }
 
 export type ToolbarCounts = {
@@ -47,28 +63,45 @@ const VIEWS: { view: PipelineView; label: string; icon: typeof ListIcon }[] = [
   { view: "calendar", label: "Calendar", icon: CalendarDaysIcon },
 ];
 
-function href(view: PipelineView, filter: PipelineFilter, search: string) {
+function href(view: PipelineView, filters: PipelineFilter[], search: string) {
   const params = new URLSearchParams();
   if (view !== "board") params.set("view", view);
-  if (filter !== "all") params.set("f", filter);
+  const set = filters.filter((f) => f !== "all");
+  if (set.length > 0) params.set("f", set.join(","));
   if (search) params.set("q", search);
   const query = params.toString();
   return query ? `/applications?${query}` : "/applications";
 }
 
+/**
+ * What clicking a chip does. A stage toggles in and out of the set; the two
+ * cross-cutting chips replace it. Clicking the last active stage off leaves
+ * "everything" rather than a filter that matches nothing.
+ */
+function toggled(filters: PipelineFilter[], chip: PipelineFilter): PipelineFilter[] {
+  if (chip === "all") return ["all"];
+  if (chip === "overdue" || chip === "closed") {
+    return filters.includes(chip) ? ["all"] : [chip];
+  }
+  const stages = filters.filter((f) => f !== "all" && f !== "overdue" && f !== "closed");
+  const next = stages.includes(chip) ? stages.filter((f) => f !== chip) : [...stages, chip];
+  return next.length > 0 ? next : ["all"];
+}
+
 export function PipelineToolbar({
   view,
-  filter,
+  filters,
   search,
   counts,
   action,
 }: {
   view: PipelineView;
-  filter: PipelineFilter;
+  filters: PipelineFilter[];
   search: string;
   counts: ToolbarCounts;
   action: React.ReactNode;
 }) {
+  const on = (chip: PipelineFilter) => filters.includes(chip);
   return (
     <div className="mb-4 space-y-2.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -78,7 +111,7 @@ export function PipelineToolbar({
             return (
               <Link
                 key={candidate}
-                href={href(candidate, filter, search)}
+                href={href(candidate, filters, search)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "touch-target flex h-11 items-center gap-1.5 rounded-chip px-2.5 text-[12.5px] font-medium transition-colors duration-150 md:h-7",
@@ -99,15 +132,16 @@ export function PipelineToolbar({
         <div className="ml-auto">{action}</div>
       </div>
 
-      {/* One filter at a time, like a saved view. Scrolls sideways on a narrow
-          screen rather than wrapping into a wall of chips. */}
+      {/* Stages combine — "Screening and Interviewing" is one question, not
+          two views. Scrolls sideways on a narrow screen rather than wrapping
+          into a wall of chips. */}
       <div className="no-scrollbar -mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
-        <Chip href={href(view, "all", search)} active={filter === "all"} count={counts.all}>
+        <Chip href={href(view, ["all"], search)} active={on("all")} count={counts.all}>
           Everything
         </Chip>
         <Chip
-          href={href(view, "overdue", search)}
-          active={filter === "overdue"}
+          href={href(view, toggled(filters, "overdue"), search)}
+          active={on("overdue")}
           count={counts.overdue}
           tone={counts.overdue > 0 ? "var(--destructive)" : undefined}
           emphasis={counts.overdue > 0}
@@ -120,8 +154,8 @@ export function PipelineToolbar({
         {BOARD_STAGES.map((stage) => (
           <Chip
             key={stage}
-            href={href(view, stage, search)}
-            active={filter === stage}
+            href={href(view, toggled(filters, stage), search)}
+            active={on(stage)}
             count={counts.byStage[stage]}
             tone={STAGE_TONE[stage]}
           >
@@ -131,7 +165,7 @@ export function PipelineToolbar({
 
         <span className="bg-border mx-1 h-4 w-px shrink-0" />
 
-        <Chip href={href(view, "closed", search)} active={filter === "closed"} count={counts.closed}>
+        <Chip href={href(view, toggled(filters, "closed"), search)} active={on("closed")} count={counts.closed}>
           Closed
         </Chip>
       </div>

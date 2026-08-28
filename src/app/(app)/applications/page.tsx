@@ -1,3 +1,4 @@
+import type { Stage } from "@prisma/client";
 import { PageHeader, PageShell } from "@/components/page-header";
 import {
   BOARD_STAGES,
@@ -20,7 +21,7 @@ import {
 } from "@/components/pipeline/calendar";
 import {
   PipelineToolbar,
-  parseFilter,
+  parseFilters,
   parseView,
   type PipelineFilter,
   type PipelineView,
@@ -39,11 +40,11 @@ const BLURB: Record<PipelineView, string> = {
   calendar: "Follow-ups, task deadlines and everything you have logged, by the day it lands.",
 };
 
-function filterLabel(filter: PipelineFilter) {
-  if (filter === "all") return null;
-  if (filter === "overdue") return "Needs a nudge";
-  if (filter === "closed") return "Closed";
-  return STAGE_LABEL[filter];
+function filterLabel(filters: PipelineFilter[]) {
+  if (filters.includes("all")) return null;
+  if (filters.includes("overdue")) return "Needs a nudge";
+  if (filters.includes("closed")) return "Closed";
+  return filters.map((f) => STAGE_LABEL[f as Stage]).join(" · ");
 }
 
 export default async function ApplicationsPage({
@@ -55,7 +56,7 @@ export default async function ApplicationsPage({
   const params = await searchParams;
   const one = (key: string) => (Array.isArray(params[key]) ? params[key][0] : params[key]);
   const view = parseView(one("view"));
-  const filter = parseFilter(one("f"), STAGES);
+  const filters = parseFilters(one("f"), STAGES);
   const search = one("q")?.trim() ?? "";
 
   // Resolved once per request: with logos off, no domain reaches the browser
@@ -81,13 +82,13 @@ export default async function ApplicationsPage({
     <ApplicationPanelProvider>
       <PageShell className="max-w-none">
         <PageHeader
-          eyebrow={filterLabel(filter) ? `Pipeline · ${filterLabel(filter)}` : "Pipeline"}
+          eyebrow={filterLabel(filters) ? `Pipeline · ${filterLabel(filters)}` : "Pipeline"}
           title="Every conversation in flight"
           description={BLURB[view]}
         />
         <PipelineToolbar
           view={view}
-          filter={filter}
+          filters={filters}
           search={search}
           counts={counts}
           action={
@@ -112,11 +113,11 @@ export default async function ApplicationsPage({
       if (search && !`${entry.title} ${entry.detail}`.toLowerCase().includes(search.toLowerCase())) {
         return false;
       }
-      if (filter === "all") return true;
+      if (filters.includes("all")) return true;
       if (!entry.stage) return false;
-      if (filter === "overdue") return entry.kind === "FOLLOW_UP";
-      if (filter === "closed") return TERMINAL_STAGES.includes(entry.stage);
-      return entry.stage === filter;
+      if (filters.includes("overdue")) return entry.kind === "FOLLOW_UP";
+      if (filters.includes("closed")) return TERMINAL_STAGES.includes(entry.stage);
+      return filters.includes(entry.stage);
     });
     const entries: CalendarEntry[] = kept.map((entry) => ({
       kind: entry.kind,
@@ -143,16 +144,16 @@ export default async function ApplicationsPage({
   });
   const now = Date.now();
   const matches = (application: (typeof all)[number]) => {
-    if (filter === "all") return true;
-    if (filter === "overdue") {
+    if (filters.includes("all")) return true;
+    if (filters.includes("overdue")) {
       return (
         !TERMINAL_STAGES.includes(application.stage) &&
         application.nextFollowUpAt !== null &&
         application.nextFollowUpAt.getTime() <= now
       );
     }
-    if (filter === "closed") return TERMINAL_STAGES.includes(application.stage);
-    return application.stage === filter;
+    if (filters.includes("closed")) return TERMINAL_STAGES.includes(application.stage);
+    return filters.includes(application.stage);
   };
   const visible = all.filter(matches);
 
@@ -168,6 +169,7 @@ export default async function ApplicationsPage({
       nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
       activityCount: application._count.activities,
       updatedAt: application.updatedAt.toISOString(),
+      daysInStage: application.daysInStage,
       domain: domainFor(application),
     }));
     const sort = parseSort(one("sort"));
@@ -192,12 +194,14 @@ export default async function ApplicationsPage({
   // Which columns the board draws. Filtering to one stage should show that one
   // column, not five empty ones beside it; filtering to Closed should show no
   // columns at all, because closed applications live under the board.
-  const columns =
-    filter === "closed"
-      ? []
-      : filter !== "all" && filter !== "overdue" && BOARD_STAGES.includes(filter)
-        ? [filter]
-        : BOARD_STAGES;
+  const picked = filters.filter(
+    (f): f is Stage => f !== "all" && f !== "overdue" && f !== "closed" && BOARD_STAGES.includes(f),
+  );
+  const columns = filters.includes("closed")
+    ? []
+    : picked.length > 0
+      ? BOARD_STAGES.filter((stage) => picked.includes(stage))
+      : BOARD_STAGES;
 
   return chrome(
     <PipelineBoard

@@ -975,7 +975,7 @@ export const tools: McpTool[] = [
     name: "list_applications",
     title: "List applications",
     description:
-      "List job applications. By default closed applications (accepted/rejected/withdrawn) are excluded.",
+      "List job applications. By default the closed ones (accepted, rejected, withdrawn, ghosted) are excluded. Every row carries daysInStage — how long it has sat where it is, measured from the last stage change rather than the last edit — which is the field to sort on when someone asks what has gone quiet or what needs chasing.",
     inputSchema: object({
       stage: { type: "string", enum: STAGE_VALUES, description: "Only this stage" },
       includeClosed: bool("Include accepted / rejected / withdrawn"),
@@ -1106,10 +1106,28 @@ export const tools: McpTool[] = [
       }),
   },
   {
+    name: "move_applications_stage",
+    title: "Move several applications to one stage",
+    description:
+      "Move a batch of applications to the same stage — the tool for 'close out everything I never heard back from' or 'mark these four as applied'. Each one gets its own timeline entry and follow-up date, exactly as if it had been moved on its own, so the funnel history stays intact. Ids that no longer exist are skipped rather than failing the batch; the result lists what moved and what was skipped. Read the ids from list_applications first, and for silence use GHOSTED rather than REJECTED.",
+    inputSchema: object(
+      {
+        ids: strArray("The application ids to move"),
+        stage: { type: "string", enum: STAGE_VALUES, description: "The stage they all move to" },
+      },
+      ["ids", "stage"],
+    ),
+    handler: async (args, ctx) => {
+      const ids = a(args, "ids");
+      if (!ids?.length) throw new Error("ids is required: pass at least one application id");
+      return pipeline.moveApplicationsStage(ctx.userId, ids, required(args, "stage") as Stage);
+    },
+  },
+  {
     name: "move_application_stage",
     title: "Move an application to a new stage",
     description:
-      "Advance or close an application. Automatically logs the change to the timeline and schedules the next follow-up.",
+      "Advance or close an application. Automatically logs the change to the timeline and schedules the next follow-up. On the four endings: REJECTED is for when they said no, WITHDRAWN for when the user pulled out, ACCEPTED for a signed offer, and GHOSTED for the far more common ending where nobody ever replied. Use GHOSTED rather than REJECTED when there was no answer — the funnel counts a rejection as a decision against the user and a ghosting as a non-response, and the advice that falls out of those is different.",
     inputSchema: object(
       {
         id: str("Application id"),

@@ -9,7 +9,7 @@ import type { Stage } from "@prisma/client";
  * error, so it is worth keeping the pure half somewhere it cannot happen.
  */
 
-export const LIST_SORTS = ["followUp", "company", "stage", "updated", "salary"] as const;
+export const LIST_SORTS = ["followUp", "company", "stage", "updated", "salary", "waiting"] as const;
 export type ListSort = (typeof LIST_SORTS)[number];
 
 export function parseSort(value: string | undefined): ListSort {
@@ -29,6 +29,8 @@ export type ListRow = {
   nextFollowUpAt: string | null;
   activityCount: number;
   updatedAt: string;
+  /** Days since the stage last changed. The "how long has this been sitting" number. */
+  daysInStage: number;
   /** Null when logos are off, or no domain could be worked out. */
   domain: string | null;
 };
@@ -43,6 +45,7 @@ const STAGE_ORDER: Stage[] = [
   "ACCEPTED",
   "REJECTED",
   "WITHDRAWN",
+  "GHOSTED",
 ];
 
 /**
@@ -60,6 +63,10 @@ export function sortRows(rows: ListRow[], sort: ListSort, desc: boolean): ListRo
         return STAGE_ORDER.indexOf(a.stage) - STAGE_ORDER.indexOf(b.stage);
       case "updated":
         return b.updatedAt.localeCompare(a.updatedAt);
+      // Longest wait first: the useful question is what has been ignored, not
+      // what was touched a minute ago.
+      case "waiting":
+        return b.daysInStage - a.daysInStage;
       case "salary":
         // No salary sorts last either way: a blank is not "cheapest".
         return (salaryFloor(b.salaryRange) || -1) - (salaryFloor(a.salaryRange) || -1);

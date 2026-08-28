@@ -15,6 +15,7 @@ export const STAGES: Stage[] = [
   "ACCEPTED",
   "REJECTED",
   "WITHDRAWN",
+  "GHOSTED",
 ];
 
 /** Stages shown as columns on the board. Terminal states get their own view. */
@@ -37,6 +38,7 @@ export const STAGE_LABEL: Record<Stage, string> = {
   ACCEPTED: "Accepted",
   REJECTED: "Rejected",
   WITHDRAWN: "Withdrawn",
+  GHOSTED: "Ghosted",
 };
 
 /**
@@ -59,6 +61,7 @@ export const STAGE_TONE: Record<Stage, string> = {
   ACCEPTED: "var(--stage-accepted)",
   REJECTED: "var(--stage-rejected)",
   WITHDRAWN: "var(--stage-withdrawn)",
+  GHOSTED: "var(--stage-ghosted)",
 };
 
 export const ACTIVITY_LABEL: Record<ActivityType, string> = {
@@ -75,7 +78,15 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
   REFERRAL: "Referral",
 };
 
-export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN"];
+export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN", "GHOSTED"];
+
+/**
+ * The endings where someone else decided, or nobody did. Used by the funnel:
+ * a rejection is a decision against you and a ghosting is the absence of one,
+ * and telling them apart is the difference between "my resume is not landing"
+ * and "I am not following up".
+ */
+export const NO_ANSWER_STAGES: Stage[] = ["GHOSTED"];
 
 // ---------------------------------------------------------------------------
 // Companies
@@ -225,7 +236,17 @@ const applicationInclude = {
   company: true,
   resume: { select: { id: true, name: true } },
   _count: { select: { activities: true, tasks: true, contacts: true } },
+  // The moment this application last changed stage, for "how long has it been
+  // sitting there". updatedAt is not that date — editing a note bumps it — and
+  // "waiting 40 days" is only worth printing if it is true.
+  activities: {
+    where: { toStage: { not: null } },
+    orderBy: { occurredAt: "desc" as const },
+    take: 1,
+    select: { occurredAt: true },
+  },
 } satisfies Prisma.ApplicationInclude;
+
 
 export async function listApplications(
   userId: string,
@@ -241,10 +262,21 @@ export async function listApplications(
       { notes: { contains: options.search, mode: "insensitive" } },
     ];
   }
-  return db.application.findMany({
+  const rows = await db.application.findMany({
     where,
     orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     include: applicationInclude,
+  });
+  // The take-1 transition row is plumbing for the date below, not something a
+  // caller — or an assistant reading a tool result — should have to interpret.
+  const now = Date.now();
+  return rows.map(({ activities, ...application }) => {
+    const since = activities[0]?.occurredAt ?? application.createdAt;
+    return {
+      ...application,
+      stageSince: since,
+      daysInStage: Math.floor((now - since.getTime()) / 86_400_000),
+    };
   });
 }
 
@@ -477,6 +509,33 @@ function stageActivityType(stage: Stage): ActivityType {
   if (stage === "OFFER" || stage === "ACCEPTED") return "OFFER";
   if (stage === "REJECTED") return "REJECTION";
   return "STAGE_CHANGE";
+}
+
+/**
+ * Move several applications to the same stage in one go.
+ *
+ * Loops `moveApplicationStage` rather than issuing one `updateMany`, because
+ * the whole value of a stage move is the things that happen around it — the
+ * timeline entry, the follow-up date, the transition row the funnel is built
+ * from. An `updateMany` would be one fast query that quietly destroys the
+ * history this product exists to keep.
+ *
+ * Ids that don't belong to the caller are skipped rather than throwing, so
+ * closing out twelve dead applications doesn't fail on the one that was
+ * already deleted in another tab. Returns what actually moved.
+ */
+export async function moveApplicationsStage(userId: string, ids: string[], stage: Stage) {
+  const moved: string[] = [];
+  const skipped: string[] = [];
+  for (const id of ids) {
+    try {
+      await moveApplicationStage(userId, id, stage);
+      moved.push(id);
+    } catch {
+      skipped.push(id);
+    }
+  }
+  return { moved, skipped, stage };
 }
 
 export async function deleteApplication(userId: string, id: string) {

@@ -584,6 +584,14 @@ export async function updateApplicationAction(
   revalidatePath("/");
 }
 
+export async function moveApplicationsStageAction(ids: string[], stage: Stage) {
+  const user = await requireUser();
+  const result = await pipeline.moveApplicationsStage(user.id, ids, stage);
+  revalidatePath("/applications");
+  revalidatePath("/");
+  return result;
+}
+
 export async function moveStageAction(id: string, stage: Stage) {
   const user = await requireUser();
   await pipeline.moveApplicationStage(user.id, id, stage);

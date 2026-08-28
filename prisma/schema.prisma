@@ -380,6 +380,9 @@ enum Stage {
   ACCEPTED
   REJECTED
   WITHDRAWN
+  /// No reply, long enough that it is over. Distinct from REJECTED because
+  /// nobody said no — the funnel counts it as a non-response, not a decision.
+  GHOSTED
 }
 
 enum ActivityType {

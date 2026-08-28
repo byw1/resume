@@ -109,8 +109,9 @@
      violet, pink, then gold at the offer. Because it only ever turns one way,
      a stage still reads as a position on a path rather than as a category, and
      you can tell "further along" from two colours without knowing the labels.
-     The three endings step outside the rotation because they mean something
-     other than progress: green accepted, red rejected, grey withdrawn.
+     The four endings step outside the rotation because they mean something
+     other than progress: green accepted, red rejected, grey withdrawn, and a
+     dull ochre for ghosted — an ending nobody actually declared.
 
      Each value is the ink. The wash behind it is the same colour at low alpha,
      so one token drives both. */
@@ -123,6 +124,10 @@
   --stage-accepted: oklch(0.55 0.13 152);
   --stage-rejected: oklch(0.55 0.19 25);
   --stage-withdrawn: oklch(0.68 0.008 265);
+  /* Silence gets a colour of its own, warmer than withdrawn so the two endings
+     do not read as the same grey, and duller than rejected because nobody
+     actually said no. */
+  --stage-ghosted: oklch(0.62 0.035 75);
 
   /* How much of the ink shows through the wash behind a chip. */
   --stage-wash: 12%;
@@ -130,8 +135,8 @@
   /* --- Brand --------------------------------------------------------------
      The mark has no colour of its own. It is cut out of the foreground ink, so
      it inverts with the theme like everything else — which is the whole reason
-     there is no thirteenth hue in this file. Twelve are already spoken for by
-     nine stages and three statuses, and a brand colour beside them would either
+     there is no fourteenth hue in this file. Thirteen are already spoken for by
+     ten stages and three statuses, and a brand colour beside them would either
      be mistaken for a stage or shout over one. */
   --brand-ink: var(--foreground);
   --brand-mono-eyebrow: var(--faint);
@@ -220,6 +225,7 @@
   --stage-accepted: oklch(0.75 0.13 152);
   --stage-rejected: oklch(0.7 0.17 25);
   --stage-withdrawn: oklch(0.52 0.008 265);
+  --stage-ghosted: oklch(0.66 0.04 75);
 
   --stage-wash: 20%;
 }

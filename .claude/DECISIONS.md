@@ -1240,3 +1240,46 @@ comment said "so six different icon shapes read as one row", which described the
 no longer exists; it now describes what it actually styles. `media/clients/vscode.png` and
 `windsurf.png` are unreferenced by the page for the moment and stay on disk, because the
 connect section still names those clients and the media README asks for them to be kept.
+## 2026-08-28 — Silence is a fourth ending, and the table is where you edit
+
+**Decision:** `GHOSTED` joins accepted / rejected / withdrawn, and the list view stopped
+being a list. Stage, follow-up, salary and location are now the cells themselves; a Waiting
+column counts days since the last stage change; rows can be selected and closed out in a
+batch; stage filters combine.
+
+**Why ghosted and not "closed":** merging the endings was the tempting simplification and it
+is the wrong one. The funnel's whole job is to tell you what is going wrong, and "they said
+no" and "nobody replied" point at different fixes — a resume problem versus a follow-up
+problem. `pipelineStats` already counted a ghosting as a non-response, so the number was
+right and only the label was lying. Rejected and withdrawn stay distinct for the same
+reason: who decided is the information.
+
+**Waiting is measured, not inferred.** `updatedAt` moves when you edit a note, so it cannot
+answer "how long has this sat there". `applicationInclude` now pulls the most recent
+transition row (`toStage: { not: null }`, take 1) and `listApplications` turns it into
+`stageSince` + `daysInStage`, stripping the raw array — a one-element relation is plumbing,
+and it would have shown up as noise in every `list_applications` tool result. Applications
+older than stage history fall back to `createdAt`, which reports their age rather than
+inventing a precision the data does not have.
+
+**Bulk moves loop rather than `updateMany`.** One query would have been faster and would
+have destroyed the timeline entry, the follow-up date and the transition row that the funnel
+is built from. `moveApplicationsStage` calls `moveApplicationStage` per id and skips ones it
+cannot find, so closing out twelve dead applications does not fail on the one deleted in
+another tab.
+
+**Filters are a set in one param.** `f=SCREEN,INTERVIEW`. An old single-stage link still
+parses, an unknown value means everything, and `overdue`/`closed` replace the set rather
+than joining it because they are cuts across stages rather than stages. The URL stays the
+state, so a filtered view is still a link you can send yourself.
+
+**Two things the UI had to concede.** An empty `input[type=date]` prints "mm/dd/yyyy", and a
+column of those on every row without a follow-up shouts louder than the dates that are set —
+so an empty date cell is an em dash until clicked. And collapsed board columns live in
+localStorage, not the URL: it is how you like to look at the board, not what you are looking
+at, and it should not travel in a shared link. A collapsed column is still a drop target.
+
+**Watch for:** `move_applications_stage` brings the member surface to 67 tools and the admin
+surface to 87. The README states both in three places.
+**Applies to:** `prisma/migrations/20250112000000_ghosted_stage/`, `src/lib/data/pipeline.ts`,
+`src/components/pipeline/{list,board,toolbar}.tsx`, `src/lib/pipeline-list.ts`.
