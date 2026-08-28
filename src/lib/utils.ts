@@ -53,6 +53,23 @@ export function relativeDay(date: Date | string | null | undefined) {
   return `in ${days}d`;
 }
 
+/** Past-tense counterpart to relativeDay: how long since something happened. */
+export function agoDay(date: Date | string | null | undefined) {
+  if (!date) return "";
+  const d = typeof date === "string" ? new Date(date) : date;
+  const now = new Date();
+  const days = Math.round(
+    (new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime() -
+      new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime()) /
+      86400000,
+  );
+  if (days <= 0) return "Today";
+  if (days === 1) return "Yesterday";
+  if (days < 14) return `${days}d ago`;
+  if (days < 61) return `${Math.round(days / 7)}w ago`;
+  return `${Math.round(days / 30.4)}mo ago`;
+}
+
 export function slugify(input: string) {
   return input
     .toLowerCase()

@@ -50,6 +50,9 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
 
   useEffect(() => {
     if (params.get("new")) setOpen(true);
+    // "Track a role" on a company page lands here with the company filled in.
+    const company = params.get("company");
+    if (company) setForm((current) => (current.company ? current : { ...current, company }));
   }, [params]);
 
   // Paste a link, get the form filled. The fields stay editable — the page's

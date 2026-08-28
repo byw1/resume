@@ -10,12 +10,22 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { addActivityAction, deleteCrmContactAction, saveContactAction } from "@/server/actions";
 import { ACTIVITY_LABEL } from "@/lib/data/pipeline";
 import type { ActivityType } from "@prisma/client";
+
+/** The kinds of touch a person logs by hand. The rest are written by the system. */
+const TOUCH_TYPES: ActivityType[] = ["NOTE", "CALL", "EMAIL_SENT", "EMAIL_RECEIVED", "FOLLOW_UP"];
 
 export type ContactFields = {
   id: string;
@@ -52,6 +62,7 @@ export function ContactDetail({
   const [values, setValues] = useState(contact);
   const [state, setState] = useState<SaveState>("idle");
   const [note, setNote] = useState("");
+  const [noteType, setNoteType] = useState<ActivityType>("NOTE");
   const [logging, startLogging] = useTransition();
   const [, startTransition] = useTransition();
   const router = useRouter();
@@ -61,7 +72,7 @@ export function ContactDetail({
     if (!body) return;
     startLogging(async () => {
       try {
-        await addActivityAction({ contactId: contact.id, body });
+        await addActivityAction({ contactId: contact.id, type: noteType, body });
         setNote("");
         router.refresh();
       } catch (error) {
@@ -91,7 +102,19 @@ export function ContactDetail({
 
   const set = (patch: Partial<ContactFields>) => setValues((prev) => ({ ...prev, ...patch }));
 
-  const remove = () =>
+  // One click for "in two weeks" instead of arithmetic in a date picker.
+  const pingIn = (days: number | null) => {
+    const next =
+      days === null
+        ? ""
+        : new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
+    set({ nextFollowUpAt: next });
+    commit({ nextFollowUpAt: next });
+  };
+
+  const remove = () => {
+    if (!confirm(`Delete ${contact.name}? Their timeline goes with them. This cannot be undone.`))
+      return;
     startTransition(async () => {
       try {
         await deleteCrmContactAction(contact.id);
@@ -100,6 +123,7 @@ export function ContactDetail({
         toast.error(error instanceof Error ? error.message : "Could not delete that contact.");
       }
     });
+  };
 
   return (
     <div className="space-y-4">
@@ -185,6 +209,21 @@ export function ContactDetail({
                   }}
                   placeholder="Called about the referral — she'll intro me to the EM."
                 />
+                <Select
+                  value={noteType}
+                  onValueChange={(value) => setNoteType(value as ActivityType)}
+                >
+                  <SelectTrigger className="w-32 shrink-0" aria-label="Kind of touch">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {TOUCH_TYPES.map((type) => (
+                      <SelectItem key={type} value={type}>
+                        {ACTIVITY_LABEL[type]}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
                 <Button variant="outline" onClick={logTouch} disabled={logging || !note.trim()}>
                   Log it
                 </Button>
@@ -204,7 +243,9 @@ export function ContactDetail({
                         <span className="text-[12px] font-medium">{ACTIVITY_LABEL[touch.type]}</span>
                         <span className="text-faint meta ml-auto text-[11.5px]">{touch.occurredAt}</span>
                       </div>
-                      <p className="text-muted-foreground mt-0.5 text-[13px]">{touch.body}</p>
+                      <p className="text-muted-foreground mt-0.5 text-[13px] whitespace-pre-wrap">
+                        {touch.body}
+                      </p>
                     </li>
                   ))}
                 </ol>
@@ -234,6 +275,29 @@ export function ContactDetail({
                   onChange={(event) => set({ nextFollowUpAt: event.target.value })}
                   onBlur={() => commit({ nextFollowUpAt: values.nextFollowUpAt })}
                 />
+                <div className="flex flex-wrap gap-1">
+                  {(
+                    [
+                      ["1w", 7],
+                      ["2w", 14],
+                      ["1m", 30],
+                    ] as const
+                  ).map(([label, days]) => (
+                    <Button key={label} variant="outline" size="xs" onClick={() => pingIn(days)}>
+                      {label}
+                    </Button>
+                  ))}
+                  {values.nextFollowUpAt && (
+                    <Button
+                      variant="ghost"
+                      size="xs"
+                      className="text-muted-foreground"
+                      onClick={() => pingIn(null)}
+                    >
+                      Clear
+                    </Button>
+                  )}
+                </div>
                 <p className="text-faint text-xs leading-snug">
                   Shows up with your follow-ups on the dashboard and the calendar.
                 </p>

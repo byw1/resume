@@ -3,7 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLinkIcon, MailIcon, Trash2Icon } from "lucide-react";
+import { ExternalLinkIcon, MailIcon, PlusIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { Button } from "@/components/ui/button";
@@ -16,7 +16,7 @@ import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import { companyDomain } from "@/lib/company";
-import { deleteCompanyAction, saveCompanyAction } from "@/server/actions";
+import { createContactAction, deleteCompanyAction, saveCompanyAction } from "@/server/actions";
 import { relativeDay } from "@/lib/utils";
 
 export type CompanyFields = {
@@ -49,8 +49,25 @@ export function CompanyDetail({
 }) {
   const [values, setValues] = useState(company);
   const [state, setState] = useState<SaveState>("idle");
+  const [adding, setAdding] = useState(false);
+  const [person, setPerson] = useState({ name: "", title: "", email: "", relationship: "" });
+  const [saving, startSaving] = useTransition();
   const [, startTransition] = useTransition();
   const router = useRouter();
+
+  const addPerson = () => {
+    if (!person.name.trim()) return;
+    startSaving(async () => {
+      try {
+        await createContactAction({ ...person, company: values.name });
+        setPerson({ name: "", title: "", email: "", relationship: "" });
+        setAdding(false);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not save that contact.");
+      }
+    });
+  };
 
   // Autosave on blur rather than on every keystroke: a company record is a
   // form you fill in, not a document you stream.
@@ -76,7 +93,12 @@ export function CompanyDetail({
   const set = (patch: Partial<CompanyFields>) => setValues((prev) => ({ ...prev, ...patch }));
   const domain = logos ? companyDomain({ name: values.name, website: values.website }) : null;
 
-  const remove = () =>
+  const remove = () => {
+    const cost =
+      applications.length > 0
+        ? ` That deletes ${applications.length === 1 ? "the application" : `all ${applications.length} applications`} with them, history included.`
+        : "";
+    if (!confirm(`Delete ${company.name}?${cost} This cannot be undone.`)) return;
     startTransition(async () => {
       try {
         await deleteCompanyAction(company.id);
@@ -85,6 +107,7 @@ export function CompanyDetail({
         toast.error(error instanceof Error ? error.message : "Could not delete that company.");
       }
     });
+  };
 
   return (
     <div className="space-y-4">
@@ -145,10 +168,15 @@ export function CompanyDetail({
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between">
               <CardTitle className="text-[15px]">
                 Applications {applications.length > 0 && <span className="text-faint nums font-normal">{applications.length}</span>}
               </CardTitle>
+              <Button asChild variant="ghost" size="xs">
+                <Link href={`/applications?new=1&company=${encodeURIComponent(values.name)}`}>
+                  <PlusIcon /> Track a role
+                </Link>
+              </Button>
             </CardHeader>
             <CardContent>
               {applications.length === 0 ? (
@@ -232,12 +260,48 @@ export function CompanyDetail({
           </Card>
 
           <Card>
-            <CardHeader>
+            <CardHeader className="flex-row items-center justify-between">
               <CardTitle className="text-[15px]">
                 People {contacts.length > 0 && <span className="text-faint nums font-normal">{contacts.length}</span>}
               </CardTitle>
+              <Button variant="ghost" size="xs" onClick={() => setAdding((value) => !value)}>
+                <UserPlusIcon /> Add
+              </Button>
             </CardHeader>
-            <CardContent>
+            <CardContent className="space-y-3">
+              {adding && (
+                <div className="space-y-2">
+                  <Input
+                    value={person.name}
+                    onChange={(event) => setPerson({ ...person, name: event.target.value })}
+                    placeholder="Name"
+                    autoFocus
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <Input
+                      value={person.title}
+                      onChange={(event) => setPerson({ ...person, title: event.target.value })}
+                      placeholder="Title"
+                    />
+                    <Input
+                      value={person.relationship}
+                      onChange={(event) =>
+                        setPerson({ ...person, relationship: event.target.value })
+                      }
+                      placeholder="Recruiter"
+                    />
+                  </div>
+                  <Input
+                    value={person.email}
+                    onChange={(event) => setPerson({ ...person, email: event.target.value })}
+                    onKeyDown={(event) => event.key === "Enter" && addPerson()}
+                    placeholder="Email"
+                  />
+                  <Button size="sm" onClick={addPerson} disabled={saving || !person.name.trim()}>
+                    Save contact
+                  </Button>
+                </div>
+              )}
               {contacts.length === 0 ? (
                 <p className="text-faint py-4 text-center text-[13px]">Nobody on file here yet.</p>
               ) : (

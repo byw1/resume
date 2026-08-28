@@ -950,3 +950,20 @@ append_role_brain_dump, where it is evidence for every future posting. The gap r
 secretly the brain's best intake funnel.
 **tailor_resume** now ends with the same three-list report, so the trust property the
 landing page advertises is something a user actually sees after every tailoring.
+
+## 2026-08-28 — The CRM caught up to the app's own manners
+
+**Decision:** a quality-of-life pass on the existing CRM pages, nothing new underneath:
+deletes confirm (stating the cascade — a company takes its applications and their history
+with it), the company page can add the people and roles it lists, the contacts list shows
+next ping and a relative last touch, ping dates have 1w/2w/1m presets, and the log box can
+say what kind of touch it was. Every capability already existed in the actions and tools;
+the UI had just never exposed it.
+**Two calls worth remembering:** the Email column on the contacts list was *removed*, not
+lost — it was xl-only and mostly dashes, and its job is now done by mailto/LinkedIn icons
+on the row. Those icons sit in a cluster *outside* the row's link because an anchor inside
+an anchor is invalid HTML; don't move them back in. And `TOUCH_TYPES` in contact-detail
+lists only the kinds a person logs by hand — STAGE_CHANGE, APPLIED and the rest are
+written by the system and would be lies if hand-picked.
+**Applies to:** `src/components/crm/`, `src/app/(app)/crm/contacts/page.tsx`,
+`agoDay` in `src/lib/utils.ts`.
