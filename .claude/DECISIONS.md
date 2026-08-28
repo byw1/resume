@@ -1214,3 +1214,29 @@ their own favicons — the same self-hosted files the strip below the fold uses,
 still makes no third-party request. On a phone the mobile rule that turns every
 `.hero-note span` into a block had to be undone for that group, or the chips stack instead
 of wrapping.
+
+## 2026-08-28 — Stripping the hero back, and a width that was an accident
+
+**Decision (William's):** out of the hero go the "Nothing on a resume is invented" fact, the
+form's small print ("No card, no account yet…"), and the whole "Connects to" client strip
+under the product shots. What is left above the fold is the headline, the description, the
+form, and one row saying which assistants it works inside.
+
+**One bug fell out of it, and it is worth knowing about.** `.hero-lead` is a centred flex
+column, so its children are sized shrink-to-fit rather than filled. `.joinform` had only a
+`max-width`, which meant its actual measure came from whichever line of text inside it
+happened to be longest — and that was the small print. Deleting the small print narrowed the
+form from 480px to 373px, which was under the flex basis of the field plus the button, so
+the button wrapped onto its own line at full desktop width. Nothing in the diff looked like
+a layout change. `.joinform` now carries `width: 100%` alongside its `max-width`, so its
+measure is stated rather than inherited from prose.
+
+The lesson generalises: in a centred flex column, `max-width` alone is not a width, and a
+copy edit can silently become a layout edit.
+
+**What was kept.** `.mark` survives the strip's removal — the hero's chips and the connect
+section's client tabs both wear it, and only the `.strip`-scoped rules were dead. Its
+comment said "so six different icon shapes read as one row", which described the strip that
+no longer exists; it now describes what it actually styles. `media/clients/vscode.png` and
+`windsurf.png` are unreferenced by the page for the moment and stay on disk, because the
+connect section still names those clients and the media README asks for them to be kept.
