@@ -998,3 +998,24 @@ do its job. This never showed before because the old self-host column used `.doo
 The audit script's "inputs without a label" check only looked for `aria-label` and a
 wrapping `<label>`, so it reported the new form's correctly-labelled inputs as failures. It
 now follows `label[for]` and skips `aria-hidden` honeypots.
+
+## 2026-08-28 — The hero is centred
+
+**Decision (William's):** the hero copy is centred on both desktop and mobile.
+
+The copy block is now a `.hero-lead` flex column with `text-align: center`, and the form
+reuses the `.mid` variant already written for the close section rather than a second set of
+rules. The product shots below it stay in two left-aligned columns on purpose: the text is
+one column of statement and the shots are two columns of evidence, and centring the
+statement is what stops a wide screen reading as a left margin with nothing to the right of
+it. The hero's light was aimed at a headline that used to sit on the left, so both radial
+stops moved toward the middle.
+
+**Two things the centring forced.** The form's note used to carry a "run it yourself today"
+link, which wrapped mid-phrase inside the 480px form; the link moved down into the fact row,
+where it is a link at last instead of the plain words "Free to self-host, forever". And
+below 560px the field and the button now stack full width — a half-width button wrapping
+under a full-width field reads as an accident rather than a layout.
+
+**Also fixed:** `POST /api/waitlist` recorded a `file://` or privacy-mode submission as a
+source literally called "null". Empty now.

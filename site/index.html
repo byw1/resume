@@ -122,6 +122,7 @@
   <div class="hero-grid" aria-hidden="true"></div>
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="wrap">
+    <div class="hero-lead">
     <a class="pill" href="#join" data-reveal>
       <em>Invite-only</em> while it's being built<span class="long"> · ask for a place</span>
       <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
@@ -138,7 +139,7 @@
     </p>
 
     <!-- The primary action on the page. Posts to the instance; see motion.js. -->
-    <form class="joinform" id="join" data-join data-reveal style="--i:3; margin-top:26px" novalidate>
+    <form class="joinform mid" id="join" data-join data-reveal style="--i:3; margin-top:26px" novalidate>
       <div class="joinform-row">
         <label class="sr-only" for="join-hero">Your email address</label>
         <input id="join-hero" type="email" name="email" autocomplete="email"
@@ -149,20 +150,18 @@
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
         </button>
       </div>
-      <p class="joinform-note">
-        No card, no account yet. It emails me, and I send you an invite.
-        Or <a href="#selfhost" style="color:var(--muted);text-decoration:underline;text-underline-offset:2px">run it yourself today</a> — that part is free and open.
-      </p>
+      <p class="joinform-note">No card, no account yet. It emails me, and I send you an invite.</p>
       <p class="joinform-said" role="status" aria-live="polite"></p>
     </form>
 
     <p class="hero-note" data-reveal style="--i:4">
-      <span><b>Free</b> to self-host, forever</span>
+      <span><a href="#selfhost"><b>Free</b> to self-host, forever</a></span>
       <span class="sep" aria-hidden="true">·</span>
       <span>Works inside <b>Claude</b>, <b>ChatGPT</b> and <b>Cursor</b></span>
       <span class="sep" aria-hidden="true">·</span>
       <span><b>Nothing</b> on a resume is invented</span>
     </p>
+    </div>
 
     <div class="stage">
       <!-- Left: what you say. -->

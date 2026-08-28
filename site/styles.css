@@ -998,8 +998,8 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   /* On a light ground the same light source has to be much weaker: a colour
      that reads as a glow against near-black reads as a stain against paper. */
   background:
-    radial-gradient(50% 46% at 22% 30%, color-mix(in oklch, var(--primary) 13%, transparent), transparent 72%),
-    radial-gradient(46% 46% at 74% 12%, color-mix(in oklch, var(--stage-interview) 11%, transparent), transparent 74%),
+    radial-gradient(50% 46% at 34% 28%, color-mix(in oklch, var(--primary) 13%, transparent), transparent 72%),
+    radial-gradient(46% 46% at 68% 12%, color-mix(in oklch, var(--stage-interview) 11%, transparent), transparent 74%),
     radial-gradient(34% 36% at 96% 40%, color-mix(in oklch, var(--stage-final) 8%, transparent), transparent 76%);
   mask-image: linear-gradient(to bottom, black, black 42%, transparent 94%);
   -webkit-mask-image: linear-gradient(to bottom, black, black 42%, transparent 94%);
@@ -1020,12 +1020,20 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   -webkit-mask-image: radial-gradient(82% 66% at 46% 18%, black, transparent 76%);
 }
 
+/* The copy block is centred and the product shots below it are not: the text
+   is one column of statement, the shots are two columns of evidence. Centring
+   the statement is what stops a wide screen reading as a left-hand margin with
+   a lot of nothing to the right of it. */
+.hero-lead { text-align: center; display: flex; flex-direction: column; align-items: center; }
+
 .hero-copy { max-width: 18ch; }
-.hero .lede { margin-top: 18px; }
+.hero .lede { margin-top: 18px; max-width: 54ch; }
 .hero-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
-.hero-note { margin-top: 16px; font-size: 12.5px; color: var(--faint); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 12px; }
+.hero-note { margin-top: 16px; font-size: 12.5px; color: var(--faint); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; }
 .hero-note .sep { color: var(--rim); }
 .hero-note b { color: var(--muted); font-weight: 500; }
+.hero-note a { text-decoration: underline; text-decoration-color: var(--rim); text-underline-offset: 3px; transition: color 0.15s var(--settle); }
+.hero-note a:hover { color: var(--muted); text-decoration-color: currentColor; }
 
 /* The badge above the headline — a real link to the thing it names. */
 .pill {
@@ -1088,7 +1096,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
    CLIENT STRIP
    =========================================================================== */
 
-.strip { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 22px; }
+.strip { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 10px 22px; }
 .strip .eyebrow { margin-right: 4px; }
 .strip .c {
   display: inline-flex;
@@ -1414,7 +1422,7 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   opacity: 0;
 }
 
-.joinform-note { margin-top: 11px; font-size: 12.5px; color: var(--faint); }
+.joinform-note { margin-top: 11px; font-size: 12.5px; color: var(--faint); text-wrap: balance; }
 .joinform-said { margin-top: 11px; font-size: 13px; color: var(--muted); }
 .joinform-said:empty { display: none; }
 .joinform-said.bad { color: var(--destructive); }
@@ -1795,6 +1803,12 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
   .foot { grid-template-columns: 1fr; gap: 36px; }
   .foot-brand { max-width: 52ch; }
+}
+
+@media (max-width: 560px) {
+  .joinform-row { flex-direction: column; }
+  .joinform input[type="email"] { flex: 1 1 auto; width: 100%; }
+  .joinform button[type="submit"] { width: 100%; justify-content: center; }
 }
 
 @media (max-width: 720px) {
