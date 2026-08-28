@@ -131,6 +131,34 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+/// Someone who asked for access from the marketing site while the instance is
+/// invite-only. Deliberately not a User and not an Invite: it is a request,
+/// and it becomes an Invite only when an admin decides it should. Nothing here
+/// grants access, so the public endpoint that writes it can stay open.
+model WaitlistSignup {
+  id      String @id @default(cuid())
+  email   String @unique
+  name    String @default("")
+  /// What they're looking for, in their words. Optional, and never required —
+  /// an email address alone is a complete signup.
+  context String @default("")
+  /// Which site the request came from. Set from the request's own Origin by
+  /// the route, never from the body, so it can't be spoofed into a lie.
+  source  String @default("")
+  /// Whether the owner's notification actually went out. Mirrors Invite: a
+  /// signup that nobody was told about has to be visible as one, not silently
+  /// swallowed because Resend was down.
+  notified    Boolean @default(false)
+  notifyError String  @default("")
+  /// Set when an admin turned this request into an Invite. Kept rather than
+  /// deleted so the list stays a record of who asked and when.
+  invitedAt DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([invitedAt])
+  @@index([createdAt])
+}
+
 // ---------------------------------------------------------------------------
 // BRAIN — the knowledge base you dump everything into
 // ---------------------------------------------------------------------------

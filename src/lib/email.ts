@@ -115,6 +115,68 @@ This link expires in ${input.expiresInDays} days.`;
   return { subject, html, text };
 }
 
+/**
+ * The one email that goes to the instance owner rather than to a user: someone
+ * asked for access from the marketing site. It exists so the owner doesn't have
+ * to poll an admin screen to find out that a stranger is waiting.
+ */
+export function waitlistNoticeEmail(input: {
+  instanceName: string;
+  email: string;
+  name: string;
+  context: string;
+  source: string;
+  total: number;
+  adminUrl: string;
+}) {
+  const who = input.name ? `${input.name} (${input.email})` : input.email;
+  const subject = `${input.instanceName}: ${who} wants access`;
+
+  const rows = [
+    ["Email", input.email],
+    input.name ? ["Name", input.name] : null,
+    input.context ? ["Looking for", input.context] : null,
+    input.source ? ["From", input.source] : null,
+  ].filter(Boolean) as [string, string][];
+
+  const html = shell(
+    "Someone asked for access",
+    `${rows
+      .map(
+        ([label, value]) =>
+          `<p style="margin:0 0 10px;font-size:15px;line-height:1.6;">
+             <span style="color:#6b6f7d;">${escapeHtml(label)}</span><br>
+             <strong>${escapeHtml(value)}</strong>
+           </p>`,
+      )
+      .join("")}
+     <p style="margin:22px 0 0;font-size:15px;line-height:1.6;">
+       That's ${input.total} ${input.total === 1 ? "person" : "people"} on the list.
+     </p>${
+       input.adminUrl
+         ? `
+     <p style="margin:22px 0 0;">
+       <a href="${input.adminUrl}"
+          style="display:inline-block;background:#111827;color:#ffffff;text-decoration:none;padding:12px 22px;border-radius:9px;font-size:15px;font-weight:500;">
+         Open the waitlist
+       </a>
+     </p>`
+         : ""
+     }`,
+    "Nobody has been given access. Invite them from Admin \u2192 Waitlist when you're ready.",
+  );
+
+  const text = `${who} asked for access to ${input.instanceName}.
+
+${rows.map(([label, value]) => `${label}: ${value}`).join("\n")}
+
+${input.total} on the list.${input.adminUrl ? `\n\nInvite them: ${input.adminUrl}` : ""}
+
+Nobody has been given access yet.`;
+
+  return { subject, html, text };
+}
+
 export function testEmail(instanceName: string) {
   return {
     subject: `${instanceName}: email is working`,

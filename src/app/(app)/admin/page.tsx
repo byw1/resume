@@ -6,13 +6,15 @@ import { Card, CardContent } from "@/components/ui/card";
 import { AnimatedNumber } from "@/components/animated-number";
 import { requireAdmin } from "@/lib/auth";
 import { instanceStats, listInvites, listUsers } from "@/lib/data/users";
+import { listWaitlist, waitlistStats } from "@/lib/data/waitlist";
 import { billingIsConfigured, emailIsConfigured, getSettings, maskSecret } from "@/lib/settings";
 import { billedUserCount } from "@/lib/billing";
 import { BillingPanel } from "@/components/admin/billing-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
 import { InvitesPanel } from "@/components/admin/invites-panel";
+import { WaitlistPanel } from "@/components/admin/waitlist-panel";
 import { EmailPanel } from "@/components/admin/email-panel";
-import { MailCheckIcon, ShieldIcon, UserPlusIcon, UsersIcon } from "lucide-react";
+import { InboxIcon, ShieldIcon, UserPlusIcon, UsersIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
 
@@ -23,11 +25,13 @@ export default async function AdminPage() {
   const proto =
     headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
 
-  const [users, invites, stats, settings] = await Promise.all([
+  const [users, invites, stats, settings, waitlist, waiting] = await Promise.all([
     listUsers(),
     listInvites(),
     instanceStats(),
     getSettings(),
+    listWaitlist(),
+    waitlistStats(),
   ]);
 
   const emailReady = emailIsConfigured(settings);
@@ -57,10 +61,14 @@ export default async function AdminPage() {
           hint="Not yet accepted"
         />
         <Stat
-          icon={MailCheckIcon}
-          label="Built so far"
-          value={stats.resumes}
-          hint={`${stats.roles} roles · ${stats.applications} applications`}
+          icon={InboxIcon}
+          label="Waiting for access"
+          value={waiting.waiting}
+          hint={
+            waiting.total === 0
+              ? "Nobody has asked yet"
+              : `${waiting.total} asked · ${waiting.invited} invited`
+          }
         />
       </Stagger>
 
@@ -73,6 +81,14 @@ export default async function AdminPage() {
           <TabsTrigger value="invites">
             Invites
             <span className="text-muted-foreground ml-1 text-xs tabular-nums">{invites.length}</span>
+          </TabsTrigger>
+          <TabsTrigger value="waitlist">
+            Waitlist
+            {waiting.waiting > 0 && (
+              <span className="text-muted-foreground ml-1 text-xs tabular-nums">
+                {waiting.waiting}
+              </span>
+            )}
           </TabsTrigger>
           <TabsTrigger value="email">
             Email
@@ -115,6 +131,24 @@ export default async function AdminPage() {
                 emailSent: invite.emailSent,
                 emailError: invite.emailError,
                 invitedBy: invite.invitedBy.name || invite.invitedBy.email,
+              }))}
+            />
+          </FadeIn>
+        </TabsContent>
+
+        <TabsContent value="waitlist">
+          <FadeIn>
+            <WaitlistPanel
+              entries={waitlist.map((entry) => ({
+                id: entry.id,
+                email: entry.email,
+                name: entry.name,
+                context: entry.context,
+                source: entry.source,
+                notified: entry.notified,
+                notifyError: entry.notifyError,
+                invitedAt: entry.invitedAt ? entry.invitedAt.toISOString() : null,
+                createdAt: entry.createdAt.toISOString(),
               }))}
             />
           </FadeIn>

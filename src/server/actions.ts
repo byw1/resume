@@ -8,6 +8,7 @@ import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as users from "@/lib/data/users";
+import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
 import {
   authenticate,
@@ -230,6 +231,42 @@ export async function inviteUserAction(input: { email: string; role: UserRole })
 export async function revokeInviteAction(id: string) {
   await requireAdmin();
   await users.revokeInvite(id);
+  revalidatePath("/admin");
+}
+
+/**
+ * Invite someone off the waitlist. Same shape as inviteUserAction because it
+ * is the same job with the address already chosen — the request row supplies
+ * the email, so this can't be used to invite an arbitrary person.
+ */
+export async function inviteFromWaitlistAction(input: { id: string; role: UserRole }) {
+  const actor = await requireAdmin();
+  const headerList = await headers();
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+
+  try {
+    const result = await waitlist.inviteFromWaitlist({
+      actor,
+      id: input.id,
+      role: input.role,
+      baseUrl: `${proto}://${host}`,
+    });
+    revalidatePath("/admin");
+    return {
+      ok: true as const,
+      acceptUrl: result.acceptUrl,
+      emailSent: result.emailSent,
+      emailError: result.emailError,
+    };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not invite." };
+  }
+}
+
+export async function removeWaitlistSignupAction(id: string) {
+  await requireAdmin();
+  await waitlist.removeWaitlistSignup(id);
   revalidatePath("/admin");
 }
 

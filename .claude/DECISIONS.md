@@ -919,3 +919,40 @@ when nobody is pointing at it. The large corner mark is static, at 5% opacity, a
 behind the content on `z-index: -1` — which needs `isolation: isolate` on the footer, the
 same trap the hero glow hit: `position: relative` alone does not make a stacking context,
 so the mark would have painted behind `body` and vanished.
+
+## 2026-08-28 — A waitlist, and where it sits in the data layer
+
+**Why:** hired.tools is becoming a "request access" page rather than a "read the README and
+deploy it" page, and "email me directly" needed somewhere to land. The alternative was a
+third-party form service, which would have been the first non-font external request the
+marketing site makes and would have put a list of strangers' addresses on someone else's
+server. This keeps it in the instance.
+
+**Where it broke the pattern, and why that's fine.** Invariant 1 says every function in
+`src/lib/data/` takes `userId` first. `waitlist.ts` doesn't, and neither does `users.ts` —
+because neither touches a person's content. A signup is instance-level, like `Setting` and
+`Invite`. The distinction that matters is not "does it take a userId" but "is this someone's
+brain, resumes or applications", and for those the rule is unchanged. `waitlist.ts` says so
+at the top so the next reader doesn't think the invariant slipped.
+
+**`addWaitlistSignup` is the only data function an anonymous request can reach.** That is
+safe because it grants nothing, reads nothing back, and writes a row that does nothing until
+an admin acts on it.
+
+**CORS is `*`, deliberately.** An allow-list would have been a new setting, and a new setting
+is one more thing every self-hoster has to configure before their own landing page works —
+the exact cost invariant 5 exists to avoid. CORS isn't the boundary here; the answer being
+identical for every caller is. Signing up twice returns the same `{ok:true}` as signing up
+once, so the endpoint can't be used to enumerate who is on the list.
+
+**Rate limiting is in the database, not in memory.** An in-memory counter would be per-replica
+and would reset on every restart, which is the same reason the MCP transport is stateless.
+Instead: a honeypot, the unique index on email, a body cap, and a burst ceiling counted with
+a query. A determined person can still put junk on the list; they cannot get in.
+
+**Notification failures are recorded, not swallowed.** `notified`/`notifyError` mirror
+`Invite.emailSent`/`emailError`, so a signup that arrived while Resend was misconfigured
+shows up in Admin as one rather than looking like nothing happened.
+
+**The landing page's tool count is unchanged at 64.** All three new tools are `adminOnly`,
+and the figure on hired.tools is what a *member* sees.

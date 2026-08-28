@@ -3,6 +3,7 @@ import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as users from "@/lib/data/users";
+import * as waitlist from "@/lib/data/waitlist";
 import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
 import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/billing";
 import { sendEmail, testEmail } from "@/lib/email";
@@ -1533,6 +1534,71 @@ export const tools: McpTool[] = [
     inputSchema: object({ id: str("Invite id") }, ["id"]),
     adminOnly: true,
     handler: async (args) => users.revokeInvite(required(args, "id")),
+  },
+  {
+    name: "admin_list_waitlist",
+    title: "See who asked for access",
+    description:
+      "People who requested access from the marketing site and have not been invited yet. Start here when you're deciding who to let in next: each entry has the address, what they said they're looking for, which site they came from, and when they asked. Entries already turned into invites are included with an invitedAt date, so you can see the whole history — pass pendingOnly true for just the queue. Reading this does not tell anyone anything; use admin_invite_waitlist_signup to actually let someone in.",
+    inputSchema: object({
+      pendingOnly: bool("Only the people still waiting. Defaults to false, which returns everyone who ever asked."),
+    }),
+    adminOnly: true,
+    handler: async (args) => {
+      const [entries, stats] = await Promise.all([
+        waitlist.listWaitlist({ pendingOnly: b(args, "pendingOnly") ?? false }),
+        waitlist.waitlistStats(),
+      ]);
+      return { ...stats, entries };
+    },
+  },
+  {
+    name: "admin_invite_waitlist_signup",
+    title: "Invite someone off the waitlist",
+    description:
+      "Turn a waitlist request into a real invitation: creates the invite, emails it through Resend, and marks the request as invited so it leaves the queue. Takes the signup id from admin_list_waitlist, not an email address. If email is not configured the invite is still created and the reply carries a link you can send by hand. The request stays on the list afterwards, stamped with the date, so the list remains a record of who asked and when.",
+    inputSchema: object(
+      {
+        id: str("The signup id from admin_list_waitlist"),
+        role: {
+          type: "string",
+          enum: ["MEMBER", "ADMIN"],
+          description: "MEMBER by default. Only the super admin may create ADMINs.",
+        },
+      },
+      ["id"],
+    ),
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const result = await waitlist.inviteFromWaitlist({
+        actor: ctx.user,
+        id: required(args, "id"),
+        role: (s(args, "role") as UserRole | undefined) ?? "MEMBER",
+        baseUrl: ctx.baseUrl,
+      });
+      return {
+        email: result.invite.email,
+        expiresAt: result.invite.expiresAt,
+        emailSent: result.emailSent,
+        emailError: result.emailError,
+        acceptUrl: result.acceptUrl,
+        note: result.emailSent
+          ? "Invitation emailed and the request marked as invited."
+          : "Invitation created but NOT emailed — send them the acceptUrl yourself, or configure Resend with admin_set_email_config.",
+      };
+    },
+  },
+  {
+    name: "admin_remove_waitlist_signup",
+    title: "Remove a waitlist request",
+    description:
+      "Delete a request from the waitlist for good — spam, a duplicate, or someone who asked to be taken off. This does not revoke an invitation that was already sent; use admin_revoke_invite for that. Irreversible, so read admin_list_waitlist first and remove by id.",
+    inputSchema: object({ id: str("The signup id from admin_list_waitlist") }, ["id"]),
+    adminOnly: true,
+    handler: async (args) => {
+      await waitlist.removeWaitlistSignup(required(args, "id"));
+      return { removed: true };
+    },
   },
   {
     name: "admin_set_user_role",

@@ -185,6 +185,28 @@ land in their own empty workspace.
 Email is optional. Until you set up Resend, creating an invite gives you a link to send
 however you like — it stays valid for 14 days. Nothing is blocked on email being configured.
 
+### Letting people ask for access
+
+If you run a landing page in front of your instance, point its sign-up form at
+`POST /api/waitlist` with a JSON body of `{"email": "...", "name": "...", "context": "..."}`.
+Only `email` is required. Requests land in **Admin → Waitlist**, and you get an email the
+moment one arrives — no polling an empty screen.
+
+Nothing on that list has access to anything. A request becomes an invite when you press
+**Invite** next to it, which is the same invite as any other: a link, 14 days, their own
+empty workspace. The row stays afterwards, stamped with the date, so the list is a record
+of who asked and when.
+
+The endpoint is open to any origin on purpose — that's what makes it work from a static
+site you host anywhere, with nothing to configure. It grants nothing, it never reads
+anything back, and it answers identically whether or not an address is already on the list,
+so it can't be used to find out who signed up. A honeypot field, a unique index on the
+address and a burst ceiling keep the obvious junk out; anything that gets through is one
+click to delete.
+
+By conversation: `admin_list_waitlist`, `admin_invite_waitlist_signup`,
+`admin_remove_waitlist_signup`.
+
 ### Charging for it (optional)
 
 If you host an instance for other people and want them to pay for it, wire it to Stripe
