@@ -1001,6 +1001,14 @@ export const tools: McpTool[] = [
     },
   },
   {
+    name: "capture_job_posting",
+    title: "Capture a job posting from its URL",
+    description:
+      "The FIRST tool to call when someone shares a link to a job posting. Fetches the page server-side, reads the structured posting data most job boards publish, and creates the application in one move: company matched or created (with its own website when the posting names one, which puts their logo on the pipeline), role title, full description, location, compensation and source all filled, starting on the wishlist. Returns captured true with the new application and its id. When the page doesn't state the employer or the role readably, returns captured false plus whatever WAS parsed and creates NOTHING — in that case show the person what was found, ask for the missing pieces, and use create_application. Never guess an employer's name from a URL. If they applied already, follow with move_application_stage.",
+    inputSchema: object({ url: str("The posting's URL, e.g. a Greenhouse, Lever, Ashby, Workday or LinkedIn job link") }, ["url"]),
+    handler: async (args, ctx) => pipeline.captureJobPosting(ctx.userId, required(args, "url")),
+  },
+  {
     name: "create_application",
     title: "Create an application",
     description:
@@ -1126,21 +1134,23 @@ export const tools: McpTool[] = [
   },
   {
     name: "log_activity",
-    title: "Log activity on an application",
+    title: "Log activity on an application or a contact",
     description:
-      "Append to an application's timeline: a recruiter call, an email you sent, an interview, a note to self.",
+      "Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered.",
     inputSchema: object(
       {
-        applicationId: str("Application id"),
+        applicationId: str("Application id — for events on an application"),
+        contactId: str("Contact id — for events with a person"),
         type: { type: "string", enum: ACTIVITY_VALUES, description: "Kind of activity. Default NOTE." },
         body: str("What happened"),
         occurredAt: str("ISO datetime it happened. Defaults to now."),
       },
-      ["applicationId", "body"],
+      ["body"],
     ),
     handler: async (args, ctx) =>
       pipeline.addActivity(ctx.userId, {
-        applicationId: required(args, "applicationId"),
+        applicationId: s(args, "applicationId"),
+        contactId: s(args, "contactId"),
         body: required(args, "body"),
         type: s(args, "type") as ActivityType | undefined,
         occurredAt: s(args, "occurredAt"),
@@ -1161,11 +1171,18 @@ export const tools: McpTool[] = [
     name: "list_follow_ups",
     title: "List follow-ups that are due",
     description:
-      "Applications whose follow-up date has arrived or passed. This is the 'who do I need to chase today' tool.",
+      "The 'who do I need to chase today' tool. Returns two lists: applications whose follow-up date has arrived or passed, and contacts whose ping date has — the people you meant to get back in touch with. Both are due work; plan a day from the pair.",
     inputSchema: object({
       withinDays: num("Look ahead this many days. 0 = due now, 7 = due within a week."),
     }),
-    handler: async (args, ctx) => pipeline.followUpsDue(ctx.userId, n(args, "withinDays") ?? 0),
+    handler: async (args, ctx) => {
+      const withinDays = n(args, "withinDays") ?? 0;
+      const [applications, contacts] = await Promise.all([
+        pipeline.followUpsDue(ctx.userId, withinDays),
+        pipeline.contactFollowUpsDue(ctx.userId, withinDays),
+      ]);
+      return { applications, contacts };
+    },
   },
   {
     name: "diagnose_search",
@@ -1340,7 +1357,7 @@ export const tools: McpTool[] = [
     name: "get_contact",
     title: "Get a contact",
     description:
-      "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite.",
+      "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
     handler: async (args, ctx) => {
       const contact = await pipeline.getContact(ctx.userId, required(args, "id"));
@@ -1365,6 +1382,7 @@ export const tools: McpTool[] = [
         notes: str("Notes — replaces what is there"),
         company: str("Employer, or empty string to detach"),
         applicationId: str("Application to attach to, or empty string to detach"),
+        nextFollowUpAt: str("ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard."),
       },
       ["id"],
     ),
@@ -1382,6 +1400,7 @@ export const tools: McpTool[] = [
           notes: s(args, "notes"),
           company: s(args, "company"),
           applicationId: s(args, "applicationId"),
+          nextFollowUpAt: s(args, "nextFollowUpAt"),
         }),
       ),
   },
@@ -1819,7 +1838,48 @@ Work in this order:
 6. Save it with create_resume, naming it "<Company> — <Role>", and set targetRole/targetCompany.
 7. Tell me what you emphasised, what you cut, and which requirements you could not evidence.
 
-Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the brain dump.`,
+Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the brain dump.
+
+Finish with a gap report: which of the posting's requirements the resume evidences, which it half-covers, and which have nothing behind them. Never paper over the third list — it is what the person needs to see.`,
+  },
+  {
+    name: "gap_report",
+    title: "Gap report: a posting against the brain",
+    description:
+      "Before tailoring — or before deciding whether to apply at all — check a job posting against the evidence that actually exists in the brain. Returns three lists: requirements with real evidence behind them, requirements with only thin or indirect signal, and requirements with nothing. Nothing is written or saved; this is the reading that decides what happens next.",
+    arguments: [
+      { name: "job_description", description: "The full job posting, or an application id whose stored posting to use" },
+    ],
+    build: (args) => `Check this posting against what the brain can actually evidence.
+
+<job_posting>
+${args.job_description ?? "No posting pasted — if this looks like an application id, call get_application and use its jobDescription; otherwise ask for the posting."}
+</job_posting>
+
+The rule that governs everything here: nothing goes on a resume that the brain cannot back.
+The quiet upgrade — "helped with" becoming "led", a credit becoming a hire — is the way
+resumes actually go wrong, and this report exists to make that impossible to do by accident.
+
+1. Pull out the 8-12 requirements the posting actually rewards, in priority order. Read
+   past the boilerplate: "5+ years of X" and "strong communication" matter less than the
+   two or three lines that describe the actual job.
+2. For each requirement, call search_brain with the terms a person would have used when
+   dumping — the tool searches raw notes, not polished bullets, so search for the work,
+   not the buzzword.
+3. Sort every requirement into exactly one of three lists:
+   BACKED — direct evidence exists. Quote the strongest piece and name the role it came from.
+   THIN — something adjacent exists but it would be a stretch to claim the requirement
+   outright. Say precisely what exists and what the gap is.
+   MISSING — the brain has nothing. Say so plainly.
+4. Report the three lists in that order, then say what the report means: roughly how much
+   of the posting's core is covered, and whether tailoring is worth it or the fit isn't there.
+5. For each MISSING and THIN item, ask one concrete question that would surface the
+   evidence if it exists — people forget their own work constantly. Anything they answer
+   goes into the brain with append_role_brain_dump, and then it is BACKED for every future
+   application, not just this one.
+
+Never move an item to BACKED to be encouraging. A gap named now costs a rewrite; a gap
+discovered in an interview costs the interview.`,
   },
   {
     name: "mine_brain_dump",

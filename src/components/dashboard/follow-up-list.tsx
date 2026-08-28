@@ -8,24 +8,28 @@ import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
-import { snoozeFollowUpAction } from "@/server/actions";
+import { snoozeContactFollowUpAction, snoozeFollowUpAction } from "@/server/actions";
 import { cn } from "@/lib/utils";
 
 type Item = {
   id: string;
   company: string;
   roleTitle: string;
-  stage: Stage;
+  /** Null for a person — contacts have no pipeline stage. */
+  stage: Stage | null;
   due: string;
   overdue: boolean;
+  /** Where the row goes and which snooze applies. */
+  kind: "application" | "contact";
 };
 
 export function FollowUpList({ items }: { items: Item[] }) {
   const [pending, startTransition] = useTransition();
 
-  const snooze = (id: string, days: number) => {
+  const snooze = (item: Item, days: number) => {
     startTransition(async () => {
-      await snoozeFollowUpAction(id, days);
+      if (item.kind === "contact") await snoozeContactFollowUpAction(item.id, days);
+      else await snoozeFollowUpAction(item.id, days);
       toast.success(days === 1 ? "Snoozed to tomorrow" : `Snoozed ${days} days`);
     });
   };
@@ -60,18 +64,27 @@ export function FollowUpList({ items }: { items: Item[] }) {
                 item.overdue ? "bg-destructive" : "bg-warning",
               )}
             />
-            <Link href={`/applications/${item.id}`} className="min-w-0 flex-1">
+            <Link
+              href={item.kind === "contact" ? `/crm/contacts/${item.id}` : `/applications/${item.id}`}
+              className="min-w-0 flex-1"
+            >
               <div className="truncate text-[13px] font-medium group-hover:underline">
                 {item.company}
               </div>
               <div className="text-faint truncate text-[12px]">{item.roleTitle}</div>
             </Link>
-            <span
-              className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-medium"
-              style={{ ["--tone" as string]: STAGE_TONE[item.stage] }}
-            >
-              {STAGE_LABEL[item.stage]}
-            </span>
+            {item.stage ? (
+              <span
+                className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-medium"
+                style={{ ["--tone" as string]: STAGE_TONE[item.stage] }}
+              >
+                {STAGE_LABEL[item.stage]}
+              </span>
+            ) : (
+              <span className="text-faint shrink-0 rounded-chip px-1.5 py-0.5 text-[11px]">
+                Ping
+              </span>
+            )}
             <span
               className={cn(
                 "nums w-20 text-right text-[12px]",
@@ -85,7 +98,7 @@ export function FollowUpList({ items }: { items: Item[] }) {
                 variant="ghost"
                 size="xs"
                 disabled={pending}
-                onClick={() => snooze(item.id, 3)}
+                onClick={() => snooze(item, 3)}
                 title="Snooze 3 days"
               >
                 <ClockIcon /> 3d

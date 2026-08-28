@@ -39,7 +39,10 @@ Four areas:
 • CRM — companies and the people at them, as records in their own right. get_company before
   writing anything about a company, so you add to their research rather than replacing it. A
   company's website field is their own domain and nothing else depends on it, but it is what puts
-  their logo on the pipeline, so set it whenever you learn it.
+  their logo on the pipeline, so set it whenever you learn it. People have timelines: when they
+  mention talking to someone — a call, a coffee, a reply — log_activity with contactId is how it
+  gets remembered, and update_contact's nextFollowUpAt is how "ping them in two weeks" actually
+  happens. list_follow_ups returns due people alongside due applications.
 ${
   isAdmin(user)
     ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are

@@ -23,6 +23,7 @@ import {
 import { getSettings, updateSettings } from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
+import { loadPosting } from "@/lib/posting";
 
 /**
  * Every action resolves the caller from their session cookie. No action ever
@@ -321,6 +322,22 @@ export async function saveEmailSettingsAction(patch: {
   return { ok: true as const };
 }
 
+/**
+ * Fetch a posting URL and hand back what the page says, for the new-application
+ * dialog to prefill. Deliberately creates nothing: in the UI a person reviews
+ * the fields before tracking the job, so the parse and the create stay
+ * separate. (The capture_job_posting tool is the one-move version for
+ * assistants.)
+ */
+export async function parsePostingAction(url: string) {
+  await requireUser();
+  try {
+    return { ok: true as const, parsed: await loadPosting(url) };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not fetch that." };
+  }
+}
+
 export async function saveBillingSettingsAction(patch: {
   stripeSecretKey?: string;
   stripeWebhookSecret?: string;
@@ -583,13 +600,15 @@ export async function deleteApplicationAction(id: string) {
 }
 
 export async function addActivityAction(input: {
-  applicationId: string;
+  applicationId?: string;
+  contactId?: string;
   type?: ActivityType;
   body: string;
 }) {
   const user = await requireUser();
   await pipeline.addActivity(user.id, input);
-  revalidatePath(`/applications/${input.applicationId}`);
+  if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
+  if (input.contactId) revalidatePath(`/crm/contacts/${input.contactId}`);
   revalidatePath("/");
 }
 
@@ -648,6 +667,16 @@ export async function snoozeFollowUpAction(id: string, days: number) {
   revalidatePath("/applications");
 }
 
+export async function snoozeContactFollowUpAction(id: string, days: number) {
+  const user = await requireUser();
+  const next = new Date();
+  next.setDate(next.getDate() + days);
+  next.setHours(9, 0, 0, 0);
+  await pipeline.updateContact(user.id, id, { nextFollowUpAt: next });
+  revalidatePath("/");
+  revalidatePath("/crm/contacts");
+}
+
 // ---------------------------------------------------------------------------
 // CRM — companies and the people at them
 // ---------------------------------------------------------------------------
@@ -696,10 +725,16 @@ export async function saveContactAction(
     relationship?: string;
     notes?: string;
     company?: string;
+    /** "yyyy-mm-dd" from a date input; empty string clears the date. */
+    nextFollowUpAt?: string;
   },
 ) {
   const user = await requireUser();
-  await pipeline.updateContact(user.id, id, patch);
+  const { nextFollowUpAt, ...rest } = patch;
+  await pipeline.updateContact(user.id, id, {
+    ...rest,
+    ...(nextFollowUpAt !== undefined ? { nextFollowUpAt: nextFollowUpAt || null } : {}),
+  });
   revalidatePath(`/crm/contacts/${id}`);
   revalidatePath("/crm/contacts");
 }

@@ -10,6 +10,7 @@ export type CalendarEntry = {
   day: string;
   title: string;
   applicationId: string | null;
+  contactId: string | null;
   done: boolean | null;
 };
 
@@ -188,9 +189,14 @@ function CalendarChip({ entry }: { entry: CalendarEntry }) {
     </span>
   );
 
-  return entry.applicationId ? (
+  const href = entry.applicationId
+    ? `/applications/${entry.applicationId}`
+    : entry.contactId
+      ? `/crm/contacts/${entry.contactId}`
+      : null;
+  return href ? (
     <Link
-      href={`/applications/${entry.applicationId}`}
+      href={href}
       title={entry.title}
       className="hover:bg-accent block rounded-chip transition-colors duration-150"
     >

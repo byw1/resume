@@ -464,10 +464,13 @@ model Contact {
   linkedin      String       @default("")
   relationship  String       @default("")
   notes         String       @default("")
+  /// When to next get in touch — the date that keeps a relationship warm.
+  nextFollowUpAt DateTime?
   companyId     String?
   company       Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
   applicationId String?
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  activities    Activity[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @default(now()) @updatedAt
 
@@ -476,22 +479,27 @@ model Contact {
 }
 
 model Activity {
-  id            String       @id @default(cuid())
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  applicationId String
-  application   Application  @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// An activity belongs to exactly one thing — an application or a contact.
+  /// The data layer enforces the exactly-one rule; the schema can't.
+  applicationId String?
+  application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  contactId     String?
+  contact       Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
   type          ActivityType @default(NOTE)
   body          String       @default("")
   /// Set on stage moves so the funnel can be reconstructed. Null on every other
   /// kind of activity, and on historic moves that were written with a note.
-  fromStage     Stage?
-  toStage       Stage?
-  occurredAt    DateTime     @default(now())
-  createdAt     DateTime     @default(now())
+  fromStage  Stage?
+  toStage    Stage?
+  occurredAt DateTime @default(now())
+  createdAt  DateTime @default(now())
 
   @@index([userId, occurredAt])
   @@index([applicationId, occurredAt])
+  @@index([contactId, occurredAt])
   @@index([userId, toStage])
 }
 

@@ -289,14 +289,14 @@
 
     <div class="figures" style="margin-top:44px">
       <div class="figure" data-reveal style="--i:1">
-        <div class="n"><span data-count="64">64</span></div>
+        <div class="n"><span data-count="66">66</span></div>
         <div class="l">Things it can do on your say-so</div>
         <div class="h">Each one named, so it can be asked for exactly</div>
       </div>
       <div class="figure" data-reveal style="--i:2">
-        <div class="n"><span data-count="6">6</span></div>
+        <div class="n"><span data-count="7">7</span></div>
         <div class="l">Jobs it does end to end</div>
-        <div class="h">Tailor, mine, review, research, prep, log</div>
+        <div class="h">Tailor, mine, review, research, prep, log, gap-check</div>
       </div>
       <div class="figure" data-reveal style="--i:3">
         <div class="n"><span data-count="1">1</span></div>
@@ -1449,25 +1449,25 @@
     <details class="under" data-reveal>
       <summary>
         <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
-        Under the hood: all 64 things it can do
+        Under the hood: all 66 things it can do
       </summary>
       <div class="inner">
         <p class="lede" style="margin-bottom:26px">
           Every one of those sentences is the assistant calling named tools against your
-          workspace. There are 64 of them, and they are the whole surface — the screens and
+          workspace. There are 66 of them, and they are the whole surface — the screens and
           the assistant call the same data layer, so there is nothing the app can do that a
-          conversation can't. Seventeen more exist for whoever runs the instance, hidden from
+          conversation can't. Twenty more exist for whoever runs the instance, hidden from
           everybody else entirely rather than merely refused.
         </p>
 
     <div data-catalogue>
       <div class="tools-bar">
-        <button class="filter on" data-group="all">All <span class="meta">64</span></button>
+        <button class="filter on" data-group="all">All <span class="meta">66</span></button>
         <button class="filter" data-group="brain" style="--tone:var(--stage-applied)">Brain <span class="meta">21</span></button>
         <button class="filter" data-group="resumes" style="--tone:var(--stage-screen)">Resumes <span class="meta">11</span></button>
-        <button class="filter" data-group="pipeline" style="--tone:var(--stage-interview)">Pipeline <span class="meta">15</span></button>
+        <button class="filter" data-group="pipeline" style="--tone:var(--stage-interview)">Pipeline <span class="meta">16</span></button>
         <button class="filter" data-group="crm" style="--tone:var(--stage-final)">CRM <span class="meta">10</span></button>
-        <button class="filter" data-group="workflows" style="--tone:var(--stage-offer)">Workflows <span class="meta">6</span></button>
+        <button class="filter" data-group="workflows" style="--tone:var(--stage-offer)">Workflows <span class="meta">7</span></button>
         <button class="filter" data-group="account" style="--tone:var(--stage-wishlist)">Account <span class="meta">1</span></button>
         <label class="search">
           <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
@@ -1499,6 +1499,10 @@
         <article class="tool flow" data-group="workflows" data-find="log_my_week turn a rambling update into structured brain-dump entries and pipeline updates. workflows" style="--tone:var(--stage-offer)">
           <h3 class="n"><i aria-hidden="true"></i>log_my_week</h3>
           <p class="d">Turn a rambling update into structured brain-dump entries and pipeline updates.</p>
+        </article>
+        <article class="tool flow" data-group="workflows" data-find="gap_report before tailoring — or before deciding whether to apply at all — check a job posting against the evidence that actually exists… workflows" style="--tone:var(--stage-offer)">
+          <h3 class="n"><i aria-hidden="true"></i>gap_report</h3>
+          <p class="d">Before tailoring — or before deciding whether to apply at all — check a job posting against the evidence that actually exists…</p>
         </article>
         <article class="tool" data-group="brain" data-find="search_brain ranked keyword search across everything the user has written about themselves: role brain dumps, achievement highlights, note… brain" style="--tone:var(--stage-applied)">
           <h3 class="n"><i aria-hidden="true"></i>search_brain</h3>
@@ -1640,6 +1644,10 @@
           <h3 class="n"><i aria-hidden="true"></i>get_application</h3>
           <p class="d">Full detail for one application including the job description, the complete activity timeline, contacts and tasks.</p>
         </article>
+        <article class="tool" data-group="pipeline" data-find="capture_job_posting the first tool to call when someone shares a link to a job posting. fetches the page server-side, reads the structured postin… pipeline" style="--tone:var(--stage-interview)">
+          <h3 class="n"><i aria-hidden="true"></i>capture_job_posting</h3>
+          <p class="d">The FIRST tool to call when someone shares a link to a job posting. Fetches the page server-side, reads the structured postin…</p>
+        </article>
         <article class="tool" data-group="pipeline" data-find="create_application track a new job. paste the full posting into jobdescription — it is what you will tailor the resume against later. the compan… pipeline" style="--tone:var(--stage-interview)">
           <h3 class="n"><i aria-hidden="true"></i>create_application</h3>
           <p class="d">Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The compan…</p>
@@ -1735,7 +1743,7 @@
       </div>
 
       <p class="tools-empty">Nothing matches that. The catalogue is generated from the source, so if you expected a tool and it isn't here, it doesn't exist yet — <a href="https://github.com/shifulaboratories/Hired/issues" style="color:var(--primary)" rel="noopener">open an issue</a>.</p>
-      <p class="tools-count"><span data-tools-count>64</span> shown</p>
+      <p class="tools-count"><span data-tools-count>66</span> shown</p>
         </div>
       </div>
     </details>

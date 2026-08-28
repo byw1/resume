@@ -920,6 +920,53 @@ behind the content on `z-index: -1` — which needs `isolation: isolate` on the 
 same trap the hero glow hit: `position: relative` alone does not make a stacking context,
 so the mark would have painted behind `body` and vanished.
 
+## 2026-08-26 — An activity belongs to exactly one thing
+
+**Decision:** Activity.applicationId went nullable and contactId arrived, with the data
+layer enforcing exactly-one-parent. Not both: an entry lives on one timeline, and a caller
+passing both hasn't decided which. Contact deletion cascades its timeline; the funnel
+diagnosis filters to application-attached transitions and is unaffected.
+**Why this shape and not a Touch table:** contacts needed history and the Activity table
+already was one — same fields, same rendering, same schedule integration. A parallel table
+would have meant a second timeline component, a second merge in list_schedule, and a
+"which table does a call go in" question forever.
+**What fell out for free:** last-touched on the contact list, due pings beside due
+follow-ups everywhere follow-ups appear (dashboard, calendar, list_follow_ups), and
+"ping Sarah in two weeks" as a date on the person. No new tools — log_activity,
+update_contact and list_follow_ups grew instead, so the tool count is unchanged and the
+descriptions carry the routing.
+
+## 2026-08-26 — The gap report is a prompt, not a server computation
+
+**Decision:** gap_report ships as a workflow prompt (exposed as a tool like the others),
+not as a data-layer function. The server cannot judge whether "ran a rollout across three
+regions" evidences "experience leading distributed teams" — that reading is the
+assistant's job — so the server's contribution is the recipe: extract what the posting
+rewards, search the brain for the work rather than the buzzword, sort into
+BACKED / THIN / MISSING, and never upgrade an item to be encouraging.
+**The loop that matters:** every MISSING item ends in a question, because people forget
+their own work constantly — and an answered question goes into the brain via
+append_role_brain_dump, where it is evidence for every future posting. The gap report is
+secretly the brain's best intake funnel.
+**tailor_resume** now ends with the same three-list report, so the trust property the
+landing page advertises is something a user actually sees after every tailoring.
+
+## 2026-08-28 — The CRM caught up to the app's own manners
+
+**Decision:** a quality-of-life pass on the existing CRM pages, nothing new underneath:
+deletes confirm (stating the cascade — a company takes its applications and their history
+with it), the company page can add the people and roles it lists, the contacts list shows
+next ping and a relative last touch, ping dates have 1w/2w/1m presets, and the log box can
+say what kind of touch it was. Every capability already existed in the actions and tools;
+the UI had just never exposed it.
+**Two calls worth remembering:** the Email column on the contacts list was *removed*, not
+lost — it was xl-only and mostly dashes, and its job is now done by mailto/LinkedIn icons
+on the row. Those icons sit in a cluster *outside* the row's link because an anchor inside
+an anchor is invalid HTML; don't move them back in. And `TOUCH_TYPES` in contact-detail
+lists only the kinds a person logs by hand — STAGE_CHANGE, APPLIED and the rest are
+written by the system and would be lies if hand-picked.
+**Applies to:** `src/components/crm/`, `src/app/(app)/crm/contacts/page.tsx`,
+`agoDay` in `src/lib/utils.ts`.
 ## 2026-08-28 — A waitlist, and where it sits in the data layer
 
 **Why:** hired.tools is becoming a "request access" page rather than a "read the README and

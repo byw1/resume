@@ -36,7 +36,20 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             relationship: contact.relationship,
             notes: contact.notes,
             company: contact.company?.name ?? "",
+            nextFollowUpAt: contact.nextFollowUpAt
+              ? contact.nextFollowUpAt.toISOString().slice(0, 10)
+              : "",
           }}
+          touches={contact.activities.map((activity) => ({
+            id: activity.id,
+            type: activity.type,
+            body: activity.body,
+            occurredAt: activity.occurredAt.toLocaleDateString("en-US", {
+              month: "short",
+              day: "numeric",
+              year: "numeric",
+            }),
+          }))}
           companyId={contact.companyId}
           application={
             contact.application

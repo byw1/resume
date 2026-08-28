@@ -124,6 +124,7 @@ export default async function ApplicationsPage({
       day: entry.date.toISOString().slice(0, 10),
       title: entry.title,
       applicationId: entry.applicationId,
+      contactId: entry.contactId,
       done: entry.done,
     }));
     return chrome(

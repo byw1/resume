@@ -43,6 +43,10 @@ Three outcomes, and all three are fine:
 
 Report the gaps explicitly when you are done. That list is often the most useful part
 of the whole exercise — it tells them what to go and learn, or which jobs to skip.
+The gap_report tool runs this check on its own, before any tailoring — reach for it when
+the question is "should I even apply" rather than "make me the resume". And every gap a
+person answers out loud belongs in the brain (append_role_brain_dump), so it is covered
+for every future posting, not just this one.
 
 ## Writing the bullets
 
