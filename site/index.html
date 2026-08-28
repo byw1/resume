@@ -3,19 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Hired — an applicant tracking system, for applicants</title>
-<meta name="description" content="Every company you apply to runs an applicant tracking system. This one is yours: your record, the resumes it builds from it, and every application still in play. Free to self-host.">
+<title>Hired — the Applicant&rsquo;s Tracking System</title>
+<meta name="description" content="We are building the ATS for Applicants. Every company you apply to runs on an ATS; theirs keeps a record on you. This one keeps the record on them. Free to self-host.">
 <link rel="canonical" href="https://hired.tools/">
 <meta name="theme-color" content="#f9f9fa">
-<meta property="og:title" content="Hired — an applicant tracking system, for applicants">
-<meta property="og:description" content="Theirs keeps a record on you. This one keeps the record on them — what you've done, what you sent where, and who still owes you an answer.">
+<meta property="og:title" content="Hired — the Applicant’s Tracking System">
+<meta property="og:description" content="We are building the ATS for Applicants. Theirs keeps a record on you; this one keeps the record on them — what you've done, what you sent where, and who still owes you an answer.">
 <meta property="og:type" content="website">
 <meta property="og:url" content="https://hired.tools/">
 <meta property="og:site_name" content="Hired">
 <meta property="og:image" content="https://hired.tools/og.png">
 <meta property="og:image:width" content="1200">
 <meta property="og:image:height" content="630">
-<meta property="og:image:alt" content="Hired — an applicant tracking system, for applicants.">
+<meta property="og:image:alt" content="Hired — the Applicant’s Tracking System.">
 <meta name="twitter:card" content="summary_large_image">
 <meta name="twitter:image" content="https://hired.tools/og.png">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='15' fill='%23F4F5F6'/%3E%3Crect x='16' y='17' width='13' height='7' rx='1.5' fill='%23191A1E'/%3E%3Crect x='16' y='28.5' width='22.5' height='7' rx='1.5' fill='%23191A1E'/%3E%3Crect x='16' y='40' width='32' height='7' rx='1.5' fill='%23191A1E'/%3E%3C/svg%3E">
@@ -123,25 +123,19 @@
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="wrap">
     <div class="hero-lead">
-    <a class="pill" href="#join" data-reveal>
-      <em>Invite-only</em> while it's being built<span class="long"> · ask for a place</span>
-      <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
-    </a>
-
-    <h1 class="h-display hero-copy" data-reveal style="--i:1; margin-top:22px">
-      Applicant Tracking System
+    <h1 class="h-display hero-copy" data-reveal>
+      <span class="accent">Applicant&rsquo;s</span> Tracking System
     </h1>
-    <p class="hero-flip" data-reveal style="--i:2">(ATS, <b>for applicants</b>)</p>
 
-    <p class="lede" data-reveal style="--i:3">
-      Every company you apply to runs one of these. Theirs keeps a record on you, scores what
-      you sent and decides what happens next — and you never get to see it. This one keeps
-      the record on them: what you've actually done, what you sent where, and who still owes
-      you an answer.
+    <p class="lede" data-reveal style="--i:1">
+      We are building the ATS for Applicants. Every company you apply to runs on an ATS.
+      Theirs keeps a record on you, scores what you sent and decides what happens next — and
+      you never get to see it. This one keeps the record on them: what you've actually done,
+      what you sent where, and who still owes you an answer.
     </p>
 
     <!-- The primary action on the page. Posts to the instance; see motion.js. -->
-    <form class="joinform mid" id="join" data-join data-reveal style="--i:4; margin-top:26px" novalidate>
+    <form class="joinform mid" id="join" data-join data-reveal style="--i:2; margin-top:26px" novalidate>
       <div class="joinform-row">
         <label class="sr-only" for="join-hero">Your email address</label>
         <input id="join-hero" type="email" name="email" autocomplete="email"
@@ -156,10 +150,13 @@
       <p class="joinform-said" role="status" aria-live="polite"></p>
     </form>
 
-    <p class="hero-note" data-reveal style="--i:5">
-      <span><a href="#selfhost"><b>Free</b> to self-host, forever</a></span>
-      <span class="sep" aria-hidden="true">·</span>
-      <span>Works inside <b>Claude</b>, <b>ChatGPT</b> and <b>Cursor</b></span>
+    <p class="hero-note" data-reveal style="--i:3">
+      <span class="works">
+        Works inside
+        <span class="c"><img class="mark" src="media/clients/claude.png" alt="" width="16" height="16" decoding="async">Claude</span>
+        <span class="c"><img class="mark" src="media/clients/chatgpt.png" alt="" width="16" height="16" decoding="async">ChatGPT</span>
+        <span class="c"><img class="mark" src="media/clients/cursor.png" alt="" width="16" height="16" decoding="async">Cursor</span>
+      </span>
       <span class="sep" aria-hidden="true">·</span>
       <span><b>Nothing</b> on a resume is invented</span>
     </p>

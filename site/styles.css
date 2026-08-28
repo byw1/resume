@@ -1030,48 +1030,28 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 .hero-lead { text-align: center; display: flex; flex-direction: column; align-items: center; }
 
 .hero-copy { max-width: 22ch; }
-.hero-flip {
-  margin-top: 12px;
-  font-family: var(--mono);
-  font-size: clamp(13px, 1.5vw, 16.5px);
-  letter-spacing: 0.01em;
-  color: var(--faint);
-}
-.hero-flip b { color: var(--primary); font-weight: 500; }
 .hero .lede { margin-top: 18px; max-width: 54ch; }
 .hero-ctas { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 28px; }
 .hero-note { margin-top: 16px; font-size: 12.5px; color: var(--faint); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 12px; }
 .hero-note .sep { color: var(--rim); }
+.hero-note .works { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+.hero-note .works .c {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 9px 3px 6px;
+  border-radius: 999px;
+  background: var(--card);
+  box-shadow: var(--shadow-hairline);
+  color: var(--muted);
+  font-size: 12px;
+}
+.hero-note .works .mark { width: 16px; height: 16px; border-radius: 3px; }
 .hero-note b { color: var(--muted); font-weight: 500; }
 .hero-note a { text-decoration: underline; text-decoration-color: var(--rim); text-underline-offset: 3px; transition: color 0.15s var(--settle); }
 .hero-note a:hover { color: var(--muted); text-decoration-color: currentColor; }
 
 /* The badge above the headline — a real link to the thing it names. */
-.pill {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  padding: 5px 12px 5px 6px;
-  border-radius: 999px;
-  box-shadow: var(--shadow-hairline);
-  background: var(--canvas);
-  font-size: 12.5px;
-  color: var(--muted);
-  transition: box-shadow 0.16s var(--settle), color 0.16s var(--settle);
-}
-.pill:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
-.pill em {
-  font-style: normal;
-  font-family: var(--mono);
-  font-size: 10.5px;
-  letter-spacing: 0.05em;
-  text-transform: uppercase;
-  color: var(--primary);
-  background: var(--primary-tint);
-  border-radius: 999px;
-  padding: 2px 9px;
-}
-.pill svg { width: 13px; height: 13px; opacity: 0.6; }
 
 /* The two-up: the conversation on the left, what it did on the right. */
 .stage {
@@ -1846,7 +1826,9 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   .hero-note { display: block; }
   .hero-note .sep { display: none; }
   .hero-note span { display: block; }
-  .pill .long { display: none; }
+  /* `span { display: block }` above would flatten the client chips into a
+     stack; keep that one a wrapping, centred row. */
+  .hero-note .works { display: flex; flex-wrap: wrap; justify-content: center; gap: 7px 8px; margin-bottom: 4px; }
   .frame-url span { max-width: 62vw; }
   body { font-size: 14.5px; }
   .rail { display: none; }

@@ -1196,7 +1196,21 @@ rewards keyword-stuffing, and the answer to that is not a better stuffer. And th
 keeps "Your career, on the record" as the brand line; a tagline and a positioning line are
 different jobs.
 
-**Typography.** "Applicant Tracking System" is 25 characters and the hero's 18ch measure
+**Typography.** "Applicant’s Tracking System" is 27 characters and the hero's 18ch measure
 broke it into an orphan, so the measure is 22ch and it sets on one line at desktop, two on
-a phone. The gloss under it is mono, so it reads as a definition rather than a subtitle and
-the joke lands a beat after the headline rather than inside it.
+a phone. A curly apostrophe, not a straight one: at 62px the typewriter quote is the first
+thing that looks cheap.
+
+**Three revisions later** the flip is carried by the possessive alone. It went
+"Applicant Tracking System" with a mono gloss reading "(ATS, for applicants)", then
+"Applicant tracking system" with the first word in the accent, and landed on
+**Applicant’s Tracking System** — the apostrophe does what the gloss was doing, so the gloss
+is gone. The description states it outright in its first sentence; saying it a third time
+in the typography was one telling too many.
+
+**Also gone from the hero:** the invite-only chip above the headline, and the "Free to
+self-host, forever" fact. The fact row is now two items, and the client names in it wear
+their own favicons — the same self-hosted files the strip below the fold uses, so the page
+still makes no third-party request. On a phone the mobile rule that turns every
+`.hero-note span` into a block had to be undone for that group, or the chips stack instead
+of wrapping.
