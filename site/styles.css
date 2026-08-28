@@ -187,6 +187,9 @@ h1 { letter-spacing: -0.03em; }
 .meta { font-family: var(--mono); font-variant-numeric: tabular-nums; }
 .nums { font-variant-numeric: tabular-nums; font-feature-settings: "tnum"; }
 
+.lede a { text-decoration: underline; text-decoration-color: color-mix(in oklch, currentColor 35%, transparent); text-underline-offset: 3px; transition: text-decoration-color 0.15s var(--settle); }
+.lede a:hover { text-decoration-color: currentColor; }
+
 .lede {
   color: var(--muted);
   font-size: 16.5px;
@@ -1456,6 +1459,12 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
    --------------------------------------------------------------------------- */
 
 .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 14px; }
+/* One plan. auto-fit would stretch a lone card the full measure, which reads as
+   a banner rather than a price; and a left-aligned heading over a centred card
+   lines up with nothing, so the whole section centres with it. */
+.tiers.one { grid-template-columns: minmax(0, 380px); justify-content: center; }
+#pricing .section-head { text-align: center; margin-inline: auto; }
+#pricing .section-head .lede { margin-inline: auto; }
 .tier {
   display: flex;
   flex-direction: column;

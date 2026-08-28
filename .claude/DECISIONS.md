@@ -1066,3 +1066,25 @@ under a full-width field reads as an accident rather than a layout.
 
 **Also fixed:** `POST /api/waitlist` recorded a `file://` or privacy-mode submission as a
 source literally called "null". Empty now.
+
+## 2026-08-28 — One plan
+
+**Decision (William's):** pricing is a single monthly tier, not three.
+
+The ladder was mine and it was doing two jobs badly. The Founding tier existed to make the
+waitlist feel urgent, which is a reason to build a thing rather than a reason anyone wants
+it, and the $0 self-host column duplicated the `#selfhost` band sitting directly underneath
+it. What is left is the one plan there actually is: $12 a month, marked coming soon, with
+the CTA still pointing at the form rather than a checkout.
+
+Self-hosting has not been demoted further — it is in the section's own lede as a link, it
+keeps its band, it keeps its nav item, and it is still the answer to "what does it cost"
+in the FAQ. It just stopped being a column in a comparison it was never competing in.
+
+**Two layout consequences.** `.tiers` is `auto-fit`, so one card stretched the full measure
+and read as a banner rather than a price; `.tiers.one` pins it to 380px and centres it. And
+a left-aligned section heading over a centred card lines up with nothing, so `#pricing`'s
+heading centres too — which now matches the hero.
+
+The price appears in exactly two places, the card and the FAQ answer, and the comment above
+the section names both.
