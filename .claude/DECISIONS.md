@@ -1088,3 +1088,32 @@ heading centres too — which now matches the hero.
 
 The price appears in exactly two places, the card and the FAQ answer, and the comment above
 the section names both.
+
+## 2026-08-28 — Free is self-hosting, and the card says why
+
+**Decision (William's, after asking for the analysis):** a free column comes back, and free
+means self-hosting. A limited free *hosted* tier is the eventual destination, but not now.
+
+**What the product research found, because it settles the question.** Hired makes no LLM
+calls at all — the only provider strings in the tree are documentation links and
+user-agent sniffing in `clients.ts`. The thinking is done by the reader's own Claude or
+ChatGPT subscription, so the marginal cost of a hosted user is Postgres rows of text plus
+the occasional PDF render, and `src/lib/pdf.ts` launches a fresh Chromium per render with no
+pool and no concurrency cap, which makes export the only operation that spikes anything.
+Nothing about the economics forbids a free hosted tier.
+
+**What does forbid it today is that there is no plan.** Billing is binary: entitled means
+`isActive: true`, lapsed means suspended with the data kept. No plan, tier or quota exists
+anywhere in the schema or settings, and by invariants 1 and 2 any limit would have to be
+enforced inside `src/lib/data/` rather than the UI, or MCP walks straight past it. With no
+checkout yet and the waitlist already throttling signups, building that to convert people
+to a payment link that does not exist would have been premature.
+
+**The card names its own catch.** The page is now addressed to someone who has never
+deployed anything, so a "Free" card that quietly means "if you can run a server" would be a
+lie by layout. The last row is a caveat rather than a tick — "you need somewhere to run it,
+and about ten minutes" — greyed, with the refusal icon instead of a check.
+
+**"There is no smaller version of it" survives**, which was the point of choosing this
+split. The free column is not a trial and not a cut-down build; the difference between the
+two cards is who runs the server, and the fine print says exactly that.

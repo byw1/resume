@@ -1893,35 +1893,57 @@
 <!-- ==========================================================================
      PRICING
 
-     PLACEHOLDER NUMBER. One price, and it lives here and in the FAQ answer
-     below ("What does it cost?") — change both together. There is no checkout
-     yet: the CTA goes to the form, and the Stripe Payment Link (Admin ->
-     Billing holds the same URL) replaces it when hosting opens.
+     Two routes, not a ladder. The free one is self-hosting, and its card says
+     out loud that it needs somewhere to run — the audience for this page is
+     not assumed to know what Docker is, and a "free" card that quietly means
+     "if you can deploy it" would be a lie by layout.
+
+     PLACEHOLDER NUMBER. One price, here and in the FAQ answer below ("What
+     does it cost?") — change both together. There is no checkout yet: the CTA
+     goes to the form, and the Stripe Payment Link (Admin -> Billing holds the
+     same URL) replaces it when hosting opens.
      ========================================================================== -->
 <section class="band" id="pricing">
   <div class="wrap">
     <div class="section-head" data-reveal>
       <p class="eyebrow">Pricing</p>
-      <h2 class="h-section">One plan, and one price.</h2>
+      <h2 class="h-section">Two ways to have it. One of them is free.</h2>
       <p class="lede">
-        Hosting isn't open yet — I'm letting people in a few at a time so I can fix what
-        breaks. Ask for a place and I'll send an invite when one comes free. If you'd rather
-        not wait, <a class="accent" href="#selfhost">run it yourself</a>: that's free today,
-        forever, and it's the same software rather than a cut-down one.
+        Same software either way — not a free version and a real version. The difference is
+        who runs the server. Hosting isn't open yet; I'm letting people in a few at a time so
+        I can fix what breaks.
       </p>
     </div>
 
-    <div class="tiers one" style="margin-top:32px">
-      <div class="tier lit" data-reveal style="--i:1">
+    <div class="tiers pair" style="margin-top:32px">
+      <div class="tier" data-reveal style="--i:1">
+        <div class="tier-head"><h3>Free</h3></div>
+        <p class="price"><b>$0</b> <span>forever</span></p>
+        <p class="terms">self-hosted · available today</p>
+        <ul>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The whole product. There is no smaller version of it.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>One command with Docker, or five clicks on Railway.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your database, your machine, your backups.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Invite friends into it and each of them gets a private workspace.</span></li>
+          <li class="caveat"><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-no"/></svg><span>You need somewhere to run it, and about ten minutes.</span></li>
+        </ul>
+        <div class="fill"></div>
+        <a class="btn btn-ghost" href="#selfhost">
+          Run it yourself
+          <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
+        </a>
+      </div>
+
+      <div class="tier lit" data-reveal style="--i:2">
         <div class="tier-head"><h3>Hosted</h3><span class="soon">Coming soon</span></div>
         <p class="price"><b>$12</b> <span>/ month</span></p>
         <p class="terms">cancel any time · invite-only for now</p>
         <ul>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The whole product. There is no smaller version of it.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>The same whole product, with nothing to set up.</span></li>
           <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Backed up, kept current, and on the latest build every boot.</span></li>
           <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Your workspace is private. Admins manage accounts, never content.</span></li>
           <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Stop paying and it's suspended, not deleted.</span></li>
-          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Leave whenever you like — the self-hosted build is the same build.</span></li>
+          <li><svg viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg><span>Leave whenever you like — the free build is the same build.</span></li>
         </ul>
         <div class="fill"></div>
         <a class="btn btn-primary" href="#join">
@@ -1931,8 +1953,8 @@
       </div>
     </div>
 
-    <p class="spec meta" data-reveal style="--i:2">
-      Prices in USD · no free trial, because self-hosting is the free version ·
+    <p class="spec meta" data-reveal style="--i:3">
+      Prices in USD · no free trial of the hosted plan, because the free column is not a trial ·
       the hosted instance runs the same code as the repository, on the same day
     </p>
   </div>

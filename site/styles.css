@@ -1459,10 +1459,17 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
    --------------------------------------------------------------------------- */
 
 .tiers { display: grid; grid-template-columns: repeat(auto-fit, minmax(258px, 1fr)); gap: 14px; }
-/* One plan. auto-fit would stretch a lone card the full measure, which reads as
-   a banner rather than a price; and a left-aligned heading over a centred card
-   lines up with nothing, so the whole section centres with it. */
+/* auto-fit would stretch one or two cards across the whole measure, which reads
+   as a banner rather than a price. Pin them and centre the group; the section
+   heading centres with it, since a left-aligned heading over centred cards
+   lines up with nothing. */
 .tiers.one { grid-template-columns: minmax(0, 380px); justify-content: center; }
+.tiers.pair { grid-template-columns: repeat(2, minmax(0, 340px)); justify-content: center; }
+
+/* The free card carries one line that is a condition rather than a feature.
+   It gets the same row, in the colour of a caveat instead of a tick. */
+.tier li.caveat { color: var(--faint); }
+.tier li.caveat svg { color: var(--faint); }
 #pricing .section-head { text-align: center; margin-inline: auto; }
 #pricing .section-head .lede { margin-inline: auto; }
 .tier {
@@ -1822,6 +1829,7 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 
 @media (max-width: 720px) {
   :root { --gutter: 18px; }
+  .tiers.pair { grid-template-columns: minmax(0, 1fr); }
   .bento { grid-template-columns: minmax(0, 1fr); }
   .cell, .cell.wide, .cell.third { grid-column: span 1; }
   .foot-cols { grid-template-columns: repeat(2, minmax(0, 1fr)); }
