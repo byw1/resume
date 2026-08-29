@@ -1345,3 +1345,28 @@ is shown, but lazy loading would have made the mark arrive a frame after the rea
 scene, which reads as a flicker; they are 4–12KB each and same-origin, so the attribute is
 gone. And the tinted `--hue` ground is dropped on a logo tile: the marks bring their own
 background, and two grounds fight.
+
+## 2026-08-29 — The page caught up to a tenth stage and four new tools
+
+Merging main brought the pipeline table rework, saved views, and a `GHOSTED` stage. Three
+numbers on the landing page were quietly wrong afterwards, and none of them would have
+thrown an error:
+
+- the features card said **"Nine stages from wishlist to offer"**; the enum has ten now,
+  and `GHOSTED` is not a stage anyone advances *to*, so the line reads "Ten stages, wishlist
+  through offer" rather than pretending the arc got longer;
+- the member-visible surface went **66 → 70** — `save_view`, `list_saved_views`,
+  `delete_saved_view` and `move_applications_stage` are all member tools — which moves the
+  figure block, the disclosure summary, the sentence inside it, and the All chip;
+- the catalogue's Pipeline group went **16 → 20**, and four cards had to be written, because
+  that list is hand-maintained rather than generated.
+
+Counted from the running instance rather than from the diff: 90 entries an admin sees, 20 of
+them `adminOnly`, so a member sees 70 across 21 brain, 11 resumes, 20 pipeline, 10 crm, 7
+workflows and 1 account. Verified twice over — the group chips sum to 70 and the page renders
+70 real cards against the claim.
+
+**This keeps happening, and it is worth naming.** Every feature that adds a member-visible
+tool silently falsifies five numbers on a static page in another directory. Nothing checks
+it. A generator for the catalogue block, or a test that diffs `tools/list` against the page,
+would end the whole class of error.
