@@ -1405,6 +1405,100 @@ appears nowhere on the site now (the correct address, for the record, is
 Two link columns left a hole in the middle of a three-track grid, so the links are sized to
 their content and sit at the right edge, where the base bar's own line already ends.
 
+## 2026-08-29 — Admin moved under Settings, and the login form learned to say no
+
+**Decision (William's, after asking how Twenty does it):** the admin surface is
+`/settings/admin`, not `/admin` and not `admin.hired.tools`. Twenty puts theirs at
+`SettingsPath.Admin` inside the same app, gated by a flag on the account, and that shape is
+right for the same reason it is right for them: the admin of a self-hosted instance is its
+owner, and a separate deploy would mean DNS and a second service before anyone could
+administer their own copy. `/admin` still redirects — it was in the profile menu for months.
+
+**Why not a subdomain, said plainly:** a subdomain is a public DNS record. Putting the admin
+pages behind one is obscurity, not security. What protects them is `requireAdmin`, which was
+already enforced. The one honest argument for a separate origin is XSS blast radius, and
+that is worth less than the things below.
+
+**The actual hole was rate limiting, and there was none.** Anyone could POST the sign-in
+form as fast as their connection allowed. `LoginThrottle` counts failures per email and per
+address: eight against one account in fifteen minutes locks it for fifteen. Counters are in
+the database, not in a process, for the same reason the MCP transport is stateless — a
+counter in memory is a counter an attacker clears by waiting for a deploy. The IP counter is
+deliberately loose and deliberately secondary: offices share addresses, and
+`x-forwarded-for` can be forged by whoever talks to the proxy. **The email counter is the
+protection; the IP counter is a speed bump.** Verified by actually brute-forcing it: locked
+after nine attempts, and it then refuses the *correct* password, which is the assertion that
+distinguishes a lock from a delay.
+
+**Password reset is the support tool a hosted instance cannot run without** — a locked-out
+customer had no way back and neither did you. It goes through `canManage`, so an ADMIN
+cannot reset the SUPER_ADMIN. Without that line this feature is a one-click instance
+takeover wearing a support-ticket costume. Proved over HTTP with a real admin token: the
+same call is refused against the owner and succeeds against a member. Sessions are destroyed
+on reset, because a reset whose old sessions keep working has locked nobody out.
+
+**The audit log stores emails as text rather than joining.** An audit row has to survive the
+deletion of the account it describes; deleting a user is exactly when you most want the log
+to remember. It records account administration only — never content — and never the
+password or invite token, because every admin can read it.
+
+**Testing note worth keeping.** Three of this session's tests passed while proving nothing:
+one scraped a password out of page text and captured the `.com` of the email above it, one
+matched the sidebar's "Collapse sidebar" instead of a board column, and one asserted against
+a reimplementation of `canManage` rather than the real function. A security test that does
+not fail when the guard is removed is decoration. The escalation check now runs through the
+real MCP endpoint against the real data layer.
+
+**Applies to:** `src/lib/login-throttle.ts`, `src/lib/data/audit.ts`, `src/lib/passphrase.ts`
+(extracted from `bootstrap.ts` so a password helper does not drag in instance provisioning),
+`src/app/(app)/settings/admin/`, `prisma/migrations/20250114000000_login_throttle_and_audit/`.
+
+## 2026-08-29 — Sharing a pipeline is a slug, not a workspace
+
+**Decision (William's, after weighing the cost):** the "let someone help me review my
+applications" job ships as a read-only link — `PipelineShare`, a public `/p/<slug>` route,
+`share_pipeline` / `unshare_pipeline` / `get_pipeline_share`. Shared workspaces with viewer
+and editor roles are still parked.
+
+**Why not workspaces, with the actual number:** `userId` as the first positional argument
+*is* the tenant isolation, and it is load-bearing across 65 data functions, 17 tables, 75
+MCP call sites and 69 server actions. A `Workspace` + `Membership` model repoints every one
+of those, adds an acting-user parameter for permission checks, teaches the MCP token to
+resolve a user-and-workspace pair, and introduces a read-only role the data layer has never
+had. That is a week with a real chance of a tenant-isolation bug, and it should be its own
+piece of work rather than a side quest — which is what `CLAUDE.md` has said all along.
+The link gets most of the value in a day and tells us whether anyone opens it.
+
+**The select is the entire privacy model.** `getSharedPipeline` is the second function in
+`src/lib/data/` without a leading `userId`, which makes it the second place where a mistake
+is a leak rather than a type error. It is an allow-list, and what is absent is deliberate:
+salary, notes, job descriptions, the activity timeline, and — most importantly — contacts.
+**A share link is consent to show your own search, never consent to publish a third party's
+name and email address.** That distinction is why contacts are excluded even though a
+reviewer might find them useful.
+
+**Verified by seeding secrets and looking for them.** A salary, a private note, a job
+description, a contact and a timeline entry were written into the database with recognisable
+markers, then the public page was fetched by a browser with no session: none of the five
+appear, no link walks back into the app, and the page is noindex. A revoked link 404s. That
+is a stronger test than reading the select and agreeing with it.
+
+**Revoking deletes the row rather than flipping a flag**, the same call as an unpublished
+resume and for the same reason: you revoke because a link reached someone it should not
+have, and a pause you can undo does not fix that.
+
+**Also decided, and deliberately not built:** `admin.hired.tools`. A subdomain adds no
+security — it is a public DNS record, and `requireAdmin` is what protects the pages. It can
+be had for about fifteen lines of hostname routing in the same deploy if it is ever wanted,
+with no second service and nothing extra for self-hosters. But what "admin" administers
+changes if workspaces ever land, so the hostname would be decided twice. **If it is built
+later, give it its own login rather than widening the session cookie to `.hired.tools` —
+the apex is served by GitHub Pages, so a widened cookie would be sent to GitHub's servers
+on every landing-page request.**
+
+**Applies to:** `src/lib/data/pipeline-share.ts`, `src/app/p/[slug]/`,
+`src/components/pipeline/share-pipeline.tsx`,
+`prisma/migrations/20250115000000_pipeline_share/`.
 ## 2026-08-29 — The hero's shots lean back
 
 **Decision (William's):** the hero's two product shots get the 3D tilt from a Tailark hero

@@ -1,6 +1,8 @@
 import type { User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 import { ensureDefaultConnection, generateInviteToken, hashPassword } from "@/lib/auth";
+import { generatePassphrase } from "@/lib/passphrase";
+import { recordAudit } from "@/lib/data/audit";
 import { getSettings } from "@/lib/settings";
 import { inviteEmail, sendEmail } from "@/lib/email";
 
@@ -22,11 +24,66 @@ export async function listUsers() {
       isActive: true,
       lastLoginAt: true,
       createdAt: true,
+      stripeCustomerId: true,
       invitedBy: { select: { name: true, email: true } },
-      _count: { select: { roles: true, resumes: true, applications: true } },
+      _count: {
+        select: {
+          roles: true,
+          resumes: true,
+          applications: true,
+          contacts: true,
+          companies: true,
+          mcpConnections: true,
+        },
+      },
+      // Whether an assistant has ever actually connected. Counts, dates and
+      // connection health only — never a single word of anyone's content.
+      // "Admins manage accounts, never content" is a promise the README makes,
+      // and this select is where it would be broken if it ever were.
+      mcpConnections: {
+        select: { lastUsedAt: true },
+        orderBy: { lastUsedAt: { sort: "desc", nulls: "last" } },
+        take: 1,
+      },
     },
   });
-  return users;
+  return users.map(({ mcpConnections, ...user }) => ({
+    ...user,
+    mcpLastUsedAt: mcpConnections[0]?.lastUsedAt ?? null,
+  }));
+}
+
+/**
+ * Reset somebody else's password to a fresh generated one, returned once.
+ *
+ * The reason this exists: on a hosted instance a locked-out customer has no
+ * other way back in, and neither did you. It goes through `canManage`, so an
+ * ADMIN cannot reset the SUPER_ADMIN's password — without that check, any
+ * admin could take the instance from its owner in one click, which is a
+ * privilege escalation dressed as a support feature.
+ *
+ * Every session that user had is destroyed, because a password reset whose
+ * old sessions keep working has not actually locked anyone out.
+ */
+export async function adminResetPassword(actor: User, userId: string) {
+  const target = await db.user.findUnique({ where: { id: userId } });
+  if (!target) throw new Error("No such user.");
+  if (!canManage(actor, target)) throw new Error("You can't reset that user's password.");
+
+  const password = generatePassphrase();
+  await db.user.update({ where: { id: userId }, data: { passwordHash: hashPassword(password) } });
+  await db.session.deleteMany({ where: { userId } });
+
+  await recordAudit({
+    actor,
+    action: "user.password_reset",
+    target: { id: target.id, email: target.email },
+    // Deliberately not the password. This row is read by every admin and
+    // outlives the account.
+    detail: "Password reset and all sessions ended",
+  });
+
+  return { email: target.email, password };
 }
 
 export async function countUsers() {
@@ -51,7 +108,14 @@ export async function setUserRole(actor: User, userId: string, role: UserRole) {
   if (!target) throw new Error("No such user.");
   if (!canManage(actor, target)) throw new Error("You can't change that user's role.");
   if (role === "SUPER_ADMIN") throw new Error("There can only be one super admin.");
-  return db.user.update({ where: { id: userId }, data: { role } });
+  const updated = await db.user.update({ where: { id: userId }, data: { role } });
+  await recordAudit({
+    actor,
+    action: "user.role",
+    target: { id: target.id, email: target.email },
+    detail: `${target.role} → ${role}`,
+  });
+  return updated;
 }
 
 export async function setUserActive(actor: User, userId: string, isActive: boolean) {
@@ -59,7 +123,14 @@ export async function setUserActive(actor: User, userId: string, isActive: boole
   if (!target) throw new Error("No such user.");
   if (!canManage(actor, target)) throw new Error("You can't change that user.");
   if (!isActive) await db.session.deleteMany({ where: { userId } });
-  return db.user.update({ where: { id: userId }, data: { isActive } });
+  const updated = await db.user.update({ where: { id: userId }, data: { isActive } });
+  await recordAudit({
+    actor,
+    action: isActive ? "user.reactivate" : "user.suspend",
+    target: { id: target.id, email: target.email },
+    detail: isActive ? "Account reactivated" : "Account suspended and sessions ended",
+  });
+  return updated;
 }
 
 /** Deletes the user and, by cascade, everything they owned. */
@@ -67,7 +138,16 @@ export async function deleteUser(actor: User, userId: string) {
   const target = await db.user.findUnique({ where: { id: userId } });
   if (!target) throw new Error("No such user.");
   if (!canManage(actor, target)) throw new Error("You can't delete that user.");
-  return db.user.delete({ where: { id: userId } });
+  const deleted = await db.user.delete({ where: { id: userId } });
+  // Written after the row is gone, from values captured before — which is the
+  // whole reason the audit table stores emails as text rather than joining.
+  await recordAudit({
+    actor,
+    action: "user.delete",
+    target: { id: target.id, email: target.email },
+    detail: "Account and all of its content deleted",
+  });
+  return deleted;
 }
 
 export async function changePassword(userId: string, password: string) {
@@ -154,6 +234,15 @@ export async function createInvite(input: {
     data: { emailSent: sent.ok, emailError: sent.ok ? "" : sent.error },
   });
 
+  await recordAudit({
+    actor: input.actor,
+    action: "user.invite",
+    target: { email },
+    // Never the token: the audit log is readable by every admin, and the token
+    // is the credential that accepts the invitation.
+    detail: `Invited as ${input.role ?? "MEMBER"}${sent.ok ? "" : " (email failed)"}`,
+  });
+
   return {
     invite: { id: invite.id, email, token, expiresAt },
     acceptUrl,
@@ -162,7 +251,20 @@ export async function createInvite(input: {
   };
 }
 
-export async function revokeInvite(id: string) {
+export async function revokeInvite(actor: User, id: string) {
+  const invite = await db.invite.findUnique({ where: { id } });
+  if (invite) {
+    await recordAudit({
+      actor,
+      action: "user.invite_revoke",
+      target: { email: invite.email },
+      detail: `Invitation to ${invite.email} revoked`,
+    });
+  }
+  return revokeInviteRow(id);
+}
+
+async function revokeInviteRow(id: string) {
   return db.invite.deleteMany({ where: { id, acceptedAt: null } });
 }
 

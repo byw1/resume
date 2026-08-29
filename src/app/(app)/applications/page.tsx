@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import type { Stage } from "@prisma/client";
 import { PageHeader, PageShell } from "@/components/page-header";
 import {
@@ -28,6 +29,8 @@ import {
 } from "@/components/pipeline/toolbar";
 import { ApplicationPanelProvider } from "@/components/pipeline/application-panel";
 import { SavedViews } from "@/components/pipeline/saved-views";
+import { SharePipeline } from "@/components/pipeline/share-pipeline";
+import { getPipelineShare } from "@/lib/data/pipeline-share";
 import { listSavedViews, normaliseQuery } from "@/lib/data/views";
 import { NewApplicationDialog } from "@/components/pipeline/new-application-dialog";
 import { requireUser } from "@/lib/auth";
@@ -55,6 +58,11 @@ export default async function ApplicationsPage({
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
   const user = await requireUser();
+  const headerList = await headers();
+  const headerHost =
+    headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const headerProto =
+    headerList.get("x-forwarded-proto") ?? (headerHost.startsWith("localhost") ? "http" : "https");
   const params = await searchParams;
   const one = (key: string) => (Array.isArray(params[key]) ? params[key][0] : params[key]);
   const view = parseView(one("view"));
@@ -69,6 +77,8 @@ export default async function ApplicationsPage({
     pipelineStats(user.id),
     listSavedViews(user.id),
   ]);
+  const share = await getPipelineShare(user.id);
+  const shareBase = `${headerProto}://${headerHost}`;
 
   // Normalised the same way a view is saved, so "is this the view I am looking
   // at" is a string comparison rather than a parse on every render.
@@ -107,6 +117,15 @@ export default async function ApplicationsPage({
           action={
             <NewApplicationDialog
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
+            />
+          }
+          share={
+            <SharePipeline
+              initial={
+                share
+                  ? { url: `${shareBase}/p/${share.slug}`, includeClosed: share.includeClosed }
+                  : null
+              }
             />
           }
           views={

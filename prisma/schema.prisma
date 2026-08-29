@@ -63,6 +63,7 @@ model User {
   activities     Activity[]
   tasks          Task[]
   savedViews     SavedView[]
+  pipelineShare  PipelineShare?
 
   @@index([role])
   @@index([stripeCustomerId])
@@ -123,6 +124,78 @@ model Invite {
 
   @@index([email])
   @@index([acceptedAt])
+}
+
+/// A read-only link to someone's pipeline, for the friend or coach reviewing it.
+///
+/// The same privacy model as an unlisted resume, deliberately: an unguessable
+/// slug and nothing else. No per-viewer accounts, no passwords, no expiry —
+/// everyone you would send this to is somebody you already decided to send it
+/// to, and permissions would be ceremony protecting nothing.
+///
+/// Revoking clears the slug rather than flipping a flag, so the address is
+/// destroyed and re-sharing mints a different one. The reason you revoke is
+/// usually that the link went somewhere you regret, and a pause you can undo
+/// does not fix that.
+///
+/// One per person. A second link would need naming, listing and separate
+/// revocation, which is a feature nobody has asked for yet.
+model PipelineShare {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The public URL is /p/<slug>. Unique across the instance.
+  slug   String @unique
+  /// Whether the closed applications appear. Off by default: the useful
+  /// question for a reviewer is what is live, not what is over.
+  includeClosed Boolean @default(false)
+  /// Answers "has anyone actually opened this". A timestamp rather than a
+  /// counter, for the reason recorded against McpConnection: a throttled
+  /// counter is a number that is quietly wrong.
+  lastViewedAt DateTime?
+  createdAt    DateTime  @default(now())
+}
+
+/// Failed sign-in counters, so a public login form cannot be guessed at forever.
+///
+/// In the database rather than in memory because the app is stateless by
+/// design: it restarts, and it may run as more than one replica. A counter held
+/// in a process is a counter an attacker resets by waiting for a deploy.
+///
+/// One row per key, not one per attempt — a row per attempt is an unbounded
+/// write amplifier pointed at your own database by anyone with curl.
+model LoginThrottle {
+  /// "email:someone@example.com" or "ip:1.2.3.4".
+  key             String   @id
+  failures        Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  /// Set once the threshold is crossed. Null means not locked.
+  lockedUntil     DateTime?
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// What an admin did to whose account, and when.
+///
+/// Deliberately records the actor's and target's email as text rather than only
+/// as a relation: the point of an audit row is to survive the deletion of the
+/// account it describes. A log that empties itself when someone is removed
+/// cannot answer the one question it exists for.
+model AdminAudit {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actorEmail  String
+  /// Verb, e.g. "user.suspend", "user.password_reset", "invite.create".
+  action      String
+  targetId    String?
+  targetEmail String   @default("")
+  /// Human-readable specifics. Never a password, a token or a secret.
+  detail      String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetId])
 }
 
 /// Instance-wide configuration: Resend credentials, instance name, signup policy.
