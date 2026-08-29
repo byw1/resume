@@ -16,13 +16,19 @@ just *talk* to it.
 - **Pipeline** — stages, activity timeline, tasks, and follow-up dates that schedule
   themselves. A toolbar across the top picks the view — a drag-and-drop board, a sortable
   table, or a month calendar of everything that has a date on it — plus the cut and a search.
-  Opening an application slides it in from the right, so you keep your place on the board.
+  Stage filters combine, so "screening and interviewing" is one view rather than two trips,
+  and a cut worth keeping gets saved under a name. The table edits in place: stage,
+  follow-up, salary and location are the cells themselves, a Waiting column counts the days
+  since anything last moved, and selecting rows closes a batch out in one action.
+  Applications end as accepted, rejected, withdrawn or ghosted — silence is the most common
+  ending, and filing it as a rejection makes the funnel lie about what went wrong. Opening
+  an application slides it in from the right, so you keep your place on the board.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
   their website, industry, size and whatever you have learned about them, alongside every
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  66 tools any MCP client can call (83 if you're an admin). Claude, Claude Code, ChatGPT,
+  70 tools any MCP client can call (90 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications.
@@ -257,10 +263,10 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-64 tools across the four areas. The seven workflows below are among them: they're published
+70 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 17 more tools — and members never even see those in the tool list, so nobody is
+Admins get 20 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |

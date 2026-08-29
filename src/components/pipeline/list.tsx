@@ -1,22 +1,48 @@
 "use client";
 
 import Link from "next/link";
-import { ArrowDownIcon, ArrowUpIcon, FlameIcon } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useMemo, useState, useTransition } from "react";
+import { ArrowDownIcon, ArrowUpIcon, FlameIcon, XIcon } from "lucide-react";
+import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
-import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
+import { STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
 import type { ListRow, ListSort } from "@/lib/pipeline-list";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
+import { Button } from "@/components/ui/button";
+import { Checkbox } from "@/components/ui/checkbox";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import { moveApplicationsStageAction, moveStageAction, updateApplicationAction } from "@/server/actions";
 import { cn, relativeDay } from "@/lib/utils";
+
+/**
+ * The table view, which is also the fastest way to edit.
+ *
+ * The row used to be a single link, which made it a good list and a bad table:
+ * every correction — a stage, a salary you finally learned, a follow-up you
+ * want a week later — meant opening a panel and closing it again. Now the
+ * company cell navigates and the rest of the cells are the fields themselves,
+ * so a table of twenty applications can be brought up to date without leaving
+ * it. Edits save on change (stage) or on blur (text and dates), matching the
+ * rest of the app, which has no save button anywhere.
+ */
 
 const COLUMNS: { key: ListSort | null; label: string; className: string }[] = [
   { key: "company", label: "Company", className: "flex-1 min-w-0" },
-  { key: "stage", label: "Stage", className: "w-28 shrink-0" },
-  { key: "followUp", label: "Follow-up", className: "w-24 shrink-0" },
+  { key: "stage", label: "Stage", className: "w-32 shrink-0" },
+  { key: "followUp", label: "Follow-up", className: "w-28 shrink-0" },
+  { key: "waiting", label: "Waiting", className: "w-20 shrink-0 text-right" },
   { key: "salary", label: "Salary", className: "w-32 shrink-0 hidden lg:block" },
   { key: null, label: "Location", className: "w-32 shrink-0 hidden xl:block" },
-  { key: null, label: "Log", className: "w-10 shrink-0 text-right" },
-  { key: "updated", label: "Touched", className: "w-20 shrink-0 text-right" },
+  { key: null, label: "Log", className: "w-10 shrink-0 text-right hidden sm:block" },
+  { key: "updated", label: "Touched", className: "w-20 shrink-0 text-right hidden sm:block" },
 ];
 
 export function PipelineList({
@@ -28,7 +54,27 @@ export function PipelineList({
   sort: ListSort;
   desc: boolean;
 }) {
-  const openPanel = useOpenApplication();
+  const [selected, setSelected] = useState<Set<string>>(new Set());
+
+  const visibleIds = useMemo(() => rows.map((row) => row.id), [rows]);
+  const chosen = useMemo(
+    () => visibleIds.filter((id) => selected.has(id)),
+    [visibleIds, selected],
+  );
+
+  const toggle = (id: string) =>
+    setSelected((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id);
+      else next.add(id);
+      return next;
+    });
+
+  const toggleAll = () =>
+    setSelected((prev) =>
+      chosen.length === visibleIds.length ? new Set() : new Set([...prev, ...visibleIds]),
+    );
+
   if (rows.length === 0) {
     return (
       <div className="text-faint rounded-xl border border-dashed py-16 text-center text-[13px]">
@@ -37,103 +83,359 @@ export function PipelineList({
     );
   }
 
-  const now = Date.now();
+  return (
+    <div className="space-y-2">
+      {chosen.length > 0 && (
+        <BulkBar ids={chosen} onDone={() => setSelected(new Set())} />
+      )}
+
+      <div className="bg-card shadow-card overflow-hidden rounded-xl">
+        <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
+          <div className="flex w-5 shrink-0 items-center">
+            <Checkbox
+              checked={chosen.length === visibleIds.length}
+              onCheckedChange={toggleAll}
+              aria-label="Select every row"
+            />
+          </div>
+          {COLUMNS.map((column) => (
+            <div key={column.label} className={column.className}>
+              {column.key ? (
+                <Link
+                  href={sortHref(column.key, sort, desc)}
+                  className="hover:text-foreground touch-target inline-flex min-h-11 items-center gap-1 transition-colors duration-150 md:min-h-0"
+                >
+                  {column.label}
+                  {sort === column.key &&
+                    (desc ? (
+                      <ArrowDownIcon className="size-2.5" />
+                    ) : (
+                      <ArrowUpIcon className="size-2.5" />
+                    ))}
+                </Link>
+              ) : (
+                column.label
+              )}
+            </div>
+          ))}
+        </div>
+
+        <ul className="divide-y">
+          {rows.map((row) => (
+            <Row
+              key={row.id}
+              row={row}
+              selected={selected.has(row.id)}
+              onSelect={() => toggle(row.id)}
+            />
+          ))}
+        </ul>
+      </div>
+    </div>
+  );
+}
+
+function Row({
+  row,
+  selected,
+  onSelect,
+}: {
+  row: ListRow;
+  selected: boolean;
+  onSelect: () => void;
+}) {
+  const openPanel = useOpenApplication();
+  const router = useRouter();
+  const [, startTransition] = useTransition();
+  // Optimistic local copy: an edit shows immediately and rolls back if the
+  // server refuses, rather than the row sitting unchanged until a refresh.
+  const [values, setValues] = useState({
+    stage: row.stage,
+    nextFollowUpAt: row.nextFollowUpAt ? row.nextFollowUpAt.slice(0, 10) : "",
+    salaryRange: row.salaryRange,
+    location: row.location,
+  });
+
+  const due = values.nextFollowUpAt ? new Date(values.nextFollowUpAt) : null;
+  const overdue = due ? due.getTime() < Date.now() : false;
+  const closed = TERMINAL_STAGES.includes(values.stage);
+
+  const save = (patch: Partial<typeof values>, run: () => Promise<unknown>) => {
+    const before = values;
+    setValues((current) => ({ ...current, ...patch }));
+    startTransition(async () => {
+      try {
+        await run();
+        router.refresh();
+      } catch (error) {
+        setValues(before);
+        toast.error(error instanceof Error ? error.message : "Could not save that.");
+      }
+    });
+  };
+
+  const commitText = (key: "salaryRange" | "location", value: string) => {
+    if (value === row[key]) return;
+    save({ [key]: value }, () => updateApplicationAction(row.id, { [key]: value }));
+  };
 
   return (
-    <div className="bg-card shadow-card overflow-hidden rounded-xl">
-      <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
-        {COLUMNS.map((column) => (
-          <div key={column.label} className={column.className}>
-            {column.key ? (
-              <Link
-                href={sortHref(column.key, sort, desc)}
-                className="hover:text-foreground touch-target inline-flex min-h-11 items-center gap-1 transition-colors duration-150 md:min-h-0"
-              >
-                {column.label}
-                {sort === column.key &&
-                  (desc ? (
-                    <ArrowDownIcon className="size-2.5" />
-                  ) : (
-                    <ArrowUpIcon className="size-2.5" />
-                  ))}
-              </Link>
-            ) : (
-              column.label
-            )}
-          </div>
-        ))}
+    <li
+      style={{ ["--tone" as string]: STAGE_TONE[values.stage] }}
+      className={cn("stage-band flex items-center gap-3 px-4 py-2", selected && "bg-accent/40")}
+    >
+      <div className="flex w-5 shrink-0 items-center">
+        <Checkbox checked={selected} onCheckedChange={onSelect} aria-label={`Select ${row.company}`} />
       </div>
 
-      <ul className="divide-y">
-        {rows.map((row) => {
-          const due = row.nextFollowUpAt ? new Date(row.nextFollowUpAt) : null;
-          const overdue = due ? due.getTime() < now : false;
-          return (
-            <li key={row.id}>
-              <Link
-                href={`/applications/${row.id}`}
-                onClick={(event) => {
-                  if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
-                  event.preventDefault();
-                  openPanel(row.id);
-                }}
-                style={{ ["--tone" as string]: STAGE_TONE[row.stage] }}
-                className="stage-band hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors duration-150"
-              >
-                <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                  <CompanyAvatar name={row.company} domain={row.domain} size={26} />
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5">
-                      <span className="truncate text-[13px] font-medium">{row.company}</span>
-                      {row.excitement >= 4 && (
-                        <FlameIcon className="text-warning size-3 shrink-0" />
-                      )}
-                    </div>
-                    <div className="text-faint truncate text-[12px]">{row.roleTitle}</div>
-                  </div>
-                </div>
+      {/* The one cell that still navigates. */}
+      <Link
+        href={`/applications/${row.id}`}
+        onClick={(event) => {
+          if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
+          event.preventDefault();
+          openPanel(row.id);
+        }}
+        className="hover:text-primary flex min-w-0 flex-1 items-center gap-2.5 transition-colors duration-150"
+      >
+        <CompanyAvatar name={row.company} domain={row.domain} size={26} />
+        <div className="min-w-0">
+          <div className="flex items-center gap-1.5">
+            <span className="truncate text-[13px] font-medium">{row.company}</span>
+            {row.excitement >= 4 && <FlameIcon className="text-warning size-3 shrink-0" />}
+          </div>
+          <div className="text-faint truncate text-[12px]">{row.roleTitle}</div>
+        </div>
+      </Link>
 
-                <div className="w-28 shrink-0">
-                  <span
-                    className="stage-chip inline-block max-w-full truncate rounded-chip px-1.5 py-0.5 text-[11.5px] font-medium"
-                    style={{ ["--tone" as string]: STAGE_TONE[row.stage] }}
-                  >
-                    {STAGE_LABEL[row.stage]}
-                  </span>
-                </div>
+      <div className="w-32 shrink-0">
+        <Select
+          value={values.stage}
+          onValueChange={(value) =>
+            save({ stage: value as Stage }, () => moveStageAction(row.id, value as Stage))
+          }
+        >
+          <SelectTrigger
+            size="sm"
+            aria-label={`Stage for ${row.company}`}
+            className="stage-chip h-7 w-full border-0 px-1.5 text-[11.5px] font-medium shadow-none md:h-7"
+            style={{ ["--tone" as string]: STAGE_TONE[values.stage] }}
+          >
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {STAGES.map((stage) => (
+              <SelectItem key={stage} value={stage}>
+                {STAGE_LABEL[stage]}
+              </SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
 
-                <div
-                  className={cn(
-                    "nums w-24 shrink-0 text-[12px]",
-                    overdue ? "text-destructive font-medium" : "text-muted-foreground",
-                  )}
-                >
-                  {due ? relativeDay(due) : "—"}
-                </div>
+      <div className="w-28 shrink-0">
+        <DateCell
+          value={values.nextFollowUpAt}
+          label={`Follow-up date for ${row.company}`}
+          overdue={overdue}
+          onChange={(value) =>
+            save({ nextFollowUpAt: value }, () =>
+              updateApplicationAction(row.id, { nextFollowUpAt: value || null }),
+            )
+          }
+        />
+      </div>
 
-                <div className="nums text-muted-foreground hidden w-32 shrink-0 truncate text-[12px] lg:block">
-                  {row.salaryRange || "—"}
-                </div>
+      {/* Read-only: this is a measurement, not a field. Dashes on a closed
+          application because "waiting 40 days" is meaningless once it is over. */}
+      <div
+        className={cn(
+          "nums w-20 shrink-0 text-right text-[12px]",
+          !closed && row.daysInStage >= 21 ? "text-destructive" : "text-faint",
+        )}
+        title={closed ? undefined : `In ${STAGE_LABEL[values.stage]} for ${row.daysInStage} days`}
+      >
+        {closed ? "—" : `${row.daysInStage}d`}
+      </div>
 
-                <div className="text-faint hidden w-32 shrink-0 truncate text-[12px] xl:block">
-                  {row.location || "—"}
-                </div>
+      <div className="hidden w-32 shrink-0 lg:block">
+        <CellInput
+          value={values.salaryRange}
+          placeholder="—"
+          aria-label={`Salary for ${row.company}`}
+          onBlurValue={(value) => commitText("salaryRange", value)}
+          onLocalChange={(value) => setValues((c) => ({ ...c, salaryRange: value }))}
+          className="nums"
+        />
+      </div>
 
-                <div className="nums text-faint w-10 shrink-0 text-right text-[12px]">
-                  {row.activityCount || "—"}
-                </div>
+      <div className="hidden w-32 shrink-0 xl:block">
+        <CellInput
+          value={values.location}
+          placeholder="—"
+          aria-label={`Location for ${row.company}`}
+          onBlurValue={(value) => commitText("location", value)}
+          onLocalChange={(value) => setValues((c) => ({ ...c, location: value }))}
+        />
+      </div>
 
-                <div className="nums text-faint w-20 shrink-0 text-right text-[12px]">
-                  {new Date(row.updatedAt).toLocaleDateString("en-US", {
-                    month: "short",
-                    day: "numeric",
-                  })}
-                </div>
-              </Link>
-            </li>
-          );
-        })}
-      </ul>
+      <div className="nums text-faint hidden w-10 shrink-0 text-right text-[12px] sm:block">
+        {row.activityCount || "—"}
+      </div>
+
+      <div className="nums text-faint hidden w-20 shrink-0 text-right text-[12px] sm:block">
+        {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+      </div>
+    </li>
+  );
+}
+
+/**
+ * A date cell that is a dash until you use it.
+ *
+ * An empty `input[type=date]` prints "mm/dd/yyyy", and a column of those on
+ * every row without a follow-up is louder than the dates that are actually
+ * set — the opposite of what the column is for. So an empty cell renders as
+ * the same em dash the rest of the table uses and only becomes a picker once
+ * you click it.
+ */
+function DateCell({
+  value,
+  label,
+  overdue,
+  onChange,
+}: {
+  value: string;
+  label: string;
+  overdue: boolean;
+  onChange: (value: string) => void;
+}) {
+  const [editing, setEditing] = useState(false);
+
+  if (!value && !editing) {
+    return (
+      <button
+        type="button"
+        aria-label={label}
+        onClick={() => setEditing(true)}
+        className="text-faint hover:border-input hover:bg-inset h-7 w-full rounded-control border border-transparent px-1.5 text-left text-[12px] transition-colors duration-150"
+      >
+        —
+      </button>
+    );
+  }
+
+  return (
+    <CellInput
+      type="date"
+      autoFocus={editing && !value}
+      value={value}
+      aria-label={label}
+      onChange={onChange}
+      onBlurValue={() => setEditing(false)}
+      className={cn("nums", overdue && "text-destructive font-medium")}
+    />
+  );
+}
+
+/**
+ * A cell that looks like text until you touch it. A table of visible input
+ * boxes reads as a form and destroys the density the list exists for, so the
+ * border and background only arrive on hover and focus.
+ */
+function CellInput({
+  value,
+  type,
+  placeholder,
+  className,
+  onChange,
+  onBlurValue,
+  onLocalChange,
+  ...props
+}: {
+  value: string;
+  type?: string;
+  placeholder?: string;
+  className?: string;
+  autoFocus?: boolean;
+  /** Commit as soon as it changes — right for a date picker. */
+  onChange?: (value: string) => void;
+  /** Commit on blur — right for free text, which is not done until you leave. */
+  onBlurValue?: (value: string) => void;
+  onLocalChange?: (value: string) => void;
+  "aria-label": string;
+}) {
+  return (
+    <input
+      {...props}
+      type={type}
+      value={value}
+      placeholder={placeholder}
+      onChange={(event) => {
+        onLocalChange?.(event.target.value);
+        onChange?.(event.target.value);
+      }}
+      onBlur={(event) => onBlurValue?.(event.target.value)}
+      onKeyDown={(event) => {
+        if (event.key === "Enter") event.currentTarget.blur();
+      }}
+      className={cn(
+        "text-muted-foreground placeholder:text-faint h-7 w-full min-w-0 truncate rounded-control border border-transparent bg-transparent px-1.5 text-base transition-colors duration-150 outline-none md:text-[12px]",
+        "hover:border-input hover:bg-inset focus:border-ring focus:bg-inset focus:ring-ring/25 focus:ring-2",
+        className,
+      )}
+    />
+  );
+}
+
+/** Appears only when something is selected: a toolbar you did not ask for is clutter. */
+function BulkBar({ ids, onDone }: { ids: string[]; onDone: () => void }) {
+  const router = useRouter();
+  const [pending, startTransition] = useTransition();
+
+  const move = (stage: Stage) =>
+    startTransition(async () => {
+      try {
+        const result = await moveApplicationsStageAction(ids, stage);
+        const n = result.moved.length;
+        toast.success(
+          `${n} ${n === 1 ? "application" : "applications"} → ${STAGE_LABEL[stage]}` +
+            (result.skipped.length ? `, ${result.skipped.length} skipped` : ""),
+        );
+        onDone();
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not move those.");
+      }
+    });
+
+  return (
+    <div className="bg-card shadow-card flex flex-wrap items-center gap-2 rounded-xl px-3 py-2">
+      <span className="nums text-[12.5px] font-medium">
+        {ids.length} selected
+      </span>
+      <span className="text-faint hidden text-[12px] sm:inline">Move to</span>
+      <Select onValueChange={(value) => move(value as Stage)} disabled={pending}>
+        <SelectTrigger size="sm" className="w-40" aria-label="Move selected to stage">
+          <SelectValue placeholder="Pick a stage" />
+        </SelectTrigger>
+        <SelectContent>
+          {STAGES.map((stage) => (
+            <SelectItem key={stage} value={stage}>
+              {STAGE_LABEL[stage]}
+            </SelectItem>
+          ))}
+        </SelectContent>
+      </Select>
+      <Button
+        variant="ghost"
+        size="sm"
+        className="text-muted-foreground ml-auto"
+        onClick={onDone}
+        disabled={pending}
+      >
+        <XIcon /> Clear
+      </Button>
     </div>
   );
 }

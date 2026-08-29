@@ -2,6 +2,7 @@ import type { ActivityType, NoteKind, Stage, User, UserRole } from "@prisma/clie
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import * as views from "@/lib/data/views";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
@@ -975,7 +976,7 @@ export const tools: McpTool[] = [
     name: "list_applications",
     title: "List applications",
     description:
-      "List job applications. By default closed applications (accepted/rejected/withdrawn) are excluded.",
+      "List job applications. By default the closed ones (accepted, rejected, withdrawn, ghosted) are excluded. Every row carries daysInStage — how long it has sat where it is, measured from the last stage change rather than the last edit — which is the field to sort on when someone asks what has gone quiet or what needs chasing.",
     inputSchema: object({
       stage: { type: "string", enum: STAGE_VALUES, description: "Only this stage" },
       includeClosed: bool("Include accepted / rejected / withdrawn"),
@@ -1106,10 +1107,28 @@ export const tools: McpTool[] = [
       }),
   },
   {
+    name: "move_applications_stage",
+    title: "Move several applications to one stage",
+    description:
+      "Move a batch of applications to the same stage — the tool for 'close out everything I never heard back from' or 'mark these four as applied'. Each one gets its own timeline entry and follow-up date, exactly as if it had been moved on its own, so the funnel history stays intact. Ids that no longer exist are skipped rather than failing the batch; the result lists what moved and what was skipped. Read the ids from list_applications first, and for silence use GHOSTED rather than REJECTED.",
+    inputSchema: object(
+      {
+        ids: strArray("The application ids to move"),
+        stage: { type: "string", enum: STAGE_VALUES, description: "The stage they all move to" },
+      },
+      ["ids", "stage"],
+    ),
+    handler: async (args, ctx) => {
+      const ids = a(args, "ids");
+      if (!ids?.length) throw new Error("ids is required: pass at least one application id");
+      return pipeline.moveApplicationsStage(ctx.userId, ids, required(args, "stage") as Stage);
+    },
+  },
+  {
     name: "move_application_stage",
     title: "Move an application to a new stage",
     description:
-      "Advance or close an application. Automatically logs the change to the timeline and schedules the next follow-up.",
+      "Advance or close an application. Automatically logs the change to the timeline and schedules the next follow-up. On the four endings: REJECTED is for when they said no, WITHDRAWN for when the user pulled out, ACCEPTED for a signed offer, and GHOSTED for the far more common ending where nobody ever replied. Use GHOSTED rather than REJECTED when there was no answer — the funnel counts a rejection as a decision against the user and a ghosting as a non-response, and the advice that falls out of those is different.",
     inputSchema: object(
       {
         id: str("Application id"),
@@ -1191,6 +1210,37 @@ export const tools: McpTool[] = [
       "Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.",
     inputSchema: object({}),
     handler: async (args, ctx) => pipeline.diagnoseSearch(ctx.userId),
+  },
+  {
+    name: "list_saved_views",
+    title: "List saved pipeline views",
+    description:
+      "The cuts of the pipeline this person has named and kept — 'Chasing', 'Dream jobs', 'Gone quiet'. Each one returns a name and a query string like \"view=list&f=SCREEN,INTERVIEW&sort=waiting\". Call this when someone refers to a view by name, then use the query to work out what they mean: f is a comma-separated list of stages, sort and dir order the table, q is a search. Reading a view tells you what they consider one job; it is a good place to look before asking what they want reviewed.",
+    inputSchema: object({}),
+    handler: async (_args, ctx) => views.listSavedViews(ctx.userId),
+  },
+  {
+    name: "save_view",
+    title: "Save a pipeline view under a name",
+    description:
+      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.",
+    inputSchema: object(
+      {
+        name: str("What to call it, e.g. 'Chasing'"),
+        query: str("The pipeline query string, without the leading '?'"),
+      },
+      ["name", "query"],
+    ),
+    handler: async (args, ctx) =>
+      views.saveView(ctx.userId, required(args, "name"), s(args, "query") ?? ""),
+  },
+  {
+    name: "delete_saved_view",
+    title: "Delete a saved view",
+    description:
+      "Remove a saved pipeline view. Only the view goes — nothing about the applications it was showing is touched. Get the id from list_saved_views.",
+    inputSchema: object({ id: str("Saved view id") }, ["id"]),
+    handler: async (args, ctx) => views.deleteSavedView(ctx.userId, required(args, "id")),
   },
   {
     name: "list_schedule",

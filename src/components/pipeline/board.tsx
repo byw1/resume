@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -18,6 +18,8 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   BuildingIcon,
   CalendarClockIcon,
+  ChevronsLeftRightIcon,
+  ChevronsRightLeftIcon,
   FileTextIcon,
   FlameIcon,
   MapPinIcon,
@@ -30,6 +32,9 @@ import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
 import { cn, relativeDay } from "@/lib/utils";
 import { moveStageAction } from "@/server/actions";
+
+/** Which columns you have folded away. A preference, not a filter. */
+const COLLAPSED_KEY = "hired:board-collapsed";
 
 export type Card = {
   id: string;
@@ -73,6 +78,33 @@ export function PipelineBoard({
     useSensor(MouseSensor, { activationConstraint: { distance: 6 } }),
     useSensor(TouchSensor, { activationConstraint: { delay: 220, tolerance: 8 } }),
   );
+
+  // Which stages are folded to a spine. Kept in localStorage rather than the
+  // URL: it is how you like to look at the board, not what you are looking at,
+  // so it should survive a navigation and should not travel in a shared link.
+  // Read after mount so the server and the first client render agree.
+  const [collapsed, setCollapsed] = useState<Set<Stage>>(new Set());
+  useEffect(() => {
+    try {
+      const saved = window.localStorage.getItem(COLLAPSED_KEY);
+      if (saved) setCollapsed(new Set(JSON.parse(saved) as Stage[]));
+    } catch {
+      // A malformed or unreadable value just means no collapsed columns.
+    }
+  }, []);
+
+  const toggleColumn = (stage: Stage) =>
+    setCollapsed((prev) => {
+      const next = new Set(prev);
+      if (next.has(stage)) next.delete(stage);
+      else next.add(stage);
+      try {
+        window.localStorage.setItem(COLLAPSED_KEY, JSON.stringify([...next]));
+      } catch {
+        // Private mode: the preference just does not persist.
+      }
+      return next;
+    });
 
   // Re-seed when the filter changes: `open` is a prop, and useState only reads
   // its initial value, so without this the board keeps showing the last cut.
@@ -125,9 +157,15 @@ export function PipelineBoard({
         onDragCancel={() => setDragging(null)}
       >
         {columns.length > 0 && (
-          <div className="no-scrollbar -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 md:-mx-8 md:px-8">
+          <div className="no-scrollbar group/board -mx-4 flex gap-3 overflow-x-auto px-4 pb-2 md:-mx-8 md:px-8">
             {columns.map((stage) => (
-              <Column key={stage} stage={stage} cards={byStage.get(stage) ?? []} />
+              <Column
+                key={stage}
+                stage={stage}
+                cards={byStage.get(stage) ?? []}
+                collapsed={collapsed.has(stage)}
+                onToggle={() => toggleColumn(stage)}
+              />
             ))}
           </div>
         )}
@@ -179,8 +217,48 @@ export function PipelineBoard({
   );
 }
 
-function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
+function Column({
+  stage,
+  cards,
+  collapsed,
+  onToggle,
+}: {
+  stage: Stage;
+  cards: Card[];
+  collapsed: boolean;
+  onToggle: () => void;
+}) {
   const { setNodeRef, isOver } = useDroppable({ id: stage });
+
+  // A collapsed column is still a drop target — the reason to collapse a stage
+  // is that you are not working it, not that nothing may ever land there, and
+  // a card dragged onto the spine should go in rather than snap back.
+  if (collapsed) {
+    return (
+      <div
+        ref={setNodeRef}
+        className={cn(
+          "flex w-11 shrink-0 flex-col items-center gap-2 rounded-xl py-2 transition-colors duration-200",
+          isOver ? "bg-primary-tint shadow-[0_0_0_1px_var(--primary)]" : "bg-canvas shadow-hairline",
+        )}
+      >
+        <button
+          onClick={onToggle}
+          aria-label={`Expand ${STAGE_LABEL[stage]}`}
+          className="text-muted-foreground hover:text-foreground touch-target"
+        >
+          <ChevronsLeftRightIcon className="size-3.5" />
+        </button>
+        <span className="text-faint meta text-[12px]">{cards.length}</span>
+        <span
+          className="text-[12px] font-semibold whitespace-nowrap [writing-mode:vertical-rl]"
+          style={{ color: STAGE_TONE[stage] }}
+        >
+          {STAGE_LABEL[stage]}
+        </span>
+      </div>
+    );
+  }
 
   return (
     <div className="flex w-[16rem] shrink-0 flex-col">
@@ -192,6 +270,13 @@ function Column({ stage, cards }: { stage: Stage; cards: Card[] }) {
           {STAGE_LABEL[stage]}
         </span>
         <span className="text-faint meta text-[12px]">{cards.length}</span>
+        <button
+          onClick={onToggle}
+          aria-label={`Collapse ${STAGE_LABEL[stage]}`}
+          className="text-faint hover:text-foreground touch-target ml-auto opacity-0 transition-opacity group-hover/board:opacity-100"
+        >
+          <ChevronsRightLeftIcon className="size-3.5" />
+        </button>
       </div>
 
       <div
