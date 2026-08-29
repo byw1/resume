@@ -7,6 +7,7 @@ import type { ActivityType, NoteKind, Stage, UserRole } from "@prisma/client";
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import * as views from "@/lib/data/views";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
@@ -810,4 +811,19 @@ export async function getApplicationForPanelAction(id: string) {
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
   };
+}
+
+// --- saved pipeline views ---------------------------------------------------
+
+export async function saveViewAction(name: string, query: string) {
+  const user = await requireUser();
+  const view = await views.saveView(user.id, name, query);
+  revalidatePath("/applications");
+  return view;
+}
+
+export async function deleteSavedViewAction(id: string) {
+  const user = await requireUser();
+  await views.deleteSavedView(user.id, id);
+  revalidatePath("/applications");
 }

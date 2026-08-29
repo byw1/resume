@@ -1283,3 +1283,34 @@ at, and it should not travel in a shared link. A collapsed column is still a dro
 surface to 87. The README states both in three places.
 **Applies to:** `prisma/migrations/20250112000000_ghosted_stage/`, `src/lib/data/pipeline.ts`,
 `src/components/pipeline/{list,board,toolbar}.tsx`, `src/lib/pipeline-list.ts`.
+
+## 2026-08-28 — A saved view is a name for a URL
+
+**Decision:** `SavedView { name, query }` — the query string, stored whole, rather than
+parsed columns for view / filters / sort / search. The pipeline toolbar already encodes all
+of that into the URL, so saving a view is saving that string, and anything the toolbar
+learns to encode later is saved without a migration.
+
+**What that costs:** nothing validates the query. A view saved against a stage that is later
+removed returns everything instead of erroring — the harmless failure, and the reason this
+is the right trade. `normaliseQuery` keeps only the six parameters the pipeline actually
+reads and writes them in a fixed order, so the same view saved twice is the same string and
+"am I looking at this view" is a string comparison rather than a parse on every render.
+
+**Saving under an existing name replaces it.** Re-saving under a name you already use means
+"update it" every single time; the alternative is making someone delete a view to change it.
+The unique index is `[userId, name]`, so the upsert is the constraint rather than a check.
+
+**Two mobile bugs the seeded data exposed**, both pre-existing and neither caused by this
+work — an empty database had been hiding them. The docs page scrolled sideways because tool
+descriptions are prose written elsewhere and two of the new ones quote a query string: one
+unbreakable 45-character token is wider than the column on a phone. Fixed at the render site
+with `overflow-wrap: anywhere` rather than by shortening the description, so no future
+description can do it either. And the calendar's month grid is seven columns, which at 360px
+is 48px a cell — not a calendar, a grid of three-character stubs. It now keeps a 44rem width
+and scrolls sideways, the same gesture the board uses, which also makes room for chips tall
+enough to tap.
+
+**Applies to:** `prisma/migrations/20250113000000_saved_views/`, `src/lib/data/views.ts`,
+`src/components/pipeline/saved-views.tsx`, `src/app/(app)/docs/page.tsx`,
+`src/components/pipeline/calendar.tsx`.

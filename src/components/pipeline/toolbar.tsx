@@ -94,12 +94,14 @@ export function PipelineToolbar({
   search,
   counts,
   action,
+  views,
 }: {
   view: PipelineView;
   filters: PipelineFilter[];
   search: string;
   counts: ToolbarCounts;
   action: React.ReactNode;
+  views: React.ReactNode;
 }) {
   const on = (chip: PipelineFilter) => filters.includes(chip);
   return (
@@ -128,6 +130,8 @@ export function PipelineToolbar({
         </div>
 
         <SearchBox placeholder="Search companies, roles, notes…" className="w-full sm:w-72" />
+
+        {views}
 
         <div className="ml-auto">{action}</div>
       </div>

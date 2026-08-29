@@ -127,15 +127,20 @@ export function PipelineCalendar({
         </div>
       </div>
 
-      <div className="eyebrow bg-inset grid grid-cols-7">
-        {WEEKDAYS.map((day) => (
-          <div key={day} className="px-2 py-1.5">
-            {day}
+      {/* Seven columns in 360px is 48px a cell, which is not a calendar — it is
+          a grid of three-character stubs. The month keeps a usable width and
+          scrolls sideways instead, the same gesture the board already uses. */}
+      <div className="no-scrollbar overflow-x-auto">
+        <div className="min-w-[44rem] md:min-w-0">
+          <div className="eyebrow bg-inset grid grid-cols-7">
+            {WEEKDAYS.map((day) => (
+              <div key={day} className="px-2 py-1.5">
+                {day}
+              </div>
+            ))}
           </div>
-        ))}
-      </div>
 
-      <div className="grid grid-cols-7 border-t">
+          <div className="grid grid-cols-7 border-t">
         {cells.map((date) => {
           const iso = date.toISOString().slice(0, 10);
           const outside = date.getUTCMonth() !== month;
@@ -168,6 +173,8 @@ export function PipelineCalendar({
             </div>
           );
         })}
+          </div>
+        </div>
       </div>
     </div>
   );
@@ -177,7 +184,8 @@ function CalendarChip({ entry }: { entry: CalendarEntry }) {
   const body = (
     <span
       className={cn(
-        "flex items-center gap-1 truncate rounded-chip px-1 py-0.5 text-[11.5px]",
+        // Tall enough for a finger below md; back to the dense row above it.
+        "flex min-h-11 items-center gap-1 truncate rounded-chip px-1 py-0.5 text-[11.5px] md:min-h-0",
         entry.done ? "text-faint line-through" : "text-foreground",
       )}
     >

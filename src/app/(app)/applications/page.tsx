@@ -27,6 +27,8 @@ import {
   type PipelineView,
 } from "@/components/pipeline/toolbar";
 import { ApplicationPanelProvider } from "@/components/pipeline/application-panel";
+import { SavedViews } from "@/components/pipeline/saved-views";
+import { listSavedViews, normaliseQuery } from "@/lib/data/views";
 import { NewApplicationDialog } from "@/components/pipeline/new-application-dialog";
 import { requireUser } from "@/lib/auth";
 import { companyDomain } from "@/lib/company";
@@ -61,11 +63,22 @@ export default async function ApplicationsPage({
 
   // Resolved once per request: with logos off, no domain reaches the browser
   // at all, so there is nothing for it to go and fetch.
-  const [{ companyLogos }, resumes, stats] = await Promise.all([
+  const [{ companyLogos }, resumes, stats, savedViews] = await Promise.all([
     getSettings(),
     listResumes(user.id),
     pipelineStats(user.id),
+    listSavedViews(user.id),
   ]);
+
+  // Normalised the same way a view is saved, so "is this the view I am looking
+  // at" is a string comparison rather than a parse on every render.
+  const currentQuery = normaliseQuery(
+    new URLSearchParams(
+      Object.entries(params).flatMap(([key, value]) =>
+        value === undefined ? [] : [[key, Array.isArray(value) ? value[0] : value] as [string, string]],
+      ),
+    ).toString(),
+  );
   const domainFor = (application: { company: { name: string; website: string } }) =>
     companyLogos
       ? companyDomain({ name: application.company.name, website: application.company.website })
@@ -94,6 +107,12 @@ export default async function ApplicationsPage({
           action={
             <NewApplicationDialog
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
+            />
+          }
+          views={
+            <SavedViews
+              views={savedViews.map((v) => ({ id: v.id, name: v.name, query: v.query }))}
+              current={currentQuery}
             />
           }
         />

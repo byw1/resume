@@ -397,7 +397,14 @@ function ToolRow({
           </span>
         )}
       </div>
-      <p className="text-muted-foreground mt-0.5 text-[13px] leading-snug">{tool.description}</p>
+      {/* Tool descriptions are prose written elsewhere, and some of them quote a
+          query string or a URL — one unbreakable 45-character token is wider
+          than this column on a phone and pushes the whole page sideways.
+          Breaking anywhere costs nothing in normal prose and stops a
+          description ever being able to do that. */}
+      <p className="text-muted-foreground mt-0.5 text-[13px] leading-snug [overflow-wrap:anywhere]">
+        {tool.description}
+      </p>
     </li>
   );
 }

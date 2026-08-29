@@ -62,6 +62,7 @@ model User {
   contacts       Contact[]
   activities     Activity[]
   tasks          Task[]
+  savedViews     SavedView[]
 
   @@index([role])
   @@index([stripeCustomerId])
@@ -504,6 +505,27 @@ model Activity {
   @@index([applicationId, occurredAt])
   @@index([contactId, occurredAt])
   @@index([userId, toStage])
+}
+
+/// A named pipeline view: a cut of the board you keep coming back to.
+///
+/// Stores the query string rather than parsed fields — `view=list&f=SCREEN,INTERVIEW&sort=waiting`
+/// — because the URL is already the state of that screen, and anything the
+/// toolbar learns to encode later is saved without a migration. The tradeoff
+/// is that nothing validates the query: a view saved against a stage that is
+/// later removed just returns everything, which is the harmless failure.
+model SavedView {
+  id        String   @id @default(cuid())
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name      String
+  /// Query string without the leading "?". Empty means the default board.
+  query     String   @default("")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@unique([userId, name])
+  @@index([userId, name])
 }
 
 model Task {

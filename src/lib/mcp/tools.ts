@@ -2,6 +2,7 @@ import type { ActivityType, NoteKind, Stage, User, UserRole } from "@prisma/clie
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import * as views from "@/lib/data/views";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
@@ -1209,6 +1210,37 @@ export const tools: McpTool[] = [
       "Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.",
     inputSchema: object({}),
     handler: async (args, ctx) => pipeline.diagnoseSearch(ctx.userId),
+  },
+  {
+    name: "list_saved_views",
+    title: "List saved pipeline views",
+    description:
+      "The cuts of the pipeline this person has named and kept — 'Chasing', 'Dream jobs', 'Gone quiet'. Each one returns a name and a query string like \"view=list&f=SCREEN,INTERVIEW&sort=waiting\". Call this when someone refers to a view by name, then use the query to work out what they mean: f is a comma-separated list of stages, sort and dir order the table, q is a search. Reading a view tells you what they consider one job; it is a good place to look before asking what they want reviewed.",
+    inputSchema: object({}),
+    handler: async (_args, ctx) => views.listSavedViews(ctx.userId),
+  },
+  {
+    name: "save_view",
+    title: "Save a pipeline view under a name",
+    description:
+      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.",
+    inputSchema: object(
+      {
+        name: str("What to call it, e.g. 'Chasing'"),
+        query: str("The pipeline query string, without the leading '?'"),
+      },
+      ["name", "query"],
+    ),
+    handler: async (args, ctx) =>
+      views.saveView(ctx.userId, required(args, "name"), s(args, "query") ?? ""),
+  },
+  {
+    name: "delete_saved_view",
+    title: "Delete a saved view",
+    description:
+      "Remove a saved pipeline view. Only the view goes — nothing about the applications it was showing is touched. Get the id from list_saved_views.",
+    inputSchema: object({ id: str("Saved view id") }, ["id"]),
+    handler: async (args, ctx) => views.deleteSavedView(ctx.userId, required(args, "id")),
   },
   {
     name: "list_schedule",
