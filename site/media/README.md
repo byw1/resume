@@ -56,7 +56,8 @@ To refresh one, download that product's favicon and re-render it to 64 × 64 wit
 transparent background. Keep the filename.
 
 `companies/` holds the marks for the companies in the pipeline and CRM mocks: `figma.png`,
-`notion.png`, `flexport.png`, `ramp.png`, `samsara.png`, `project44.png`, `goodship.png`.
+`notion.png`, `flexport.png`, `ramp.png`, `samsara.png`, `project44.png`, `goodship.png`,
+`chrobinson.png`, `ryder.png`, `motive.png`.
 Same rule as `clients/` — fetched once and committed, so the page asks nobody for them at
 render time. They come from the same source the product itself uses:
 
@@ -64,12 +65,15 @@ render time. They come from the same source the product itself uses:
 curl -o site/media/companies/<name>.png https://twenty-icons.com/<domain>
 ```
 
-Not every company in the mocks has one, on purpose. Meridian Logistics and Northbeam
-Freight are invented, and Convoy shut down in 2023 — the logo now served for its domain is
-not the one it used, and putting a stranger's mark under its name would be wrong. Those
-three keep the initials tile, which is exactly what the app does for a company with no
-website saved, and the mock's own caption says so. If you add a company to the mocks, look
-at the icon before you commit it.
+Every company in the pipeline and CRM mocks is real and has a mark. Meridian Logistics and
+Northbeam Freight are invented and stay invented, but only as the candidate's *employers* in
+the resume and the brain, where nothing draws a logo — you would not be applying to the place
+you already work.
+
+**Look at the icon before you commit it.** Two of the domains checked during this pass
+returned somebody else's logo: `convoy.com`, because Convoy shut down in 2023, and
+`coyote.com`, which is not Coyote Logistics. Both would have rendered as a plausible mark
+under the wrong name.
 
 ## The share card
 

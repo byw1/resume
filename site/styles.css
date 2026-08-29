@@ -1597,7 +1597,7 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 
 .foot {
   display: grid;
-  grid-template-columns: minmax(0, 1.05fr) minmax(0, 1.95fr);
+  grid-template-columns: minmax(0, 1fr) auto;
   gap: 40px 56px;
   align-items: start;
 }
@@ -1626,7 +1626,7 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 }
 .socials a:hover { color: var(--foreground); border-color: var(--rim-strong); background: var(--inset); }
 
-.foot-cols { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 28px 32px; }
+.foot-cols { display: grid; grid-template-columns: repeat(2, minmax(0, 150px)); gap: 28px 56px; }
 .foot-h {
   margin: 0 0 11px;
   font-family: var(--mono);

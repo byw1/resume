@@ -1370,3 +1370,37 @@ workflows and 1 account. Verified twice over — the group chips sum to 70 and t
 tool silently falsifies five numbers on a static page in another directory. Nothing checks
 it. A generator for the catalogue block, or a test that diffs `tools/list` against the page,
 would end the whole class of error.
+
+## 2026-08-29 — Every mocked company is real, and the footer loses the studio column
+
+**Decision (William's):** no initials tiles left in the mocks, and the footer's Shifu Labs
+column goes entirely.
+
+**The three companies without marks were not equivalent.** Convoy was an application target
+and swapped straight out for Ryder. Meridian Logistics and Northbeam Freight are the mocked
+candidate's own *employers* — they run through the resume paper, four brain highlights, a
+guardrail note and the hero transcript, so replacing them everywhere would have meant a
+fictional person claiming employment at real companies. Instead they were removed only from
+the pipeline board and the CRM table and replaced with C.H. Robinson and Motive. That was
+the incoherent part anyway: the board had this person interviewing at the company they
+already work for. The invented names stay exactly where no logo is ever drawn.
+
+Locations and industries moved with the names — Eden Prairie MN, Miami FL, San Francisco CA,
+and Motive is fleet telematics rather than freight — because a real company sitting under a
+wrong city is the kind of detail that makes a mock look fake.
+
+**Two domains lied.** `convoy.com` no longer serves Convoy's mark, and `coyote.com` is not
+Coyote Logistics; both return a clean, plausible logo belonging to somebody else. They were
+caught by rendering every candidate to a contact sheet and looking at it. That check is now
+written into `site/media/README.md`, because the failure mode is silent.
+
+**The table's caption changed with the data.** It said companies without a website fall back
+to their initials, which the table no longer demonstrated. It now says where the marks come
+from, which it does.
+
+**Footer.** The Shifu Labs column is gone; `studio@shifulaboratories.com` went with it and
+appears nowhere on the site now (the correct address, for the record, is
+`studio@shifulab.com`). The LinkedIn is the company page,
+`linkedin.com/company/shifulab` — the earlier `/in/shifulab` was a personal-profile path.
+Two link columns left a hole in the middle of a three-track grid, so the links are sized to
+their content and sit at the right edge, where the base bar's own line already ends.
