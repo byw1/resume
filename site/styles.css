@@ -1918,3 +1918,114 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
     width: 116.3%;
   }
 }
+
+
+/* ---------------------------------------------------------------------------
+   RESOURCES
+   Long-form pages, generated from Markdown by tools/build-resources.mjs. They
+   wear the same stylesheet as the landing page — one set of tokens, one set of
+   type — so an article never looks like it was bolted on afterwards.
+   --------------------------------------------------------------------------- */
+
+.crumbs { font-size: 12.5px; color: var(--faint); margin-bottom: 18px; }
+.crumbs a { color: var(--muted); }
+.crumbs a:hover { color: var(--foreground); }
+
+.post-title { max-width: 26ch; margin-bottom: 12px; }
+.post-meta {
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--faint);
+  display: flex;
+  gap: 8px;
+  margin-bottom: 34px;
+}
+
+.prose { max-width: 68ch; }
+.prose p { margin-bottom: 20px; font-size: 16px; line-height: 1.72; color: var(--muted); }
+.prose h2 {
+  margin: 44px 0 14px;
+  font-size: clamp(19px, 2.2vw, 23px);
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  scroll-margin-top: 90px;
+}
+.prose h3 { margin: 30px 0 10px; font-size: 16.5px; color: var(--foreground); }
+.prose strong { color: var(--foreground); font-weight: 600; }
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--primary) 32%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s var(--settle);
+}
+.prose a:hover { text-decoration-color: currentColor; }
+.prose ul, .prose ol { margin: 0 0 20px 20px; display: flex; flex-direction: column; gap: 9px; }
+.prose li { font-size: 16px; line-height: 1.65; color: var(--muted); }
+.prose blockquote {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border-left: 2px solid var(--primary);
+  background: var(--inset);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.prose .code { margin-bottom: 20px; white-space: pre-wrap; }
+.prose > .fold { margin: 32px 0; }
+
+/* The contents list, printed only when a post has enough sections to need it. */
+.toc {
+  margin-bottom: 34px;
+  padding: 16px 18px;
+  background: var(--canvas);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-hairline);
+}
+.toc .eyebrow { margin-bottom: 9px; }
+.toc ul { list-style: none; margin: 0; gap: 7px; }
+.toc li { font-size: 13.5px; }
+.toc a { color: var(--muted); text-decoration: none; }
+.toc a:hover { color: var(--foreground); }
+
+.post-cta {
+  margin: 48px 0 0;
+  padding: 24px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.post-cta p { font-size: 15px; line-height: 1.6; color: var(--muted); margin: 0; }
+.post-cta .btn { align-self: flex-start; }
+.post-cta { flex-wrap: wrap; }
+
+.post-author { margin-top: 34px; font-size: 13.5px; color: var(--faint); }
+.post-author .eyebrow { margin-bottom: 7px; }
+.post-author strong { color: var(--foreground); }
+
+.post-more { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--rim); }
+.post-more .eyebrow { margin-bottom: 12px; }
+.post-more ul { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.post-more a { font-size: 15px; font-weight: 500; color: var(--foreground); }
+.post-more a:hover { color: var(--primary); }
+.post-more span { display: block; font-size: 13.5px; color: var(--faint); font-weight: 400; margin-top: 3px; }
+
+/* The hub. */
+.post-list { list-style: none; margin: 36px 0 0; display: flex; flex-direction: column; gap: 14px; }
+.post-list a {
+  display: block;
+  padding: 22px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.25s var(--settle);
+}
+.post-list a:hover { box-shadow: var(--shadow-raised); }
+.post-list h2 { font-size: 17px; letter-spacing: -0.02em; margin-bottom: 7px; }
+.post-list p { font-size: 14px; line-height: 1.6; color: var(--muted); margin-bottom: 11px; }
+.post-list .meta { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }

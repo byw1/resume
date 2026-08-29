@@ -1,3 +1,8 @@
+# Builds and deploys hired.tools to GitHub Pages. site/ is served as-is apart
+# from site/resources/, site/sitemap.xml and site/feed.xml, which are generated
+# from content/resources/*.md on every run and never committed, so the Markdown
+# stays the only copy.
+#
 # Deploys site/ — the hired.tools landing page — to GitHub Pages. The
 # configure-pages step below creates the Pages site itself on first run, so
 # there is no switch to flip in the repository settings; the whole thing is
@@ -9,6 +14,8 @@ on:
     branches: [main]
     paths:
       - site/**
+      - content/**
+      - tools/build-resources.mjs
       - .github/workflows/site.yml
   workflow_dispatch:
 
@@ -25,6 +32,11 @@ jobs:
       url: ${{ steps.deployment.outputs.page_url }}
     steps:
       - uses: actions/checkout@v4
+      # Renders content/resources/*.md into site/resources/, and writes the
+      # sitemap and the feed. No install step: the generator has no
+      # dependencies, so this is one node call against what the runner already
+      # has.
+      - run: node tools/build-resources.mjs
       - uses: actions/configure-pages@v5
         with:
           enablement: true
