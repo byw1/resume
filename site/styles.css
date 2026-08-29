@@ -1062,6 +1062,29 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 /* The badge above the headline — a real link to the thing it names. */
 
 /* The two-up: the conversation on the left, what it did on the right. */
+/* The hero's two shots lean back on one plane, so they read as a surface
+   receding into the page rather than two flat cards pasted on it. Perspective
+   sits on the wrap and the transform on the stage, so both panels share a
+   single vanishing point — tilting each child on its own origin makes them
+   diverge. Desktop only: at phone widths the shots are already the whole
+   screen and a tilt just eats legibility.
+
+   The angles are deliberately gentler than the reference this came from. That
+   one tilts a single static screenshot; the left panel here is a transcript
+   that types itself out and is meant to be read. --tilt-x / --tilt-skew are
+   here to be argued with. */
+@media (min-width: 900px) {
+  .hero .wrap { perspective: 1600px; }
+  .hero .stage {
+    --tilt-x: 13deg;
+    --tilt-skew: 0.1rad;
+    transform: rotateX(var(--tilt-x)) skewX(var(--tilt-skew));
+    transform-origin: 50% 0%;
+    -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  }
+}
+
 .stage {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);

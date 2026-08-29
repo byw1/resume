@@ -1404,3 +1404,31 @@ appears nowhere on the site now (the correct address, for the record, is
 `linkedin.com/company/shifulab` — the earlier `/in/shifulab` was a personal-profile path.
 Two link columns left a hole in the middle of a three-track grid, so the links are sized to
 their content and sit at the right edge, where the base bar's own line already ends.
+
+## 2026-08-29 — The hero's shots lean back
+
+**Decision (William's):** the hero's two product shots get the 3D tilt from a Tailark hero
+block — perspective, `rotateX`, a skew, and a mask that fades the bottom away.
+
+**The request arrived wrapped in shadcn install instructions that did not apply.** The
+component was a React/Tailwind hero wanting `lucide-react`, `@radix-ui/react-slot`,
+`class-variance-authority` and a `components/ui/button`. The app already has every one of
+those and 21 shadcn components in `src/components/ui/`, so there was nothing to install —
+and the hero being pointed at is not in the app at all. It is hand-written HTML and CSS in
+`site/`, with no React, no Tailwind and no build step. Only the CSS technique transferred.
+
+**Perspective on the wrap, transform on the stage.** Putting perspective on `.stage` and
+transforms on its children would tilt each panel around its own origin and make them
+diverge; the two shots have to share one vanishing point to read as a single receding
+surface. `.hero .wrap` holds the perspective and `.hero .stage` takes the transform.
+
+**The angles are deliberately softer than the reference.** That block tilts one static
+screenshot: `rotateX(20deg)` with `skewX(.36rad)`, about 20.6°. The left panel here is a
+transcript that types itself out and is meant to be read, so it runs 13° and 0.1rad. Both
+are `--tilt-x` and `--tilt-skew` custom properties, there to be argued with.
+
+**Desktop only, at 900px and up.** On a phone the shots already fill the screen and a tilt
+buys nothing but lost legibility. Verified: tilted at 1440 and 1024, flat at 899 and 390.
+
+`skewX` widens an element's painted box, which is exactly the kind of thing that starts a
+sideways scroll — `.hero` already clips, and the overflow check is clean at all five widths.
