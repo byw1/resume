@@ -688,6 +688,14 @@ pre, code { font-family: var(--mono); }
 }
 .mono-av.lg { width: 28px; height: 28px; font-size: 11px; }
 
+/* A company that has a mark wears it; one that doesn't keeps the initials
+   tile. That is what the product itself does, so the mocks show both — the
+   invented companies in this data have no favicon to fetch, and neither does a
+   real one the user has only just typed in. The tinted ground is dropped for a
+   logo: the marks bring their own, and two grounds fight. */
+.mono-av.logo { background: var(--inset); padding: 3px; }
+.mono-av.logo img { width: 100%; height: 100%; object-fit: contain; display: block; }
+
 /* A hairline table. Column gaps would break the rules into dashes, so the
    spacing is padding on the cells and the rule runs the width of the row. */
 .tbl { display: grid; font-size: 12.5px; }

@@ -55,6 +55,22 @@ nothing breaks if one of those services changes its icon URL.
 To refresh one, download that product's favicon and re-render it to 64 × 64 with a
 transparent background. Keep the filename.
 
+`companies/` holds the marks for the companies in the pipeline and CRM mocks: `figma.png`,
+`notion.png`, `flexport.png`, `ramp.png`, `samsara.png`, `project44.png`, `goodship.png`.
+Same rule as `clients/` — fetched once and committed, so the page asks nobody for them at
+render time. They come from the same source the product itself uses:
+
+```bash
+curl -o site/media/companies/<name>.png https://twenty-icons.com/<domain>
+```
+
+Not every company in the mocks has one, on purpose. Meridian Logistics and Northbeam
+Freight are invented, and Convoy shut down in 2023 — the logo now served for its domain is
+not the one it used, and putting a stranger's mark under its name would be wrong. Those
+three keep the initials tile, which is exactly what the app does for a company with no
+website saved, and the mock's own caption says so. If you add a company to the mocks, look
+at the icon before you commit it.
+
 ## The share card
 
 `site/og.png` is the 1200×630 image that appears when the link is pasted anywhere. It is

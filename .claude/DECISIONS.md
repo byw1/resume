@@ -1240,3 +1240,34 @@ comment said "so six different icon shapes read as one row", which described the
 no longer exists; it now describes what it actually styles. `media/clients/vscode.png` and
 `windsurf.png` are unreferenced by the page for the moment and stay on disk, because the
 connect section still names those clients and the media README asks for them to be kept.
+
+## 2026-08-29 — Real company marks in the mocks, fetched once
+
+**Decision (William's):** the pipeline and CRM mocks show each company's actual favicon
+instead of a two-letter initials tile.
+
+**Fetched at author time, not at render time.** The app does this live, through
+twenty-icons.com, which is why `admin_set_company_logos` exists and warns that the service
+can see which companies are in someone's pipeline. The marketing page must not inherit that:
+it makes no third-party request beyond Google Fonts and one call for the GitHub star count,
+and a mock is a picture, not a live pipeline. So the seven marks were pulled once from the
+same source, committed under `site/media/companies/`, and are served from this origin. The
+check that matters is in the scratchpad — the page still contacts only `fonts.googleapis.com`
+and `api.github.com` after scrolling the whole page and clicking through all four scenes.
+
+**Three companies deliberately keep their initials.** Meridian Logistics and Northbeam
+Freight are invented, so there is nothing to fetch. Convoy shut down in 2023 and the logo
+now served for `convoy.com` is not the mark it used — labelling somebody else's logo
+"Convoy" would be a small lie in a product whose whole pitch is that it doesn't invent
+things. The mixed result is not a compromise: the scene's own lede already says "the website
+you save is what puts their logo on the board", and the table's caption already says
+companies without one fall back to initials. The mock now demonstrates the sentence it was
+already making.
+
+**Two things found while wiring it.** The marks first read as broken because every one of
+them reported `naturalWidth: 0` — they sit inside the tour's scene panes, and `loading="lazy"`
+means an image in a pane nobody has opened never loads. They decode correctly once a scene
+is shown, but lazy loading would have made the mark arrive a frame after the reader switches
+scene, which reads as a flicker; they are 4–12KB each and same-origin, so the attribute is
+gone. And the tinted `--hue` ground is dropped on a logo tile: the marks bring their own
+background, and two grounds fight.
