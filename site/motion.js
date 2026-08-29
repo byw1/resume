@@ -60,6 +60,40 @@
   var progress = $(".progress");
   var ticking = false;
 
+  /* The stylesheet drives the progress bar off a scroll timeline where the
+     browser supports one, which is both smoother and off the main thread.
+     Only fill it from here when it doesn't. */
+  var cssDrivesProgress =
+    window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()");
+  if (cssDrivesProgress) progress = null;
+
+  /* Nav links that point at a section on this page, paired with their target,
+     so scrolling can say which one you are in. Anything pointing elsewhere —
+     GitHub, the app — is left alone. */
+  var marks = $$(".nav-links a.link[href^='#']")
+    .map(function (link) {
+      var section = document.getElementById(link.getAttribute("href").slice(1));
+      return section ? { link: link, section: section } : null;
+    })
+    .filter(Boolean);
+  var marked = null;
+
+  function markSection() {
+    if (!marks.length) return;
+    /* The section you are "in" is the last one whose top has passed a line a
+       third of the way down the viewport — steadier than asking which is most
+       visible, because these sections differ wildly in height. */
+    var line = window.innerHeight / 3;
+    var current = null;
+    marks.forEach(function (m) {
+      if (m.section.getBoundingClientRect().top <= line) current = m;
+    });
+    if (current === marked) return;
+    if (marked) marked.link.removeAttribute("aria-current");
+    if (current) current.link.setAttribute("aria-current", "true");
+    marked = current;
+  }
+
   function onScroll() {
     if (ticking) return;
     ticking = true;
@@ -71,6 +105,7 @@
         var height = document.documentElement.scrollHeight - window.innerHeight;
         progress.style.setProperty("--p", height > 0 ? Math.min(1, y / height) : 0);
       }
+      markSection();
     });
   }
   window.addEventListener("scroll", onScroll, { passive: true });

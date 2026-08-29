@@ -944,6 +944,9 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transition: color 0.15s var(--settle), background-color 0.15s var(--settle);
 }
 .nav-links a.link:hover { color: var(--foreground); background: var(--wash); }
+/* Which section you are actually in. Set by motion.js as aria-current, so the
+   marker is announced rather than only drawn. */
+.nav-links a.link[aria-current="true"] { color: var(--foreground); background: var(--wash); }
 
 .gh {
   display: inline-flex;
@@ -981,6 +984,26 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transform-origin: left;
   scale: var(--p, 0) 1;
   pointer-events: none;
+}
+
+/* Where the browser can drive an animation from the scroll position itself,
+   let it: the bar stops depending on a scroll listener writing a custom
+   property every frame, and runs off the main thread. motion.js checks the
+   same support and skips its own version, so only one of the two ever runs.
+   Everything else falls back to the JS, which is unchanged. */
+@supports (animation-timeline: scroll()) {
+  .progress {
+    scale: 0 1;
+    animation-name: progress-fill;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+  @keyframes progress-fill {
+    from { scale: 0 1; }
+    to { scale: 1 1; }
+  }
 }
 
 .motif { display: flex; height: 3px; border-radius: 2px; overflow: hidden; }
@@ -1082,6 +1105,34 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
     transform-origin: 50% 0%;
     -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
     mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  }
+
+  /* Scrubbed by scroll position, not played on a timer: the shots lean back
+     when you land and stand up as you scroll past them, so the tilt reads as
+     something the page is doing rather than a static flourish. Driven from the
+     document's own scroll rather than view(), because the stage is already
+     partly on screen at load and a view() range would start mid-animation.
+
+     This is the page's third kind of motion. The other two are "plays once on
+     entry and holds" and "does not move at all"; this one has no duration and
+     no direction of its own — it only ever reflects where the scrollbar is,
+     and it reverses exactly as faithfully when you scroll back up. It is
+     behind prefers-reduced-motion, so the calm path keeps the static tilt. */
+  @supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .hero .stage {
+        animation-name: stage-settle;
+        animation-duration: auto;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 65vh;
+      }
+      @keyframes stage-settle {
+        from { transform: rotateX(var(--tilt-x)) skewX(var(--tilt-skew)); }
+        to { transform: rotateX(0deg) skewX(0rad); }
+      }
+    }
   }
 }
 

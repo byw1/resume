@@ -1546,3 +1546,47 @@ The admin refactor in the same merge moved the admin page to
 `src/app/(app)/settings/admin/page.tsx`. The waitlist panel came with it — checked rather
 than assumed, since a panel silently dropped in a file move is exactly the kind of thing
 that stays broken for weeks.
+
+## 2026-08-29 — Scroll-driven motion, and the thing that was not built
+
+**Decision (William's):** more advanced scrolling. Three things went in; the obvious fourth
+did not.
+
+**Not built: scroll hijacking.** Lenis, Locomotive and friends replace the browser's scroll
+with a JS-interpolated one. They demo beautifully and feel worse in the hand: trackpad
+momentum stops matching the OS, keyboard paging and find-in-page get strange, and the whole
+page depends on a runtime library that this one currently does without — it ships zero
+third-party JS and contacts nothing but Google Fonts and one call for the star count.
+Nothing about "smoother" is worth that. Everything below is native.
+
+**1. The progress bar came off the main thread.** It was a scroll listener writing a custom
+property every frame. Where `animation-timeline: scroll()` exists it is now a CSS
+scroll-driven animation, and `motion.js` checks the same support and nulls its own handle so
+only one of the two ever runs. Verified both paths: with timelines, the bar tracks scroll
+exactly and the JS custom property is never set; with `CSS.supports` stubbed to refuse, the
+JS fills it as before.
+
+**2. The nav says where you are.** Links pointing at a section on this page get
+`aria-current="true"` as their section passes a line a third of the way down the viewport —
+steadier than "most visible", because these sections differ wildly in height. It is
+`aria-current` rather than a class so the state is announced and not merely drawn.
+
+**3. The hero's tilt scrubs.** The shots lean back when you land and stand up over the first
+65vh of scrolling. This is the page's *third* kind of motion and the header comment in
+`styles.css` only described two — "plays once on entry and holds", and "does not move".
+A scrubbed animation has no duration and no direction of its own; it reflects the scrollbar
+and reverses exactly as faithfully going back up. It sits behind
+`prefers-reduced-motion: no-preference`, so the calm path keeps the static tilt — checked,
+not assumed.
+
+**Two bugs, one of which was mine and imaginary.** The `animation` shorthand resets
+`animation-duration` to `0s`, which on a scroll timeline collapses the animation to a point;
+the longhands with `animation-duration: auto` fix it. And `markSection` used
+`element.offsetTop`, which is measured from the nearest positioned ancestor — every
+`section` on this page is `position: relative`, so it was not the document offset it looked
+like; it reads `getBoundingClientRect().top` now.
+
+The imaginary one: the progress bar appeared frozen near zero in the first test run. It was
+fine. `html { scroll-behavior: smooth }` meant the harness was reading the value while the
+page was still travelling. Worth remembering — **any scroll assertion on this page has to
+scroll with `behavior: 'instant'` or it measures the journey rather than the destination.**
