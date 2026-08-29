@@ -1526,3 +1526,23 @@ buys nothing but lost legibility. Verified: tilted at 1440 and 1024, flat at 899
 
 `skewX` widens an element's painted box, which is exactly the kind of thing that starts a
 sideways scroll — `.hero` already clips, and the overflow check is clean at all five widths.
+
+## 2026-08-29 — Seventy-three, and the counting problem is now the story
+
+Pipeline sharing landed on main and added three member-visible tools — `share_pipeline`,
+`get_pipeline_share`, `unshare_pipeline` — so the page went 70 → 73 and the Pipeline group
+20 → 23. Same five places as last time: the figure block, the disclosure summary, the
+sentence inside it, the All chip, the group chip, plus three cards written by hand.
+
+**That is twice in two days and three times this week.** The catalogue is a hand-maintained
+copy of `tools/list` living in a different directory from the thing it describes, and
+nothing fails when it drifts — the page renders, the tests pass, and the number is simply
+wrong. Every count on this page has been correct only because someone re-derived it from a
+running instance each time. The fix is a generator: emit the catalogue block and the six
+totals from `allTools` at build time, or fail CI when the page disagrees with `tools/list`.
+Until that exists, treat "merge main" as implying "recount".
+
+The admin refactor in the same merge moved the admin page to
+`src/app/(app)/settings/admin/page.tsx`. The waitlist panel came with it — checked rather
+than assumed, since a panel silently dropped in a file move is exactly the kind of thing
+that stays broken for weeks.
