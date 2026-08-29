@@ -1452,3 +1452,50 @@ real MCP endpoint against the real data layer.
 **Applies to:** `src/lib/login-throttle.ts`, `src/lib/data/audit.ts`, `src/lib/passphrase.ts`
 (extracted from `bootstrap.ts` so a password helper does not drag in instance provisioning),
 `src/app/(app)/settings/admin/`, `prisma/migrations/20250114000000_login_throttle_and_audit/`.
+
+## 2026-08-29 — Sharing a pipeline is a slug, not a workspace
+
+**Decision (William's, after weighing the cost):** the "let someone help me review my
+applications" job ships as a read-only link — `PipelineShare`, a public `/p/<slug>` route,
+`share_pipeline` / `unshare_pipeline` / `get_pipeline_share`. Shared workspaces with viewer
+and editor roles are still parked.
+
+**Why not workspaces, with the actual number:** `userId` as the first positional argument
+*is* the tenant isolation, and it is load-bearing across 65 data functions, 17 tables, 75
+MCP call sites and 69 server actions. A `Workspace` + `Membership` model repoints every one
+of those, adds an acting-user parameter for permission checks, teaches the MCP token to
+resolve a user-and-workspace pair, and introduces a read-only role the data layer has never
+had. That is a week with a real chance of a tenant-isolation bug, and it should be its own
+piece of work rather than a side quest — which is what `CLAUDE.md` has said all along.
+The link gets most of the value in a day and tells us whether anyone opens it.
+
+**The select is the entire privacy model.** `getSharedPipeline` is the second function in
+`src/lib/data/` without a leading `userId`, which makes it the second place where a mistake
+is a leak rather than a type error. It is an allow-list, and what is absent is deliberate:
+salary, notes, job descriptions, the activity timeline, and — most importantly — contacts.
+**A share link is consent to show your own search, never consent to publish a third party's
+name and email address.** That distinction is why contacts are excluded even though a
+reviewer might find them useful.
+
+**Verified by seeding secrets and looking for them.** A salary, a private note, a job
+description, a contact and a timeline entry were written into the database with recognisable
+markers, then the public page was fetched by a browser with no session: none of the five
+appear, no link walks back into the app, and the page is noindex. A revoked link 404s. That
+is a stronger test than reading the select and agreeing with it.
+
+**Revoking deletes the row rather than flipping a flag**, the same call as an unpublished
+resume and for the same reason: you revoke because a link reached someone it should not
+have, and a pause you can undo does not fix that.
+
+**Also decided, and deliberately not built:** `admin.hired.tools`. A subdomain adds no
+security — it is a public DNS record, and `requireAdmin` is what protects the pages. It can
+be had for about fifteen lines of hostname routing in the same deploy if it is ever wanted,
+with no second service and nothing extra for self-hosters. But what "admin" administers
+changes if workspaces ever land, so the hostname would be decided twice. **If it is built
+later, give it its own login rather than widening the session cookie to `.hired.tools` —
+the apex is served by GitHub Pages, so a widened cookie would be sent to GitHub's servers
+on every landing-page request.**
+
+**Applies to:** `src/lib/data/pipeline-share.ts`, `src/app/p/[slug]/`,
+`src/components/pipeline/share-pipeline.tsx`,
+`prisma/migrations/20250115000000_pipeline_share/`.

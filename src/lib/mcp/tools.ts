@@ -4,6 +4,7 @@ import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
 import * as audit from "@/lib/data/audit";
+import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
@@ -1211,6 +1212,33 @@ export const tools: McpTool[] = [
       "Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.",
     inputSchema: object({}),
     handler: async (args, ctx) => pipeline.diagnoseSearch(ctx.userId),
+  },
+  {
+    name: "share_pipeline",
+    title: "Get a read-only link to the pipeline",
+    description:
+      "Mint a link that shows this person's pipeline to anyone holding it, without a login — for a friend, a coach or a former manager who is helping review the search. Returns the slug; the full URL is the instance address plus /p/<slug>. Calling it twice returns the same link rather than a second one. What a viewer sees is deliberately narrow: company, role, stage, location, how long each has been sitting and when a follow-up is due. They do NOT see notes, job descriptions, salary, contacts or the activity timeline — say so if someone asks what will be visible, because a share link is consent to show a search, not to publish the people in it. Set include_closed to show finished applications too.",
+    inputSchema: object({
+      include_closed: bool("Show accepted / rejected / withdrawn / ghosted applications too. Default false."),
+    }),
+    handler: async (args, ctx) =>
+      pipelineShare.sharePipeline(ctx.userId, { includeClosed: b(args, "include_closed") }),
+  },
+  {
+    name: "unshare_pipeline",
+    title: "Revoke the pipeline link",
+    description:
+      "Stop sharing the pipeline. This DESTROYS the address rather than pausing it — anyone holding the old link gets nothing, and sharing again later mints a completely different URL. That is deliberate: the reason to revoke is usually that a link reached someone it should not have, and a pause that can be undone does not fix that.",
+    inputSchema: object({}),
+    handler: async (_args, ctx) => pipelineShare.unsharePipeline(ctx.userId),
+  },
+  {
+    name: "get_pipeline_share",
+    title: "Check whether the pipeline is shared",
+    description:
+      "Whether a read-only pipeline link currently exists, what it shows, and when it was last opened. Returns null when nothing is shared. Use it before minting a link so you can tell someone they already have one, and to answer 'has anyone actually looked at it'.",
+    inputSchema: object({}),
+    handler: async (_args, ctx) => pipelineShare.getPipelineShare(ctx.userId),
   },
   {
     name: "list_saved_views",

@@ -63,6 +63,7 @@ model User {
   activities     Activity[]
   tasks          Task[]
   savedViews     SavedView[]
+  pipelineShare  PipelineShare?
 
   @@index([role])
   @@index([stripeCustomerId])
@@ -123,6 +124,36 @@ model Invite {
 
   @@index([email])
   @@index([acceptedAt])
+}
+
+/// A read-only link to someone's pipeline, for the friend or coach reviewing it.
+///
+/// The same privacy model as an unlisted resume, deliberately: an unguessable
+/// slug and nothing else. No per-viewer accounts, no passwords, no expiry —
+/// everyone you would send this to is somebody you already decided to send it
+/// to, and permissions would be ceremony protecting nothing.
+///
+/// Revoking clears the slug rather than flipping a flag, so the address is
+/// destroyed and re-sharing mints a different one. The reason you revoke is
+/// usually that the link went somewhere you regret, and a pause you can undo
+/// does not fix that.
+///
+/// One per person. A second link would need naming, listing and separate
+/// revocation, which is a feature nobody has asked for yet.
+model PipelineShare {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The public URL is /p/<slug>. Unique across the instance.
+  slug   String @unique
+  /// Whether the closed applications appear. Off by default: the useful
+  /// question for a reviewer is what is live, not what is over.
+  includeClosed Boolean @default(false)
+  /// Answers "has anyone actually opened this". A timestamp rather than a
+  /// counter, for the reason recorded against McpConnection: a throttled
+  /// counter is a number that is quietly wrong.
+  lastViewedAt DateTime?
+  createdAt    DateTime  @default(now())
 }
 
 /// Failed sign-in counters, so a public login form cannot be guessed at forever.

@@ -8,6 +8,7 @@ import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
+import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
@@ -874,6 +875,21 @@ export async function getApplicationForPanelAction(id: string) {
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
   };
+}
+
+// --- sharing the pipeline read-only -----------------------------------------
+
+export async function sharePipelineAction(includeClosed?: boolean) {
+  const user = await requireUser();
+  const share = await pipelineShare.sharePipeline(user.id, { includeClosed });
+  revalidatePath("/applications");
+  return { slug: share.slug, includeClosed: share.includeClosed, url: `${await currentBaseUrl()}/p/${share.slug}` };
+}
+
+export async function unsharePipelineAction() {
+  const user = await requireUser();
+  await pipelineShare.unsharePipeline(user.id);
+  revalidatePath("/applications");
 }
 
 // --- saved pipeline views ---------------------------------------------------
