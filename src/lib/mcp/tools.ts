@@ -3,6 +3,7 @@ import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
+import * as audit from "@/lib/data/audit";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
@@ -1602,7 +1603,25 @@ export const tools: McpTool[] = [
     description: "Cancel an outstanding invitation so its link stops working.",
     inputSchema: object({ id: str("Invite id") }, ["id"]),
     adminOnly: true,
-    handler: async (args) => users.revokeInvite(required(args, "id")),
+    handler: async (args, ctx) => users.revokeInvite(ctx.user, required(args, "id")),
+  },
+  {
+    name: "admin_reset_user_password",
+    title: "Reset a member's password",
+    description:
+      "Generate a new password for a member who is locked out, and return it once so it can be passed on. Every session they had is ended, so an old browser stays logged out. Cannot be used on the instance owner, and an admin cannot reset another admin's password — that restriction is what stops this being a way to take over an instance. The reset is written to the audit log; the password itself never is.",
+    inputSchema: object({ user_id: str("The user's id, from admin_list_users") }, ["user_id"]),
+    adminOnly: true,
+    handler: async (args, ctx) => users.adminResetPassword(ctx.user, required(args, "user_id")),
+  },
+  {
+    name: "admin_audit_log",
+    title: "Read the admin audit log",
+    description:
+      "What admins have done to accounts on this instance, newest first: invitations, role changes, suspensions, deletions and password resets, each with who did it, to whom, and when. Rows survive the deletion of the account they describe. Use it to answer 'who suspended this person' or to review what happened while you were away. Nothing here touches anyone's brain, resumes or applications — it is a record of account administration only.",
+    inputSchema: object({ limit: num("How many entries, newest first. Default 100, max 500.") }),
+    adminOnly: true,
+    handler: async (args) => audit.listAudit({ limit: n(args, "limit") ?? 100 }),
   },
   {
     name: "admin_list_waitlist",

@@ -312,7 +312,7 @@ function MobileNav({
   const secondary = [
     { href: "/docs", label: "Docs", icon: BookOpenIcon },
     { href: "/settings", label: "Settings", icon: SettingsIcon },
-    ...(canAdmin ? [{ href: "/admin", label: "Admin", icon: ShieldIcon }] : []),
+    ...(canAdmin ? [{ href: "/settings/admin", label: "Admin", icon: ShieldIcon }] : []),
   ];
 
   return (
@@ -442,7 +442,7 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
         </DropdownMenuItem>
         {canAdmin && (
           <DropdownMenuItem asChild>
-            <Link href="/admin">
+            <Link href="/settings/admin">
               <ShieldIcon /> Admin
             </Link>
           </DropdownMenuItem>

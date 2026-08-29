@@ -1404,3 +1404,51 @@ appears nowhere on the site now (the correct address, for the record, is
 `linkedin.com/company/shifulab` — the earlier `/in/shifulab` was a personal-profile path.
 Two link columns left a hole in the middle of a three-track grid, so the links are sized to
 their content and sit at the right edge, where the base bar's own line already ends.
+
+## 2026-08-29 — Admin moved under Settings, and the login form learned to say no
+
+**Decision (William's, after asking how Twenty does it):** the admin surface is
+`/settings/admin`, not `/admin` and not `admin.hired.tools`. Twenty puts theirs at
+`SettingsPath.Admin` inside the same app, gated by a flag on the account, and that shape is
+right for the same reason it is right for them: the admin of a self-hosted instance is its
+owner, and a separate deploy would mean DNS and a second service before anyone could
+administer their own copy. `/admin` still redirects — it was in the profile menu for months.
+
+**Why not a subdomain, said plainly:** a subdomain is a public DNS record. Putting the admin
+pages behind one is obscurity, not security. What protects them is `requireAdmin`, which was
+already enforced. The one honest argument for a separate origin is XSS blast radius, and
+that is worth less than the things below.
+
+**The actual hole was rate limiting, and there was none.** Anyone could POST the sign-in
+form as fast as their connection allowed. `LoginThrottle` counts failures per email and per
+address: eight against one account in fifteen minutes locks it for fifteen. Counters are in
+the database, not in a process, for the same reason the MCP transport is stateless — a
+counter in memory is a counter an attacker clears by waiting for a deploy. The IP counter is
+deliberately loose and deliberately secondary: offices share addresses, and
+`x-forwarded-for` can be forged by whoever talks to the proxy. **The email counter is the
+protection; the IP counter is a speed bump.** Verified by actually brute-forcing it: locked
+after nine attempts, and it then refuses the *correct* password, which is the assertion that
+distinguishes a lock from a delay.
+
+**Password reset is the support tool a hosted instance cannot run without** — a locked-out
+customer had no way back and neither did you. It goes through `canManage`, so an ADMIN
+cannot reset the SUPER_ADMIN. Without that line this feature is a one-click instance
+takeover wearing a support-ticket costume. Proved over HTTP with a real admin token: the
+same call is refused against the owner and succeeds against a member. Sessions are destroyed
+on reset, because a reset whose old sessions keep working has locked nobody out.
+
+**The audit log stores emails as text rather than joining.** An audit row has to survive the
+deletion of the account it describes; deleting a user is exactly when you most want the log
+to remember. It records account administration only — never content — and never the
+password or invite token, because every admin can read it.
+
+**Testing note worth keeping.** Three of this session's tests passed while proving nothing:
+one scraped a password out of page text and captured the `.com` of the email above it, one
+matched the sidebar's "Collapse sidebar" instead of a board column, and one asserted against
+a reimplementation of `canManage` rather than the real function. A security test that does
+not fail when the guard is removed is decoration. The escalation check now runs through the
+real MCP endpoint against the real data layer.
+
+**Applies to:** `src/lib/login-throttle.ts`, `src/lib/data/audit.ts`, `src/lib/passphrase.ts`
+(extracted from `bootstrap.ts` so a password helper does not drag in instance provisioning),
+`src/app/(app)/settings/admin/`, `prisma/migrations/20250114000000_login_throttle_and_audit/`.

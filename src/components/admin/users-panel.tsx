@@ -2,7 +2,7 @@
 
 import { useState, useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { MoreVerticalIcon, ShieldIcon, Trash2Icon, UserIcon } from "lucide-react";
+import { CheckIcon, CopyIcon, KeyRoundIcon, MoreVerticalIcon, ShieldIcon, Trash2Icon, UserIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { UserRole } from "@prisma/client";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { cn, initials } from "@/lib/utils";
 import {
+  adminResetPasswordAction,
   deleteUserAction,
   setUserActiveAction,
   setUserRoleAction,
@@ -31,7 +32,17 @@ type Row = {
   lastLoginAt: string | null;
   createdAt: string;
   invitedBy: string | null;
-  counts: { roles: number; resumes: number; applications: number };
+  counts: {
+    roles: number;
+    resumes: number;
+    applications: number;
+    contacts: number;
+    companies: number;
+    mcpConnections: number;
+  };
+  /** When an assistant last called in, or null if one never has. */
+  mcpLastUsedAt: string | null;
+  billed: boolean;
 };
 
 const ROLE_LABEL: Record<UserRole, string> = {
@@ -49,6 +60,10 @@ export function UsersPanel({
 }) {
   const [pending, startTransition] = useTransition();
   const [removed, setRemoved] = useState<Set<string>>(new Set());
+  // A generated password is shown once and never stored anywhere it could be
+  // read again — the same contract as the owner password printed at boot.
+  const [reset, setReset] = useState<{ email: string; password: string } | null>(null);
+  const [copied, setCopied] = useState(false);
 
   // Mirrors canManage() on the server; the server still enforces it.
   const canManage = (target: Row) =>
@@ -67,6 +82,45 @@ export function UsersPanel({
 
   return (
     <div className="space-y-2">
+      {reset && (
+        <Card className="border-warning/40">
+          <CardContent className="space-y-2 py-3.5">
+            <div className="text-[13px] font-medium">
+              New password for {reset.email}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <code className="bg-inset shadow-field rounded-control px-2.5 py-1.5 font-mono text-[13px]">
+                {reset.password}
+              </code>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => {
+                  void navigator.clipboard?.writeText(reset.password);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1600);
+                }}
+              >
+                {copied ? <CheckIcon /> : <CopyIcon />}
+                {copied ? "Copied" : "Copy"}
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                className="text-muted-foreground ml-auto"
+                onClick={() => setReset(null)}
+              >
+                Done
+              </Button>
+            </div>
+            <p className="text-muted-foreground text-xs">
+              Shown once. Pass it on and have them change it — every session they had is
+              already signed out.
+            </p>
+          </CardContent>
+        </Card>
+      )}
+
       <AnimatePresence initial={false}>
         {visible.map((user) => (
           <motion.div key={user.id} layout exit={{ opacity: 0, height: 0 }}>
@@ -107,7 +161,28 @@ export function UsersPanel({
 
                 <div className="text-muted-foreground hidden text-xs tabular-nums md:block">
                   {user.counts.roles} roles · {user.counts.resumes} resumes ·{" "}
-                  {user.counts.applications} apps
+                  {user.counts.applications} apps · {user.counts.contacts} people
+                </div>
+
+                {/* Whether their assistant is actually connected. An account
+                    that has never called in is the one to check on — it is
+                    usually somebody who never finished setting up. */}
+                <div
+                  className="text-muted-foreground hidden w-24 text-right text-xs lg:block"
+                  title={
+                    user.mcpLastUsedAt
+                      ? `Assistant last called ${new Date(user.mcpLastUsedAt).toLocaleString()}`
+                      : "No assistant has ever connected"
+                  }
+                >
+                  {user.mcpLastUsedAt
+                    ? `AI ${new Date(user.mcpLastUsedAt).toLocaleDateString("en-US", {
+                        month: "short",
+                        day: "numeric",
+                      })}`
+                    : user.counts.mcpConnections > 0
+                      ? "AI unused"
+                      : "no AI"}
                 </div>
 
                 <div className="text-muted-foreground hidden w-28 text-right text-xs lg:block">
@@ -165,6 +240,26 @@ export function UsersPanel({
                       }
                     >
                       {user.isActive ? "Suspend access" : "Reactivate"}
+                    </DropdownMenuItem>
+                    <DropdownMenuItem
+                      onSelect={() => {
+                        if (
+                          !confirm(
+                            `Reset ${user.email}'s password? They will be signed out everywhere, and you will get a new password to pass on.`,
+                          )
+                        )
+                          return;
+                        startTransition(async () => {
+                          const result = await adminResetPasswordAction(user.id);
+                          if (!result.ok) {
+                            toast.error(result.error);
+                            return;
+                          }
+                          setReset({ email: result.email, password: result.password });
+                        });
+                      }}
+                    >
+                      <KeyRoundIcon /> Reset password
                     </DropdownMenuItem>
                     <DropdownMenuSeparator />
                     <DropdownMenuItem

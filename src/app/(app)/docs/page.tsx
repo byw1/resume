@@ -27,7 +27,7 @@ export const dynamic = "force-dynamic";
  * The manual.
  *
  * The tool and workflow reference is generated from the tools array rather than
- * written out, because a hand-maintained list of ninety tools is a list that is
+ * written out, because a hand-maintained list of ninety-odd tools is a list that is
  * wrong within a week — and being wrong here is worse than being absent, since
  * this page is what someone reads to decide what to ask for.
  */

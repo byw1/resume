@@ -125,6 +125,48 @@ model Invite {
   @@index([acceptedAt])
 }
 
+/// Failed sign-in counters, so a public login form cannot be guessed at forever.
+///
+/// In the database rather than in memory because the app is stateless by
+/// design: it restarts, and it may run as more than one replica. A counter held
+/// in a process is a counter an attacker resets by waiting for a deploy.
+///
+/// One row per key, not one per attempt — a row per attempt is an unbounded
+/// write amplifier pointed at your own database by anyone with curl.
+model LoginThrottle {
+  /// "email:someone@example.com" or "ip:1.2.3.4".
+  key             String   @id
+  failures        Int      @default(0)
+  windowStartedAt DateTime @default(now())
+  /// Set once the threshold is crossed. Null means not locked.
+  lockedUntil     DateTime?
+  updatedAt       DateTime @default(now()) @updatedAt
+
+  @@index([updatedAt])
+}
+
+/// What an admin did to whose account, and when.
+///
+/// Deliberately records the actor's and target's email as text rather than only
+/// as a relation: the point of an audit row is to survive the deletion of the
+/// account it describes. A log that empties itself when someone is removed
+/// cannot answer the one question it exists for.
+model AdminAudit {
+  id          String   @id @default(cuid())
+  actorId     String?
+  actorEmail  String
+  /// Verb, e.g. "user.suspend", "user.password_reset", "invite.create".
+  action      String
+  targetId    String?
+  targetEmail String   @default("")
+  /// Human-readable specifics. Never a password, a token or a secret.
+  detail      String   @default("")
+  createdAt   DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([targetId])
+}
+
 /// Instance-wide configuration: Resend credentials, instance name, signup policy.
 model Setting {
   key       String   @id

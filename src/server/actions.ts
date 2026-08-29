@@ -25,6 +25,14 @@ import { getSettings, updateSettings } from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
 import { loadPosting } from "@/lib/posting";
+import {
+  checkLoginAllowed,
+  clearLoginFailures,
+  clientIp,
+  recordLoginFailure,
+  sweepThrottles,
+} from "@/lib/login-throttle";
+import { listAudit, recordAudit } from "@/lib/data/audit";
 
 /**
  * Every action resolves the caller from their session cookie. No action ever
@@ -56,9 +64,32 @@ export async function setupAction(_prev: { error?: string } | undefined, formDat
 export async function loginAction(_prev: { error?: string } | undefined, formData: FormData) {
   const email = String(formData.get("email") ?? "");
   const password = String(formData.get("password") ?? "");
+  const ip = clientIp(await headers());
+
+  // Checked before the password is even looked at, so a locked account costs an
+  // attacker a database read rather than a scrypt verification.
+  const verdict = await checkLoginAllowed(email, ip);
+  if (!verdict.allowed) {
+    const minutes = Math.ceil(verdict.retryAfterSeconds / 60);
+    return {
+      error: `Too many attempts. Try again in ${minutes} minute${minutes === 1 ? "" : "s"}.`,
+    };
+  }
+
   const user = await authenticate(email, password);
-  if (!user) return { error: "That email and password don't match." };
+  if (!user) {
+    await recordLoginFailure(email, ip);
+    // The same sentence whether the address exists, the password is wrong or
+    // the account is suspended. Three different messages is a tool for
+    // discovering which addresses are real.
+    return { error: "That email and password don't match." };
+  }
+
+  await clearLoginFailures(email, ip);
   await startSession(user.id);
+  // Cheap, and it keeps the table from growing on a busy instance. Deliberately
+  // not awaited-and-blocking on failure: a failed sweep must not fail a login.
+  void sweepThrottles().catch(() => {});
   redirect("/");
 }
 
@@ -218,7 +249,7 @@ export async function inviteUserAction(input: { email: string; role: UserRole })
       role: input.role,
       baseUrl: `${proto}://${host}`,
     });
-    revalidatePath("/admin");
+    revalidatePath("/settings/admin");
     return {
       ok: true as const,
       acceptUrl: result.acceptUrl,
@@ -231,9 +262,9 @@ export async function inviteUserAction(input: { email: string; role: UserRole })
 }
 
 export async function revokeInviteAction(id: string) {
-  await requireAdmin();
-  await users.revokeInvite(id);
-  revalidatePath("/admin");
+  const actor = await requireAdmin();
+  await users.revokeInvite(actor, id);
+  revalidatePath("/settings/admin");
 }
 
 /**
@@ -254,7 +285,7 @@ export async function inviteFromWaitlistAction(input: { id: string; role: UserRo
       role: input.role,
       baseUrl: `${proto}://${host}`,
     });
-    revalidatePath("/admin");
+    revalidatePath("/settings/admin");
     return {
       ok: true as const,
       acceptUrl: result.acceptUrl,
@@ -269,14 +300,14 @@ export async function inviteFromWaitlistAction(input: { id: string; role: UserRo
 export async function removeWaitlistSignupAction(id: string) {
   await requireAdmin();
   await waitlist.removeWaitlistSignup(id);
-  revalidatePath("/admin");
+  revalidatePath("/settings/admin");
 }
 
 export async function setUserRoleAction(userId: string, role: UserRole) {
   const actor = await requireAdmin();
   try {
     await users.setUserRole(actor, userId, role);
-    revalidatePath("/admin");
+    revalidatePath("/settings/admin");
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not update." };
@@ -287,18 +318,50 @@ export async function setUserActiveAction(userId: string, isActive: boolean) {
   const actor = await requireAdmin();
   try {
     await users.setUserActive(actor, userId, isActive);
-    revalidatePath("/admin");
+    revalidatePath("/settings/admin");
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not update." };
   }
 }
 
+/**
+ * Reset a member's password to a generated one and hand it back once.
+ *
+ * The password is returned to the admin who asked rather than emailed, because
+ * on a self-hosted instance email may not be configured at all — and an admin
+ * reading it off the screen to a customer they are already on a call with is
+ * the actual support flow.
+ */
+export async function adminResetPasswordAction(userId: string) {
+  const actor = await requireAdmin();
+  try {
+    const result = await users.adminResetPassword(actor, userId);
+    revalidatePath("/settings/admin");
+    return { ok: true as const, ...result };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not reset." };
+  }
+}
+
+export async function listAuditAction(limit = 100) {
+  await requireAdmin();
+  const rows = await listAudit({ limit });
+  return rows.map((row) => ({
+    id: row.id,
+    actorEmail: row.actorEmail,
+    action: row.action,
+    targetEmail: row.targetEmail,
+    detail: row.detail,
+    createdAt: row.createdAt.toISOString(),
+  }));
+}
+
 export async function deleteUserAction(userId: string) {
   const actor = await requireAdmin();
   try {
     await users.deleteUser(actor, userId);
-    revalidatePath("/admin");
+    revalidatePath("/settings/admin");
     return { ok: true as const };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not delete." };
@@ -318,7 +381,7 @@ export async function saveEmailSettingsAction(patch: {
   const clean = { ...patch };
   if (clean.resendApiKey !== undefined && clean.resendApiKey.trim() === "") delete clean.resendApiKey;
   await updateSettings(clean);
-  revalidatePath("/admin");
+  revalidatePath("/settings/admin");
   revalidatePath("/applications");
   return { ok: true as const };
 }
@@ -351,7 +414,7 @@ export async function saveBillingSettingsAction(patch: {
   if (clean.stripeSecretKey !== undefined && clean.stripeSecretKey.trim() === "") delete clean.stripeSecretKey;
   if (clean.stripeWebhookSecret !== undefined && clean.stripeWebhookSecret.trim() === "") delete clean.stripeWebhookSecret;
   await updateSettings(clean);
-  revalidatePath("/admin");
+  revalidatePath("/settings/admin");
   return { ok: true as const };
 }
 
@@ -362,7 +425,7 @@ export async function syncBillingAction(email?: string) {
   const proto = headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
   try {
     const results = await syncAllBilling(`${proto}://${host}`, email?.trim() || undefined);
-    revalidatePath("/admin");
+    revalidatePath("/settings/admin");
     return { ok: true as const, results };
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Sync failed." };

@@ -28,10 +28,16 @@ just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  70 tools any MCP client can call (90 if you're an admin). Claude, Claude Code, ChatGPT,
+  70 tools any MCP client can call (92 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
-  admins manage accounts but never see anyone's brain, resumes or applications.
+  admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
+  under Settings → Admin: invitations, accounts, per-workspace usage, a password reset for
+  whoever is locked out, and a log of every administrative change.
+- **Hard to guess at** — sign-in attempts are counted per account and per address, and an
+  account stops answering after eight wrong passwords in fifteen minutes. Passwords are
+  scrypt hashes, sessions are httpOnly cookies, and admins cannot reset each other or the
+  owner — the code being public is not the same as the door being open.
 
 > "Here's everything I did at Vertex last quarter — file it."
 > "Tailor my resume to this posting."
@@ -266,7 +272,7 @@ this key and send a test."*
 70 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 20 more tools — and members never even see those in the tool list, so nobody is
+Admins get 22 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |
