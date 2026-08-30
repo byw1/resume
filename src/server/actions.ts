@@ -22,14 +22,7 @@ import {
   setupKeyMatches,
   startSession,
 } from "@/lib/auth";
-import {
-  deleteVariable,
-  getSettings,
-  keepExistingSecrets,
-  setVariables,
-  updateSettings,
-  type InstanceSettings,
-} from "@/lib/settings";
+import { deleteVariable, getSettings, setVariables } from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
 import { loadPosting } from "@/lib/posting";
@@ -379,21 +372,10 @@ export async function deleteUserAction(userId: string) {
 }
 
 /**
- * One save for every guided form on the Configuration tab — instance, email
- * and billing all land here. They used to be two near-identical actions that
- * each retyped the "blank secret means keep it" rule; that rule now lives with
- * the variable registry, so this is the whole action.
- */
-export async function saveConfigAction(patch: Partial<InstanceSettings>) {
-  const actor = await requireAdmin();
-  await updateSettings(actor, keepExistingSecrets(patch));
-  revalidateSettings();
-  return { ok: true as const };
-}
-
-/**
- * Write raw variables by key, from the Variables tab. Unknown keys are
- * created, which is how a setting exists before it has a form.
+ * Every settings write from the browser, by key. Configuration is one screen
+ * of editable rows now rather than three typed forms, so this is the only
+ * shape it needs — and an unknown key is created, which is how a setting
+ * exists before it has a section of its own.
  */
 export async function saveVariablesAction(patch: Record<string, string>) {
   const actor = await requireAdmin();

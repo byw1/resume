@@ -46,6 +46,58 @@ export function PageHeader({
   );
 }
 
+/**
+ * A heading inside a tab, for a screen that holds several related lists rather
+ * than one. Admin uses it because "people" is really three lists — the roster,
+ * who has been invited, who has asked — and they were three tabs telling you to
+ * go looking for the one you wanted.
+ */
+export function Section({
+  title,
+  count,
+  description,
+  actions,
+  children,
+}: {
+  title: React.ReactNode;
+  count?: number;
+  description?: React.ReactNode;
+  actions?: React.ReactNode;
+  children: React.ReactNode;
+}) {
+  return (
+    <section>
+      <div className="mb-3 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+        <h2 className="text-[15px] leading-none font-semibold">
+          {title}
+          {count !== undefined && (
+            <span className="text-muted-foreground ml-2 text-[13px] font-normal tabular-nums">
+              {count}
+            </span>
+          )}
+        </h2>
+        {actions}
+      </div>
+      {description && (
+        <p className="text-muted-foreground mb-3 max-w-2xl text-[13px] leading-relaxed">
+          {description}
+        </p>
+      )}
+      {children}
+    </section>
+  );
+}
+
+/** A list that is empty, inside a Section. The dashed box of EmptyState is a
+ *  whole screen's worth of nothing; a section only needs a line. */
+export function SectionEmpty({ children }: { children: React.ReactNode }) {
+  return (
+    <p className="text-muted-foreground rounded-xl border border-dashed px-4 py-6 text-center text-[13px]">
+      {children}
+    </p>
+  );
+}
+
 export function EmptyState({
   icon: Icon,
   title,

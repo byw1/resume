@@ -6,7 +6,6 @@ import {
   CheckIcon,
   ClockIcon,
   CopyIcon,
-  InboxIcon,
   LoaderCircleIcon,
   MailWarningIcon,
   SendIcon,
@@ -16,7 +15,7 @@ import { toast } from "sonner";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { EmptyState } from "@/components/page-header";
+import { SectionEmpty } from "@/components/page-header";
 import { relativeDay } from "@/lib/utils";
 import { inviteFromWaitlistAction, removeWaitlistSignupAction } from "@/server/actions";
 
@@ -43,11 +42,9 @@ export function WaitlistPanel({ entries }: { entries: Entry[] }) {
 
   if (visible.length === 0) {
     return (
-      <EmptyState
-        icon={InboxIcon}
-        title="Nobody is waiting"
-        description="Requests from the sign-up form on your marketing site land here. Nothing has come in yet."
-      />
+      <SectionEmpty>
+        Nobody has asked yet. Requests from the sign-up form on your marketing site land here.
+      </SectionEmpty>
     );
   }
 

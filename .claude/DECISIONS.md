@@ -1985,3 +1985,46 @@ Variables flips the Resend card to "Ready".
 **Applies to:** `src/lib/settings.ts`, `src/lib/mcp/tools.ts` (`admin_list_variables`,
 `admin_set_variable`, `admin_delete_variable`), `src/server/actions.ts`,
 `src/app/(app)/settings/admin/page.tsx`, `src/components/admin/{instance,variables,email,billing}-panel.tsx`.
+
+---
+
+## 2026-08-30 — Four questions, not seven tables
+
+Admin had seven tabs. Two rounds of consolidation later it has four, and the rule that got
+it there is worth keeping: **a tab should be a question, not a table.** Who is here, how is
+this set up, is it working, what changed.
+
+**People, Invites and Waitlist were one funnel split across three clicks.** Somebody asks,
+you invite them, they become a member — and the answer to "has this person got in yet?"
+always lived in whichever tab you were not on. They are three `Section`s on one screen now,
+read downwards in that order, with the counts still in the tab label and a warning dot when
+anyone is waiting. `Section` and `SectionEmpty` are new in `page-header.tsx`: a heading with
+a count, and a one-line empty state, because `EmptyState`'s dashed box is a whole screen's
+worth of nothing and a section only needs a sentence.
+
+**Configuration and Variables became one screen, which is a correction.** The previous entry
+shipped them as two tabs and called the duplication "deliberate and one-directional" — the
+guided forms for email and billing, and a flat table of the same nine rows underneath. That
+was wrong, and it was wrong in a way worth naming: two screens editing the same values pose
+a question ("which one is authoritative?") that has no good answer, and the answer a user
+invents is usually the wrong one. What actually earned its place was not the *forms* but the
+*guidance* — Resend's four setup steps, the webhook URL to paste into Stripe, the test send,
+the resync. So the guidance moved into the section it belongs to and the forms went away.
+Every field on the page is now the same editable row, and one sticky save covers all of
+them, so you can fix a from address and a payment link in the same pass.
+
+**Deleting `saveConfigAction` and `keepExistingSecrets` was the tell that this was right.**
+They existed to serve typed forms. With the forms gone they had no callers, and the rule
+they carried — a blank secret field means keep what is stored — already lives in
+`setVariables`, on the path that survived. A helper that only one dead caller needs is not
+a helper.
+
+**What did not change:** the data layer, the three `admin_*_variable` tools, and the tool
+counts. This was entirely a question of where things sit on a screen, which is the cheapest
+kind of change to get right and the most expensive to leave wrong.
+
+**Applies to:** `src/app/(app)/settings/admin/page.tsx`,
+`src/components/admin/configuration-panel.tsx` (was `variables-panel.tsx`, and absorbs
+`instance-panel.tsx`, `email-panel.tsx` and `billing-panel.tsx`, all deleted),
+`src/components/page-header.tsx`, `src/components/admin/{invites,waitlist}-panel.tsx`,
+`src/server/actions.ts`, `src/lib/settings.ts`.

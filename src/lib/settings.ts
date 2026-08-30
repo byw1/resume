@@ -291,23 +291,6 @@ export async function updateSettings(actor: Actor, patch: Partial<InstanceSettin
   return applyChanges(actor, entries);
 }
 
-/**
- * An empty secret field means "leave it alone", not "clear it".
- *
- * Every form that can touch a secret needs this rule, so it lives here rather
- * than being retyped in each server action. Clearing a secret on purpose is
- * `deleteVariable`.
- */
-export function keepExistingSecrets(patch: Partial<InstanceSettings>) {
-  const next = { ...patch };
-  for (const variable of VARIABLES) {
-    if (variable.kind !== "secret") continue;
-    const value = next[variable.field];
-    if (typeof value === "string" && value.trim() === "") delete next[variable.field];
-  }
-  return next;
-}
-
 export type VariableRow = {
   key: string;
   label: string;
