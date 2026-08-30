@@ -732,6 +732,39 @@ export async function deleteContactAction(id: string, applicationId?: string) {
   if (applicationId) revalidatePath(`/applications/${applicationId}`);
 }
 
+/**
+ * Attach a person already on file to an application, or detach them (null).
+ * Detaching keeps the person — removing someone from an application must never
+ * delete them from the CRM.
+ */
+export async function setContactApplicationAction(id: string, applicationId: string | null) {
+  const user = await requireUser();
+  await pipeline.updateContact(user.id, id, { applicationId });
+  if (applicationId) revalidatePath(`/applications/${applicationId}`);
+  revalidatePath("/applications");
+  revalidatePath("/crm/contacts");
+}
+
+/**
+ * Candidates for "attach someone you already know" on an application: every
+ * contact except those already on it, with enough context to pick the right
+ * Sarah. Someone attached to a different application is offered too — people
+ * move between threads — but says where they currently are.
+ */
+export async function listContactsForAttachAction(applicationId: string) {
+  const user = await requireUser();
+  const contacts = await pipeline.listContacts(user.id);
+  return contacts
+    .filter((contact) => contact.applicationId !== applicationId)
+    .map((contact) => ({
+      id: contact.id,
+      name: contact.name,
+      title: contact.title,
+      company: contact.company?.name ?? "",
+      attachedTo: contact.application ? contact.application.roleTitle : null,
+    }));
+}
+
 export async function snoozeFollowUpAction(id: string, days: number) {
   const user = await requireUser();
   const next = new Date();
@@ -830,9 +863,10 @@ export async function deleteCrmContactAction(id: string) {
  */
 export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
-  const [application, resumeList] = await Promise.all([
+  const [application, resumeList, sourceOptions] = await Promise.all([
     pipeline.getApplication(user.id, id),
     resumes.listResumes(user.id),
+    pipeline.listSourceOptions(user.id),
   ]);
   if (!application) throw new Error("That application is gone.");
   return {
@@ -847,7 +881,7 @@ export async function getApplicationForPanelAction(id: string) {
       location: application.location,
       workMode: application.workMode,
       salaryRange: application.salaryRange,
-      source: application.source,
+      sources: application.sources,
       excitement: application.excitement,
       fit: application.fit,
       notes: application.notes,
@@ -876,6 +910,7 @@ export async function getApplicationForPanelAction(id: string) {
       dueAt: task.dueAt?.toISOString() ?? null,
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
+    sourceOptions,
   };
 }
 

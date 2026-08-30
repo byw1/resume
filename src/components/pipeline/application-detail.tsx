@@ -2,8 +2,10 @@
 
 import Link from "next/link";
 import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
+  Building2Icon,
   ExternalLinkIcon,
   FileTextIcon,
   LoaderCircleIcon,
@@ -12,6 +14,7 @@ import {
   PlusIcon,
   SendIcon,
   Trash2Icon,
+  UserMinusIcon,
   UserPlusIcon,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -36,8 +39,16 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  Command,
+  CommandEmpty,
+  CommandInput,
+  CommandItem,
+  CommandList,
+} from "@/components/ui/command";
 import { SaveIndicator } from "@/components/save-indicator";
 import { RatingInput } from "@/components/pipeline/rating-input";
+import { SourcesInput } from "@/components/pipeline/sources-input";
 import { useAutosave } from "@/hooks/use-autosave";
 import { ACTIVITY_LABEL, STAGES, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import { cn, relativeDay } from "@/lib/utils";
@@ -46,8 +57,9 @@ import {
   createContactAction,
   createTaskAction,
   deleteApplicationAction,
-  deleteContactAction,
+  listContactsForAttachAction,
   moveStageAction,
+  setContactApplicationAction,
   toggleTaskAction,
   updateApplicationAction,
 } from "@/server/actions";
@@ -55,6 +67,8 @@ import {
 type Application = {
   id: string;
   company: string;
+  /** The CRM record behind the name, for the "everything else with them" link. */
+  companyId: string | null;
   roleTitle: string;
   stage: Stage;
   jobUrl: string;
@@ -62,7 +76,7 @@ type Application = {
   location: string;
   workMode: string;
   salaryRange: string;
-  source: string;
+  sources: string[];
   excitement: number;
   fit: number;
   notes: string;
@@ -84,6 +98,7 @@ type Task = { id: string; title: string; done: boolean; dueAt: string | null };
 
 const ACTIVITY_OPTIONS: ActivityType[] = [
   "NOTE",
+  "OUTREACH",
   "EMAIL_SENT",
   "EMAIL_RECEIVED",
   "CALL",
@@ -98,12 +113,15 @@ export function ApplicationDetail({
   contacts,
   tasks,
   resumes,
+  sourceOptions,
 }: {
   application: Application;
   activities: Activity[];
   contacts: Contact[];
   tasks: Task[];
   resumes: { id: string; name: string }[];
+  /** Choices for the sources picker: their own channels, then the starters. */
+  sourceOptions: string[];
 }) {
   const [values, setValues] = useState({
     company: application.company,
@@ -113,7 +131,7 @@ export function ApplicationDetail({
     location: application.location,
     workMode: application.workMode,
     salaryRange: application.salaryRange,
-    source: application.source,
+    sources: application.sources,
     excitement: application.excitement,
     fit: application.fit,
     notes: application.notes,
@@ -159,6 +177,15 @@ export function ApplicationDetail({
             onChange={(event) => set({ roleTitle: event.target.value })}
             className="h-auto border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
           />
+          {application.companyId && (
+            <Link
+              href={`/crm/companies/${application.companyId}`}
+              className="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1.5 text-[12px] transition-colors"
+            >
+              <Building2Icon className="size-3" />
+              Everything with {values.company || "this company"} — notes, people, other roles
+            </Link>
+          )}
         </div>
 
         <div className="flex items-center gap-2">
@@ -332,10 +359,11 @@ export function ApplicationDetail({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Source</Label>
-                <Input
-                  value={values.source}
-                  onChange={(event) => set({ source: event.target.value })}
+                <Label>Sources</Label>
+                <SourcesInput
+                  value={values.sources}
+                  options={sourceOptions}
+                  onChange={(sources) => set({ sources })}
                 />
               </div>
 
@@ -542,6 +570,22 @@ function TasksCard({ applicationId, tasks }: { applicationId: string; tasks: Tas
   );
 }
 
+type AttachCandidate = {
+  id: string;
+  name: string;
+  title: string;
+  company: string;
+  attachedTo: string | null;
+};
+
+/**
+ * The people on this application — who you messaged, who referred you, who is
+ * interviewing you. "Add" offers everyone already in the CRM before the blank
+ * form, because half the time the person is already on file from another
+ * thread. Removing someone only DETACHES them: they stay in the CRM with their
+ * whole history, because taking a person off an application must never delete
+ * them from your life.
+ */
 function ContactsCard({
   applicationId,
   company,
@@ -551,10 +595,58 @@ function ContactsCard({
   company: string;
   contacts: Contact[];
 }) {
+  const router = useRouter();
   const [pending, startTransition] = useTransition();
   const [open, setOpen] = useState(false);
   const [removed, setRemoved] = useState<Set<string>>(new Set());
+  // People attached this session, so they appear without a round-trip.
+  const [added, setAdded] = useState<Contact[]>([]);
+  const [candidates, setCandidates] = useState<AttachCandidate[] | null>(null);
   const [form, setForm] = useState({ name: "", title: "", email: "", relationship: "" });
+
+  const toggleOpen = () => {
+    const next = !open;
+    setOpen(next);
+    if (next && candidates === null) {
+      listContactsForAttachAction(applicationId)
+        .then(setCandidates)
+        .catch(() => setCandidates([]));
+    }
+  };
+
+  const attach = (candidate: AttachCandidate) => {
+    setCandidates((prev) => (prev ?? []).filter((item) => item.id !== candidate.id));
+    setAdded((prev) => [
+      ...prev,
+      {
+        id: candidate.id,
+        name: candidate.name,
+        title: candidate.title,
+        email: "",
+        linkedin: "",
+        relationship: "",
+      },
+    ]);
+    setRemoved((prev) => {
+      const copy = new Set(prev);
+      copy.delete(candidate.id);
+      return copy;
+    });
+    startTransition(async () => {
+      await setContactApplicationAction(candidate.id, applicationId);
+      toast.success(`${candidate.name} attached`);
+      router.refresh();
+    });
+  };
+
+  const detach = (contact: Contact) => {
+    setRemoved((prev) => new Set(prev).add(contact.id));
+    startTransition(async () => {
+      await setContactApplicationAction(contact.id, null);
+      toast.success(`${contact.name} removed — still in your contacts`);
+      router.refresh();
+    });
+  };
 
   const add = () => {
     if (!form.name.trim()) return;
@@ -563,14 +655,23 @@ function ContactsCard({
       setForm({ name: "", title: "", email: "", relationship: "" });
       setOpen(false);
       toast.success("Contact saved");
+      router.refresh();
     });
   };
+
+  // The server copy wins over the optimistic stub: after router.refresh() the
+  // contacts prop carries the full record (email, relationship), and keeping
+  // the stub would hide the mailto button on the person just attached.
+  const visible = [
+    ...contacts,
+    ...added.filter((item) => !contacts.some((contact) => contact.id === item.id)),
+  ].filter((contact) => !removed.has(contact.id));
 
   return (
     <Card>
       <CardHeader className="flex-row items-center justify-between">
         <CardTitle className="text-[15px]">People</CardTitle>
-        <Button variant="ghost" size="xs" onClick={() => setOpen((value) => !value)}>
+        <Button variant="ghost" size="xs" onClick={toggleOpen}>
           <UserPlusIcon /> Add
         </Button>
       </CardHeader>
@@ -581,72 +682,117 @@ function ContactsCard({
               initial={{ height: 0, opacity: 0 }}
               animate={{ height: "auto", opacity: 1 }}
               exit={{ height: 0, opacity: 0 }}
-              className="space-y-2 overflow-hidden"
+              className="space-y-3 overflow-hidden"
             >
-              <Input
-                value={form.name}
-                onChange={(event) => setForm({ ...form, name: event.target.value })}
-                placeholder="Name"
-              />
-              <div className="grid grid-cols-2 gap-2">
+              {candidates && candidates.length > 0 && (
+                <div className="space-y-1.5">
+                  <p className="text-faint text-[11px] font-medium tracking-[0.08em] uppercase">
+                    Already in your contacts
+                  </p>
+                  <Command loop className="bg-inset rounded-lg">
+                    {candidates.length > 4 && (
+                      <CommandInput placeholder="Find someone…" className="h-8" />
+                    )}
+                    <CommandList className="max-h-44">
+                      <CommandEmpty>No one matches.</CommandEmpty>
+                      {candidates.map((candidate) => (
+                        <CommandItem
+                          key={candidate.id}
+                          // The id keeps two people with the same name distinct
+                          // for cmdk; it never renders.
+                          value={`${candidate.name} ${candidate.company} ${candidate.id}`}
+                          onSelect={() => attach(candidate)}
+                          className="px-2 py-1.5"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <div className="truncate text-[13px]">{candidate.name}</div>
+                            <div className="text-faint truncate text-[11px]">
+                              {[candidate.title, candidate.company].filter(Boolean).join(" · ") ||
+                                "No details on file"}
+                              {candidate.attachedTo ? ` · currently on ${candidate.attachedTo}` : ""}
+                            </div>
+                          </div>
+                          <PlusIcon className="size-3.5 shrink-0" />
+                        </CommandItem>
+                      ))}
+                    </CommandList>
+                  </Command>
+                  <p className="text-faint text-[11px] font-medium tracking-[0.08em] uppercase">
+                    Or someone new
+                  </p>
+                </div>
+              )}
+              <div className="space-y-2">
                 <Input
-                  value={form.title}
-                  onChange={(event) => setForm({ ...form, title: event.target.value })}
-                  placeholder="Title"
+                  value={form.name}
+                  onChange={(event) => setForm({ ...form, name: event.target.value })}
+                  placeholder="Name"
                 />
+                <div className="grid grid-cols-2 gap-2">
+                  <Input
+                    value={form.title}
+                    onChange={(event) => setForm({ ...form, title: event.target.value })}
+                    placeholder="Title"
+                  />
+                  <Input
+                    value={form.relationship}
+                    onChange={(event) => setForm({ ...form, relationship: event.target.value })}
+                    placeholder="Recruiter"
+                  />
+                </div>
                 <Input
-                  value={form.relationship}
-                  onChange={(event) => setForm({ ...form, relationship: event.target.value })}
-                  placeholder="Recruiter"
+                  value={form.email}
+                  onChange={(event) => setForm({ ...form, email: event.target.value })}
+                  onKeyDown={(event) => event.key === "Enter" && add()}
+                  placeholder="Email"
                 />
+                <Button size="sm" onClick={add} disabled={pending || !form.name.trim()}>
+                  Save contact
+                </Button>
               </div>
-              <Input
-                value={form.email}
-                onChange={(event) => setForm({ ...form, email: event.target.value })}
-                onKeyDown={(event) => event.key === "Enter" && add()}
-                placeholder="Email"
-              />
-              <Button size="sm" onClick={add} disabled={pending || !form.name.trim()}>
-                Save contact
-              </Button>
             </motion.div>
           )}
         </AnimatePresence>
 
-        {contacts.filter((contact) => !removed.has(contact.id)).length === 0 ? (
-          <p className="text-muted-foreground py-3 text-center text-sm">No one yet.</p>
+        {visible.length === 0 ? (
+          <p className="text-muted-foreground py-3 text-center text-sm">
+            No one yet. The recruiter you replied to, the friend who referred you, the hiring
+            manager you messaged — they all belong here.
+          </p>
         ) : (
           <ul className="space-y-2">
-            {contacts
-              .filter((contact) => !removed.has(contact.id))
-              .map((contact) => (
-                <li key={contact.id} className="group flex items-start gap-2">
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13px] font-medium">{contact.name}</div>
-                    <div className="text-muted-foreground truncate text-xs">
-                      {[contact.title, contact.relationship].filter(Boolean).join(" · ")}
-                    </div>
-                  </div>
-                  {contact.email && (
-                    <Button asChild variant="ghost" size="icon-sm">
-                      <a href={`mailto:${contact.email}`} aria-label={`Email ${contact.name}`}>
-                        <MailIcon />
-                      </a>
-                    </Button>
-                  )}
-                  <Button
-                    variant="ghost"
-                    size="icon-sm"
-                    className="text-muted-foreground hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100"
-                    onClick={() => {
-                      setRemoved((prev) => new Set(prev).add(contact.id));
-                      void deleteContactAction(contact.id, applicationId);
-                    }}
+            {visible.map((contact) => (
+              <li key={contact.id} className="group flex items-start gap-2">
+                <div className="min-w-0 flex-1">
+                  <Link
+                    href={`/crm/contacts/${contact.id}`}
+                    className="text-[13px] font-medium hover:underline"
                   >
-                    <Trash2Icon />
+                    {contact.name}
+                  </Link>
+                  <div className="text-muted-foreground truncate text-xs">
+                    {[contact.title, contact.relationship].filter(Boolean).join(" · ")}
+                  </div>
+                </div>
+                {contact.email && (
+                  <Button asChild variant="ghost" size="icon-sm">
+                    <a href={`mailto:${contact.email}`} aria-label={`Email ${contact.name}`}>
+                      <MailIcon />
+                    </a>
                   </Button>
-                </li>
-              ))}
+                )}
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={`Remove ${contact.name} from this application`}
+                  title="Remove from this application (stays in your contacts)"
+                  className="text-muted-foreground hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100"
+                  onClick={() => detach(contact)}
+                >
+                  <UserMinusIcon />
+                </Button>
+              </li>
+            ))}
           </ul>
         )}
       </CardContent>

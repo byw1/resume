@@ -28,8 +28,16 @@ import { BOARD_STAGES, STAGE_LABEL } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
 import { createApplicationAction, parsePostingAction } from "@/server/actions";
 import { RatingInput } from "@/components/pipeline/rating-input";
+import { SourcesInput } from "@/components/pipeline/sources-input";
 
-export function NewApplicationDialog({ resumes }: { resumes: { id: string; name: string }[] }) {
+export function NewApplicationDialog({
+  resumes,
+  sourceOptions,
+}: {
+  resumes: { id: string; name: string }[];
+  /** Choices for the sources picker: their own channels, then the starters. */
+  sourceOptions: string[];
+}) {
   const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -42,7 +50,7 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
     jobUrl: "",
     location: "",
     salaryRange: "",
-    source: "",
+    sources: [] as string[],
     excitement: 3,
     jobDescription: "",
     resumeId: "",
@@ -76,7 +84,8 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
         roleTitle: current.roleTitle || parsed.roleTitle,
         location: current.location || parsed.location,
         salaryRange: current.salaryRange || parsed.salaryRange,
-        source: current.source || parsed.source,
+        sources:
+          current.sources.length > 0 || !parsed.source ? current.sources : [parsed.source],
         jobDescription: current.jobDescription || parsed.jobDescription,
       }));
       toast.success(
@@ -114,7 +123,8 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
         <DialogHeader>
           <DialogTitle>Track a job</DialogTitle>
           <DialogDescription>
-            Paste the posting in and Claude can tailor a resume against it later.
+            Paste the posting and Claude can tailor a resume against it later. No link is fine
+            too — a role you&apos;re chasing through a DM, with no listing, still belongs here.
           </DialogDescription>
         </DialogHeader>
 
@@ -212,11 +222,11 @@ export function NewApplicationDialog({ resumes }: { resumes: { id: string; name:
           </div>
 
           <div className="space-y-1.5">
-            <Label>Source</Label>
-            <Input
-              value={form.source}
-              onChange={(event) => setForm({ ...form, source: event.target.value })}
-              placeholder="LinkedIn, referral from Dana…"
+            <Label>Sources</Label>
+            <SourcesInput
+              value={form.sources}
+              options={sourceOptions}
+              onChange={(sources) => setForm({ ...form, sources })}
             />
           </div>
 

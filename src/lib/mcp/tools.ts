@@ -88,6 +88,22 @@ function noteKind(args: Json): NoteKind | undefined {
   return value === "GUARDRAIL" || value === "NOTE" ? value : undefined;
 }
 
+/**
+ * An enum argument that fails loudly. The transport does not validate schemas,
+ * and a filter the data layer doesn't recognise would otherwise return the
+ * UNFILTERED list — an assistant asking for "companies I never applied to"
+ * must not be handed all of them as if that were the answer.
+ */
+function enumArg<T extends string>(args: Json, key: string, allowed: readonly T[]): T | undefined {
+  const value = s(args, key);
+  if (value === undefined) return undefined;
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  throw new Error(`Unknown ${key} "${value}". Use one of: ${allowed.join(", ")}.`);
+}
+
+const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"] as const;
+const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"] as const;
+
 /** Strip undefined keys so Prisma doesn't try to write them. */
 function defined<T extends object>(input: T): Partial<T> {
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Partial<T>;
@@ -106,6 +122,7 @@ const ACTIVITY_VALUES: ActivityType[] = [
   "OFFER",
   "REJECTION",
   "REFERRAL",
+  "OUTREACH",
 ];
 
 export const tools: McpTool[] = [
@@ -1013,10 +1030,18 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => pipeline.captureJobPosting(ctx.userId, required(args, "url")),
   },
   {
+    name: "list_application_sources",
+    title: "List the source channels on file",
+    description:
+      "The source labels this person already uses ('LinkedIn', 'Referral from Dana', …), most-used first, followed by the standard starters. Call it before writing sources on create_application or update_application so you reuse their exact spellings instead of minting near-duplicates — it covers every application including closed ones, which list_applications hides by default. Read-only.",
+    inputSchema: object({}),
+    handler: async (_args, ctx) => pipeline.listSourceOptions(ctx.userId),
+  },
+  {
     name: "create_application",
     title: "Create an application",
     description:
-      "Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist. Pass companyWebsite when you know it — it is what makes the company's logo appear in the pipeline, and it costs nothing to include.",
+      "Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist. Pass companyWebsite when you know it — it is what makes the company's logo appear in the pipeline, and it costs nothing to include. A job link and description are OPTIONAL: an application that started as a LinkedIn message with no listing is still an application — track it with just company and roleTitle, put 'Cold outreach' in sources, and attach the person messaged with create_contact.",
     inputSchema: object(
       {
         company: str("Company name"),
@@ -1028,7 +1053,10 @@ export const tools: McpTool[] = [
         location: str("Job location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Advertised or expected compensation"),
-        source: str("Where you found it, e.g. 'LinkedIn', 'referral from Dana'"),
+        sources: strArray(
+          "Where it came from, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Free strings; call list_application_sources first and reuse the person's existing spellings where they fit.",
+        ),
+        source: str("Legacy single-source spelling. Prefer sources; ignored when sources is passed."),
         excitement: num("1-5 how much they want this"),
         fit: num("1-5 how strong a fit they are"),
         notes: str("Any notes"),
@@ -1050,6 +1078,7 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
+          sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
           fit: n(args, "fit"),
@@ -1064,7 +1093,7 @@ export const tools: McpTool[] = [
     name: "update_application",
     title: "Update an application",
     description:
-      "Update fields on an application. Changing `stage` here also writes a timeline entry and resets the follow-up date.",
+      "Update fields on an application. Changing `stage` here also writes a timeline entry and resets the follow-up date. `sources` REPLACES the whole list — read the current one from get_application, add or remove, and pass the full list back.",
     inputSchema: object(
       {
         id: str("Application id"),
@@ -1077,7 +1106,10 @@ export const tools: McpTool[] = [
         location: str("Location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Compensation"),
-        source: str("Source"),
+        sources: strArray("The full list of where it came from — replaces what is there"),
+        source: str(
+          "Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed.",
+        ),
         excitement: num("1-5"),
         fit: num("1-5"),
         notes: str("Notes"),
@@ -1099,6 +1131,7 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
+          sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
           fit: n(args, "fit"),
@@ -1158,7 +1191,7 @@ export const tools: McpTool[] = [
     name: "log_activity",
     title: "Log activity on an application or a contact",
     description:
-      "Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered.",
+      "Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered. Type OUTREACH is for messages the user sent first — a LinkedIn DM to a hiring manager, a cold email — which is how many applications actually start.",
     inputSchema: object(
       {
         applicationId: str("Application id — for events on an application"),
@@ -1329,9 +1362,20 @@ export const tools: McpTool[] = [
     name: "list_companies",
     title: "List companies",
     description:
-      "Every company on file, with how many applications and contacts each one has. Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes.",
-    inputSchema: object({ search: str("Match name, industry, location or notes") }),
-    handler: async (args, ctx) => pipeline.listCompanies(ctx.userId, { search: s(args, "search") }),
+      "Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.",
+    inputSchema: object({
+      search: str("Match name, industry, location or notes"),
+      filter: {
+        type: "string",
+        enum: [...COMPANY_FILTERS],
+        description: "Cut the list: active | applied | never-applied | with-contacts",
+      },
+    }),
+    handler: async (args, ctx) =>
+      pipeline.listCompanies(ctx.userId, {
+        search: s(args, "search"),
+        filter: enumArg(args, "filter", COMPANY_FILTERS),
+      }),
   },
   {
     name: "get_company",
@@ -1418,11 +1462,16 @@ export const tools: McpTool[] = [
     name: "list_contacts",
     title: "List contacts",
     description:
-      "Recruiters, hiring managers and referrals. Narrow by application, by company, or by a search across name, title, email, notes and employer. Returns each person with their company and the application they are attached to.",
+      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = no employer on file. Returns each person with their company and the application they are attached to.",
     inputSchema: object({
       applicationId: str("Limit to one application"),
       companyId: str("Limit to people at one company"),
       search: str("Match name, title, email, notes or company"),
+      filter: {
+        type: "string",
+        enum: [...CONTACT_FILTERS],
+        description: "Cut the list: ping-due | with-application | no-company",
+      },
     }),
     handler: async (args, ctx) =>
       pipeline.listContacts(ctx.userId, {
@@ -1430,6 +1479,7 @@ export const tools: McpTool[] = [
           applicationId: s(args, "applicationId"),
           companyId: s(args, "companyId"),
           search: s(args, "search"),
+          filter: enumArg(args, "filter", CONTACT_FILTERS),
         }),
       }),
   },

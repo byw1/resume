@@ -517,6 +517,10 @@ enum ActivityType {
   OFFER
   REJECTION
   REFERRAL
+  /// A message you sent first — a LinkedIn DM, a cold email to a hiring
+  /// manager. Half of some searches happen here, before (or instead of) a
+  /// formal application, and NOTE was hiding that from the record.
+  OUTREACH
 }
 
 model Company {
@@ -553,7 +557,11 @@ model Application {
   location       String    @default("")
   workMode       String    @default("")
   salaryRange    String    @default("")
-  source         String    @default("")
+  /// Where this one came from — and it is a list because real applications
+  /// arrive from more than one direction at once: a job board posting AND a
+  /// referral AND a DM to the hiring manager. Free strings, not an enum, so
+  /// people can name their own channels.
+  sources        String[]  @default([])
   /// 1-5 how much you want this
   excitement     Int       @default(3)
   /// 1-5 how strong a fit you are
