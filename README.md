@@ -303,10 +303,19 @@ tempted by a permission they don't have.
 Every client is instructed never to invent experience, employers, dates, or metrics. If there's
 no evidence in your brain for something a job asks for, it says so instead of making it up.
 
+Every tool also declares what it does to your data — whether it only reads, whether it can
+overwrite or delete, whether it reaches anything outside this instance. Claude sorts its
+approval screen by that, so you can hand over the whole read side of the server at once and
+still be asked before something gets destroyed. And when a tool's entire job is to give you a
+link — a published resume, a rendered PDF, a shared pipeline — it comes back as a link you can
+click, not a field buried in a blob of JSON.
+
 The **Docs** page inside the app — it's in the profile menu, next to Settings — lists every tool
 and workflow, generated from the server itself rather than written out, so it can't drift. It
 also carries three Claude Skills you can install, which teach an assistant the rules of this
-place before you have to.
+place before you have to. Each comes two ways: the raw `SKILL.md` to drop in
+`~/.claude/skills/`, and a zip for the upload box in Claude's apps, which wants a folder rather
+than a loose file.
 
 ### The four areas
 

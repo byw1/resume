@@ -616,6 +616,39 @@ export async function getBrainSnapshot(userId: string) {
   return { profile, roles, highlights, education, projects, skillGroups, certifications, notes };
 }
 
+/**
+ * Whether there is anything here yet.
+ *
+ * The briefing every MCP client receives branches on this, so it runs on every
+ * `initialize` — which is why it asks for one id per table rather than counting,
+ * and why it is a single round trip. A workspace with a bare Profile row and
+ * nothing else still counts as empty: `bootstrap` creates that row, so its
+ * existence says only that the account was provisioned.
+ *
+ * Deliberately brain-only. Someone can have applications and no brain — that is
+ * exactly the person this predicate exists to catch, because they have a
+ * pipeline and nothing to build a resume out of.
+ */
+export async function brainIsEmpty(userId: string) {
+  const id = { select: { id: true } };
+  const where = { where: { userId } };
+  const [profile, role, highlight, note, education, project, skillGroup, certification] =
+    await Promise.all([
+      db.profile.findFirst({ where: { userId }, select: { fullName: true, headline: true, summary: true, brainDump: true } }),
+      db.role.findFirst({ ...where, ...id }),
+      db.highlight.findFirst({ ...where, ...id }),
+      db.note.findFirst({ ...where, ...id }),
+      db.education.findFirst({ ...where, ...id }),
+      db.project.findFirst({ ...where, ...id }),
+      db.skillGroup.findFirst({ ...where, ...id }),
+      db.certification.findFirst({ ...where, ...id }),
+    ]);
+
+  const profileIsBlank = !profile || ![profile.fullName, profile.headline, profile.summary, profile.brainDump].some((field) => field?.trim());
+
+  return profileIsBlank && !role && !highlight && !note && !education && !project && !skillGroup && !certification;
+}
+
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }

@@ -1923,3 +1923,74 @@ map and the "five workflows" comment in tools.ts (there are eight).
 
 **Applies to:** `AGENTS.md`, `CLAUDE.md`, `.claude/skills/mcp-tool/SKILL.md`,
 `src/lib/mcp/tools.ts` (comment only).
+
+---
+
+## 2026-08-30 — Say what a tool does before it does it
+
+Four changes to the MCP surface, all pointed at the same thing: a client — Claude in
+particular — could not tell this server's tools apart. Everything looked equally dangerous,
+links came back as fields inside a blob, and a brand new account got a confident tour of four
+empty areas.
+
+**Annotations are a required field on `McpTool`, not an optional one.** That is the entire
+enforcement mechanism. Two of MCP's four hints — `destructiveHint` and `openWorldHint` —
+default to the *dangerous* value when omitted, so a tool that forgets them is not neutral,
+it is wrong in the direction that matters. Making the field required meant the compiler
+listed all ninety tools the moment the type changed, which is the same argument as `userId`
+first in `src/lib/data/` and `actor` first in `updateSettings`. All four hints are sent on
+every tool even where the value matches the spec default, because a client cannot tell
+"we decided this" from "they forgot".
+
+**The rule that decided thirty-six of them: replacing is destructive, appending is not.**
+`update_role` overwrites and is destructive; `append_role_brain_dump` — which exists
+*because* `update_role` was eating people's notes — is not. That line already existed in
+CLAUDE.md as advice to whoever was writing a tool description; it is now a machine-readable
+property of every tool.
+
+**`search_brain`, `get_brain_snapshot` and `get_profile` are NOT read-only, and that was the
+find.** `getProfile` lazily creates the Profile row when there isn't one, so the three tools
+that call it write to the database on first use. Every instinct says a search is a read.
+Marking it `readOnlyHint: true` would have told a user it was safe to allow unreviewed, on
+the strength of a name. Found by following the call chain rather than by reading the tool
+description — which is the only way this class of mistake gets found, and the reason the
+classification was checked against the handler rather than accepted from the tool's own
+prose. `brainIsEmpty` deliberately uses `db.profile.findFirst` rather than `getProfile` for
+exactly this reason: a briefing must not create a row as a side effect of describing nothing.
+
+**Links ride alongside the JSON rather than replacing it.** `withLinks` / `splitLinks` in
+`tools.ts`, unwrapped in exactly one place in `handler.ts`. `export_resume_pdf`,
+`publish_resume`, `share_pipeline` and `get_pipeline_share` now return a `resource_link`
+block as well as the object they always returned, so a client that renders links shows
+something clickable and one that doesn't loses nothing. The marker is a Symbol so that a
+result which somehow escapes unwrapping degrades to nested JSON rather than to garbage.
+`share_pipeline` was also handing back a bare slug and telling the caller to assemble the URL
+themselves, while `publish_resume` two hundred lines away returned `publicUrl` — the same job
+answered two different ways. It returns `publicUrl` now.
+
+**An empty workspace gets a different briefing, because the old one was an invitation to
+invent.** The four-area tour describes a brain, resumes, a pipeline and a CRM. To a new
+account all four are empty, so the assistant called `search_brain`, got nothing, and had one
+remaining way to satisfy the request in front of it. `EMPTY_WORKSPACE` names the tools that
+get material *in* and says to take the history in whatever shape the person already has it.
+It does not promise an import tool, because there isn't one — that is still the adoption
+blocker, and this is the seam it will land in.
+
+**Skills ship as a zip as well as a file, and it did not cost a dependency.** Claude's apps
+install a skill by taking a zip of its folder, so handing over a bare `SKILL.md` left people
+to make a directory and compress it themselves. `src/lib/zip.ts` is two headers and a
+trailer, deflate via the built-in `zlib`, with a fixed 1980 timestamp so the same skill
+always produces byte-identical bytes — a download that changes every time you fetch it is a
+download nobody can check. One route serves both shapes: `/docs/skills/hired` is the markdown,
+`/docs/skills/hired.zip` is the folder.
+
+**A bug worth recording, because it only appears at runtime.** The external-attributes field
+is `0o100644 << 16`, which in JavaScript overflows into a negative signed 32-bit integer and
+`Buffer.writeUInt32LE` rejects outright. `>>> 0` fixes it. Found by compiling the one file
+standalone and checking the output with `unzip -t` and Python's `zipfile` — round-trips
+byte-for-byte, valid archive, deterministic across runs — not by reading the code, where it
+looks entirely correct.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `src/lib/mcp/handler.ts`, `src/lib/data/brain.ts`
+(`brainIsEmpty`), `src/lib/zip.ts`, `src/app/(app)/docs/skills/[slug]/route.ts`,
+`src/components/docs/copy-block.tsx`, `src/app/(app)/docs/page.tsx`, `README.md`.
