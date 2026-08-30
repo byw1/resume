@@ -1,0 +1,71 @@
+---
+title: "Self-host with Docker"
+sidebarTitle: "Docker"
+description: "One command. It pulls the published image, starts a Postgres alongside it, applies migrations and prints your password."
+icon: "cube"
+---
+
+On any machine with Docker installed:
+
+```bash
+curl -fsSLO https://raw.githubusercontent.com/shifulaboratories/Hired/main/docker-compose.yml
+docker compose up -d
+docker compose logs app   # your sign-in details are printed here, once
+```
+
+That is the whole procedure. It starts the app and a Postgres it talks to over a private
+network, applies migrations, creates your owner account and prints the password.
+
+Sign in at `http://localhost:3000`.
+
+<Check>
+  **PDF export works out of the box here.** The image carries the Chromium and the
+  Times-metric fonts the renderer needs, which is the one thing the Railway path cannot
+  give you.
+</Check>
+
+## Optional variables
+
+Every one is optional. Put them in a `.env` file next to `docker-compose.yml`:
+
+| Variable | What it does |
+| --- | --- |
+| `ADMIN_EMAIL` | Owner email instead of `owner@localhost`. |
+| `APP_PASSWORD` | Owner password instead of a generated one. |
+| `PUBLIC_URL` | The sign-in address printed in the startup banner beside your owner password. Invite links come from **Public URL** in **Admin → Configuration**, not from this. |
+| `POSTGRES_PASSWORD` | Database password. The database is not reachable from outside the compose network, which is why a default is acceptable — set one anyway if your host is shared. |
+| `PORT` | Host port to listen on. The container stays on 3000. |
+
+## The image
+
+Built from the repository on every push and published at
+`ghcr.io/shifulaboratories/hired`. Building it yourself is `docker compose build`.
+
+## Upgrading
+
+```bash
+docker compose pull && docker compose up -d
+```
+
+Your data lives in a named volume and survives upgrades and restarts. Migrations apply
+themselves on the way up.
+
+## Backing up
+
+```bash
+docker compose exec db pg_dump -U hired hired > backup.sql
+```
+
+That file is the whole instance: every account, every brain, every resume, every
+application. Treat it accordingly.
+
+## Putting it behind a domain
+
+Point a reverse proxy at the app's port and terminate TLS there. Then set **Public URL**
+in **Admin → Configuration** to the address people will actually use: invitation links and the
+Stripe webhook URL are built from it, and it takes effect on the next request with nothing
+to restart.
+
+Setting the `PUBLIC_URL` environment variable as well is worth it only for the startup
+banner, which is where a fresh owner password gets printed. Left unset, the app falls back
+to the address each request came in on — right until something sits in front of it.

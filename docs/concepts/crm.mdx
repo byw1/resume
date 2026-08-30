@@ -1,0 +1,145 @@
+---
+title: "Companies and contacts"
+description: "The people and organisations behind the applications, as records in their own right — with research notes that survive the search and timelines of their own."
+icon: "building"
+---
+
+The CRM is the half of the product that outlives one job hunt. Applications close;
+what you learned about a company and who you know there does not.
+
+## Companies
+
+A company record holds `name`, `website`, `industry`, `size`, `location` and `notes` —
+plus, whenever you open one, every application you have there and every contact who works
+there.
+
+You rarely create one on purpose. Applications create their company automatically, and
+`capture_job_posting` fills in the website too when the posting names it. `create_company`
+is for the other case: somewhere you are researching *before* there is an application.
+Names are unique per person, so creating one that already exists is an error rather than a
+silent merge.
+
+### The website field earns its keep
+
+`website` is the company's **own** domain — `stripe.com`, not a Greenhouse, Lever or Ashby
+link, which is the job board rather than the employer.
+
+Nothing depends on it except one thing, and that one thing is why an assistant is told to
+set it whenever it learns it: it is what puts the company's logo on your pipeline. A board
+with logos reads at a glance; a board without them is a wall of text.
+
+<Note>
+  Logos are fetched by each person's browser from `twenty-icons.com`, which means that
+  service can see which companies are in a pipeline. An admin can turn the whole thing off
+  instance-wide — everyone gets initials on a coloured tile instead, and nothing is stored
+  or deleted either way. See [configuration](/self-hosting/configuration).
+</Note>
+
+### Research notes
+
+The `notes` field is where the useful part accumulates. What is worth recording is
+whatever you will want the night before an interview:
+
+- What the company actually does, and how it makes money
+- The interview loop, if you know it
+- Who you know there
+- Why you do or do not want this — the honest version
+
+<Warning>
+  `update_company` **replaces** the `notes` field rather than appending to it. Call
+  `get_company` first, combine what is there with what is new, and write the whole thing
+  back. Losing research by writing over it is the worst outcome available in this part of
+  the product, which is why the [`research_company`](/workflows#research-a-company-into-the-crm) workflow
+  spells the read-first step out.
+</Warning>
+
+Deleting a company refuses while applications still point at it — move or delete those
+first, so tidying up can never take an application with it. Contacts survive and simply
+lose their employer.
+
+### Filters
+
+`list_companies` takes a `search` across name, industry, location and notes, and a
+`filter`:
+
+| Filter | Shows |
+| --- | --- |
+| `active` | Something still in flight there. |
+| `applied` | You have ever applied. |
+| `never-applied` | Researched, nothing sent. |
+| `with-contacts` | You know someone there. |
+
+Every row also carries `lastAppliedAt` and `openApplications`, so "who have I applied to,
+and what is still live" is one call.
+
+## Contacts
+
+Recruiters, hiring managers, referrals, the friend who works there. A contact holds
+`name`, `title`, `email`, `phone`, `relationship`, `notes`, an employer, optionally the
+application they belong to, and every way you can reach them.
+
+Attaching and detaching are the same field: pass `company` or `applicationId` to attach —
+the company is created if it does not exist — or an empty string to detach. Removing
+someone from an application never deletes the person.
+
+### Where to find them
+
+`linkedin` is the one everybody has, and the wrong assumption for everybody else — the
+founder who only answers on X, the designer whose portfolio is the point. So a contact
+carries `linkedin`, `twitter`, `instagram`, `github` and `website` as named fields, plus
+`otherLinks` for the tail that has no end: Bluesky, Mastodon, a Substack.
+
+<Note>
+  `otherLinks` is a list and **replaces** what is there, like every other array in the
+  API. Read the current one with `get_contact` before writing it back.
+</Note>
+
+The fields take a URL or a bare handle — `@bywilliaml` under `twitter` becomes
+`https://x.com/bywilliaml`. The column is `twitter` and the label in the app is X:
+renaming a column to follow a rebrand is a migration that buys nothing.
+
+### People have timelines too
+
+`log_activity` takes **either** an `applicationId` or a `contactId`, never both. With a
+contact id it becomes that person's history: their page shows it and their "last touched"
+date moves. So when you mention talking to someone — a coffee, a call, a reply — that is
+where it gets remembered, and "when did I last talk to them?" is answered from
+`get_contact`.
+
+### Pings
+
+`nextFollowUpAt` on a contact is where "ping Sarah in two weeks" actually lives. Due pings
+surface in `list_follow_ups` alongside due applications, and on the dashboard. The
+`ping-due` filter on `list_contacts` is the same question asked directly.
+
+Two other filters: `with-application` and `no-company`.
+
+## In the app
+
+**CRM** splits into Companies and Contacts, each a filterable list, and both are named in
+the sidebar so neither needs finding. A company page holds its details, its research notes,
+every contact there, and its roles as job listings — each one a click from the posting it
+came from. A contact page holds their details, their links and their timeline.
+
+Wherever a company is named it is drawn as a chip carrying its own favicon, and clicking it
+opens that company. On a contact, the employer is that chip rather than a text field: the
+field only appears when there is nothing linked yet, because editing it renames the company
+for everyone else attached to it.
+
+Contacts attach to applications straight from the CRM rather than being retyped.
+
+## The two workflows that live here
+
+<CardGroup cols={2}>
+  <Card title="research_company" icon="magnifying-glass" href="/workflows#research-a-company-into-the-crm">
+    Gathers what is already on file, says what is missing, then writes it back combined —
+    without flattening the notes that were already there.
+  </Card>
+  <Card title="prep_for_interview" icon="user-tie" href="/workflows#prepare-for-an-interview">
+    Pulls the posting, the whole timeline, the company research, the people you are
+    meeting and your own evidence into one prep sheet.
+  </Card>
+</CardGroup>
+
+Both are in every client as ordinary tools as well as prompts — see
+[the workflows](/workflows).

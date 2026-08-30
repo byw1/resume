@@ -1,11 +1,13 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import {
+  ArrowUpRightIcon,
   BookOpenIcon,
   BrainIcon,
   Building2Icon,
   FileTextIcon,
   KanbanIcon,
+  LibraryBigIcon,
   PlugZapIcon,
   ShieldIcon,
   SparklesIcon,
@@ -20,6 +22,7 @@ import { listSkills } from "@/lib/skills";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { cn } from "@/lib/utils";
+import { MANUAL_URL } from "@/lib/links";
 
 export const dynamic = "force-dynamic";
 
@@ -119,11 +122,21 @@ export default async function DocsPage() {
         title="How to drive this thing"
         description="Hired is built to be talked to. This page is what your assistant can do once it is connected, the workflows that come with it, and the skills worth installing so it knows how to behave before you have to tell it."
         actions={
-          <Button asChild variant="default">
-            <Link href="/settings">
-              <PlugZapIcon /> Connect an assistant
-            </Link>
-          </Button>
+          <div className="flex flex-wrap items-center gap-2">
+            {/* This page is generated from this instance. The manual is the
+                written guide to the product, and lives at one address for
+                every deployment of it. */}
+            <Button asChild variant="outline">
+              <a href={MANUAL_URL} target="_blank" rel="noreferrer">
+                <LibraryBigIcon /> The manual <ArrowUpRightIcon className="size-3.5" />
+              </a>
+            </Button>
+            <Button asChild variant="default">
+              <Link href="/settings">
+                <PlugZapIcon /> Connect an assistant
+              </Link>
+            </Button>
+          </div>
         }
       />
 
@@ -371,9 +384,23 @@ export default async function DocsPage() {
             </a>
           ))}
 
-          <div className="text-faint mt-4 px-2 text-[12px] leading-relaxed">
-            Your connection URL lives at{" "}
-            <code className="font-mono">{baseUrl.replace(/^https?:\/\//, "")}/api/mcp/…</code>
+          <div className="text-faint mt-4 space-y-2 px-2 text-[12px] leading-relaxed">
+            <p>
+              Your connection URL lives at{" "}
+              <code className="font-mono">{baseUrl.replace(/^https?:\/\//, "")}/api/mcp/…</code>
+            </p>
+            <p>
+              The long-form guide — first ten minutes, tailoring, the search — is at{" "}
+              <a
+                href={MANUAL_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-muted-foreground hover:text-foreground underline underline-offset-2"
+              >
+                docs.hired.tools
+              </a>
+              .
+            </p>
           </div>
         </nav>
       </div>

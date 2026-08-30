@@ -1,0 +1,283 @@
+---
+title: "Connect an assistant"
+description: "One URL, pasted once per client. Exact steps for Claude, Claude Code, ChatGPT, Cursor, VS Code, Windsurf, and anything else that speaks MCP."
+icon: "plug"
+---
+
+Your instance publishes an MCP server. Connecting an assistant to it means giving that
+assistant one URL, which looks like this:
+
+```
+https://your-instance.example.com/api/mcp/<token>
+```
+
+The token is in the path rather than in a header on purpose: it is the one shape every
+MCP client can express. No headers to configure, no OAuth discovery, no local process to
+keep alive. If your client insists on a header, there is a
+[bearer-token form](#a-client-that-insists-on-a-header) that works too.
+
+<Warning>
+  **The URL is a credential.** Anyone holding it can read and write everything in your
+  workspace — your brain, your resumes, your pipeline. It cannot reach anyone else's
+  data on the instance, but it can reach all of yours. Treat it like a password: never
+  paste one into a chat, a ticket, a screenshot or a repository. If one gets out,
+  **Rotate** the connection and the old address dies immediately.
+</Warning>
+
+## Get your URL
+
+Sign in, open **Settings**, and stay on the **Connections** tab. There is already one
+connection waiting, so nobody ever lands here with nothing to copy.
+
+Press **Set up** on a connection, choose the client you are wiring up, and the exact
+steps appear with the URL already substituted into the config. Everything below is that
+same recipe, written out.
+
+### One connection per client
+
+Make a new connection for each assistant rather than pasting the same URL everywhere.
+It costs nothing and it buys you two things:
+
+- **Revocation that is not all-or-nothing.** Laptop stolen, URL pasted somewhere it
+  should not have been — rotate or delete that one client. Everything else stays
+  connected.
+- **A truthful answer to "is it actually working?"** Each row shows when it was last
+  used and what called in, guessed from the user agent.
+
+You can do all of it by talking, too: `list_connections`, `create_connection`,
+`rename_connection`, `rotate_connection`, `delete_connection`. Listing never returns
+tokens; creating and rotating do, because handing you the URL is the point of them.
+
+## The recipes
+
+<Tabs>
+  <Tab title="Claude">
+    Web, desktop and mobile.
+
+    <Steps>
+      <Step title="Open Settings → Connectors">
+        In Claude, go to **Settings → Connectors**.
+      </Step>
+      <Step title="Add a custom connector">
+        Click **Add custom connector**.
+      </Step>
+      <Step title="Paste the URL">
+        Name it `Hired` and paste your connection URL where it asks for the server URL.
+      </Step>
+      <Step title="Save">
+        Claude can now read and write your brain, resumes and pipeline.
+      </Step>
+    </Steps>
+
+    [Anthropic's connector documentation →](https://support.anthropic.com/en/articles/11175166)
+  </Tab>
+
+  <Tab title="Claude Code">
+    The CLI, in any project.
+
+    ```bash Terminal
+    claude mcp add --transport http --scope user hired "<your URL>"
+    ```
+
+    `--scope user` makes it available in every project rather than just the one you are
+    standing in. Check it took with `claude mcp list` — it should say **✔ Connected**.
+
+    [Claude Code MCP documentation →](https://code.claude.com/docs/en/mcp)
+  </Tab>
+
+  <Tab title="ChatGPT">
+    Custom connector.
+
+    <Steps>
+      <Step title="Open Settings → Connectors">
+        In ChatGPT, go to **Settings → Connectors**.
+      </Step>
+      <Step title="Add a custom connector">
+        Depending on your plan this lives behind developer mode, and creating one may be
+        limited to Plus, Pro and business plans.
+      </Step>
+      <Step title="Paste the URL">
+        Paste your connection URL where it asks for the MCP server URL.
+      </Step>
+    </Steps>
+
+    [OpenAI's MCP documentation →](https://platform.openai.com/docs/mcp)
+  </Tab>
+
+  <Tab title="Cursor">
+    Add this to `~/.cursor/mcp.json` to get it everywhere, or `.cursor/mcp.json` inside a
+    project to scope it there:
+
+    ```json ~/.cursor/mcp.json
+    {
+      "mcpServers": {
+        "hired": {
+          "url": "<your URL>"
+        }
+      }
+    }
+    ```
+
+    Reopen Cursor. The server shows up under **Settings → MCP**.
+
+    [Cursor MCP documentation →](https://cursor.com/docs/context/mcp)
+  </Tab>
+
+  <Tab title="VS Code">
+    Copilot Chat, agent mode. Add it from the terminal:
+
+    ```bash Terminal
+    code --add-mcp '{"name":"hired","type":"http","url":"<your URL>"}'
+    ```
+
+    Or commit it to a project by hand:
+
+    ```json .vscode/mcp.json
+    {
+      "servers": {
+        "hired": {
+          "type": "http",
+          "url": "<your URL>"
+        }
+      }
+    }
+    ```
+
+    [VS Code MCP documentation →](https://code.visualstudio.com/docs/copilot/customization/mcp-servers)
+  </Tab>
+
+  <Tab title="Windsurf">
+    Cascade. Add this to `~/.codeium/windsurf/mcp_config.json`:
+
+    ```json ~/.codeium/windsurf/mcp_config.json
+    {
+      "mcpServers": {
+        "hired": {
+          "serverUrl": "<your URL>"
+        }
+      }
+    }
+    ```
+
+    Then hit refresh in the Cascade MCP panel.
+
+    [Windsurf MCP documentation →](https://docs.windsurf.com/windsurf/cascade/mcp)
+  </Tab>
+
+  <Tab title="Anything else">
+    Most clients take some version of this. If yours wants a transport name, it is
+    Streamable HTTP:
+
+    ```json Config
+    {
+      "mcpServers": {
+        "hired": {
+          "type": "streamable-http",
+          "url": "<your URL>"
+        }
+      }
+    }
+    ```
+
+    [The MCP transport spec →](https://modelcontextprotocol.io/docs/concepts/transports)
+  </Tab>
+</Tabs>
+
+### A client that insists on a header
+
+Drop the token from the path and send it as a bearer instead. Both routes resolve to the
+same connection.
+
+```json Config (bearer token)
+{
+  "mcpServers": {
+    "hired": {
+      "type": "streamable-http",
+      "url": "https://your-instance.example.com/api/mcp",
+      "headers": {
+        "Authorization": "Bearer <your token>"
+      }
+    }
+  }
+}
+```
+
+### A client that only speaks stdio
+
+Some clients only know how to launch a local command. `mcp-remote` bridges one to this
+server. It needs Node installed, and nothing else.
+
+```json Config
+{
+  "mcpServers": {
+    "hired": {
+      "command": "npx",
+      "args": ["-y", "mcp-remote", "<your URL>"]
+    }
+  }
+}
+```
+
+[mcp-remote on GitHub →](https://github.com/geelen/mcp-remote)
+
+### Your own code
+
+It is JSON-RPC 2.0 over POST. There is no session handshake to keep alive — every
+request stands alone, which is what lets the server restart, scale to replicas and
+suspend an account instantly without anything reconnecting.
+
+```bash Terminal
+curl -s "<your URL>" \
+  -H 'Content-Type: application/json' \
+  -d '{"jsonrpc":"2.0","id":1,"method":"tools/list"}'
+```
+
+Set `Accept: text/event-stream` if you would rather have the reply as SSE. Both are
+supported.
+
+[The MCP specification →](https://modelcontextprotocol.io/specification)
+
+## Checking it worked
+
+Hit **Test** next to any connection in the app. It calls its own endpoint the way a
+client would and tells you how many tools answered — 80 for a member, 108 for an admin.
+
+From the assistant's side, ask it who it is talking to:
+
+> Who am I connected as?
+
+That is `whoami`, and it comes back with the account's name, email, role and whether it
+can administer the instance. Every other tool acts as that person and can see nothing
+else.
+
+## What the assistant is told on connect
+
+Before it sees a tool, every connecting client receives a briefing generated for your
+account. Some of it is always there: that the connection URL is a credential that must
+never be repeated where it will be stored, and the standing rules — never invent
+experience, employers, dates or metrics; use `append_role_brain_dump` rather than
+`update_role` for new material; `update_resume` and `update_role` replace what you send,
+so read first and write back whole.
+
+The rest depends on whether you have written anything yet.
+
+<CardGroup cols={2}>
+  <Card title="An empty workspace" icon="inbox">
+    The briefing says so plainly — every read tool will come back with nothing, and that is
+    the state of the account rather than a failed call. It tells the assistant to ask one
+    question first: whether you have a resume or a LinkedIn export to paste, or would
+    rather talk it through. Then to file whatever comes back **by hand**, and never to hand
+    you a form. The pipeline and the CRM are not explained at all until a role exists,
+    because none of it does anything yet.
+  </Card>
+  <Card title="A workspace with something in it" icon="brain">
+    The briefing describes the four areas and which tool to reach for first in each:
+    `search_brain` for the brain, `get_resume_format` before writing a document,
+    `list_schedule` when the question is about a stretch of time, `get_company` before
+    writing anything about a company.
+  </Card>
+</CardGroup>
+
+Any note you have saved with `kind: "GUARDRAIL"` is carried at the end of that briefing,
+so your own standing rules are in context before a single tool is called. See
+[the brain](/concepts/brain#standing-rules).

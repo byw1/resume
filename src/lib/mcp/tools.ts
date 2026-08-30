@@ -663,7 +663,7 @@ export const tools: McpTool[] = [
           type: "string",
           enum: ["NOTE", "GUARDRAIL"],
           description:
-            "GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
+            "GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
         },
       },
       ["title"],
@@ -701,7 +701,7 @@ export const tools: McpTool[] = [
           type: "string",
           enum: ["NOTE", "GUARDRAIL"],
           description:
-            "GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
+            "GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
         },
       },
       ["id"],
@@ -1077,7 +1077,7 @@ export const tools: McpTool[] = [
     name: "create_resume",
     title: "Create a resume",
     description:
-      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seed_from_brain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
+      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
     inputSchema: object(
       {
         name: str("What to call this resume, e.g. 'Stripe — Staff Engineer'"),
@@ -1087,7 +1087,7 @@ export const tools: McpTool[] = [
         accent: str("Accent colour as a hex string. Defaults to '#000000', which is what Harvard expects."),
         fontFamily: str("serif (default) | inter | mono"),
         fontSize: num("Base font size in points, 9-12. Default 10."),
-        lineHeight: num("Line height, 1.15-1.6. Default 1.35."),
+        lineHeight: num("Line height, 1.15-1.6. Default 1.2."),
         notes: str("Private notes about this version — what you tailored and why"),
         showPhoto: bool(
           "Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does.",
@@ -1794,7 +1794,7 @@ export const tools: McpTool[] = [
     name: "save_view",
     title: "Save a pipeline view under a name",
     description:
-      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.",
+      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search), and month (YYYY-MM, which the calendar view uses). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.",
     inputSchema: object(
       {
         name: str("What to call it, e.g. 'Chasing'"),
@@ -2085,7 +2085,7 @@ export const tools: McpTool[] = [
     name: "update_contact",
     title: "Update a contact",
     description:
-      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.",
+      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes or otherLinks rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.",
     inputSchema: object(
       {
         id: str("Contact id"),
@@ -2094,6 +2094,13 @@ export const tools: McpTool[] = [
         email: str("Email"),
         phone: str("Phone"),
         linkedin: str("LinkedIn URL"),
+        twitter: str("X / Twitter — a URL or an @handle"),
+        instagram: str("Instagram — a URL or an @handle"),
+        github: str("GitHub profile URL"),
+        website: str("Their own site, blog or portfolio"),
+        otherLinks: strArray(
+          "Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first.",
+        ),
         relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
         notes: str("Notes — replaces what is there"),
         company: str("Employer, or empty string to detach"),
@@ -2118,6 +2125,11 @@ export const tools: McpTool[] = [
           email: s(args, "email"),
           phone: s(args, "phone"),
           linkedin: s(args, "linkedin"),
+          twitter: s(args, "twitter"),
+          instagram: s(args, "instagram"),
+          github: s(args, "github"),
+          website: s(args, "website"),
+          otherLinks: a(args, "otherLinks"),
           relationship: s(args, "relationship"),
           notes: s(args, "notes"),
           company: s(args, "company"),
@@ -2142,7 +2154,8 @@ export const tools: McpTool[] = [
   {
     name: "create_contact",
     title: "Create a contact",
-    description: "Save a person: recruiter, hiring manager, referral, friend at the company.",
+    description:
+      "Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row.",
     inputSchema: object(
       {
         name: str("Their name"),
@@ -2150,6 +2163,13 @@ export const tools: McpTool[] = [
         email: str("Email"),
         phone: str("Phone"),
         linkedin: str("LinkedIn URL"),
+        twitter: str("X / Twitter — a URL or an @handle"),
+        instagram: str("Instagram — a URL or an @handle"),
+        github: str("GitHub profile URL"),
+        website: str("Their own site, blog or portfolio"),
+        otherLinks: strArray(
+          "Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first.",
+        ),
         relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
         notes: str("Notes"),
         company: str("Company they work at"),
@@ -2171,6 +2191,11 @@ export const tools: McpTool[] = [
           email: s(args, "email"),
           phone: s(args, "phone"),
           linkedin: s(args, "linkedin"),
+          twitter: s(args, "twitter"),
+          instagram: s(args, "instagram"),
+          github: s(args, "github"),
+          website: s(args, "website"),
+          otherLinks: a(args, "otherLinks"),
           relationship: s(args, "relationship"),
           notes: s(args, "notes"),
           company: s(args, "company"),
@@ -2530,7 +2555,7 @@ export const tools: McpTool[] = [
     name: "admin_health",
     title: "Check whether the instance is working",
     description:
-      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
+      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Configuration → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,

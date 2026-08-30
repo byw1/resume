@@ -1,0 +1,165 @@
+---
+title: "Resume tools"
+sidebarTitle: "Resumes"
+description: "Eleven tools for writing documents, checking their length before saving, publishing them to a link and exporting real PDFs."
+icon: "file-lines"
+---
+
+Call `get_resume_format` once before your first `create_resume` or `update_resume`. It
+returns the exact document shape plus the available templates, fonts and writing guidance,
+so what you build validates the first time.
+
+<Warning>
+  `update_resume` with `data` replaces the **whole** document. Read it with `get_resume`,
+  modify the JSON you get back, and send all of it. Sending only the section you changed
+  deletes the rest.
+</Warning>
+
+Two dry runs are worth knowing about: `preview_resume_text` renders and estimates length
+without saving anything, and `export_resume_pdf` reports the page count measured from the
+rendered document rather than estimated.
+
+[The document contract →](/concepts/resumes) · [Publishing and exporting →](/guides/publish-and-export)
+
+<Note>
+  The descriptions below are quoted **verbatim** from what the server sends a connected
+  assistant, which is why they address it rather than you. They are reproduced rather than
+  rewritten so this page cannot drift from what your assistant actually receives.
+</Note>
+
+### `get_resume_format`
+
+_Get the resume document format_
+
+Returns the exact JSON shape of a resume document plus the available templates, fonts and writing guidance. Call this once before your first create_resume or update_resume so the document you build validates.
+
+No arguments.
+
+### `list_resumes`
+
+_List resumes_
+
+All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published.
+
+No arguments.
+
+### `get_resume`
+
+_Get a resume_
+
+Fetch one resume: its settings, its full document JSON, and publicUrl — the shareable link, or null if it isn't published. Read this before update_resume, which replaces the whole document.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id |
+| `as_text` | boolean | Also return a flat plain-text rendering, useful for reviewing length and flow |
+
+### `create_resume`
+
+_Create a resume_
+
+Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `name` | string | **required** — What to call this resume, e.g. 'Stripe — Staff Engineer' |
+| `targetRole` | string | The role being targeted |
+| `targetCompany` | string | The company being targeted |
+| `template` | string | harvard (default) \| classic \| modern \| compact \| editorial |
+| `accent` | string | Accent colour as a hex string. Defaults to '#000000', which is what Harvard expects. |
+| `fontFamily` | string | serif (default) \| inter \| mono |
+| `fontSize` | number | Base font size in points, 9-12. Default 10. |
+| `lineHeight` | number | Line height, 1.15-1.6. Default 1.2. |
+| `notes` | string | Private notes about this version — what you tailored and why |
+| `showPhoto` | boolean | Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does. |
+| `seedFromBrain` | boolean | Auto-build a first draft from the knowledge base |
+| `data` | object | The full resume document. See get_resume_format for the exact shape. Omit if using seedFromBrain. |
+
+### `update_resume`
+
+_Update a resume_
+
+Update a resume's settings and/or replace its document. Passing `data` replaces the ENTIRE document, so call get_resume first, modify the JSON you get back, and send the whole thing.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id |
+| `name` | string | New name |
+| `targetRole` | string | Target role |
+| `targetCompany` | string | Target company |
+| `template` | string | harvard \| classic \| modern \| compact \| editorial |
+| `accent` | string | Accent colour hex |
+| `fontFamily` | string | serif \| inter \| mono |
+| `fontSize` | number | Base font size in points |
+| `lineHeight` | number | Line height |
+| `notes` | string | Private notes |
+| `isFavorite` | boolean | Pin this resume to the top |
+| `showPhoto` | boolean | Render the user's profile photo in the header. The picture is the one on their profile, so this only switches it on or off for this document. Harvard ignores it by convention. |
+| `data` | object | The complete replacement resume document |
+
+### `export_resume_pdf`
+
+_Export a resume as a PDF_
+
+Render a resume to a real PDF on the server and return a download url, plus how many pages it actually came out to. Reach for this when the user wants a FILE to attach to an email or upload to a form — use publish_resume instead when they want a link. The page count is measured from the rendered document rather than estimated, so it is the reliable way to answer 'does this fit on one page?' before they send it. The url opens in their browser, where they are already signed in; it is not a public link and nobody else can fetch it. If this instance has no headless browser the tool says so and points at the print page, which produces the same document through the browser's own print dialog.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id |
+
+### `publish_resume`
+
+_Publish a resume to a public link_
+
+Give a resume a shareable web address. Reach for this whenever the user needs a LINK rather than a file — an application form with a 'portfolio or resume URL' field, a recruiter asking them to send something over, a message where attaching a PDF would be awkward. Returns publicUrl, which is the whole point: hand it straight to the user. Anyone with the link can read the resume without signing in, and the link is the only protection, so it is long and random — it cannot be guessed or found by searching, and the page tells search engines not to index it. The user's private notes on the resume are never shown — but if this resume has showPhoto on, their face is on that page, visible to anyone holding the link. Say so before publishing one, or offer to turn the photo off first. Calling this again while the resume is already published returns the SAME url, so it is safe to repeat. If the resume was previously unpublished, publishing mints a brand new url and the old one stays dead.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id |
+
+### `unpublish_resume`
+
+_Withdraw a resume's public link_
+
+Turn off a resume's public link. Reach for this when the user is done with a link, or has sent one somewhere they regret. The page starts returning 'not found' immediately for everyone who has the url. This is PERMANENT for that address: the link is not parked or paused, it is destroyed, and publishing the same resume later produces a different url. Say so before doing it if the user might still need the old link working. Does not touch the resume itself — nothing is deleted.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id |
+
+### `duplicate_resume`
+
+_Duplicate a resume_
+
+Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id to copy |
+| `name` | string | Name for the copy |
+
+### `delete_resume`
+
+_Delete a resume_
+
+Permanently delete a resume.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Resume id |
+
+### `preview_resume_text`
+
+_Preview a resume document as text_
+
+Render a resume document JSON to plain text WITHOUT saving it, and estimate how many lines it will occupy. Use it to check length and flow before committing with create_resume or update_resume.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `data` | object | **required** — A resume document to render |

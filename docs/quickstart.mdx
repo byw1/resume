@@ -1,0 +1,130 @@
+---
+title: "Your first ten minutes"
+sidebarTitle: "Quickstart"
+description: "Connect an assistant, teach it the rules, fill the brain, build the first resume. In that order — the order is the whole trick."
+icon: "rocket"
+---
+
+A new Hired workspace is empty, and an empty workspace does nothing. These four steps
+are what turn it into something that answers questions about your career. They take
+about ten minutes, and only the last one needs you to think.
+
+<Note>
+  If you are setting up an instance rather than using one, start at
+  [Deploy it](/self-hosting/overview) and come back here once you can sign in.
+</Note>
+
+<Steps>
+  <Step title="Connect an assistant" icon="plug">
+    Sign in and open **Settings**. It opens on **Connections**, because this is the step
+    everything else depends on. You already have one waiting.
+
+    Hit **Set up**, pick the client you use, and the exact steps appear with your URL
+    already filled in. Paste it where it asks. That is the whole procedure — no OAuth,
+    no headers, no local process to keep running.
+
+    Give each client its own connection rather than sharing one. That is what lets you
+    disconnect a lost laptop later without breaking everything else.
+
+    <Warning>
+      A connection URL is a password. Anyone holding it can read and write everything in
+      your workspace. It cannot reach anyone else's data, but it can reach all of yours —
+      so never paste one into a chat, an issue or a screenshot. If one leaks,
+      **Rotate** it.
+    </Warning>
+
+    [Per-client setup, in detail →](/connect)
+  </Step>
+
+  <Step title="Install the skills" icon="wand-magic-sparkles">
+    A skill is a file that teaches an assistant how to behave *before* you ask it
+    anything. Three ship with your instance, and they are the difference between an
+    assistant that guesses at your career and one that knows the rules of this place.
+
+    Install `hired` if you install only one — it carries the no-fabrication rule and the
+    table of which tools overwrite rather than append.
+
+    [Where each client wants them →](/skills)
+  </Step>
+
+  <Step title="Fill the brain" icon="brain">
+    Do this before you build a resume. There is nothing to assemble a document out of
+    otherwise.
+
+    Your assistant already knows the workspace is empty — the briefing it got on connect
+    says so, and tells it to ask you one question before anything else: do you have a
+    resume or a LinkedIn export to paste, or would you rather talk it through? Either
+    answer works, and it files what comes back by hand.
+
+    So talk, or paste. Do not go looking for a form:
+
+    > I worked at Vertex from March 2021 to last month as a senior platform engineer.
+    > Here's everything I remember about it: …
+
+    Length is a feature. The brain dump has no limit and no required structure — numbers,
+    projects, stories, praise, the thing that went wrong. Nobody reads it directly; it is
+    searched. The more raw material in there, the better every future resume is, and the
+    fewer questions you have to answer twice.
+
+    Twenty minutes of rambling per job is the right amount of effort. If you would rather
+    do it in pieces, dump one job a day.
+
+    [What goes in and how to get it in →](/guides/fill-the-brain)
+  </Step>
+
+  <Step title="Build the first resume" icon="file-lines">
+    Now paste a real job posting and ask for the thing you actually want:
+
+    > Tailor my resume to this posting, and tell me what I can't evidence.
+
+    You get a saved document and — the useful half — a list of the posting's requirements
+    with nothing behind them. That list tells you what to go and learn, or which jobs to
+    skip.
+
+    [How tailoring works →](/guides/tailor-a-resume)
+  </Step>
+</Steps>
+
+## Then what
+
+Once there is material in the brain and a document on file, the rest of the product is
+just talking about what happened.
+
+<CardGroup cols={2}>
+  <Card title="Track something" icon="list-check" href="/guides/run-the-search">
+    Paste a posting URL and it becomes a tracked application in one move — company,
+    description, location, compensation and source all filled.
+  </Card>
+  <Card title="Log what happened" icon="clock-rotate-left" href="/guides/run-the-search">
+    "I had a call with the Helios recruiter, the team is six people and they want
+    someone to own billing." That is a timeline entry, said out loud.
+  </Card>
+  <Card title="Get the read" icon="gauge" href="/guides/weekly-review">
+    `diagnose_search` names which step of the funnel is losing people, rather than
+    handing you six numbers to interpret.
+  </Card>
+  <Card title="Publish it" icon="link" href="/guides/publish-and-export">
+    A real PDF for the forms that want a file, an unlisted URL for the ones that want a
+    link.
+  </Card>
+</CardGroup>
+
+## The three mistakes people make first
+
+<AccordionGroup>
+  <Accordion title="Building a resume before filling the brain" icon="triangle-exclamation">
+    There is nothing to build it from, so the assistant either produces something empty
+    or starts inventing. Fill at least your current role first. If you already have a
+    resume, paste its contents into a brain dump — it is a floor, not a ceiling.
+  </Accordion>
+  <Accordion title="Treating the brain dump like a resume" icon="triangle-exclamation">
+    It is not a document, and nobody will read it as one. Bad grammar, half sentences and
+    contradictory notes are all fine. What matters is that the specifics are in there:
+    the number, the system name, the team size, what actually changed.
+  </Accordion>
+  <Accordion title="Editing a resume that is already attached to an application" icon="triangle-exclamation">
+    That is the version you actually sent. Tailor into a copy instead — `duplicate_resume`
+    exists for this, and an assistant that has the `hired` skill installed does it without
+    being asked.
+  </Accordion>
+</AccordionGroup>

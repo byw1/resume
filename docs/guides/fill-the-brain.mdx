@@ -1,0 +1,135 @@
+---
+title: "Filling the brain"
+description: "How to get twenty years of work into a system in an afternoon, what actually belongs in a brain dump, and how to keep it current without it becoming a chore."
+icon: "brain"
+---
+
+This is the step people skip and then wonder why the resumes are thin. It is also the
+only part of Hired that asks anything of you. Everything after this is the product doing
+work with the material you gave it.
+
+## Start with the job you have now
+
+One role, one conversation. Do not open a form.
+
+> I've been at Vertex since March 2021 as a senior platform engineer. Let me dump
+> everything I remember and you file it.
+
+Then talk. The assistant creates the role and puts what you said into the brain dump. It
+does not need it in order, and it does not need it to be well written.
+
+## What actually belongs in there
+
+The test is: **would this be hard to remember in two years?** If yes, it goes in.
+
+<CardGroup cols={2}>
+  <Card title="Numbers, above everything" icon="hashtag">
+    Runtimes, costs, headcount, revenue, latency, error rates, percentages. The number is
+    what makes a bullet survive the follow-up question, and it is the first thing you
+    forget.
+  </Card>
+  <Card title="Scope" icon="expand">
+    How big the team was, what you owned versus contributed to, who you reported to, how
+    many people used the thing.
+  </Card>
+  <Card title="The specific system" icon="server">
+    Names, not categories. "The nightly reconciliation job" is retrievable later.
+    "Data pipelines" is not.
+  </Card>
+  <Card title="Stories" icon="comment">
+    The incident, the migration nobody wanted, the thing you argued for and won. These
+    become interview answers, not just bullets.
+  </Card>
+  <Card title="Praise, verbatim" icon="quote-left">
+    What a manager or a review actually said. You will not remember the wording, and the
+    wording is the useful part.
+  </Card>
+  <Card title="What went badly" icon="triangle-exclamation">
+    The failed project, the thing you would do differently. Nobody puts this on a resume,
+    and everybody gets asked about it.
+  </Card>
+</CardGroup>
+
+### What does not matter
+
+Grammar. Structure. Chronology. Repeating yourself. Contradicting yourself. Nobody reads
+this document — it is searched, and search does not mind a mess.
+
+<Note>
+  If you already have a resume, paste it in as a starting brain dump. It is a floor, not
+  a ceiling: the resume is the compressed version, and the point of the brain is to hold
+  the things compression threw away.
+</Note>
+
+## Doing the older jobs
+
+Twenty minutes each, oldest last. Older roles need less: what you owned, the two or three
+things you are still proud of, the numbers you can still remember. The recent ones are
+what get tailored against.
+
+If that sounds like a lot, do one job a day for a week. The material compounds — every
+dump makes every future resume better, and you never do this job twice.
+
+## Turning raw material into bullets
+
+Once a role has a dump, mine it:
+
+> Mine the Vertex role into highlights.
+
+That is the [`mine_brain_dump`](/workflows#mine-a-brain-dump-into-highlights) workflow. It reads the full
+dump, checks which highlights already exist so it does not duplicate them, extracts every
+distinct accomplishment as one bullet in resume voice, rates each 1–5 for strength, tags
+them for retrieval, and saves them in one call.
+
+Then it flags the useful thing: anywhere the dump *hints* at impact but does not give a
+number. Those are the gaps you can still fill from memory, and they are worth ten minutes.
+
+## Keeping it current
+
+The reason career records rot is that updating them is a separate task nobody schedules.
+The fix is to make it a side effect of talking about your week.
+
+> Here's what happened this week: shipped the billing migration, the reconciliation job
+> is down to 20 minutes now. Had a call with the Helios recruiter — team of six, they
+> want someone to own billing end to end. Told Priya I'd send her my resume by Friday.
+
+That is [`log_my_week`](/workflows#log-what-happened-this-week), and it files each piece where it belongs:
+work about a job appends to that role's brain dump, a clean accomplishment also becomes a
+highlight, anything about a company you are talking to becomes a timeline entry and maybe
+a stage change, anything you said you would do becomes a task with a due date, and the
+rest becomes a note.
+
+Ten minutes on a Friday. It is the difference between a brain that is current and one
+that describes the job you had in 2023.
+
+<Tip>
+  **Append, never overwrite.** When you tell an assistant something new about a job
+  already on file, the correct call is `append_role_brain_dump`. `update_role` with a
+  `brainDump` replaces the whole thing. Install the [`hired` skill](/skills) and this is
+  handled without you having to watch for it.
+</Tip>
+
+## Standing rules
+
+Anything that must never be got wrong belongs in a guardrail rather than in your memory
+of what to correct:
+
+> Make a standing rule: I was a contributor to the payments migration, not its lead.
+> Never describe me as having led it.
+
+That saves a note with `kind: "GUARDRAIL"`, and every assistant that connects afterwards
+gets it in its briefing before it can call a single tool. See
+[standing rules](/concepts/brain#standing-rules).
+
+## The rest of the profile
+
+Worth five minutes once:
+
+- **Contact block** — name, headline, email, phone, location, and the links you want on a
+  resume. Every document is seeded from this.
+- **Personal brain dump** — the things that are about you rather than a job. What you want
+  next, what you will not do again, compensation expectations, non-negotiables. It is what
+  a good summary line and a good "why do you want this?" both come out of.
+- **Education, projects, skills, certifications** — the four supporting collections. Say
+  them and they get filed.
+- **A photo**, if you want one on documents. [How the one-photo model works](/concepts/brain#the-photo).

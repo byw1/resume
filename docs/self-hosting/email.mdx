@@ -1,0 +1,62 @@
+---
+title: "Setting up email"
+sidebarTitle: "Email"
+description: "Resend, four steps, and a test send that tells you the exact reason when it fails. Optional — nothing is blocked on it."
+icon: "envelope"
+---
+
+Email is optional. Until you set it up, creating an invite gives you a link to send
+however you like, and it stays valid for 14 days. Nothing in the product is blocked on
+email being configured.
+
+What you get by setting it up: invitations that send themselves, and a notification the
+moment somebody asks for access through the waitlist.
+
+## The four steps
+
+<Steps>
+  <Step title="Make a Resend account">
+    Free tier at [resend.com](https://resend.com).
+  </Step>
+  <Step title="Verify a sending domain">
+    Add the domain you want to send from and complete its DNS records. This is the step
+    that fails, and it is worth doing properly first.
+  </Step>
+  <Step title="Paste the key and the from address">
+    **Admin → Configuration → Resend.** The API key starts with `re_`. The from address
+    must be on the domain you just verified.
+  </Step>
+  <Step title="Send a test">
+    Press **Send test**. If it fails you get Resend's exact reason back, which is almost
+    always an unverified domain.
+  </Step>
+</Steps>
+
+## By conversation
+
+> Is email set up? Configure Resend with this key and send a test.
+
+`admin_get_email_config` reports whether it is wired up and the from address invitations
+will come from, with the key masked. `admin_set_email_config` sets any subset of the key,
+from address and display name — plus `instanceName` and `publicUrl`, which are
+instance-wide rather than email-only, since the sign-in page, invitation links and the
+Stripe webhook URL are all built from them. `admin_send_test_email` proves it delivers and
+returns the exact error when it does not.
+
+## When an invite does not arrive
+
+<Steps>
+  <Step title="Check whether it left at all">
+    `admin_user_detail` on the account says whether the invitation email actually went
+    out. That single fact tells you whether the problem is the account or the email, and
+    it is worth knowing before you reset anything.
+  </Step>
+  <Step title="Read the failure">
+    `admin_recent_errors` with `source: "email.send"` carries the specifics. Entries older
+    than 30 days are removed automatically.
+  </Step>
+  <Step title="Send the link by hand">
+    `admin_list_invites` returns outstanding invitations with their links and expiry. Send
+    one however you like — it is the same link the email would have carried.
+  </Step>
+</Steps>

@@ -1,0 +1,72 @@
+---
+title: "Health and errors"
+description: "One tool that tells you whether the instance is working, and one that tells you what failed. Neither can see anyone's content."
+icon: "heart-pulse"
+---
+
+**Settings → Admin → Health**, or ask:
+
+> Is anything broken on this instance?
+
+## What health checks
+
+`admin_health` is the first tool to call when something is reported broken, and the one to
+call on a schedule if you check on the instance at all. Each check comes back `ok`, `warn`
+or `down` with a plain-language summary you can read out as-is.
+
+| Check | Tells you |
+| --- | --- |
+| Database | Reachable, and how long it took to answer. |
+| Migrations | Whether every one finished. The failure that is invisible until somebody hits the screen that needs it. |
+| Email | Whether it is configured, and whether the **last send actually succeeded**. |
+| Billing | Whether Stripe is still calling the webhook. |
+| Assistants | When one last made a tool call. |
+| Errors | How many were recorded in the last 24 hours. |
+
+Two readings worth knowing:
+
+- Billing **down** usually means the signing secret in **Admin → Configuration → Billing** is wrong.
+- Billing "never called" means the webhook endpoint was never added on Stripe's side.
+
+## What failed
+
+`admin_recent_errors` is the instance's own event stream, newest first: failed emails,
+Stripe webhooks that did not verify or did not sync, tool calls that threw, and pages that
+errored.
+
+Each entry has a level — `INFO`, `WARN` or `ERROR` — a source, a one-line message, and the
+address of whoever's request hit it.
+
+| Source | Covers |
+| --- | --- |
+| `stripe.webhook` | Deliveries, including successful ones. |
+| `billing.sync` | Reconciliation runs. |
+| `email.send` | Invitations and test sends. |
+| `mcp.tool` | Tool calls that threw. |
+| `app` | Pages that errored. |
+
+<Note>
+  Pass `level: "ERROR"` for failures only. The default **includes** `INFO` entries such as
+  successful webhook deliveries — those are what prove Stripe is still reaching this
+  instance at all, so the noisy default is the useful one when you are debugging billing.
+</Note>
+
+Entries older than 30 days are removed automatically. Default 50 entries, maximum 200.
+
+<Check>
+  **This never contains anyone's content.** When a tool call throws, the tool's name and
+  the failure are recorded — the arguments that caused it deliberately are not, because
+  those are somebody's career history and every admin can read this stream.
+</Check>
+
+## Two questions this answers well
+
+> Did that invite to priya@example.com actually send?
+
+`admin_user_detail` says whether it left; `admin_recent_errors` with
+`source: "email.send"` says why it did not.
+
+> Is anyone actually using their assistant?
+
+The health check reports when a tool call last arrived. `list_connections` on an individual
+account shows the same thing per client, including what called in.

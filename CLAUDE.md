@@ -128,6 +128,13 @@ src/components/               UI. ui/ is shadcn — extend, don't rewrite.
 skills/                       Product-facing skills served to *users* of a running
                               instance from its /docs page. Not development guides —
                               don't confuse this tree with .claude/skills/.
+docs/                         The manual, published by Mintlify at docs.hired.tools from
+                              main. Prose is hand-written; the argument tables under
+                              docs/tools/ are generated — see below.
+tools/gen-tool-docs.mjs       Rewrites docs/tools/*.mdx from the tools array by evaluating
+                              each inputSchema expression. Run it after changing a tool;
+                              --check fails when a page is stale. Everything above the
+                              first "### `" heading on each page is yours to write.
 ```
 
 Data areas map cleanly onto tool prefixes: brain (`search_brain`, `list_roles`,
@@ -221,6 +228,10 @@ it is only stale.
 npm run typecheck    # tsc --noEmit — must be clean
 npm run build        # must succeed; this is what Railway runs
 ```
+
+If you touched `src/lib/mcp/tools.ts`, also run `node tools/gen-tool-docs.mjs` and commit
+what it rewrites — the manual documents every argument of every tool, and it is generated
+precisely so nobody has to keep a hundred of them right by hand.
 
 These two commands are the *only* gate. There is no CI check on branches or PRs — the
 first thing that compiles your code after you push to main is the Docker image build that

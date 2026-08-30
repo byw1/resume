@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowUpRightIcon,
   BookOpenIcon,
+  LibraryBigIcon,
   PaletteIcon,
   PlugZapIcon,
   ShieldIcon,
@@ -20,6 +21,7 @@ import { listConnections } from "@/lib/data/connections";
 import { getProfile } from "@/lib/data/brain";
 import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
+import { MANUAL_URL } from "@/lib/links";
 
 export const dynamic = "force-dynamic";
 
@@ -124,21 +126,41 @@ export default async function SettingsPage({
               />
             </FadeIn>
 
-            {/* The catalogue of what those tools do lives on /docs, generated
-                from the same array. A copy here would be a second one to keep
-                right. */}
+            {/* Two places to read, and they are not the same place. /docs is
+                generated from this instance — your tool count, your skills,
+                your connection URL. The manual is the written guide to the
+                product and lives outside any one deployment. A copy of either
+                inside the other would be a second one to keep right. */}
             <FadeIn delay={0.06}>
-              <Link
-                href="/docs"
-                className="text-muted-foreground hover:border-border hover:text-foreground flex items-center gap-2.5 rounded-xl border border-dashed px-4 py-3 text-[13px] transition-colors"
-              >
-                <BookOpenIcon className="size-4 shrink-0" />
-                <span className="min-w-0 flex-1">
-                  {visibleTools.length} tools and {visiblePrompts.length} ready-made workflows come
-                  with every connection. Docs lists all of them, and what to say to use them.
-                </span>
-                <ArrowUpRightIcon className="size-3.5 shrink-0" />
-              </Link>
+              <div className="grid gap-2.5 sm:grid-cols-2">
+                <Link
+                  href="/docs"
+                  className="text-muted-foreground hover:border-border hover:text-foreground flex items-start gap-2.5 rounded-xl border border-dashed px-4 py-3 text-[13px] transition-colors"
+                >
+                  <BookOpenIcon className="mt-0.5 size-4 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-foreground block font-medium">Your tools</span>
+                    {visibleTools.length} tools and {visiblePrompts.length} ready-made workflows come
+                    with every connection. Listed as your assistant sees them.
+                  </span>
+                  <ArrowUpRightIcon className="mt-0.5 size-3.5 shrink-0" />
+                </Link>
+
+                <a
+                  href={MANUAL_URL}
+                  target="_blank"
+                  rel="noreferrer"
+                  className="text-muted-foreground hover:border-border hover:text-foreground flex items-start gap-2.5 rounded-xl border border-dashed px-4 py-3 text-[13px] transition-colors"
+                >
+                  <LibraryBigIcon className="mt-0.5 size-4 shrink-0" />
+                  <span className="min-w-0 flex-1">
+                    <span className="text-foreground block font-medium">The manual</span>
+                    Getting connected, filling the brain, tailoring a resume and running the search —
+                    written out at docs.hired.tools.
+                  </span>
+                  <ArrowUpRightIcon className="mt-0.5 size-3.5 shrink-0" />
+                </a>
+              </div>
             </FadeIn>
           </div>
         </TabsContent>
