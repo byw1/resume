@@ -96,8 +96,12 @@ own documentation and keep the `docs` link current, because these formats drift.
 
 ## Before you're done
 
-Bump the tool count in `README.md`, which hardcodes it in three places ("44 tools, 55 if
-you're an admin"). The Settings panel derives its number live from the tools array, and
-the Test button reports what actually answered — so a stale README is immediately visible
-to a user as a contradiction. As of the last check the array holds **55 tools, 11 of them
-`adminOnly`**, which is where the 44/55 split comes from.
+Bump the tool count in `README.md`, which hardcodes it in three places ("73 tools any MCP
+client can call, 98 if you're an admin" style). The Settings panel derives its number live
+from the tools array, and the Test button reports what actually answered — so a stale
+README is immediately visible to a user as a contradiction. Don't trust any count written
+in prose, this file included — earlier versions of this paragraph hardcoded a number and
+it drifted within a week. The authoritative count is generated on the /docs page; grep
+`adminOnly: true` in `tools.ts` for the admin/member split, and remember every prompt is
+also published as a tool, so the callable total is the tools array plus the prompts
+array.

@@ -2213,7 +2213,7 @@ export function promptsFor(user: { role: UserRole }): McpPrompt[] {
 /**
  * MCP prompts are a client-optional surface. Tools are not.
  *
- * The five workflows above are the most considered design in this file —
+ * The workflows above are the most considered design in this file —
  * tailor_resume alone encodes the whole seven-step loop including "do not
  * invent anything" — and in a client that doesn't render prompts they are
  * simply unreachable. That fails this project's own rule: a feature isn't done

@@ -1885,3 +1885,41 @@ the query.
 
 **Applies to:** `src/lib/settings.ts`, `src/lib/audit-groups.ts`, `src/lib/data/audit.ts`,
 `src/components/admin/audit-panel.tsx`, `loadAuditAction` in `src/server/actions.ts`.
+
+---
+
+## 2026-08-30 — One briefing for every agent, and it had to be true first
+
+**Decision (William's ask):** any AI tool pointed at this repo should get the full context,
+not just Claude. `AGENTS.md` — the name Cursor, Codex, Gemini CLI and the rest all read —
+now exists as a **symlink to `CLAUDE.md`**. One file, two names, zero drift; a real copy
+would have violated this repo's own rule about one implementation of every rule. The
+tradeoff: on a Windows checkout without symlink support, git materialises the link as a
+one-line file containing "CLAUDE.md". Acceptable — self-hosters deploy on Docker/Railway,
+and the one line still points a confused reader at the right file.
+
+**The symlink alone would have been a mistake.** A survey against the code found CLAUDE.md
+itself badly stale: the "Current focus" list claimed public resume URLs, server-side PDF
+and capture_job_posting were unbuilt (all three shipped weeks ago — an agent trusting the
+list would rebuild them), the map was missing six data-layer modules, the CRM and docs
+screens, and both public routes. Serving stale content to more tools is worse than serving
+it to one. So the file was corrected before it was shared.
+
+**Gaps closed while in there,** each previously written nowhere an agent would look:
+`npx prisma generate` after any schema edit (only postinstall/build regenerate the client —
+a fresh agent's first schema change fails typecheck with a misleading error); there is NO
+CI gate — no typecheck, no build, no tests run on branches or PRs, the Docker image build
+on main is the first compile after push, so local typecheck+build are the whole gate, not a
+convenience; the DECISIONS.md protocol (append-only, ~1900 lines, later entries supersede
+earlier ones — search from the end, never read whole); and the two same-named skills trees
+(`.claude/skills/` teaches whoever writes the code, root `skills/` is served to users of a
+running instance from /docs — nothing distinguished them before).
+
+**Hardcoded counts keep lying.** `.claude/skills/mcp-tool/SKILL.md` said "55 tools, 11
+adminOnly" while the array holds 90 tools + 8 prompts; its own paragraph warns counts
+drift. Rewrote it to name the rule (authoritative count is generated on /docs; grep for
+the split) instead of a number that will be wrong again in a week. Same fix to CLAUDE.md's
+map and the "five workflows" comment in tools.ts (there are eight).
+
+**Applies to:** `AGENTS.md`, `CLAUDE.md`, `.claude/skills/mcp-tool/SKILL.md`,
+`src/lib/mcp/tools.ts` (comment only).

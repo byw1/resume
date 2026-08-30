@@ -3,6 +3,11 @@
 Read this before writing code. It is the difference between a change that fits and a
 change that has to be reverted.
 
+This file is the briefing for **any** coding agent, not just Claude — `AGENTS.md` is a
+symlink to it, so Cursor, Codex, Gemini and whatever comes next all load the same words.
+If you change how this project is worked on, change it here; there is no second copy to
+keep in sync.
+
 ## What this is
 
 A self-hosted career operating system: a **brain** (everything you know about every job
@@ -39,8 +44,8 @@ you are building the wrong product.
 between stages, typing into the resume editor) and rendering (the paper, the print page).
 Those are UI-native. Everything they manipulate still has to be reachable by tool.
 
-When you finish a feature, ask literally: *can Claude do this end to end with no browser
-open?* If the answer is no, it is not finished.
+When you finish a feature, ask literally: *can an assistant connected over MCP do this
+end to end with no browser open?* If the answer is no, it is not finished.
 
 ---
 
@@ -75,8 +80,11 @@ means old saved documents render wrong.
 **5. Self-hosting stays one variable.**
 `DATABASE_URL` is the only required env var. Everything else is configured inside the app
 and lives in the `Setting` table. If a feature needs configuration, it gets an admin
-panel and an `admin_*` tool — not a new environment variable. The app provisions its
-owner account at boot (`src/lib/bootstrap.ts`) and applies migrations on start.
+panel and an `admin_*` tool — not a new environment variable. The narrow exception is
+machine-level facts the app cannot know about its host — where the Chromium binary lives
+for PDF export, say — which may be optional env vars with working defaults. The app
+provisions its owner account at boot (`src/lib/bootstrap.ts`) and applies migrations on
+start.
 
 **6. No fabrication.** The server instructions in `handler.ts` tell every connected client
 never to invent experience, employers, dates or metrics. Any new tool or prompt that
@@ -88,23 +96,48 @@ generates resume content inherits that rule and should restate it.
 
 ```
 prisma/schema.prisma          Data model. Migrations in prisma/migrations/, applied on boot.
-src/lib/data/                 THE data layer. brain / resumes / pipeline / users / connections.
+src/lib/data/                 THE data layer, one file per area: brain, resumes, pipeline,
+                              pipeline-share, views, users, connections, waitlist, audit,
+                              system, patch. userId first wherever content is touched;
+                              the instance-level files (users, waitlist, audit, system)
+                              say in their header comments why they are not exceptions.
 src/lib/mcp/tools.ts          Tool + prompt definitions. One array, one source of truth.
 src/lib/mcp/handler.ts        Streamable HTTP transport + the server instructions block.
 src/lib/mcp/clients.ts        Per-client setup recipes. Adding a client = one array entry.
 src/lib/resume-schema.ts      The resume document contract (zod).
+src/lib/pdf.ts                Server-side PDF rendering. Needs a Chromium on the host;
+                              degrades to the print page where there isn't one.
 src/server/actions.ts         Server actions for the UI. Never accepts a userId.
-src/app/(app)/                The app: dashboard, brain, resumes, applications, settings, admin.
+src/app/(app)/                The app: dashboard, brain, resumes, applications, crm, docs,
+                              settings (admin lives under it).
 src/app/api/mcp/[token]/      The connection URL. /api/mcp also accepts a bearer header.
-src/app/print/[id]/           US-Letter page for browser "Save as PDF". Auth-gated.
+src/app/r/[slug]/             Published resume, no auth. With /p/[slug] (shared pipeline),
+                              the only unauthenticated pages in the app — unlisted slugs
+                              are the entire privacy model, so treat both with care.
+src/app/print/[id]/           US-Letter page for browser "Save as PDF". Auth-gated. The
+                              fallback when the host has no Chromium, and the reason the
+                              output stays selectable text.
 src/components/               UI. ui/ is shadcn — extend, don't rewrite.
+.claude/DECISIONS.md          Append-only decision log. Read it before reversing anything.
+.claude/skills/               Deep guides for whoever writes the code: mcp-tool (how to
+                              write a tool description), ship-a-feature (the build order,
+                              in detail). Plain markdown — every agent should read them,
+                              not just the one that auto-loads them.
+.claude/plans/                Designs, not decisions. workspaces.md describes an unbuilt
+                              feature; nothing in this directory is current architecture.
+skills/                       Product-facing skills served to *users* of a running
+                              instance from its /docs page. Not development guides —
+                              don't confuse this tree with .claude/skills/.
 ```
 
 Data areas map cleanly onto tool prefixes: brain (`search_brain`, `list_roles`,
 `append_role_brain_dump`, …), resumes (`get_resume_format`, `create_resume`,
 `preview_resume_text`, …), pipeline (`list_applications`, `move_application_stage`,
-`list_follow_ups`, …), admin (`admin_*`, hidden from members' `tools/list` entirely —
-not merely refused).
+`list_follow_ups`, …), CRM (`list_companies`, `create_contact`, …), admin (`admin_*`,
+hidden from members' `tools/list` entirely — not merely refused). Don't trust any
+hand-written tool count you find, including in old decision-log entries: the authoritative
+number is generated live on the /docs page, and the README hand-carries it in three
+places that must be bumped whenever the array changes.
 
 ---
 
@@ -124,7 +157,7 @@ into someone's career history. Budget real effort here.
 - Prefer additive tools where a person would expect additive behaviour.
   `append_role_brain_dump` exists because `update_role` was eating people's notes.
 - Give a dry-run where a mistake is expensive. `preview_resume_text` renders and estimates
-  page count *without* saving, so length can be checked before committing.
+  length *without* saving; `export_resume_pdf` reports the measured page count.
 - Use the local helpers (`str`, `num`, `bool`, `object`, `required`, `defined`) rather
   than hand-rolling schema objects. `defined()` strips undefined keys so Prisma doesn't
   try to write them.
@@ -137,41 +170,33 @@ in sequence, it is a prompt composed of four tools.
 
 ---
 
-## Current focus: make this the only tool in the workflow
+## Current focus: a new user's first ten minutes
 
-The point of the next stretch is to delete the other tabs — resume.lol in particular.
-Ship in this order; each one alone removes a reason to leave the app.
+The original focus list — delete the reasons to leave the app for resume.lol — is mostly
+done. Shipped and live: a published resume has an unlisted URL at `/r/[slug]`
+(`publish_resume` / `unpublish_resume`), PDF export renders server-side
+(`export_resume_pdf`, `src/lib/pdf.ts`, print page kept as the Chromium-less fallback),
+a posting is captured in one move (`capture_job_posting`), and a pipeline can be shared
+read-only at `/p/[slug]`. Do not rebuild any of these; the decision log records how each
+landed.
 
-**1. A resume has a URL.** `Resume.slug` + `visibility` (`PRIVATE` | `UNLISTED`), a public
-route at `/r/[slug]` that renders `ResumePaper` with no auth, and `publish_resume` /
-`unpublish_resume` tools. This is the single feature people actually use resume.lol for:
-a link you paste into an application form. Unlisted-by-random-slug is the whole privacy
-model — do not build sharing permissions.
+What remains, in order:
 
-**2. Real PDF export, server-side.** Today `/print/[id]` hands off to the browser print
-dialog, which means "set margins to None" is in the README. Render the same page headless
-and serve the bytes, exposed as an `export_resume_pdf` tool that returns a URL. Keep the
-print page working as the fallback — it is the reason the output is selectable text and
-ATS-readable, and that property must survive.
-
-**3. Import, so friends can start.** Paste a resume, a PDF or a LinkedIn export and get a
+**1. Import, so friends can start.** Paste a resume, a PDF or a LinkedIn export and get a
 populated brain: `import_resume`. Right now a new user faces an empty workspace and has
 to type their life story before the product does anything. This is the adoption blocker,
 not a feature.
 
-**4. Capture a posting in one move.** `capture_job_posting(url)` — fetch, parse, create or
-match the `Company`, create the `Application` with `jobDescription` filled, return the id.
-Manual application entry is the other thing that makes people fall back to a spreadsheet.
-
-**5. Tailoring becomes traceable.** `Resume.baseResumeId` plus a diff view: what changed
+**2. Tailoring becomes traceable.** `Resume.baseResumeId` plus a diff view: what changed
 between the base and the tailored copy, and which brain evidence backed each new bullet.
 `duplicate_resume` already does the mechanical part; this makes it reviewable.
 
-**Parked, deliberately** — revisit once 1–5 land: first-class interview rounds and
-questions (today they are `Activity` rows of type `INTERVIEW` with free-text bodies), and
-any sharing-between-users feature. Sharing needs a hosted instance, a moderation story and
-a privacy model that does not exist yet; every instance is single-tenant self-hosted
-today. Do not start it as a side quest.
+**Parked, deliberately:** first-class interview rounds and questions (today they are
+`Activity` rows of type `INTERVIEW` with free-text bodies), and any sharing that involves
+*accounts* — viewers, editors, workspace members. The unlisted links that exist
+(`/r/[slug]`, `/p/[slug]`) are the deliberate ceiling: a link is consent, an account
+system is a permissions model this product does not have and should not grow as a side
+quest. `.claude/plans/workspaces.md` is a design for it, and only a design.
 
 ---
 
@@ -185,7 +210,10 @@ was expensive. Ask before reversing it.
 
 **Migrations are real.** Write a migration in `prisma/migrations/` — the deploy runs
 `prisma migrate deploy` on start. `db:push` is for local scratch only. Never edit an
-applied migration.
+applied migration. And after any edit to `prisma/schema.prisma`, run `npx prisma generate`
+before you typecheck: only `postinstall` and `build` regenerate the client, so without it
+the compiler rejects your new model with an error that looks like your code is wrong when
+it is only stale.
 
 **Verify before you claim done:**
 
@@ -194,8 +222,18 @@ npm run typecheck    # tsc --noEmit — must be clean
 npm run build        # must succeed; this is what Railway runs
 ```
 
+These two commands are the *only* gate. There is no CI check on branches or PRs — the
+first thing that compiles your code after you push to main is the Docker image build that
+self-hosters pull — so "it'll get caught later" is false here. There is also no test
+suite; typecheck, build, and actually exercising the change are the whole verification
+story.
+
 Then the parity check: list what you added, and confirm each item exists in both
 `src/lib/data/` and `src/lib/mcp/tools.ts`.
+
+**Running it locally** is in the README under "Running it locally": one `DATABASE_URL` in
+`.env`, `npm install`, `npx prisma migrate deploy`, `npm run dev`; the owner password
+prints once on first boot. `npm run dev` applies no migrations — only `start` does.
 
 **Prose matters here.** The README, tool descriptions and UI copy are written in a
 specific voice: plain, direct, second person, no marketing, no exclamation marks, no
@@ -205,7 +243,11 @@ README in that voice rather than appending a bullet list.
 
 **Log decisions.** When you make a non-obvious call — a tradeoff, a thing you tried that
 didn't work, a constraint you discovered — append it to `.claude/DECISIONS.md` with the
-date. That file is the memory the next session doesn't have.
+date. That file is the memory the next session doesn't have, and it applies to every
+agent, whatever the directory is named. Rules of the file: append-only, newest at the
+bottom, and a later entry supersedes an earlier one on the same subject — so when you
+consult it, search or read from the end rather than trusting the first match. It is far
+too long to read whole; don't try.
 
 **Small commits, real messages.** Look at `git log`: each commit is one coherent change
 described in the imperative by what it does for the user ("Make MCP the front door: one
