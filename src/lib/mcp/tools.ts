@@ -1583,6 +1583,24 @@ export const tools: McpTool[] = [
     handler: async () => users.listUsers(),
   },
   {
+    name: "admin_user_detail",
+    title: "Look up one account",
+    description:
+      "Everything known about a single account, for when someone asks for help: when they joined, who invited them, whether that invitation email actually went out, when they last signed in, which assistants they have connected and when each last called, whether they are being billed, how much they have built, every administrative change made to their account, and anything the instance recorded against their address — a bounced invite, a tool call that threw. Start here before admin_reset_user_password or admin_set_user_active, because it tells you whether the problem is the account or the email. Takes a user id from admin_list_users. Returns counts of what is in their workspace, never its contents: no brain, no resumes, no applications, and never a connection token. `manageable` says whether you are allowed to act on this account at all — it is false for the instance owner, for yourself, and for another admin when you are not the owner.",
+    inputSchema: object({ user_id: str("The user's id, from admin_list_users") }, ["user_id"]),
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const id = required(args, "user_id");
+      const detail = await users.getUserDetail(ctx.user, id);
+      if (!detail) throw new Error("No such user.");
+      const [history, events] = await Promise.all([
+        audit.listAudit({ targetId: id, limit: 50 }),
+        system.listSystemEvents({ limit: 25, userEmail: detail.email }),
+      ]);
+      return { ...detail, history, events };
+    },
+  },
+  {
     name: "admin_invite_user",
     title: "Invite someone",
     description:

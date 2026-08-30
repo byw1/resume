@@ -75,11 +75,15 @@ export async function listSystemEvents(options?: {
   limit?: number;
   level?: SystemEventLevel;
   source?: SystemEventSource;
+  /** Only what happened to one person's requests. Matched by address, since
+   *  a row outlives the account it describes. */
+  userEmail?: string;
 }) {
   return db.systemEvent.findMany({
     where: {
       ...(options?.level ? { level: options.level } : {}),
       ...(options?.source ? { source: options.source } : {}),
+      ...(options?.userEmail ? { userEmail: options.userEmail } : {}),
     },
     orderBy: { createdAt: "desc" },
     take: Math.min(options?.limit ?? 50, 200),

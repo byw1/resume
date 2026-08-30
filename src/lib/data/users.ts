@@ -91,6 +91,79 @@ export async function countUsers() {
 }
 
 /**
+ * Everything about one account, for the moment someone emails you for help.
+ *
+ * The list answers "who is on this instance"; this answers "what is going on
+ * with this person" — when they joined, who let them in, whether the invite
+ * email actually left, whether an assistant has ever connected, whether they
+ * are being billed, and what has been done to their account.
+ *
+ * Note what is counted and what is read. Counts of roles, resumes and
+ * applications tell you whether a workspace is in use; they are not its
+ * contents, and nothing here selects a single word of anyone's brain. The
+ * token on a connection is excluded for the same reason it is only shown once
+ * to its owner: it is a credential, and an admin has no use for it.
+ *
+ * `canManage` is resolved here rather than in the UI so the page and the tool
+ * cannot disagree about who is allowed to do what.
+ */
+export async function getUserDetail(actor: User, userId: string) {
+  const user = await db.user.findUnique({
+    where: { id: userId },
+    select: {
+      id: true,
+      email: true,
+      name: true,
+      role: true,
+      isActive: true,
+      lastLoginAt: true,
+      createdAt: true,
+      stripeCustomerId: true,
+      invitedBy: { select: { name: true, email: true } },
+      _count: {
+        select: {
+          roles: true,
+          resumes: true,
+          applications: true,
+          contacts: true,
+          companies: true,
+          highlights: true,
+          sentInvites: true,
+          sessions: true,
+        },
+      },
+      mcpConnections: {
+        select: {
+          id: true,
+          name: true,
+          client: true,
+          lastUsedAt: true,
+          lastUsedFrom: true,
+          createdAt: true,
+        },
+        orderBy: { createdAt: "asc" },
+      },
+    },
+  });
+  if (!user) return null;
+
+  // The invite they came in on, if they came in on one. Matched by address
+  // because acceptInvite consumes the token rather than keeping a relation.
+  const invite = await db.invite.findFirst({
+    where: { email: user.email, acceptedAt: { not: null } },
+    orderBy: { acceptedAt: "desc" },
+    select: { acceptedAt: true, emailSent: true, emailError: true, createdAt: true },
+  });
+
+  return {
+    ...user,
+    invite,
+    billed: Boolean(user.stripeCustomerId),
+    manageable: canManage(actor, user),
+  };
+}
+
+/**
  * Rules that keep an instance from locking itself out:
  * - the super admin can never be deactivated, demoted or deleted
  * - an admin cannot act on another admin, only on members

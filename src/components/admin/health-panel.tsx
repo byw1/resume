@@ -38,7 +38,8 @@ const TONE: Record<HealthStatus, string> = {
   down: "text-destructive",
 };
 
-const SOURCE_LABEL: Record<string, string> = {
+/** Shared with the account page, so one event reads the same in both places. */
+export const SOURCE_LABEL: Record<string, string> = {
   "stripe.webhook": "Stripe",
   "billing.sync": "Billing",
   "email.send": "Email",

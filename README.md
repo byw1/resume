@@ -31,12 +31,16 @@ just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  73 tools any MCP client can call (97 if you're an admin). Claude, Claude Code, ChatGPT,
+  73 tools any MCP client can call (98 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
   under Settings → Admin: invitations, accounts, per-workspace usage, a password reset for
-  whoever is locked out, and a log of every administrative change.
+  whoever is locked out, and a log of every administrative change. Click any name for that
+  account on one page — when they joined, who invited them, whether that invitation email
+  actually left, which assistants they have connected, and everything the instance recorded
+  against their address. It is the page you open when somebody emails asking why they can't
+  get in, and there is no way from it into their brain, resumes or applications.
 - **You can tell when it breaks** — Settings → Admin → Health checks the database, whether
   every migration finished, whether the last invite email actually left, and whether Stripe
   is still calling the webhook, then lists what has failed in the last thirty days. Ask an
@@ -183,7 +187,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 73, or 97 if you're an admin.
+would, then tells you how many tools answered — 73, or 98 if you're an admin.
 
 #### One connection per client
 
@@ -279,7 +283,7 @@ this key and send a test."*
 73 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 24 more tools — and members never even see those in the tool list, so nobody is
+Admins get 25 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |

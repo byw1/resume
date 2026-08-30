@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
+import Link from "next/link";
 import { AnimatePresence, motion } from "framer-motion";
 import { CheckIcon, CopyIcon, KeyRoundIcon, MoreVerticalIcon, ShieldIcon, Trash2Icon, UserIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -137,11 +138,17 @@ export function UsersPanel({
                   {initials(user.name || user.email)}
                 </div>
 
+                {/* The name is the way in to the account's own page. The row
+                    itself stays a row rather than becoming one big link,
+                    because the menu at the end of it is not a navigation. */}
                 <div className="min-w-0 flex-1">
                   <div className="flex items-center gap-2">
-                    <span className="truncate text-sm font-medium">
+                    <Link
+                      href={`/settings/admin/people/${user.id}`}
+                      className="hover:text-primary truncate text-sm font-medium"
+                    >
                       {user.name || user.email.split("@")[0]}
-                    </span>
+                    </Link>
                     {user.id === actor.id && (
                       <Badge variant="secondary" className="text-[10px]">
                         you

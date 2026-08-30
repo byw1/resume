@@ -1547,3 +1547,38 @@ invites, so those keep the default.
 `src/app/(app)/error.tsx`, `src/app/global-error.tsx`,
 `prisma/migrations/20250116000000_system_events/`, and the recording sites in
 `src/lib/email.ts`, `src/lib/mcp/handler.ts` and `src/app/api/stripe/webhook/route.ts`.
+
+---
+
+## 2026-08-30 — One page per account, and no way in from it
+
+The People tab answers "who is on this instance". It could not answer "what is going on with
+this person", which is the question you actually have when someone emails asking why they
+can't get in. That answer was spread across four places and one of them (whether the invite
+email actually left) was only visible while the invite was still pending — after they
+accepted, the bounce was gone.
+
+`/settings/admin/people/[id]` is Twenty's user lookup, minus the impersonation. Everything
+needed to answer a support email without asking them anything: when they joined, who invited
+them, whether that invitation bounced and why, when they last signed in, which assistants
+they connected and when each last called, whether they are billed, what has been done to
+the account, and what the instance recorded against their address.
+
+**What it deliberately lacks is a way in.** Counts of roles, resumes and applications say
+whether a workspace is being used; there is no link, no preview, no impersonation. This is
+the page where "admins manage accounts, never content" would be most natural to break, so
+the copy on the page states the rule rather than leaving it implied. Connection tokens are
+excluded from the select for the same reason they are shown once to their owner: they are
+credentials, and an admin has no use for one.
+
+**`canManage` is resolved in the data layer and returned as `manageable`**, so the page and
+`admin_user_detail` cannot disagree about who may act on an account. When it is false the
+controls are absent rather than disabled-with-a-tooltip, because all three reasons — it's
+you, it's the owner, it's another admin and you are not the owner — are permanent.
+
+**Verified rather than assumed:** a MEMBER hitting the URL directly is redirected to their
+dashboard, the owner's own page renders no action buttons and says why, and the tool's reply
+contains no connection tokens.
+
+**Applies to:** `src/app/(app)/settings/admin/people/[id]/`,
+`src/components/admin/person-actions.tsx`, `getUserDetail` in `src/lib/data/users.ts`.
