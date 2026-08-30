@@ -1739,12 +1739,22 @@ Railway `CNAME` on `app`, and there is no mailbox mail on the domain to disturb.
 one call — `POST /emails` — so a key that leaks cannot read the account, mint more keys, or touch
 another domain. Same reasoning as the restricted Stripe key in `admin_set_billing_config`.
 
-**Namecheap silently drops MX records unless the domain's Mail Settings say Custom MX.** This is the
-whole blocker. `dns_records_save` returns `business.gatewayConflict`, and with `force: true` it
-returns `{"saved": 1}` and stores nothing — the record is simply absent on the next read. The two TXT
-records went in on the first try; the MX never has. The setting is on the Advanced DNS page and
-there is no API for it, so it is a manual step in the dashboard before the MX can be written and
-before Resend will move the domain off `pending`.
+**Namecheap's API will not write an MX record on this domain at all, and says so misleadingly.**
+`dns_records_save` returns `business.gatewayConflict` for the MX every time, and with `force: true`
+it returns `{"saved": 1}` and stores nothing. The first guess was the domain's Mail Settings being
+something other than Custom MX; that was wrong. Setting Custom MX changed nothing, and a probe MX
+at a fresh, unused host failed identically — so it is not the `send` host, not a collision with the
+SPF `TXT` already sitting there, and not the mail-type setting. The two `TXT` records went in
+through the API on the first attempt. The MX had to be added by hand in the Advanced DNS page.
 
-Worth remembering that `force` here reports success it did not achieve. Always re-read the zone
-after writing rather than trusting the save count.
+Assume anything needing an MX on a Namecheap domain is a manual step. And re-read the zone after
+every write: `force` reported a save count for a record that was never stored.
+
+**`dns.google` will lie to you for an hour afterwards.** The zone's SOA sets a negative-cache TTL of
+3601 seconds, so once you have asked Google for a record that does not exist yet, it keeps answering
+NODATA long after the record is live. This cost a wrong "still not propagated" reading and a polling
+loop that would have slept through the whole thing. Query a resolver that was never asked the
+question early — Cloudflare returned the MX immediately — or just trigger Resend verification and
+believe its answer over your own lookups.
+
+Domain reached `verified` on all three records once the MX was in.
