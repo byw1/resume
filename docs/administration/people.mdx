@@ -16,9 +16,21 @@ password reset for whoever is locked out, and a log of every administrative chan
 | **Admin** (`ADMIN`) | Invite people, suspend and delete members, configure the instance. |
 | **Member** (`MEMBER`) | Their own workspace. Never sees the admin area. |
 
-Only the owner may create admins. An admin can only act on members — not on the owner, not
-on themselves, and not on another admin. That restriction is what stops the admin area
-being a route to taking over an instance.
+An admin can only act on members — not on the owner, not on themselves, and not on another
+admin. That restriction is what keeps the admin area from being a route to taking over an
+instance, and it holds everywhere.
+
+Creating *new* admins is narrower, and not quite uniformly so:
+
+| Route | Who may make someone an admin |
+| --- | --- |
+| Inviting a new person as `ADMIN` | The owner only. `admin_invite_user` refuses anyone else. |
+| The promote control in **Admin → People** | The owner only. The button is not shown to other admins. |
+| `admin_set_user_role` over MCP | Any admin, on any member. It enforces only that an admin acts on a member. |
+
+So an admin connected over MCP can promote a member to admin, where the same admin cannot
+do it in the browser. If that matters on your instance, keep admin accounts to people you
+would let hold the owner's own connection URL.
 
 <Note>
   **Admins manage accounts, not content.** There is no path — through the app or through

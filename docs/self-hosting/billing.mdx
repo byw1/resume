@@ -64,7 +64,7 @@ and there is a **Resync from Stripe** button that does the same thing.
 
 `admin_health` includes a billing check.
 
-- **Down** usually means the signing secret in **Admin → Billing** is wrong.
+- **Down** usually means the signing secret in **Admin → Configuration → Billing** is wrong.
 - **Never called** means the webhook endpoint was never added on Stripe's side.
 
 `admin_recent_errors` with `source: "stripe.webhook"` carries the specifics. Note that the

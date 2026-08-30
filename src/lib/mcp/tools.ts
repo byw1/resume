@@ -1077,7 +1077,7 @@ export const tools: McpTool[] = [
     name: "create_resume",
     title: "Create a resume",
     description:
-      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seed_from_brain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
+      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
     inputSchema: object(
       {
         name: str("What to call this resume, e.g. 'Stripe — Staff Engineer'"),
@@ -1087,7 +1087,7 @@ export const tools: McpTool[] = [
         accent: str("Accent colour as a hex string. Defaults to '#000000', which is what Harvard expects."),
         fontFamily: str("serif (default) | inter | mono"),
         fontSize: num("Base font size in points, 9-12. Default 10."),
-        lineHeight: num("Line height, 1.15-1.6. Default 1.35."),
+        lineHeight: num("Line height, 1.15-1.6. Default 1.2."),
         notes: str("Private notes about this version — what you tailored and why"),
         showPhoto: bool(
           "Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does.",
@@ -2530,7 +2530,7 @@ export const tools: McpTool[] = [
     name: "admin_health",
     title: "Check whether the instance is working",
     description:
-      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
+      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Configuration → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,

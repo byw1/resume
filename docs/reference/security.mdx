@@ -31,8 +31,16 @@ through the app, not through an assistant, not through an admin.
   </Card>
 </CardGroup>
 
-Only the owner may create admins. An admin can act on members only — which is what stops
-the admin area being a route to taking over an instance.
+An admin can act on members only — never on the owner, never on another admin, never on
+themselves. That is what stops the admin area being a route to taking over an instance, and
+it is enforced on every path.
+
+Creating new admins is *mostly* the owner's alone: inviting someone as an admin refuses any
+other caller, and the promote control in **Admin → People** is only rendered for the owner.
+The exception is `admin_set_user_role` over MCP, which checks only that an admin is acting
+on a member — so an admin with a connection can promote one. It gains that admin nothing
+they did not already have, but it does mean the admin set is not the owner's to control
+alone. Treat an admin account as trusted accordingly.
 
 Every administrative action is written to the audit log with the acting admin's name,
 values included for everything that is not a secret. Secrets are recorded as having been

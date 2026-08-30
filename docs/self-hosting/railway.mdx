@@ -70,8 +70,10 @@ icon: "train"
 | `APP_PASSWORD` | Use this as the owner's first password instead of a generated one. |
 | `RESET_OWNER_PASSWORD` | Set to `1` and redeploy to generate a fresh owner password and print it again. Remove the variable afterwards. |
 
-`RAILWAY_PUBLIC_DOMAIN` is set by the platform and picked up automatically, so invitation
-links work without you setting a public URL by hand.
+`RAILWAY_PUBLIC_DOMAIN` is set by the platform, and the app uses it for the sign-in address
+it prints in the deploy log. Invitation links need no public URL either — the app falls back
+to the address the request came in on — but set **Public URL** in **Admin → Variables** once
+a custom domain or a proxy sits in front of the app.
 
 ## Deploy configuration
 

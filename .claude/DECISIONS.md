@@ -2303,3 +2303,39 @@ checking is a script over the nav tree — worth rerunning after any page is add
 
 **Applies to:** `docs/` (new), `README.md`, `site/index.html`, `src/lib/links.ts` (new),
 `src/app/(app)/settings/page.tsx`, `src/app/(app)/docs/page.tsx`.
+
+## 2026-08-30 — What an adversarial pass over the manual found in the code
+
+Writing docs/ meant asserting, in public, what this app does. Six auditors read the
+pages against the source and 17 findings survived independent verification. Most
+were the docs' fault. These were not, and are fixed:
+
+**`create_resume` advertised `seed_from_brain`.** The key is `seedFromBrain`, so
+anyone following the description got a silently empty resume. **Its `lineHeight`
+default said 1.35**, which was true until `20250102000000_harvard_default` lowered
+the column to 1.2; `get_resume_format` has been reporting 1.2 the whole time, from
+the same file. **`admin_health` pointed at "Admin → Billing"**, which has not been a
+tab since email and billing were merged into Configuration. **`save_view` omitted
+`month`** from the parameters it says are kept, then said anything else is dropped —
+so an assistant saving a calendar view would have dropped the month believing that
+was correct.
+
+**`admin_set_user_role` lets any admin promote a member to admin.** `createInvite`
+refuses a non-owner inviting an ADMIN, and the promote control in Admin → People is
+rendered only for the owner — but `setUserRole` checks `canManage` and then only
+refuses `SUPER_ADMIN`, so the MCP path has neither guard. Left as it is rather than
+tightened, because changing an authorisation rule is not a documentation change; the
+manual states the actual behaviour, including that it differs from the browser.
+Worth closing deliberately.
+
+**Two things the docs got wrong that are worth remembering.** `showPhoto` does not
+put a face on a published resume by itself — `PHOTO_TEMPLATES` excludes harvard,
+which is the default, so the warning was unconditionally false for a new resume. And
+`diagnose_search` will not name a weakest step under ten applications; an example
+built on six was describing output the tool refuses to produce.
+
+**Not changed:** `Admin → Billing` in the billing error strings and the Stripe
+webhook comment. There is a card headed Billing inside Configuration, so those are
+imprecise navigation rather than a pointer at nothing.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `skills/hired/SKILL.md`, `docs/`.

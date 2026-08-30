@@ -32,7 +32,7 @@ Every one is optional. Put them in a `.env` file next to `docker-compose.yml`:
 | --- | --- |
 | `ADMIN_EMAIL` | Owner email instead of `owner@localhost`. |
 | `APP_PASSWORD` | Owner password instead of a generated one. |
-| `PUBLIC_URL` | The address you serve this at, once it has one — used to build invite links and the sign-in URL. |
+| `PUBLIC_URL` | The sign-in address printed in the startup banner beside your owner password. Invite links come from **Public URL** in **Admin → Variables**, not from this. |
 | `POSTGRES_PASSWORD` | Database password. The database is not reachable from outside the compose network, which is why a default is acceptable — set one anyway if your host is shared. |
 | `PORT` | Host port to listen on. The container stays on 3000. |
 
@@ -61,7 +61,11 @@ application. Treat it accordingly.
 
 ## Putting it behind a domain
 
-Point a reverse proxy at the app's port and terminate TLS there. Then set `PUBLIC_URL` to
-the address people will actually use — or set **Public URL** in **Admin → Variables**,
-which does the same thing without a restart. Invitation links and the Stripe webhook URL
-are both built from it, so it is worth setting the moment you have a domain.
+Point a reverse proxy at the app's port and terminate TLS there. Then set **Public URL**
+in **Admin → Variables** to the address people will actually use: invitation links and the
+Stripe webhook URL are built from it, and it takes effect on the next request with nothing
+to restart.
+
+Setting the `PUBLIC_URL` environment variable as well is worth it only for the startup
+banner, which is where a fresh owner password gets printed. Left unset, the app falls back
+to the address each request came in on — right until something sits in front of it.

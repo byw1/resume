@@ -93,11 +93,17 @@ In the pages that follow, a tool marked **Overwrites or deletes** carries
     whenever somebody says something new about a job already on file.
   </Accordion>
 
-  <Accordion title="Enums fail loudly" icon="triangle-exclamation">
+  <Accordion title="List filters fail loudly" icon="triangle-exclamation">
     The transport does not validate schemas, so a filter value the data layer does not
     recognise would otherwise be dropped — and an assistant asking for "companies I never
     applied to" must not be handed all of them as though that were the answer. An
-    unrecognised enum value throws, naming the allowed set.
+    unrecognised value for `list_companies` or `list_contacts`' `filter` therefore throws,
+    naming the allowed set.
+
+    Not every enum is re-checked that way. A `kind` on `create_note` or `update_note` that
+    is neither `NOTE` nor `GUARDRAIL` is dropped rather than refused, so the note is filed
+    as a plain `NOTE` instead of the standing rule that was asked for. Worth checking with
+    `list_notes` after making one.
   </Accordion>
 
   <Accordion title="Links come back as links" icon="link">

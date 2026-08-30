@@ -16,8 +16,10 @@ you can just say.
 </Warning>
 
 Prefer `rotate_connection` over `delete_connection` when the client is still in use and
-only the URL has leaked: rotating keeps the row, its name and its place in the list, and
-kills the old address the moment it returns.
+only the URL has leaked: rotating keeps the row and its name, and kills the old address the
+moment it returns. It also clears the last-used stamp, and the list is ordered by last use —
+so a rotated connection drops to the bottom until the client calls in on the new URL, which
+is a useful way to see whether anyone actually pasted it.
 
 [Connecting an assistant →](/connect)
 
