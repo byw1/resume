@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Hired — the Applicant&rsquo;s Tracking System</title>
 <meta name="description" content="We are building the ATS for Applicants. Every company you apply to runs on an ATS; theirs keeps a record on you. This one keeps the record on them. Free to self-host.">
+<link rel="alternate" type="application/rss+xml" title="Hired resources" href="https://hired.tools/feed.xml">
 <link rel="canonical" href="https://hired.tools/">
 <meta name="theme-color" content="#f9f9fa">
 <meta property="og:title" content="Hired — the Applicant’s Tracking System">
@@ -23,6 +24,8 @@
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="preload" as="style" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:opsz,wght@14..32,400;14..32,500;14..32,600&family=JetBrains+Mono:wght@400;500&display=swap">
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"SoftwareApplication","name":"Hired","url":"https://hired.tools/","applicationCategory":"BusinessApplication","operatingSystem":"Web, Docker","description":"An applicant tracking system, for applicants. A career brain, resume builder and job-search CRM you self-host or have hosted.","offers":[{"@type":"Offer","price":"0","priceCurrency":"USD","name":"Self-host"},{"@type":"Offer","price":"12","priceCurrency":"USD","name":"Hosted","availability":"https://schema.org/PreOrder"}],"publisher":{"@type":"Organization","name":"Shifu Labs","url":"https://shifulab.com"}}</script>
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"FAQPage","mainEntity":[{"@type":"Question","name":"Do I need to be technical to use this?","acceptedAnswer":{"@type":"Answer","text":"No. On the hosted version you get a link, pick a password, and you're in — it's a website. The only setup is pasting one address into Claude or ChatGPT, and that screen gives you the address and tells you where it goes. Self-hosting is the part that needs a terminal, and it's optional."}},{"@type":"Question","name":"Can I use it now?","acceptedAnswer":{"@type":"Answer","text":"You can self-host it now — that's finished and free. Hosting is invite-only while I let people in a few at a time and fix what they find. Put your email in the box and I'll send you an invite when a place opens; nothing else happens to your address."}},{"@type":"Question","name":"What does it cost?","acceptedAnswer":{"@type":"Answer","text":"Nothing if you run it yourself, forever. Hosted is $12 a month, cancel whenever you like. There's no free trial of the hosted plan because self-hosting is the free version, and it's the same software rather than a cut-down one."}},{"@type":"Question","name":"Will it invent things to put on my resume?","acceptedAnswer":{"@type":"Answer","text":"No, and that's the rule the whole thing is built on. Every connected assistant is told, in writing, never to invent an employer, a date, a title or a number. If a posting wants something you haven't got, it says so and asks you rather than filling the gap. There's a section above showing exactly what that refusal looks like."}},{"@type":"Question","name":"How long until it's useful?","acceptedAnswer":{"@type":"Answer","text":"One job. Write down what you actually did at one place you can still remember, in whatever order it comes out, and you can produce a tailored resume from it that afternoon. It gets better every time you add something, which is the point — but it does not need your whole life before it does anything."}},{"@type":"Question","name":"Do I have to talk to an AI to use it?","acceptedAnswer":{"@type":"Answer","text":"No. Everything has a screen: the brain, the resume editor, the board, the contacts. Talking to it is faster for the boring parts — logging what happened, moving a card, tailoring a resume — and the two are the same data, so you can do a thing by hand and ask about it a minute later."}},{"@type":"Question","name":"Will the PDF get through an ATS?","acceptedAnswer":{"@type":"Answer","text":"The document is real text in a real page, not an image, and the default template is a faithful port of the Harvard OCS format — everything one size, no colour, no columns. The PDF is rendered from that same page, so what you see is what gets parsed."}},{"@type":"Question","name":"Who can see my stuff?","acceptedAnswer":{"@type":"Answer","text":"You. Every workspace is private, including from whoever runs the instance — admins manage accounts, never content, and that's enforced in the code rather than by policy. The one exception is a resume you deliberately publish as a link, and you choose when that happens and can unpublish it."}},{"@type":"Question","name":"What happens if I stop paying, or you stop caring?","acceptedAnswer":{"@type":"Answer","text":"Stop paying and your workspace is suspended, not deleted. If I disappear, the software is AGPL-3.0 and the self-hosted build is the same build, so moving to your own instance is always available and never a downgrade. It's your Postgres either way — pg_dump it, or ask for the whole brain back in one call."}}]}</script>
 <link rel="stylesheet" href="styles.css">
 <style>
   /* An <svg> with no width/height attribute has no intrinsic size and
@@ -84,27 +87,54 @@
 <div class="progress" role="presentation"></div>
 
 <header class="nav">
-  <div class="wrap nav-inner">
-    <a class="brand" href="/" aria-label="Hired, home">
-      <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
-        <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
-        <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-        <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-        <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-      </svg>
-      Hired
-    </a>
-    <nav class="nav-links" aria-label="Main">
-      <a class="link" href="#features">Features</a>
-      <a class="link" href="#tools">How it works</a>
-      <a class="link" href="#pricing">Pricing</a>
-      <a class="link" href="#selfhost">Self-host</a>
-      <a class="gh" href="https://github.com/shifulaboratories/Hired" rel="noopener">
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><use href="#i-gh"/></svg>
-        <span id="stars">GitHub</span>
+  <!-- A floating capsule rather than an edge-to-edge bar. Full width put the
+       links 600px from the brand and left 42% of the row empty; a contained
+       pill has no void to leave. Three grid tracks (1fr auto 1fr) put the links
+       on the true centre of the pill no matter how wide the two ends grow. -->
+  <div class="nav-rail">
+    <div class="nav-inner">
+      <a class="brand" href="/" aria-label="Hired, home">
+        <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
+          <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+        </svg>
+        Hired
       </a>
-      <a class="btn btn-primary btn-sm" href="#join">Request access</a>
-    </nav>
+
+      <nav class="nav-links" aria-label="Main">
+        <a class="link" href="#features">Features</a>
+        <a class="link" href="#pricing">Pricing</a>
+        <a class="link" href="/resources/">Resources</a>
+      </nav>
+
+      <div class="nav-acts">
+        <a class="gh" href="https://github.com/shifulaboratories/Hired" rel="noopener" aria-label="Hired on GitHub" title="Hired on GitHub">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><use href="#i-gh"/></svg>
+        </a>
+        <a class="link nav-login" href="https://app.hired.tools/login">Log in</a>
+        <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
+      </div>
+
+      <!-- The small-screen menu is a <details>, so it opens, closes and takes
+           focus with no JavaScript at all. The links used to simply vanish below
+           720px, which left the nav with nowhere to go but the CTA. -->
+      <details class="nav-menu">
+        <summary aria-label="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </summary>
+        <div class="nav-sheet">
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="/resources/">Resources</a>
+          <a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a>
+          <hr class="fold">
+          <a href="https://app.hired.tools/login">Log in</a>
+          <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
+        </div>
+      </details>
+    </div>
   </div>
 </header>
 
@@ -275,7 +305,7 @@
 
     <div class="figures" style="margin-top:44px">
       <div class="figure" data-reveal style="--i:1">
-        <div class="n"><span data-count="70">70</span></div>
+        <div class="n"><span data-count="73">73</span></div>
         <div class="l">Things it can do on your say-so</div>
         <div class="h">Each one named, so it can be asked for exactly</div>
       </div>
@@ -1437,12 +1467,12 @@
     <details class="under" data-reveal>
       <summary>
         <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
-        Under the hood: all 70 things it can do
+        Under the hood: all 73 things it can do
       </summary>
       <div class="inner">
         <p class="lede" style="margin-bottom:26px">
           Every one of those sentences is the assistant calling named tools against your
-          workspace. There are 70 of them, and they are the whole surface — the screens and
+          workspace. There are 73 of them, and they are the whole surface — the screens and
           the assistant call the same data layer, so there is nothing the app can do that a
           conversation can't. Twenty more exist for whoever runs the instance, hidden from
           everybody else entirely rather than merely refused.
@@ -1450,10 +1480,10 @@
 
     <div data-catalogue>
       <div class="tools-bar">
-        <button class="filter on" data-group="all">All <span class="meta">70</span></button>
+        <button class="filter on" data-group="all">All <span class="meta">73</span></button>
         <button class="filter" data-group="brain" style="--tone:var(--stage-applied)">Brain <span class="meta">21</span></button>
         <button class="filter" data-group="resumes" style="--tone:var(--stage-screen)">Resumes <span class="meta">11</span></button>
-        <button class="filter" data-group="pipeline" style="--tone:var(--stage-interview)">Pipeline <span class="meta">20</span></button>
+        <button class="filter" data-group="pipeline" style="--tone:var(--stage-interview)">Pipeline <span class="meta">23</span></button>
         <button class="filter" data-group="crm" style="--tone:var(--stage-final)">CRM <span class="meta">10</span></button>
         <button class="filter" data-group="workflows" style="--tone:var(--stage-offer)">Workflows <span class="meta">7</span></button>
         <button class="filter" data-group="account" style="--tone:var(--stage-wishlist)">Account <span class="meta">1</span></button>
@@ -1663,6 +1693,18 @@
         <article class="tool" data-group="pipeline" data-find="move_applications_stage move a batch of applications to the same stage at once. pipeline" style="--tone:var(--stage-interview)">
           <h3 class="n"><i aria-hidden="true"></i>move_applications_stage</h3>
           <p class="d">Move a batch of applications to the same stage at once.</p>
+        </article>
+        <article class="tool" data-group="pipeline" data-find="share_pipeline mint a link that shows your pipeline to anyone holding it, without a login. pipeline" style="--tone:var(--stage-interview)">
+          <h3 class="n"><i aria-hidden="true"></i>share_pipeline</h3>
+          <p class="d">Mint a link that shows your pipeline to anyone holding it, without a login.</p>
+        </article>
+        <article class="tool" data-group="pipeline" data-find="get_pipeline_share whether a read-only pipeline link exists, what it shows, and when it was last opened. pipeline" style="--tone:var(--stage-interview)">
+          <h3 class="n"><i aria-hidden="true"></i>get_pipeline_share</h3>
+          <p class="d">Whether a read-only pipeline link exists, what it shows, and when it was last opened.</p>
+        </article>
+        <article class="tool" data-group="pipeline" data-find="unshare_pipeline stop sharing the pipeline. destroys the address rather than pausing it. pipeline" style="--tone:var(--stage-interview)">
+          <h3 class="n"><i aria-hidden="true"></i>unshare_pipeline</h3>
+          <p class="d">Stop sharing the pipeline. Destroys the address rather than pausing it.</p>
         </article>
         <article class="tool" data-group="pipeline" data-find="delete_application permanently delete an application and its timeline. pipeline" style="--tone:var(--stage-interview)">
           <h3 class="n"><i aria-hidden="true"></i>delete_application</h3>
@@ -2186,6 +2228,7 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
             <li><a href="#honest">What it refuses</a></li>
             <li><a href="#tools">How it works</a></li>
             <li><a href="#selfhost">Self-host</a></li>
+            <li><a href="/resources/">Resources</a></li>
             <li><a href="#connect">Connect a client</a></li>
             <li><a href="#pricing">Pricing</a></li>
           </ul>
@@ -2193,7 +2236,7 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
         <div>
           <p class="foot-h">Source</p>
           <ul>
-            <li><a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a></li>
+            <li><a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub <span class="stars" id="stars" hidden></span></a></li>
             <li><a href="https://github.com/shifulaboratories/Hired/blob/main/README.md" rel="noopener">Docs</a></li>
             <li><a href="https://github.com/shifulaboratories/Hired/blob/main/LICENSE" rel="noopener">AGPL-3.0</a></li>
             <li><a href="https://app.hired.tools">Sign in</a></li>
@@ -2212,6 +2255,7 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
   <svg class="foot-mark" width="120" height="120" viewBox="0 0 96 96" aria-hidden="true" role="presentation"><use href="#i-shifu"/></svg>
 </footer>
 
+<script src="join.js" defer></script>
 <script src="motion.js" defer></script>
 </body>
 </html>

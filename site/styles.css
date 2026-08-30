@@ -911,54 +911,182 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
    PAGE CHROME
    =========================================================================== */
 
+/* The header is a floating capsule, not an edge-to-edge bar. Full width put
+   the links six hundred pixels from the brand and left 42% of the row empty at
+   1440; a contained pill has no void to leave. It stays sticky rather than
+   fixed so it keeps its space in the flow and the hero needs no offset. */
 .nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  transition: background-color 0.25s var(--settle), box-shadow 0.25s var(--settle);
+  padding-block: 12px;
+  transition: padding-block 0.25s var(--settle);
 }
-.nav-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: 62px;
-  transition: height 0.25s var(--settle);
-}
-.nav.stuck {
-  background: color-mix(in oklch, var(--page) 78%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  box-shadow: 0 1px 0 var(--rim);
-}
-.nav.stuck .nav-inner { height: 54px; }
+.nav-rail { position: relative; padding-inline: var(--gutter); }
 
-.brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
+/* A floating pill leaves a see-through strip above it, and scrolled content
+   was appearing in that strip clipped by the top of the viewport. This is the
+   ground the page dissolves into before it gets there: opaque at the very top,
+   gone by just below the pill. Only once scrolled — at rest there is nothing
+   behind it to hide. */
+.nav::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  /* Opaque down to roughly the bottom of the pill, then a long fade. A gradient
+     that starts thinning immediately leaves a legible ghost of the heading
+     scrolling past above the pill, which reads as a bug rather than an effect. */
+  height: calc(100% + 40px);
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--page) 0%,
+    var(--page) 55%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.25s var(--settle);
+}
+.nav.stuck::before { opacity: 1; }
+
+/* Three tracks, not a flex row: 1fr auto 1fr puts the links on the true centre
+   of the pill however wide the brand and the actions grow. margin-left:auto
+   would only ever push them up against the right-hand group. */
+.nav-inner {
+  max-width: 1080px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  /* Asymmetric on purpose. A 999px radius curves in about five pixels at the
+     height of the button's corners, so the right side needs more clearance
+     than the left, where only text sits. */
+  padding-inline: 20px 14px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--card) 72%, transparent);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: var(--shadow-hairline);
+  transition:
+    height 0.25s var(--settle),
+    background-color 0.25s var(--settle),
+    box-shadow 0.25s var(--settle);
+}
+
+/* Scrolled: the pill tightens, settles onto the page and stops being see-through. */
+.nav.stuck { padding-block: 8px; }
+.nav.stuck .nav-inner {
+  height: 50px;
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+/* justify-self, or the brand stretches across its whole 1fr track and half the
+   pill becomes a link to the home page. */
+.brand { display: flex; align-items: center; justify-self: start; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
 .brand svg { border-radius: 6px; }
 
-.nav-links { margin-left: auto; display: flex; align-items: center; gap: 4px; }
-.nav-links a.link {
+.nav-links { display: flex; align-items: center; gap: 2px; }
+.nav-acts { display: flex; align-items: center; justify-self: end; gap: 6px; }
+.nav-login { white-space: nowrap; }
+
+/* Scoped to the header rather than to .nav-links, because the same link style
+   is wanted on "Log in" over in the actions group. */
+.nav-inner a.link {
   padding: 7px 11px;
   border-radius: var(--r-control);
   font-size: 13.5px;
   color: var(--muted);
   transition: color 0.15s var(--settle), background-color 0.15s var(--settle);
 }
-.nav-links a.link:hover { color: var(--foreground); background: var(--wash); }
+.nav-inner a.link:hover { color: var(--foreground); background: var(--wash); }
+/* Which section you are actually in — aria-current="true" set by motion.js as you
+   scroll, aria-current="page" written into the markup on a subpage. Either way
+   the marker is announced rather than only drawn. */
+.nav-inner a.link[aria-current],
+.nav-sheet a[aria-current] { color: var(--foreground); background: var(--wash); }
 
+/* ---------------------------------------------------------------------------
+   The small-screen menu
+   A <details>, so it opens and closes and takes keyboard focus without a line
+   of JavaScript. Below 720px it replaces both link rows; above, it is not
+   rendered at all.
+   --------------------------------------------------------------------------- */
+
+.nav-menu { display: none; position: relative; }
+.nav-menu summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-control);
+  color: var(--muted);
+  cursor: pointer;
+}
+.nav-menu summary::-webkit-details-marker { display: none; }
+.nav-menu summary:hover { color: var(--foreground); background: var(--wash); }
+.nav-menu[open] summary { color: var(--foreground); background: var(--wash); }
+
+.nav-sheet {
+  position: absolute;
+  /* Pulled out to the pill's own edge rather than the button's, so the sheet
+     hangs flush under the capsule instead of nine pixels inside it. */
+  right: -9px;
+  top: calc(100% + 8px);
+  min-width: 208px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-overlay);
+}
+.nav-sheet a {
+  padding: 9px 11px;
+  border-radius: var(--r-control);
+  font-size: 14px;
+  color: var(--muted);
+}
+.nav-sheet a:hover { color: var(--foreground); background: var(--wash); }
+.nav-sheet .fold { margin: 6px 0; }
+.nav-sheet .btn { margin-top: 2px; justify-content: center; color: var(--on-primary); }
+.nav-sheet .btn:hover { color: var(--on-primary); }
+
+/* Icon only in the pill. The word "GitHub" beside a mono star count made it a
+   third button competing with the two that matter; the count moved to the
+   footer, where a live number is a nice detail rather than a distraction. */
 .gh {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 11px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border-radius: var(--r-control);
+  color: var(--muted);
+  transition: color 0.15s var(--settle), background-color 0.15s var(--settle);
+}
+.gh:hover { color: var(--foreground); background: var(--wash); }
+.gh svg { width: 15px; height: 15px; fill: currentColor; }
+
+/* The star count, beside the footer's GitHub link. Ships hidden; motion.js
+   reveals it only if the number actually arrives. */
+.stars {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: var(--r-chip);
   box-shadow: var(--shadow-hairline);
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
-  transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle);
+  font-size: 11px;
+  color: var(--faint);
 }
-.gh:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
-.gh svg { width: 14px; height: 14px; fill: currentColor; }
 
 /* The scroll progress line, wearing the stage rotation. It is the only place
    on the page where all six hues appear at once, and it doubles as the motif. */
@@ -981,6 +1109,26 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transform-origin: left;
   scale: var(--p, 0) 1;
   pointer-events: none;
+}
+
+/* Where the browser can drive an animation from the scroll position itself,
+   let it: the bar stops depending on a scroll listener writing a custom
+   property every frame, and runs off the main thread. motion.js checks the
+   same support and skips its own version, so only one of the two ever runs.
+   Everything else falls back to the JS, which is unchanged. */
+@supports (animation-timeline: scroll()) {
+  .progress {
+    scale: 0 1;
+    animation-name: progress-fill;
+    animation-duration: auto;
+    animation-timing-function: linear;
+    animation-fill-mode: both;
+    animation-timeline: scroll(root block);
+  }
+  @keyframes progress-fill {
+    from { scale: 0 1; }
+    to { scale: 1 1; }
+  }
 }
 
 .motif { display: flex; height: 3px; border-radius: 2px; overflow: hidden; }
@@ -1062,6 +1210,57 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 /* The badge above the headline — a real link to the thing it names. */
 
 /* The two-up: the conversation on the left, what it did on the right. */
+/* The hero's two shots lean back on one plane, so they read as a surface
+   receding into the page rather than two flat cards pasted on it. Perspective
+   sits on the wrap and the transform on the stage, so both panels share a
+   single vanishing point — tilting each child on its own origin makes them
+   diverge. Desktop only: at phone widths the shots are already the whole
+   screen and a tilt just eats legibility.
+
+   The angles are deliberately gentler than the reference this came from. That
+   one tilts a single static screenshot; the left panel here is a transcript
+   that types itself out and is meant to be read. --tilt-x / --tilt-skew are
+   here to be argued with. */
+@media (min-width: 900px) {
+  .hero .wrap { perspective: 1600px; }
+  .hero .stage {
+    --tilt-x: 13deg;
+    --tilt-skew: 0.1rad;
+    transform: rotateX(var(--tilt-x)) skewX(var(--tilt-skew));
+    transform-origin: 50% 0%;
+    -webkit-mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+    mask-image: linear-gradient(to bottom, #000 72%, transparent 100%);
+  }
+
+  /* Scrubbed by scroll position, not played on a timer: the shots lean back
+     when you land and stand up as you scroll past them, so the tilt reads as
+     something the page is doing rather than a static flourish. Driven from the
+     document's own scroll rather than view(), because the stage is already
+     partly on screen at load and a view() range would start mid-animation.
+
+     This is the page's third kind of motion. The other two are "plays once on
+     entry and holds" and "does not move at all"; this one has no duration and
+     no direction of its own — it only ever reflects where the scrollbar is,
+     and it reverses exactly as faithfully when you scroll back up. It is
+     behind prefers-reduced-motion, so the calm path keeps the static tilt. */
+  @supports (animation-timeline: scroll()) {
+    @media (prefers-reduced-motion: no-preference) {
+      .hero .stage {
+        animation-name: stage-settle;
+        animation-duration: auto;
+        animation-timing-function: linear;
+        animation-fill-mode: both;
+        animation-timeline: scroll(root block);
+        animation-range: 0 65vh;
+      }
+      @keyframes stage-settle {
+        from { transform: rotateX(var(--tilt-x)) skewX(var(--tilt-skew)); }
+        to { transform: rotateX(0deg) skewX(0rad); }
+      }
+    }
+  }
+}
+
 .stage {
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(0, 1.08fr);
@@ -1828,7 +2027,10 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   .frame-url span { max-width: 62vw; }
   body { font-size: 14.5px; }
   .rail { display: none; }
-  .nav-links a.link { display: none; }
+  .nav-links, .nav-acts { display: none; }
+  .nav-menu { display: block; justify-self: end; }
+  .nav-inner { grid-template-columns: 1fr auto; height: 52px; padding-inline: 18px 9px; }
+  .nav.stuck .nav-inner { height: 48px; }
   .search { margin-left: 0; width: 100%; }
   .funnel-row .step { width: 118px; font-size: 11.5px; }
   .funnel-row .median, .funnel-row .of { display: none; }
@@ -1844,3 +2046,155 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
     width: 116.3%;
   }
 }
+
+
+/* ---------------------------------------------------------------------------
+   RESOURCES
+   Long-form pages, generated from Markdown by tools/build-resources.mjs. They
+   wear the same stylesheet as the landing page — one set of tokens, one set of
+   type — so an article never looks like it was bolted on afterwards.
+   --------------------------------------------------------------------------- */
+
+.crumbs { font-size: 12.5px; color: var(--faint); margin-bottom: 18px; }
+.crumbs a { color: var(--muted); }
+.crumbs a:hover { color: var(--foreground); }
+
+.post-title { max-width: 26ch; margin-bottom: 12px; }
+.post-meta {
+  align-items: center;
+  flex-wrap: wrap;
+  font-family: var(--mono);
+  font-size: 12px;
+  color: var(--faint);
+  display: flex;
+  gap: 8px;
+  margin-bottom: 34px;
+}
+
+.prose { max-width: 68ch; }
+.prose p { margin-bottom: 20px; font-size: 16px; line-height: 1.72; color: var(--muted); }
+.prose h2 {
+  margin: 44px 0 14px;
+  font-size: clamp(19px, 2.2vw, 23px);
+  letter-spacing: -0.02em;
+  color: var(--foreground);
+  scroll-margin-top: 90px;
+}
+.prose h3 { margin: 30px 0 10px; font-size: 16.5px; color: var(--foreground); }
+.prose strong { color: var(--foreground); font-weight: 600; }
+.prose a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--primary) 32%, transparent);
+  text-underline-offset: 3px;
+  transition: text-decoration-color 0.15s var(--settle);
+}
+.prose a:hover { text-decoration-color: currentColor; }
+.prose ul, .prose ol { margin: 0 0 20px 20px; display: flex; flex-direction: column; gap: 9px; }
+.prose li { font-size: 16px; line-height: 1.65; color: var(--muted); }
+.prose blockquote {
+  margin: 0 0 20px;
+  padding: 14px 18px;
+  border-left: 2px solid var(--primary);
+  background: var(--inset);
+  border-radius: 0 var(--r-control) var(--r-control) 0;
+  font-size: 15.5px;
+  line-height: 1.6;
+  color: var(--foreground);
+}
+.prose .code { margin-bottom: 20px; white-space: pre-wrap; }
+.prose > .fold { margin: 32px 0; }
+
+/* The contents list, printed only when a post has enough sections to need it. */
+.toc {
+  margin-bottom: 34px;
+  padding: 16px 18px;
+  background: var(--canvas);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-hairline);
+}
+.toc .eyebrow { margin-bottom: 9px; }
+.toc ul { list-style: none; margin: 0; gap: 7px; }
+.toc li { font-size: 13.5px; }
+.toc a { color: var(--muted); text-decoration: none; }
+.toc a:hover { color: var(--foreground); }
+
+.post-cta {
+  margin: 48px 0 0;
+  padding: 24px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+}
+.post-cta p { font-size: 15px; line-height: 1.6; color: var(--muted); margin: 0; }
+.post-cta .btn { align-self: flex-start; }
+.post-cta { flex-wrap: wrap; }
+
+.post-author { margin-top: 34px; font-size: 13.5px; color: var(--faint); }
+.post-author .eyebrow { margin-bottom: 7px; }
+.post-author strong { color: var(--foreground); }
+
+.post-more { margin-top: 40px; padding-top: 24px; border-top: 1px solid var(--rim); }
+.post-more .eyebrow { margin-bottom: 12px; }
+.post-more ul { list-style: none; margin: 0; display: flex; flex-direction: column; gap: 12px; }
+.post-more a { font-size: 15px; font-weight: 500; color: var(--foreground); }
+.post-more a:hover { color: var(--primary); }
+.post-more span { display: block; font-size: 13.5px; color: var(--faint); font-weight: 400; margin-top: 3px; }
+
+.post-link { margin: 0 0 30px; }
+
+/* Not everything here is an article. The badge says which, in the colour the
+   stage rotation already assigns to that kind. */
+.kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--r-chip);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--tone);
+  background: color-mix(in oklch, var(--tone) var(--stage-wash), transparent);
+}
+
+/* The filter bar. Revealed by the hub's own script — it is hidden in the
+   markup, so with scripting off the page is the full list and nothing that
+   does not work. */
+.res-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 30px;
+}
+.res-bar .search { margin-left: auto; }
+.res-empty { margin-top: 22px; font-size: 14px; color: var(--muted); }
+.linkish {
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+}
+.res[hidden] { display: none; }
+
+/* The hub. */
+.post-list { list-style: none; margin: 36px 0 0; display: flex; flex-direction: column; gap: 14px; }
+.post-list a {
+  display: block;
+  padding: 22px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-card);
+  transition: box-shadow 0.25s var(--settle);
+}
+.post-list a:hover { box-shadow: var(--shadow-raised); }
+.post-list .kind { margin-bottom: 10px; }
+.post-list h2 { font-size: 17px; letter-spacing: -0.02em; margin-bottom: 7px; }
+.post-list p { font-size: 14px; line-height: 1.6; color: var(--muted); margin-bottom: 11px; }
+.post-list .meta { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }

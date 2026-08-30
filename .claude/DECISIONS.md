@@ -1500,6 +1500,269 @@ on every landing-page request.**
 `src/components/pipeline/share-pipeline.tsx`,
 `prisma/migrations/20250115000000_pipeline_share/`.
 
+## 2026-08-29 — The hero's shots lean back
+
+**Decision (William's):** the hero's two product shots get the 3D tilt from a Tailark hero
+block — perspective, `rotateX`, a skew, and a mask that fades the bottom away.
+
+**The request arrived wrapped in shadcn install instructions that did not apply.** The
+component was a React/Tailwind hero wanting `lucide-react`, `@radix-ui/react-slot`,
+`class-variance-authority` and a `components/ui/button`. The app already has every one of
+those and 21 shadcn components in `src/components/ui/`, so there was nothing to install —
+and the hero being pointed at is not in the app at all. It is hand-written HTML and CSS in
+`site/`, with no React, no Tailwind and no build step. Only the CSS technique transferred.
+
+**Perspective on the wrap, transform on the stage.** Putting perspective on `.stage` and
+transforms on its children would tilt each panel around its own origin and make them
+diverge; the two shots have to share one vanishing point to read as a single receding
+surface. `.hero .wrap` holds the perspective and `.hero .stage` takes the transform.
+
+**The angles are deliberately softer than the reference.** That block tilts one static
+screenshot: `rotateX(20deg)` with `skewX(.36rad)`, about 20.6°. The left panel here is a
+transcript that types itself out and is meant to be read, so it runs 13° and 0.1rad. Both
+are `--tilt-x` and `--tilt-skew` custom properties, there to be argued with.
+
+**Desktop only, at 900px and up.** On a phone the shots already fill the screen and a tilt
+buys nothing but lost legibility. Verified: tilted at 1440 and 1024, flat at 899 and 390.
+
+`skewX` widens an element's painted box, which is exactly the kind of thing that starts a
+sideways scroll — `.hero` already clips, and the overflow check is clean at all five widths.
+
+## 2026-08-29 — Seventy-three, and the counting problem is now the story
+
+Pipeline sharing landed on main and added three member-visible tools — `share_pipeline`,
+`get_pipeline_share`, `unshare_pipeline` — so the page went 70 → 73 and the Pipeline group
+20 → 23. Same five places as last time: the figure block, the disclosure summary, the
+sentence inside it, the All chip, the group chip, plus three cards written by hand.
+
+**That is twice in two days and three times this week.** The catalogue is a hand-maintained
+copy of `tools/list` living in a different directory from the thing it describes, and
+nothing fails when it drifts — the page renders, the tests pass, and the number is simply
+wrong. Every count on this page has been correct only because someone re-derived it from a
+running instance each time. The fix is a generator: emit the catalogue block and the six
+totals from `allTools` at build time, or fail CI when the page disagrees with `tools/list`.
+Until that exists, treat "merge main" as implying "recount".
+
+The admin refactor in the same merge moved the admin page to
+`src/app/(app)/settings/admin/page.tsx`. The waitlist panel came with it — checked rather
+than assumed, since a panel silently dropped in a file move is exactly the kind of thing
+that stays broken for weeks.
+
+## 2026-08-29 — Scroll-driven motion, and the thing that was not built
+
+**Decision (William's):** more advanced scrolling. Three things went in; the obvious fourth
+did not.
+
+**Not built: scroll hijacking.** Lenis, Locomotive and friends replace the browser's scroll
+with a JS-interpolated one. They demo beautifully and feel worse in the hand: trackpad
+momentum stops matching the OS, keyboard paging and find-in-page get strange, and the whole
+page depends on a runtime library that this one currently does without — it ships zero
+third-party JS and contacts nothing but Google Fonts and one call for the star count.
+Nothing about "smoother" is worth that. Everything below is native.
+
+**1. The progress bar came off the main thread.** It was a scroll listener writing a custom
+property every frame. Where `animation-timeline: scroll()` exists it is now a CSS
+scroll-driven animation, and `motion.js` checks the same support and nulls its own handle so
+only one of the two ever runs. Verified both paths: with timelines, the bar tracks scroll
+exactly and the JS custom property is never set; with `CSS.supports` stubbed to refuse, the
+JS fills it as before.
+
+**2. The nav says where you are.** Links pointing at a section on this page get
+`aria-current="true"` as their section passes a line a third of the way down the viewport —
+steadier than "most visible", because these sections differ wildly in height. It is
+`aria-current` rather than a class so the state is announced and not merely drawn.
+
+**3. The hero's tilt scrubs.** The shots lean back when you land and stand up over the first
+65vh of scrolling. This is the page's *third* kind of motion and the header comment in
+`styles.css` only described two — "plays once on entry and holds", and "does not move".
+A scrubbed animation has no duration and no direction of its own; it reflects the scrollbar
+and reverses exactly as faithfully going back up. It sits behind
+`prefers-reduced-motion: no-preference`, so the calm path keeps the static tilt — checked,
+not assumed.
+
+**Two bugs, one of which was mine and imaginary.** The `animation` shorthand resets
+`animation-duration` to `0s`, which on a scroll timeline collapses the animation to a point;
+the longhands with `animation-duration: auto` fix it. And `markSection` used
+`element.offsetTop`, which is measured from the nearest positioned ancestor — every
+`section` on this page is `position: relative`, so it was not the document offset it looked
+like; it reads `getBoundingClientRect().top` now.
+
+The imaginary one: the progress bar appeared frozen near zero in the first test run. It was
+fine. `html { scroll-behavior: smooth }` meant the harness was reading the value while the
+page was still travelling. Worth remembering — **any scroll assertion on this page has to
+scroll with `behavior: 'instant'` or it measures the journey rather than the destination.**
+
+## 2026-08-29 — A resources section, and the site's first build step
+
+**Decision (William's):** a resources section for search, with the content calls left to me.
+
+**The site had no SEO plumbing at all.** No sitemap, no robots.txt, no structured data, one
+canonical tag across five files. That was worth more than any single post: hired.tools was a
+one-page site giving a crawler almost nothing. Now there is a sitemap, a robots.txt pointing
+at it, an RSS feed, `SoftwareApplication` and `FAQPage` schema on the home page, and
+`Article` + `BreadcrumbList` + `Person` on every post.
+
+The `FAQPage` block is generated by reading the FAQ out of `index.html` at build time rather
+than being written by hand beside it. Nine question-and-answer pairs that could have drifted
+apart cannot.
+
+**The first build step, and why it is not a betrayal of "no build step".** The property that
+mattered was never the absence of a build — it was that the output is static HTML with no
+runtime dependency and no third-party request. That survives exactly. What has gone is
+hand-maintenance, and this repo has already shown three times this week where that leads: the
+tool catalogue drifted on every merge and nothing ever failed. Twelve hand-written posts
+would rot the same way. `tools/build-resources.mjs` imports nothing, so the whole build is one
+`node` call with no install step, and the generated files are gitignored so the Markdown is
+the only copy.
+
+**Content calls, since they were delegated.** No listicles. "Resume tips" is among the most
+AI-saturated query spaces on the internet and a new domain will not touch the head terms, so
+all three posts are pitched at winnable angles with something true behind them:
+
+- **What an ATS actually does** — corrects the "75% are auto-rejected" claim, which is
+  repeated everywhere and sourced nowhere. The one topic where this site has real standing,
+  because the product is the mirror image of one.
+- **STAR does not fit a resume bullet** — not "what is STAR", which has half a million
+  competitors, but the argument that it is an *interview* framework misapplied to a
+  fourteen-word line, with three before-and-after rewrites.
+- **The Harvard format** — a checkable claim about a format the product already implements,
+  against weak competition.
+
+Each answers its title question in the first paragraph, which is what gets picked up as a
+snippet and what an LLM quotes. They cross-link, and every one carries the no-fabrication
+argument, because that is the product's actual differentiator and it happens to be true.
+
+**Two bugs worth remembering.** `esc()` ran before `smart()`, so the curly-quote rule was
+matching a character that had already become `&quot;` and never fired. And the template
+pointed at `/icon.svg`, which does not exist — the home page inlines its favicon as a data
+URI, so the generator now reads that same tag out of `index.html` rather than keeping a
+second copy.
+
+**Left for William:** verify hired.tools in Google Search Console and submit the sitemap.
+Nothing gets indexed quickly without it, and it is the only step here that cannot be
+automated from this side.
+
+## 2026-08-30 — Resources holds more than articles, and can be searched
+
+**Decision (William's):** search on the hub, room for things that are not posts, and a
+shout-out to Ethan Evans' YouTube channel.
+
+**Kinds, rather than a second section.** `kind` in the frontmatter picks a badge, a filter
+chip and whether the page leads with an outbound button — `article`, `watch`, `template`,
+`tool`, with the first two in use. An unknown kind fails the build rather than rendering a
+blank badge. Adding a fifth is one line in `KINDS`. The chip row only offers kinds that
+actually have something in them, so a filter can never return nothing.
+
+**The search bar is hidden in the markup and revealed by the page's own script.** A search
+box that does nothing without JavaScript is worse than no search box; with scripting off the
+hub is the complete list, which is a finished page. Same reasoning as everything else here.
+
+**On recommending someone else's work.** The temptation was to describe videos I have not
+watched. Everything factual about Evans is attributed — "by his own count" for the 10,000
+resumes and 2,500 interviews — and the specifics I could verify (Amazon VP until 2020, Prime
+Video, Appstore, Merch, Prime Gaming, Twitch Commerce) are stated plainly while the rest is
+left to the link. On a site whose entire pitch is that it does not invent things, a
+recommendation padded with invented detail would be the worst possible place to slip. The
+byline flips to "Recommended by" when an entry points outward, because the author line would
+otherwise claim someone else's work.
+
+It is also noted in the post that the ethanevans.com link is not an affiliate link, since
+recommending a person who sells classes without saying so reads badly whether or not money
+changed hands.
+
+**Why it belongs here at all:** the site argues that the software on the other side keeps a
+record you cannot see. Evans covers the human half — the judgment made in rooms you are not
+in. Both land on the same point, that you cannot influence a decision you have no record for.
+
+## 2026-08-30 — Two buttons in the header, and the second copy of the header goes away
+
+The header had three text links and a GitHub chip, and below 720px the links simply stopped
+being rendered — the nav collapsed to a brand and a chip with nowhere to go. It also had no
+way in for somebody who already has an account. It now carries two groups: where you can go
+(Features, Pricing, Resources) and what you can do (GitHub, **Log in**, **Get started**),
+separated by a hairline so six items do not read as one undifferentiated row.
+
+**The small-screen menu is a `<details>`.** It opens, closes, and takes keyboard focus with
+no JavaScript, which means it works on the generated pages, which load no JavaScript at all.
+A hand-rolled dropdown would have needed a script on every page to hold a menu that opens.
+
+**`Get started` goes to `/coming-soon/` rather than a signup.** Hosting is not open; a button
+that leads to a form pretending otherwise is the kind of thing this site is supposed to be
+the opposite of. The page says what the state actually is, takes the email, and spends most
+of its length on the thing that *is* available today, which is the whole product on your own
+machine for nothing.
+
+**The generator now reads the header out of `site/index.html`.** It used to contain a second,
+simpler copy — and within a day of it existing the two had drifted: the landing page had a
+CTA the resources pages did not. So `tools/build-site.mjs` (renamed from `build-resources`,
+since it builds more than resources now) lifts `<header class="nav">` out of the landing page,
+repoints `#anchor` at `/#anchor`, and inlines the sprite symbols the header uses, because the
+sprite sheet only exists on the landing page. If the header moves, the build fails loudly
+rather than shipping two different navs.
+
+The `<use>` inlining has to run *before* the anchor rewrite. It did not, the first time, and
+`href="#i-gh"` became `href="/#i-gh"` — which resolves to nothing, so the GitHub mark silently
+vanished on every generated page. Caught by asserting the icon's rendered width, not by
+looking at a screenshot.
+
+**The request-access form moved to `site/join.js`.** It lived inside `motion.js`, which the
+generated pages do not load. Two pages need the form now, so it is its own file that both
+load, rather than twenty lines of `fetch` copied into a template. Its success tick is inlined
+rather than `<use href="#i-check">` for the same sprite reason.
+
+## 2026-08-30 — The FAQ schema had eaten the tool catalogue
+
+The `FAQPage` block in the landing page's head was generated by matching `<summary>` elements
+and the prose after them. It matched the tool catalogue's `<summary>` too — that section is
+also a `<details>` — so question one of the structured data was the entire catalogue, pricing
+table and self-host section as a single 44 KB string, and the real first question was missing
+altogether. It had been live for a day. Nothing rendered wrong, nothing failed to build, and
+the page looked correct in every browser.
+
+Regenerated from `details.q` only. More usefully, `tools/build-site.mjs` now compares the
+questions in the schema against the questions in the markup and throws if they differ, so
+editing an answer and forgetting the head fails the build. This is the third time a
+hand-maintained copy of generated-looking data on this page has gone stale without
+complaining; the tool catalogue is still the one that has no such check.
+
+## 2026-08-30 — The header is a pill
+
+The full-width bar was measured before it was redesigned, which is the only
+reason the fix was obvious: at 1440 the brand ended at x=184 and the links began
+at x=792. Six hundred and eight pixels of nothing, 42% of the row, and the whole
+navigation crushed into the right quarter. That is what "the nav bar sucks"
+meant — not the items in it, the shape of it.
+
+It is now a contained capsule, max-width 1080px, floating 12px below the top.
+A pill has no full-width row to leave empty, so the imbalance cannot recur.
+
+**Three grid tracks, not a flex row.** `1fr auto 1fr` puts the links on the pill's
+true centre no matter how wide the brand or the actions grow; `margin-left: auto`
+on a flex row only ever shoves them up against the right-hand group, which is
+exactly how the 608px void got there. The brand needs `justify-self: start` or it
+stretches across its whole 1fr track and half the header becomes a link to the
+home page — a bug you cannot see, only measure.
+
+**The transparent strip above a floating pill is the part nobody plans for.**
+Scrolled content appeared in it, clipped by the top of the viewport, which reads
+as a rendering fault rather than a design. `.nav::before` is the ground the page
+dissolves into first: opaque `--page` down to roughly the pill's bottom edge, then
+a 40px fade, and only while stuck. The first attempt started thinning immediately
+and left a legible ghost of the heading sliding past above the pill.
+
+**A 999px radius needs asymmetric padding.** At the height of the button's
+corners the curve turns in about five pixels, so the filled CTA on the right wants
+more clearance than the text on the left. 20px and 14px, measured rather than
+guessed — 10px on the right looked like the button was escaping the capsule.
+
+**The GitHub chip lost its label and its star count.** Word plus mono number made
+it a third button competing with the two that matter. Icon only in the pill; the
+count moved to the footer beside the existing GitHub link, where a live number is
+a detail rather than a distraction. It ships `hidden` and motion.js reveals it only
+if the number arrives, so a rate limit shows a plain link rather than an empty chip.
+The page still makes exactly one third-party request, and it is still the only live
+number on it.
+
 ---
 
 ## 2026-08-30 — The instance can say whether it is working

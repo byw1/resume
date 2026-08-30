@@ -60,6 +60,40 @@
   var progress = $(".progress");
   var ticking = false;
 
+  /* The stylesheet drives the progress bar off a scroll timeline where the
+     browser supports one, which is both smoother and off the main thread.
+     Only fill it from here when it doesn't. */
+  var cssDrivesProgress =
+    window.CSS && CSS.supports && CSS.supports("animation-timeline: scroll()");
+  if (cssDrivesProgress) progress = null;
+
+  /* Nav links that point at a section on this page, paired with their target,
+     so scrolling can say which one you are in. Anything pointing elsewhere —
+     GitHub, the app — is left alone. */
+  var marks = $$(".nav-links a.link[href^='#']")
+    .map(function (link) {
+      var section = document.getElementById(link.getAttribute("href").slice(1));
+      return section ? { link: link, section: section } : null;
+    })
+    .filter(Boolean);
+  var marked = null;
+
+  function markSection() {
+    if (!marks.length) return;
+    /* The section you are "in" is the last one whose top has passed a line a
+       third of the way down the viewport — steadier than asking which is most
+       visible, because these sections differ wildly in height. */
+    var line = window.innerHeight / 3;
+    var current = null;
+    marks.forEach(function (m) {
+      if (m.section.getBoundingClientRect().top <= line) current = m;
+    });
+    if (current === marked) return;
+    if (marked) marked.link.removeAttribute("aria-current");
+    if (current) current.link.setAttribute("aria-current", "true");
+    marked = current;
+  }
+
   function onScroll() {
     if (ticking) return;
     ticking = true;
@@ -71,6 +105,7 @@
         var height = document.documentElement.scrollHeight - window.innerHeight;
         progress.style.setProperty("--p", height > 0 ? Math.min(1, y / height) : 0);
       }
+      markSection();
     });
   }
   window.addEventListener("scroll", onScroll, { passive: true });
@@ -435,88 +470,9 @@
   if (/[?&]slots\b/.test(location.search)) document.body.classList.add("show-slots");
 
   // -------------------------------------------------------------------------
-  // Request access.
-  //
-  // The form works without this file: it is a real <form>, and with scripting
-  // off the browser posts it to the endpoint below and shows whatever JSON
-  // comes back. Ugly, but it goes through, which is the part that matters. All
-  // this adds is staying on the page.
-  //
-  // The endpoint is the app instance, not this static site. Self-hosters point
-  // it at their own; there is nothing else to change.
-  // -------------------------------------------------------------------------
-
-  var JOIN_ENDPOINT = "https://app.hired.tools/api/waitlist";
-
-  $$("[data-join]").forEach(function (form) {
-    form.setAttribute("action", JOIN_ENDPOINT);
-    form.setAttribute("method", "post");
-
-    var said = $(".joinform-said", form);
-    var button = $("button[type=submit]", form);
-    var input = $("input[type=email]", form);
-    var busy = false;
-
-    function say(message, bad) {
-      if (!said) return;
-      said.textContent = message;
-      said.classList.toggle("bad", !!bad);
-    }
-
-    function done(message) {
-      form.classList.add("done");
-      if (!said) return;
-      said.innerHTML =
-        '<svg width="17" height="17" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-check"/></svg>' +
-        "<span></span>";
-      $("span", said).textContent = message;
-    }
-
-    form.addEventListener("submit", function (event) {
-      event.preventDefault();
-      if (busy) return;
-
-      var email = input ? input.value.trim() : "";
-      if (!email || email.indexOf("@") < 1 || email.indexOf(".") < 0) {
-        say("That doesn't look like an email address.", true);
-        if (input) input.focus();
-        return;
-      }
-
-      busy = true;
-      if (button) button.disabled = true;
-      say("Sending\u2026");
-
-      fetch(JOIN_ENDPOINT, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          email: email,
-          website: form.website ? form.website.value : "",
-        }),
-      })
-        .then(function (response) {
-          return response.json().catch(function () { return { ok: response.ok }; });
-        })
-        .then(function (body) {
-          if (body && body.ok) {
-            done("You're on the list. I'll email you an invite from this address — it comes from a person, not a drip campaign.");
-          } else {
-            say((body && body.error) || "That didn't go through. Try again in a moment.", true);
-            busy = false;
-            if (button) button.disabled = false;
-          }
-        })
-        .catch(function () {
-          say("Couldn't reach the server. Try again in a moment.", true);
-          busy = false;
-          if (button) button.disabled = false;
-        });
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // The one live number on the page. Fails silently to the word "GitHub".
+  // The one live number on the page, in the footer beside the GitHub link. It
+  // ships hidden and only appears if the count actually arrives, so a rate
+  // limit or an offline visitor sees a plain link rather than an empty chip.
   // -------------------------------------------------------------------------
 
   var stars = $("#stars");
@@ -529,6 +485,7 @@
           repo.stargazers_count >= 1000
             ? (repo.stargazers_count / 1000).toFixed(1) + "k"
             : String(repo.stargazers_count);
+        stars.hidden = false;
       })
       .catch(function () {});
   }
