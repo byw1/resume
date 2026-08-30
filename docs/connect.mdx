@@ -253,12 +253,31 @@ else.
 ## What the assistant is told on connect
 
 Before it sees a tool, every connecting client receives a briefing generated for your
-account: what the four areas are, which tool to reach for first in each, that the
-connection URL is a credential, and the standing rules — never invent experience,
-employers, dates or metrics; use `append_role_brain_dump` rather than `update_role` for
-new material; `update_resume` and `update_role` replace what you send, so read first and
-write back whole.
+account. Some of it is always there: that the connection URL is a credential that must
+never be repeated where it will be stored, and the standing rules — never invent
+experience, employers, dates or metrics; use `append_role_brain_dump` rather than
+`update_role` for new material; `update_resume` and `update_role` replace what you send,
+so read first and write back whole.
 
-Any note you have saved with `kind: "GUARDRAIL"` is prepended to that briefing, so your
-own standing rules constrain the work before a single tool is called. See
+The rest depends on whether you have written anything yet.
+
+<CardGroup cols={2}>
+  <Card title="An empty workspace" icon="inbox">
+    The briefing says so plainly — every read tool will come back with nothing, and that is
+    the state of the account rather than a failed call. It tells the assistant to ask one
+    question first: whether you have a resume or a LinkedIn export to paste, or would
+    rather talk it through. Then to file whatever comes back **by hand**, and never to hand
+    you a form. The pipeline and the CRM are not explained at all until a role exists,
+    because none of it does anything yet.
+  </Card>
+  <Card title="A workspace with something in it" icon="brain">
+    The briefing describes the four areas and which tool to reach for first in each:
+    `search_brain` for the brain, `get_resume_format` before writing a document,
+    `list_schedule` when the question is about a stretch of time, `get_company` before
+    writing anything about a company.
+  </Card>
+</CardGroup>
+
+Any note you have saved with `kind: "GUARDRAIL"` is carried at the end of that briefing,
+so your own standing rules are in context before a single tool is called. See
 [the brain](/concepts/brain#standing-rules).

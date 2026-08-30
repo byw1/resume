@@ -27,6 +27,25 @@ whole point.
 
 The first six are the board columns. The four endings get their own view.
 
+```mermaid
+flowchart LR
+  W[Wishlist] --> A[Applied] --> S[Screening] --> I[Interviewing] --> F[Final round] --> O[Offer]
+  O --> AC[Accepted]
+  A -.-> G[Ghosted]
+  S -.-> G
+  I -.-> G
+  A -.-> R[Rejected]
+  S -.-> R
+  I -.-> R
+  F -.-> R
+  W -.-> WD[Withdrawn]
+  O -.-> WD
+```
+
+Solid arrows are progress; dotted ones are the endings, and an application can reach any
+of them from anywhere. Nothing enforces the order — you can move a card straight from the
+wishlist to an offer if that is what happened.
+
 <Warning>
   **File silence as `GHOSTED`, not `REJECTED`.** Silence is the most common ending in any
   search, and calling it a rejection makes the funnel lie about what went wrong. A
@@ -111,8 +130,13 @@ Changing stage schedules the next nudge automatically, for 9am on the day it fal
 | `FINAL` | 3 days |
 | `OFFER` | 2 days |
 
-Every other stage schedules nothing. Override any of them by hand — `nextFollowUpAt` on
-the application, or the cell in the table.
+Moving to `WISHLIST` schedules nothing. Moving to one of the four endings **clears** any
+follow-up date the application had and stamps it closed — a finished application should not
+keep nagging you. Override any of it by hand: `nextFollowUpAt` on the application, or the
+cell in the table.
+
+Moving out of `WISHLIST` for the first time also stamps the applied date, if it was not
+already set.
 
 Contacts have their own version: `nextFollowUpAt` on a person is where "ping Sarah in two
 weeks" lives.
@@ -178,9 +202,11 @@ view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc
 | `f` | Comma-separated stages, or `overdue`, or `closed` |
 | `sort`, `dir` | Column and direction |
 | `q` | Search text |
+| `month` | `YYYY-MM`, for the calendar view |
 
 Saving under a name that already exists replaces that view, which is how you edit one.
-Anything outside those parameters is dropped.
+Anything outside those six parameters is dropped, and they are always written in that
+order — so the same view saved twice is the same string.
 
 ## Sharing the board
 

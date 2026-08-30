@@ -241,7 +241,7 @@ Save a free-floating note. Use this for brain-dump material that does not belong
 | `body` | string | The note body. Markdown welcome, no length limit. |
 | `tags` | string[] | Tags |
 | `pinned` | boolean | Pin to the top of the notes list |
-| `kind` | enum | GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.  `NOTE` · `GUARDRAIL` |
+| `kind` | enum | GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.  `NOTE` · `GUARDRAIL` |
 
 ### `update_note`
 
@@ -258,7 +258,7 @@ Edit an existing note. Passing `body` replaces the whole body. Promote a note to
 | `body` | string | New body (replaces existing) |
 | `tags` | string[] | New tags |
 | `pinned` | boolean | Pinned state |
-| `kind` | enum | GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.  `NOTE` · `GUARDRAIL` |
+| `kind` | enum | GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.  `NOTE` · `GUARDRAIL` |
 
 ### `list_extras`
 

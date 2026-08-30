@@ -53,8 +53,9 @@ It carries:
   this wrong silently deletes work, so it is written out as a table.
 - **The order of operations** before writing anything: search the brain, snapshot it for
   profile and dates, read the company record, then draft.
-- **A reminder to check `list_notes` with `kind: "GUARDRAIL"`**, because your own standing
-  rules override anything an assistant would otherwise infer.
+- **A reminder to read your notes and look for the ones marked `GUARDRAIL`**, because your
+  own standing rules override anything an assistant would otherwise infer. `list_notes`
+  takes no arguments and returns all of them, so the picking-out happens on the way back.
 - **Saying what you did.** You cannot see tool calls; a resume that changed without
   explanation is one you have to re-read from scratch.
 
