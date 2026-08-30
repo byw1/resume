@@ -54,6 +54,7 @@ export default async function PublicResumePage({ params }: Params) {
               fontSize: resume.fontSize,
               lineHeight: resume.lineHeight,
               pageMargin: resume.pageMargin,
+              photo: resume.photo,
             }}
           />
         </div>

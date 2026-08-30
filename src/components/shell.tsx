@@ -33,6 +33,7 @@ import {
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
 import { CommandPalette, type PaletteIndex } from "@/components/command-palette";
 import { HiredMark } from "@/components/hired-mark";
+import { UserAvatar } from "@/components/user-avatar";
 import { logoutAction } from "@/server/actions";
 
 // Navigation only. Settings and Admin are account actions, so they live in the
@@ -49,7 +50,7 @@ const NAV = [
 // and the first client render agree.
 const COLLAPSE_KEY = "hired:sidebar-collapsed";
 
-export type ShellUser = { name: string; email: string; role: string };
+export type ShellUser = { name: string; email: string; role: string; photo: string };
 
 export function Shell({
   children,
@@ -390,12 +391,6 @@ function MobileNav({
   );
 }
 
-function initials(user: ShellUser) {
-  const source = user.name?.trim() || user.email;
-  const parts = source.split(/[\s@._-]+/).filter(Boolean);
-  return (parts[0]?.[0] ?? "?").concat(parts[1]?.[0] ?? "").toUpperCase();
-}
-
 function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean }) {
   const roleLabel = user.role === "SUPER_ADMIN" ? "Owner" : canAdmin ? "Admin" : "Member";
 
@@ -406,9 +401,7 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
           className="hover:bg-accent touch-target flex items-center gap-2 rounded-full border bg-card py-1 pl-1 pr-2.5 transition-colors"
           aria-label="Account menu"
         >
-          <span className="bg-foreground text-background flex size-7 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
-            {initials(user)}
-          </span>
+          <UserAvatar name={user.name} email={user.email} photo={user.photo} size={28} />
           <span className="hidden max-w-[10rem] truncate text-[13px] font-medium sm:block">
             {user.name || user.email}
           </span>
@@ -418,9 +411,7 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
 
       <DropdownMenuContent align="end" className="w-60">
         <div className="flex items-center gap-2.5 px-2 py-1.5">
-          <span className="bg-foreground text-background flex size-8 shrink-0 items-center justify-center rounded-full text-[11px] font-semibold">
-            {initials(user)}
-          </span>
+          <UserAvatar name={user.name} email={user.email} photo={user.photo} size={32} />
           <div className="min-w-0">
             <div className="truncate text-[13px] font-medium">{user.name || user.email}</div>
             <div className="text-muted-foreground truncate text-[11px]">{user.email}</div>

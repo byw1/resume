@@ -22,7 +22,14 @@ import {
   setupKeyMatches,
   startSession,
 } from "@/lib/auth";
-import { getSettings, updateSettings } from "@/lib/settings";
+import {
+  deleteVariable,
+  getSettings,
+  keepExistingSecrets,
+  setVariables,
+  updateSettings,
+  type InstanceSettings,
+} from "@/lib/settings";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
 import { loadPosting } from "@/lib/posting";
@@ -371,22 +378,53 @@ export async function deleteUserAction(userId: string) {
   }
 }
 
-export async function saveEmailSettingsAction(patch: {
-  instanceName?: string;
-  resendApiKey?: string;
-  resendFromEmail?: string;
-  resendFromName?: string;
-  publicUrl?: string;
-  companyLogos?: boolean;
-}) {
+/**
+ * One save for every guided form on the Configuration tab — instance, email
+ * and billing all land here. They used to be two near-identical actions that
+ * each retyped the "blank secret means keep it" rule; that rule now lives with
+ * the variable registry, so this is the whole action.
+ */
+export async function saveConfigAction(patch: Partial<InstanceSettings>) {
   const actor = await requireAdmin();
-  // An empty API key field means "leave it alone", not "clear it".
-  const clean = { ...patch };
-  if (clean.resendApiKey !== undefined && clean.resendApiKey.trim() === "") delete clean.resendApiKey;
-  await updateSettings(actor, clean);
-  revalidatePath("/settings/admin");
-  revalidatePath("/applications");
+  await updateSettings(actor, keepExistingSecrets(patch));
+  revalidateSettings();
   return { ok: true as const };
+}
+
+/**
+ * Write raw variables by key, from the Variables tab. Unknown keys are
+ * created, which is how a setting exists before it has a form.
+ */
+export async function saveVariablesAction(patch: Record<string, string>) {
+  const actor = await requireAdmin();
+  try {
+    const changed = await setVariables(actor, patch);
+    revalidateSettings();
+    return { ok: true as const, changed };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not save." };
+  }
+}
+
+/** Reset a declared variable to its default, or remove a custom one. */
+export async function deleteVariableAction(key: string) {
+  const actor = await requireAdmin();
+  try {
+    const result = await deleteVariable(actor, key);
+    revalidateSettings();
+    return { ok: true as const, ...result };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : "Could not clear." };
+  }
+}
+
+/**
+ * A settings change can reach anywhere — the instance name is on the sign-in
+ * page, the logo switch is on every pipeline screen — so revalidate the whole
+ * tree rather than guessing which routes read what.
+ */
+function revalidateSettings() {
+  revalidatePath("/", "layout");
 }
 
 /**
@@ -403,22 +441,6 @@ export async function parsePostingAction(url: string) {
   } catch (error) {
     return { ok: false as const, error: error instanceof Error ? error.message : "Could not fetch that." };
   }
-}
-
-export async function saveBillingSettingsAction(patch: {
-  stripeSecretKey?: string;
-  stripeWebhookSecret?: string;
-  stripePaymentLink?: string;
-}) {
-  const actor = await requireAdmin();
-  // Empty secret fields mean "leave it alone", not "clear it" — same rule as
-  // the Resend key above.
-  const clean = { ...patch };
-  if (clean.stripeSecretKey !== undefined && clean.stripeSecretKey.trim() === "") delete clean.stripeSecretKey;
-  if (clean.stripeWebhookSecret !== undefined && clean.stripeWebhookSecret.trim() === "") delete clean.stripeWebhookSecret;
-  await updateSettings(actor, clean);
-  revalidatePath("/settings/admin");
-  return { ok: true as const };
 }
 
 export async function syncBillingAction(email?: string) {
@@ -457,6 +479,24 @@ export async function saveProfileAction(patch: brain.ProfilePatch) {
   await brain.updateProfile(user.id, patch);
   revalidatePath("/brain");
   revalidatePath("/");
+}
+
+/**
+ * Store a headshot, or clear it with an empty string.
+ *
+ * The browser has already cropped and downscaled by the time this runs, so what
+ * arrives is a small data URI; the size and type rules still live in the data
+ * layer, because `set_profile_photo` posts here through the same function and
+ * neither door should be the lenient one.
+ */
+export async function setProfilePhotoAction(input: string) {
+  const user = await requireUser();
+  const result = await brain.setProfilePhoto(user.id, input);
+  revalidatePath("/settings");
+  revalidatePath("/brain");
+  revalidatePath("/resumes");
+  revalidatePath("/");
+  return result;
 }
 
 export async function createRoleAction(input: brain.RoleInput) {

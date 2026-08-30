@@ -31,7 +31,7 @@ just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  73 tools any MCP client can call (98 if you're an admin). Claude, Claude Code, ChatGPT,
+  79 tools any MCP client can call (107 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -175,9 +175,10 @@ to run, now or after any future update.
 
 ### 6. Connect your AI
 
-Open **Settings** in the app. You already have a connection waiting; hit **Set up**, pick
-whichever assistant you use, and the exact steps appear — with the config already filled in
-with your URL, ready to copy.
+Open **Settings** in the app. It opens on **Connections**, because this is the step that
+makes everything else work. You already have one waiting; hit **Set up**, pick whichever
+assistant you use — each is listed with its own logo — and the exact steps appear, with the
+config already filled in with your URL, ready to copy.
 
 | Client | What you paste |
 | --- | --- |
@@ -190,11 +191,11 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 73, or 98 if you're an admin.
+would, then tells you how many tools answered — 79, or 107 if you're an admin.
 
 #### One connection per client
 
-**New connection** gives each assistant its own URL. That matters more than it sounds:
+**Connect** gives each assistant its own URL. That matters more than it sounds:
 
 - Your laptop dies, or you paste a URL somewhere you shouldn't — **Rotate** or
   **Disconnect** that one client. Everything else stays connected.
@@ -240,7 +241,7 @@ By conversation: `admin_list_waitlist`, `admin_invite_waitlist_signup`,
 ### Charging for it (optional)
 
 If you host an instance for other people and want them to pay for it, wire it to Stripe
-from **Admin → Billing**: paste an API key — a restricted key with read-only Customers and
+from **Admin → Configuration**: paste an API key — a restricted key with read-only Customers and
 Subscriptions is all it needs, and safer than your full secret key — and a webhook signing secret, register the
 webhook URL the panel shows you, and put your Stripe Payment Link wherever you send people.
 Someone new who pays through the link is invited automatically. If their subscription
@@ -268,7 +269,7 @@ won't let a caller omit.
 
 ### Setting up email (Resend)
 
-**Admin → Email**:
+**Admin → Configuration → Resend**:
 
 1. Make a free account at [resend.com](https://resend.com).
 2. Add and verify the domain you want to send from.
@@ -279,14 +280,33 @@ won't let a caller omit.
 You can do all of this by talking to Claude instead: *"is email set up? configure Resend with
 this key and send a test."*
 
+### Everything else you can change
+
+`DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in the
+database, which is what makes **Admin → Variables** possible: one table of everything the
+instance stores as configuration — what it's called, its public URL, whether the pipeline
+fetches company logos, the Resend and Stripe values — with what each one does written next
+to it. Change one and it takes effect on the next request; there is nothing to redeploy.
+
+Secrets show masked and can only be replaced or cleared, never read back. Anything you
+change is one line in **Admin → Log**, with your name on it, values included for everything
+that isn't a secret. Clearing a value resets it to the default the app ships with, and the
+button tells you what that is before you press it.
+
+You can also add a variable of your own. That's the escape hatch for a setting that exists
+before it has a form — a feature can read a key, and you can set it today rather than
+waiting for a screen. Keys are lowercase letters, numbers and underscores.
+
+By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_variable`.
+
 ---
 
 ## What your AI can do once it's connected
 
-73 tools across the four areas. The seven workflows below are among them: they're published
+79 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 25 more tools — and members never even see those in the tool list, so nobody is
+Admins get 28 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |
@@ -343,11 +363,19 @@ step is losing people rather than handing you six numbers to interpret.
 `delete_contact` for the people at them. A company's `website` is what puts their logo on your
 pipeline. Deleting one refuses while applications still point at it.
 
+**Your account** — `whoami` says who this connection belongs to. `list_connections`,
+`create_connection`, `rename_connection`, `rotate_connection` and `delete_connection` manage
+the wiring itself, so "add this to my work laptop" and "kill the one I pasted in a chat by
+mistake" are things you can just say. Listing never returns tokens — creating and rotating
+do, because that is the point of them. `set_profile_photo` takes a link or a file and sets
+the picture described below.
+
 **Admin** *(admins only)* — `admin_list_users`, `admin_invite_user`, `admin_set_user_role`,
 `admin_set_user_active`, `admin_delete_user`, `admin_instance_stats`, plus
 `admin_get_email_config` / `admin_set_email_config` / `admin_send_test_email` for wiring up
-Resend without leaving the conversation. These act on accounts and instance settings only —
-none of them can read another person's content.
+Resend without leaving the conversation, and `admin_list_variables` / `admin_set_variable` /
+`admin_delete_variable` for every other setting the instance stores. These act on accounts
+and instance settings only — none of them can read another person's content.
 
 ---
 
@@ -375,6 +403,26 @@ default order leads with Experience.
 
 The other templates — Classic, Modern, Compact, Editorial — are all still there.
 
+## One photo, every document
+
+**Settings → Account** takes a profile photo. Drop a file in, drag it around the circle until
+your face is where you want it, and that one picture is your avatar in the app *and* the
+headshot on your resumes. Change it once and every document that shows it follows — there is
+never a second copy to keep in sync. Claude can set it too: *"use the photo on my GitHub
+profile."*
+
+Whether a given resume shows it is a design choice like the accent colour: **Design → Photo**
+in the editor, or `showPhoto` from a tool. It's off by default, and Harvard never renders one
+whatever you set — it's a US academic format, and a face on it is the thing that marks it as
+not that format. Classic centres the photo above your name; Modern, Compact and Editorial set
+it beside. US and UK applications generally leave photos off; much of Europe and Latin America
+expects one.
+
+The picture lives in your row in the database as a data URI, not in a file store, which is why
+self-hosting still needs one environment variable and why a published resume paints your face
+from the same HTML as the text — nothing to fetch, nothing to expire. The browser crops and
+shrinks before uploading, so it costs tens of kilobytes.
+
 ## Sharing a resume as a link
 
 Application forms keep asking for a URL, not a file. Open a resume → **Share** → **Create a
@@ -389,7 +437,8 @@ the browser entirely: *"publish my Stripe resume and give me the link."*
 
 The privacy model is the address itself, and nothing else. It's long and random, so it can't
 be guessed or walked, the page tells search engines not to index it, and it's listed nowhere.
-Your private notes on the resume aren't on the public page. That's the whole model — there
+Your private notes on the resume aren't on the public page — but if that resume has the photo
+switched on, your face is, so decide that before you publish. That's the whole model — there
 are no per-viewer permissions and no passwords, because everyone you'd send this to is
 someone you already decided to send it to.
 

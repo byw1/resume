@@ -12,14 +12,14 @@ function bearer(request: Request) {
 }
 
 export async function POST(request: Request) {
-  const user = await userByMcpToken(bearer(request), request.headers.get("user-agent") ?? "");
-  if (!user) return mcpUnauthorized();
-  return handleMcpPost(request, user);
+  const caller = await userByMcpToken(bearer(request), request.headers.get("user-agent") ?? "");
+  if (!caller) return mcpUnauthorized();
+  return handleMcpPost(request, caller);
 }
 
 export async function GET(request: Request) {
-  const user = await userByMcpToken(bearer(request));
-  if (!user) return mcpUnauthorized();
+  const caller = await userByMcpToken(bearer(request));
+  if (!caller) return mcpUnauthorized();
   return new Response(null, { status: 405, headers: { Allow: "POST", ...corsHeaders() } });
 }
 

@@ -8,12 +8,23 @@ import * as system from "@/lib/data/system";
 import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
-import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
+import * as connections from "@/lib/data/connections";
+import {
+  getSettings,
+  updateSettings,
+  emailIsConfigured,
+  billingIsConfigured,
+  maskSecret,
+  listVariables,
+  setVariables,
+  deleteVariable,
+} from "@/lib/settings";
 import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/billing";
 import { sendEmail, testEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
 import { renderPdf, pdfRenderingAvailable } from "@/lib/pdf";
+import { clientName, clientsById, guessClient } from "@/lib/mcp/clients";
 
 type Json = Record<string, unknown>;
 
@@ -25,6 +36,8 @@ type Json = Record<string, unknown>;
 export type McpContext = {
   userId: string;
   user: User;
+  /** The connection this call arrived on, so connection tools can tell which. */
+  connectionId: string;
   /** Where this instance is reachable, for building invite links. */
   baseUrl: string;
 };
@@ -164,6 +177,18 @@ function noteKind(args: Json): NoteKind | undefined {
   return value === "GUARDRAIL" || value === "NOTE" ? value : undefined;
 }
 
+/**
+ * The profile as a tool should see it.
+ *
+ * `photo` is hundreds of kilobytes of base64. Returning it would flood an
+ * assistant's context with a picture it cannot look at, so every tool that
+ * hands back a profile reports whether one is set and leaves the bytes here.
+ */
+function withoutPhotoBytes<T extends { photo: string }>(profile: T) {
+  const { photo, ...rest } = profile;
+  return { ...rest, hasPhoto: Boolean(photo) };
+}
+
 /** Strip undefined keys so Prisma doesn't try to write them. */
 function defined<T extends object>(input: T): Partial<T> {
   return Object.fromEntries(Object.entries(input).filter(([, v]) => v !== undefined)) as Partial<T>;
@@ -226,21 +251,22 @@ export const tools: McpTool[] = [
     },
     handler: async (args, ctx) => {
       const snapshot = await brain.getBrainSnapshot(ctx.userId);
+      const profile = withoutPhotoBytes(snapshot.profile);
       if (b(args, "include_brain_dumps") === false) {
         return {
           ...snapshot,
-          profile: { ...snapshot.profile, brainDump: "[omitted]" },
+          profile: { ...profile, brainDump: "[omitted]" },
           roles: snapshot.roles.map((r) => ({ ...r, brainDump: "[omitted]" })),
         };
       }
-      return snapshot;
+      return { ...snapshot, profile };
     },
   },
   {
     name: "get_profile",
     title: "Get profile",
     description:
-      "The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables).",
+      "The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: false,
@@ -248,7 +274,7 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => brain.getProfile(ctx.userId),
+    handler: async (_args, ctx) => withoutPhotoBytes(await brain.getProfile(ctx.userId)),
   },
   {
     name: "update_profile",
@@ -277,7 +303,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.updateProfile(ctx.userId, 
+      withoutPhotoBytes(await brain.updateProfile(ctx.userId,
         defined({
           fullName: s(args, "fullName"),
           headline: s(args, "headline"),
@@ -291,7 +317,38 @@ export const tools: McpTool[] = [
           summary: s(args, "summary"),
           brainDump: s(args, "brainDump"),
         }),
-      ),
+      )),
+  },
+  {
+    name: "set_profile_photo",
+    title: "Set the profile photo",
+    description:
+      "Give the user a headshot, or remove the one they have. One picture serves the whole app: it is their avatar in the interface, and every resume whose design has the photo switched on renders this exact image — so replacing it here updates every document at once, and there is never a second copy to keep in sync. Pass `url` for a picture that already exists on the web (an https link to a JPEG, PNG or WebP — a GitHub avatar, a personal site) and the server fetches it. Pass `data_uri` when you actually hold the bytes, e.g. after reading a local file: 'data:image/jpeg;base64,…'. Pass remove: true to clear it. Anything over 400KB is refused, so downscale first — a resume prints the photo about an inch square and a 512px original is already more than that needs. Turning the photo ON for a given resume is a separate step: update_resume with showPhoto: true. Never invent a picture of somebody: use only a URL or file the user has given you.",
+    inputSchema: object({
+      url: str("https link to an image to fetch and store"),
+      data_uri: str("The image inline, e.g. 'data:image/jpeg;base64,…'"),
+      remove: bool("Remove the existing photo"),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (args, ctx) => {
+      if (b(args, "remove")) {
+        await brain.setProfilePhoto(ctx.userId, "");
+        return { photo: false, message: "Photo removed. Resumes that showed it now render without one." };
+      }
+      const source = s(args, "data_uri")?.trim() || s(args, "url")?.trim() || "";
+      if (!source) throw new Error("Pass a url, a data_uri, or remove: true.");
+      const result = await brain.setProfilePhoto(ctx.userId, source);
+      return {
+        ...result,
+        message:
+          "Saved. It shows in the app straight away; a resume also needs showPhoto: true, and the Harvard template never renders one.",
+      };
+    },
   },
   {
     name: "list_roles",
@@ -914,10 +971,10 @@ export const tools: McpTool[] = [
           description:
             "DEFAULT. The Harvard OCS format: Times-metric serif, everything one size, name and section headings centred over full-width rules, each entry two justified lines (organisation/location, then role/dates). Dense, black-and-white, maximally ATS-safe. Use this unless asked otherwise.",
         },
-        { key: "classic", description: "Serif headings, centred header. Timeless, ATS-safe." },
-        { key: "modern", description: "Sans-serif, accent rules, left-aligned header." },
-        { key: "compact", description: "Tight leading, two-column skills. Fits the most content." },
-        { key: "editorial", description: "Large display name, generous whitespace, magazine feel." },
+        { key: "classic", description: "Serif headings, centred header. Timeless, ATS-safe. Takes a photo, centred above the name." },
+        { key: "modern", description: "Sans-serif, accent rules, left-aligned header. Takes a photo, beside the name." },
+        { key: "compact", description: "Tight leading, two-column skills. Fits the most content. Takes a photo, beside the name." },
+        { key: "editorial", description: "Large display name, generous whitespace, magazine feel. Takes a photo, squared off beside the name." },
       ],
       fonts: ["serif", "inter", "mono"],
       defaults: {
@@ -927,6 +984,7 @@ export const tools: McpTool[] = [
         fontSize: 10,
         lineHeight: 1.2,
         pageMargin: 48,
+        showPhoto: false,
       },
       guidance: [
         "Dates use YYYY-MM. Set isCurrent: true instead of an endDate for the current job.",
@@ -938,6 +996,7 @@ export const tools: McpTool[] = [
         "In Harvard, education `details` render as plain lines (thesis, relevant coursework, honours), not bullets.",
         "Set visible: false to keep a section in the document but off the page.",
         "Aim for roughly 40-48 rendered lines per page; call preview_resume_text to sanity-check length before saving.",
+        "Photos: off unless asked. showPhoto draws the user's profile picture (set_profile_photo), never one you supply per document. Harvard never renders one — it is a US academic format and a face on it is wrong. US and UK applications generally omit photos; much of Europe and Latin America expects one.",
       ],
     }),
   },
@@ -982,7 +1041,10 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => {
       const resume = await resumes.getResume(ctx.userId, required(args, "id"));
       if (!resume) throw new Error("Resume not found");
-      const withUrl = { ...resume, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
+      // `photo` is the resolved image itself; showPhoto already says whether
+      // this document uses one, and the base64 helps nobody reading this.
+      const { photo, ...row } = resume;
+      const withUrl = { ...row, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
       if (b(args, "as_text")) {
         return {
           ...withUrl,
@@ -1009,6 +1071,9 @@ export const tools: McpTool[] = [
         fontSize: num("Base font size in points, 9-12. Default 10."),
         lineHeight: num("Line height, 1.15-1.6. Default 1.35."),
         notes: str("Private notes about this version — what you tailored and why"),
+        showPhoto: bool(
+          "Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does.",
+        ),
         seedFromBrain: bool("Auto-build a first draft from the knowledge base"),
         data: {
           type: "object",
@@ -1039,6 +1104,7 @@ export const tools: McpTool[] = [
           fontSize: n(args, "fontSize"),
           lineHeight: n(args, "lineHeight"),
           notes: s(args, "notes"),
+          showPhoto: b(args, "showPhoto"),
         }),
       }),
   },
@@ -1060,6 +1126,9 @@ export const tools: McpTool[] = [
         lineHeight: num("Line height"),
         notes: str("Private notes"),
         isFavorite: bool("Pin this resume to the top"),
+        showPhoto: bool(
+          "Render the user's profile photo in the header. The picture is the one on their profile, so this only switches it on or off for this document. Harvard ignores it by convention.",
+        ),
         data: {
           type: "object",
           description: "The complete replacement resume document",
@@ -1088,6 +1157,7 @@ export const tools: McpTool[] = [
           lineHeight: n(args, "lineHeight"),
           notes: s(args, "notes"),
           isFavorite: b(args, "isFavorite"),
+          showPhoto: b(args, "showPhoto"),
         }),
       }),
   },
@@ -1170,7 +1240,7 @@ export const tools: McpTool[] = [
     name: "publish_resume",
     title: "Publish a resume to a public link",
     description:
-      "Give a resume a shareable web address. Reach for this whenever the user needs a LINK rather than a file — an application form with a 'portfolio or resume URL' field, a recruiter asking them to send something over, a message where attaching a PDF would be awkward. Returns publicUrl, which is the whole point: hand it straight to the user. Anyone with the link can read the resume without signing in, and the link is the only protection, so it is long and random — it cannot be guessed or found by searching, and the page tells search engines not to index it. The user's private notes on the resume are never shown. Calling this again while the resume is already published returns the SAME url, so it is safe to repeat. If the resume was previously unpublished, publishing mints a brand new url and the old one stays dead.",
+      "Give a resume a shareable web address. Reach for this whenever the user needs a LINK rather than a file — an application form with a 'portfolio or resume URL' field, a recruiter asking them to send something over, a message where attaching a PDF would be awkward. Returns publicUrl, which is the whole point: hand it straight to the user. Anyone with the link can read the resume without signing in, and the link is the only protection, so it is long and random — it cannot be guessed or found by searching, and the page tells search engines not to index it. The user's private notes on the resume are never shown — but if this resume has showPhoto on, their face is on that page, visible to anyone holding the link. Say so before publishing one, or offer to turn the photo off first. Calling this again while the resume is already published returns the SAME url, so it is safe to repeat. If the resume was previously unpublished, publishing mints a brand new url and the old one stays dead.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -2076,6 +2146,131 @@ export const tools: McpTool[] = [
       memberSince: ctx.user.createdAt,
     }),
   },
+  {
+    name: "list_connections",
+    title: "List AI connections",
+    description:
+      "Every assistant wired to this workspace: what it is called, which client it was set up for, when it last called in and from what. Reach for it to answer 'which of these am I still using?' or before rotating something — the ids come back here. Tokens deliberately do not: they are credentials, they would sit in this transcript forever, and the only place a person needs to see one is the client they are pasting it into. `isThisOne` marks the connection you are calling through right now.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => {
+      const rows = await connections.listConnections(ctx.userId);
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        client: row.client,
+        clientName: clientName(row.client),
+        createdAt: row.createdAt,
+        lastUsedAt: row.lastUsedAt,
+        lastUsedFrom: guessClient(row.lastUsedFrom) || null,
+        isThisOne: row.id === ctx.connectionId,
+      }));
+    },
+  },
+  {
+    name: "create_connection",
+    title: "Connect another assistant",
+    description:
+      "Mint a new connection URL so a second client — the laptop's editor, a phone app, a terminal — can reach this workspace too. Returns the URL and the exact steps for that client, so you can hand somebody a copy-paste answer to 'how do I add this to Cursor?'. Give every client its own rather than sharing one: that is what lets a single laptop be disconnected later without breaking everything else. The URL is a credential with full read and write over this person's brain, resumes and pipeline — say so when you hand it over, and never post it anywhere it will be stored.",
+    inputSchema: object({
+      client: str(
+        "Which client it is for: claude | claude-code | chatgpt | cursor | vscode | windsurf | generic-http | stdio-bridge | raw. Sets the setup steps returned.",
+      ),
+      name: str("What to call it in the list, e.g. 'Cursor — work laptop'. Defaults to the client's name."),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const client = s(args, "client") ?? "generic-http";
+      const row = await connections.createConnection(ctx.userId, {
+        client,
+        ...defined({ name: s(args, "name") }),
+      });
+      const url = `${ctx.baseUrl}/api/mcp/${row.token}`;
+      const recipe = clientsById.get(row.client);
+      return {
+        id: row.id,
+        name: row.name,
+        client: row.client,
+        url,
+        setup: recipe?.steps(url) ?? [],
+        docs: recipe?.docs ?? null,
+        warning: "This URL is a password. Anyone holding it can read and write this workspace.",
+      };
+    },
+  },
+  {
+    name: "rename_connection",
+    title: "Rename a connection",
+    description:
+      "Change what a connection is called in the list. Names are for the person, not the machine — 'Cursor — old laptop' is what makes it obvious later which one to revoke. Get the id from list_connections.",
+    inputSchema: object({ id: str("Connection id"), name: str("The new name") }, ["id", "name"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      await connections.renameConnection(ctx.userId, required(args, "id"), required(args, "name"));
+      return { id: required(args, "id"), renamed: true };
+    },
+  },
+  {
+    name: "rotate_connection",
+    title: "Issue a new token for a connection",
+    description:
+      "Kill a connection's URL and issue a fresh one on the same row, keeping its name and place in the list. This is the answer to 'I sold that laptop' or 'I pasted the URL in a chat by mistake' — the old address stops working the moment this returns, and nothing else is affected. It also means the client that was using it goes dark until somebody pastes the new URL in, so say that before doing it. Returns the new URL; treat it like the password it is.",
+    inputSchema: object({ id: str("Connection id, from list_connections") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const id = required(args, "id");
+      const token = await connections.rotateConnection(ctx.userId, id);
+      return {
+        id,
+        url: `${ctx.baseUrl}/api/mcp/${token}`,
+        warning:
+          "The old URL is dead. Paste this one into that client or it stays disconnected. It is a password.",
+      };
+    },
+  },
+  {
+    name: "delete_connection",
+    title: "Disconnect an assistant",
+    description:
+      "Remove a connection for good. Its URL stops working immediately and cannot be brought back — a replacement is a new connection with a new URL. Prefer rotate_connection when the client is still in use and only the URL has leaked. Check list_connections first: deleting the one you are calling through ends this session mid-conversation.",
+    inputSchema: object({ id: str("Connection id, from list_connections") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const id = required(args, "id");
+      if (id === ctx.connectionId) {
+        throw new Error(
+          "That is the connection you are talking through. Delete it from Settings, or delete a different one.",
+        );
+      }
+      await connections.deleteConnection(ctx.userId, id);
+      return { id, deleted: true };
+    },
+  },
 
   // -------------------------------------------------------------------------
   // ADMIN — hidden entirely from members
@@ -2492,7 +2687,7 @@ export const tools: McpTool[] = [
     name: "admin_set_email_config",
     title: "Configure email",
     description:
-      "Set the Resend API key and the address invitations are sent from. Only the fields you pass are changed. Follow with admin_send_test_email to prove it works.",
+      "Set the Resend API key and the address invitations are sent from. Only the fields you pass are changed. Follow with admin_send_test_email to prove it works. instanceName and publicUrl are instance-wide rather than email-only — they are what the sign-in page, invitation links and the Stripe webhook URL are built from — and they can also be set on their own with admin_set_variable.",
     inputSchema: object({
       resendApiKey: str("Resend API key, starts with re_"),
       resendFromEmail: str("From address on a domain verified in Resend, e.g. hello@yourdomain.com"),
@@ -2644,6 +2839,64 @@ export const tools: McpTool[] = [
         unlink: b(args, "unlink") ?? false,
         baseUrl: ctx.baseUrl,
       }),
+  },
+  {
+    name: "admin_list_variables",
+    title: "List instance variables",
+    description:
+      "Every configurable value on this instance in one list: its key, what it does, what it is set to now, and whether it is still on the built-in default. This is the whole of what a self-hosted instance stores as configuration, so start here when someone asks where a setting lives or why the app is behaving a certain way. Secrets come back masked — no tool ever returns a raw key. Variables an admin added by hand are marked known:false; they have no form in the app and are read by whatever feature asked for them.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    adminOnly: true,
+    handler: async () => ({ variables: await listVariables() }),
+  },
+  {
+    name: "admin_set_variable",
+    title: "Set an instance variable",
+    description:
+      "Changes one instance setting by key — the general way in, for anything without a tool of its own. Take the key from admin_list_variables and send the new value as a string; an on-off variable takes \"1\" or \"0\". Prefer admin_set_email_config or admin_set_billing_config where they apply, because they also report whether that area now works. Sending an empty value for a secret leaves it alone rather than clearing it — admin_delete_variable is how you clear one. A key nothing recognises creates a new variable, which is how a setting exists before it has a screen: lowercase letters, numbers and underscores. Every change is written to the audit log against your name, values included, so never put a secret in a key that is not declared as one.",
+    inputSchema: object(
+      {
+        key: str("The variable's key, e.g. instance_name — from admin_list_variables"),
+        value: str('The new value as a string. "1" or "0" for an on-off variable.'),
+      },
+      ["key", "value"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const key = required(args, "key");
+      const value = s(args, "value");
+      if (value === undefined) throw new Error('Missing required string argument "value"');
+      const changed = await setVariables(ctx.user, { [key]: value });
+      const after = (await listVariables()).find((variable) => variable.key === key);
+      return { key, changed: changed.length > 0, value: after?.value ?? value, variable: after };
+    },
+  },
+  {
+    name: "admin_delete_variable",
+    title: "Clear an instance variable",
+    description:
+      "Removes a variable's stored value. A setting the app declares falls back to its built-in default — clearing the Resend key stops every invitation email, clearing company_logos turns logos back on — and a variable an admin added disappears entirely. Call admin_list_variables first to see what the default would be, because this is the one settings call with no undo. Recorded in the audit log.",
+    inputSchema: object({ key: str("The variable's key, from admin_list_variables") }, ["key"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    adminOnly: true,
+    handler: async (args, ctx) => deleteVariable(ctx.user, required(args, "key")),
   },
 ];
 
