@@ -1499,3 +1499,51 @@ on every landing-page request.**
 **Applies to:** `src/lib/data/pipeline-share.ts`, `src/app/p/[slug]/`,
 `src/components/pipeline/share-pipeline.tsx`,
 `prisma/migrations/20250115000000_pipeline_share/`.
+
+---
+
+## 2026-08-30 — The instance can say whether it is working
+
+Before this there was no error tracking of any kind: no `error.tsx`, no `global-error.tsx`,
+two `console.error` calls in the whole codebase, and nothing persisted anywhere. On a
+hosted instance that means a customer hits a 500 and you find out when they email you, or
+never. The only failures that survived were `Invite.emailError` and
+`WaitlistSignup.notifyError` — the right instinct, stored next to the thing that failed,
+just not general.
+
+**`SystemEvent` is instance-level, like `AdminAudit`, and for the same reason.** It has no
+`userId` and does not follow the first-positional-argument rule, because it is not anyone's
+content — it is the instance talking about itself. `users.ts` and `waitlist.ts` already draw
+that line; this is the third file on the same side of it, not a new exception.
+
+**The rule that keeps it safe to read: never write an operation's inputs.** An error message
+produced by a failure is fine — "Resend returned 422", `Missing required string argument
+"id"`. The arguments that produced it are someone's content and every admin can read this
+table. That is why the MCP handler records the tool *name* and the thrown message, never
+`args`. It is written into the schema comment because it is the one place "admins manage
+accounts, never content" could be broken by accident rather than by design.
+
+**INFO rows are the point, not noise.** A successful Stripe delivery is recorded, because
+"the last webhook arrived four minutes ago" is the only available evidence that Stripe has
+not silently stopped calling. You cannot ask Stripe whether it is still delivering; you can
+only notice that something arrived. Thirty-day retention, swept on login next to
+`sweepThrottles`, keeps that from becoming a table that only grows.
+
+**A bug worth recording, because the check reported green on its own worst case.** The first
+version of the billing check treated any recent webhook as healthy. But the failure it
+exists to catch — a wrong signing secret in Admin → Billing — rejects every delivery, so
+deliveries keep arriving and billing is completely broken while the panel says "Last webhook
+just now, ok". Fixed by separating "a delivery arrived" from "a delivery *worked*": the last
+INFO is what counts, and a rejection with no recent success behind it is `down`, not `warn`.
+Found by pointing a bad signature at the real endpoint and reading the panel, not by
+re-reading the code.
+
+**Health is not the first tab, and does not need to be.** It carries a dot coloured by the
+worst check, the way the Email tab already does. A healthy instance stays quiet; a broken one
+announces itself from wherever you are. The day-to-day job in Admin is still people and
+invites, so those keep the default.
+
+**Applies to:** `src/lib/data/system.ts`, `src/components/admin/health-panel.tsx`,
+`src/app/(app)/error.tsx`, `src/app/global-error.tsx`,
+`prisma/migrations/20250116000000_system_events/`, and the recording sites in
+`src/lib/email.ts`, `src/lib/mcp/handler.ts` and `src/app/api/stripe/webhook/route.ts`.

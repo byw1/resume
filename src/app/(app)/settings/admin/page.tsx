@@ -8,6 +8,7 @@ import { requireAdmin } from "@/lib/auth";
 import { instanceStats, listInvites, listUsers } from "@/lib/data/users";
 import { listWaitlist, waitlistStats } from "@/lib/data/waitlist";
 import { listAudit } from "@/lib/data/audit";
+import { instanceHealth, listSystemEvents } from "@/lib/data/system";
 import { billingIsConfigured, emailIsConfigured, getSettings, maskSecret } from "@/lib/settings";
 import { billedUserCount } from "@/lib/billing";
 import { BillingPanel } from "@/components/admin/billing-panel";
@@ -16,6 +17,7 @@ import { InvitesPanel } from "@/components/admin/invites-panel";
 import { WaitlistPanel } from "@/components/admin/waitlist-panel";
 import { EmailPanel } from "@/components/admin/email-panel";
 import { AuditPanel } from "@/components/admin/audit-panel";
+import { HealthPanel } from "@/components/admin/health-panel";
 import { InboxIcon, ShieldIcon, UserPlusIcon, UsersIcon } from "lucide-react";
 
 export const dynamic = "force-dynamic";
@@ -35,11 +37,20 @@ export default async function AdminPage() {
     listWaitlist(),
     waitlistStats(),
   ]);
-  const auditRows = await listAudit({ limit: 100 });
+  const [auditRows, health, systemEvents] = await Promise.all([
+    listAudit({ limit: 100 }),
+    instanceHealth(),
+    listSystemEvents({ limit: 50 }),
+  ]);
 
   const emailReady = emailIsConfigured(settings);
   const billingReady = billingIsConfigured(settings);
   const billedUsers = await billedUserCount();
+  const worstCheck = health.checks.some((check) => check.status === "down")
+    ? "down"
+    : health.checks.some((check) => check.status === "warn")
+      ? "warn"
+      : "ok";
 
   return (
     <PageShell className="max-w-6xl">
@@ -98,6 +109,20 @@ export default async function AdminPage() {
             {!emailReady && <span className="ml-1 text-[var(--warning)]">•</span>}
           </TabsTrigger>
           <TabsTrigger value="billing">Billing</TabsTrigger>
+          {/* The dot is why this tab does not need to be first: a healthy
+              instance stays quiet, and a broken one says so from here. */}
+          <TabsTrigger value="health">
+            Health
+            {worstCheck !== "ok" && (
+              <span
+                className={
+                  worstCheck === "down" ? "ml-1 text-[var(--destructive)]" : "ml-1 text-[var(--warning)]"
+                }
+              >
+                •
+              </span>
+            )}
+          </TabsTrigger>
           <TabsTrigger value="audit">Log</TabsTrigger>
         </TabsList>
 
@@ -194,6 +219,23 @@ export default async function AdminPage() {
             />
           </FadeIn>
         </TabsContent>
+        <TabsContent value="health">
+          <FadeIn>
+            <HealthPanel
+              checks={health.checks}
+              events={systemEvents.map((event) => ({
+                id: event.id,
+                level: event.level,
+                source: event.source,
+                message: event.message,
+                detail: event.detail,
+                userEmail: event.userEmail,
+                createdAt: event.createdAt.toISOString(),
+              }))}
+            />
+          </FadeIn>
+        </TabsContent>
+
         <TabsContent value="audit">
           <FadeIn>
             <AuditPanel

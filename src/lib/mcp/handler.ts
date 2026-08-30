@@ -1,6 +1,7 @@
 import type { User } from "@prisma/client";
 import { promptsFor, promptsByName, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
 import { listGuardrails } from "@/lib/data/brain";
+import { recordSystemEvent } from "@/lib/data/system";
 import { isAdmin } from "@/lib/auth";
 
 /**
@@ -213,6 +214,14 @@ async function handleMessage(
         return ok(id, { content: [{ type: "text", text: serialize(result ?? { ok: true }) }] });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
+        // The tool name and the failure, never `args` — those are the caller's
+        // content and every admin can read the event stream.
+        await recordSystemEvent({
+          source: "mcp.tool",
+          message,
+          detail: name,
+          userEmail: ctx.user.email,
+        });
         // Tool failures are reported in-band so the model can recover.
         return ok(id, { content: [{ type: "text", text: `Error: ${message}` }], isError: true });
       }

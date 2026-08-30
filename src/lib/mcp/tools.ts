@@ -4,6 +4,7 @@ import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
 import * as audit from "@/lib/data/audit";
+import * as system from "@/lib/data/system";
 import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
@@ -1650,6 +1651,43 @@ export const tools: McpTool[] = [
     inputSchema: object({ limit: num("How many entries, newest first. Default 100, max 500.") }),
     adminOnly: true,
     handler: async (args) => audit.listAudit({ limit: n(args, "limit") ?? 100 }),
+  },
+  {
+    name: "admin_health",
+    title: "Check whether the instance is working",
+    description:
+      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async () => system.instanceHealth(),
+  },
+  {
+    name: "admin_recent_errors",
+    title: "Read what has failed recently",
+    description:
+      "The instance's own event stream, newest first: failed emails, Stripe webhooks that did not verify or did not sync, tool calls that threw, and pages that errored. Use it after admin_health reports errors, or to answer 'did that invite actually send'. Each entry has a level (INFO, WARN or ERROR), a source, a one-line message, and the address of whoever's request hit it. Pass level ERROR for failures only — the default includes INFO entries such as successful webhook deliveries, which are what prove Stripe is still reaching this instance at all. Entries older than 30 days are removed automatically. This never contains anyone's content: the arguments that caused a failure are deliberately not recorded, only the failure.",
+    inputSchema: object({
+      limit: num("How many entries, newest first. Default 50, max 200."),
+      level: {
+        type: "string",
+        enum: ["INFO", "WARN", "ERROR"],
+        description: "Only entries at this level. Omit for everything.",
+      },
+      source: {
+        type: "string",
+        enum: ["stripe.webhook", "billing.sync", "email.send", "mcp.tool", "app"],
+        description: "Only entries from this part of the app. Omit for everything.",
+      },
+    }),
+    adminOnly: true,
+    handler: async (args) =>
+      system.listSystemEvents(
+        defined({
+          limit: n(args, "limit") ?? 50,
+          level: s(args, "level") as "INFO" | "WARN" | "ERROR" | undefined,
+          source: s(args, "source") as system.SystemEventSource | undefined,
+        }),
+      ),
   },
   {
     name: "admin_list_waitlist",

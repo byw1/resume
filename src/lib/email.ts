@@ -1,4 +1,5 @@
 import { emailIsConfigured, getSettings, type InstanceSettings } from "@/lib/settings";
+import { recordSystemEvent } from "@/lib/data/system";
 
 /**
  * Resend over its REST API. No SDK: it is one POST, and skipping the package
@@ -54,11 +55,20 @@ export async function sendEmail(input: {
 
     if (!response.ok) {
       // Resend puts the useful part in `message`; fall back to the status.
-      return { ok: false, error: body.message || `Resend returned ${response.status}` };
+      const error = body.message || `Resend returned ${response.status}`;
+      await recordSystemEvent({ source: "email.send", message: error, userEmail: input.to });
+      return { ok: false, error };
     }
+    await recordSystemEvent({
+      level: "INFO",
+      source: "email.send",
+      message: input.subject,
+      userEmail: input.to,
+    });
     return { ok: true, id: body.id ?? "" };
   } catch (error) {
     const message = error instanceof Error ? error.message : String(error);
+    await recordSystemEvent({ source: "email.send", message, userEmail: input.to });
     return { ok: false, error: message };
   }
 }

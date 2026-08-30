@@ -34,6 +34,7 @@ import {
   sweepThrottles,
 } from "@/lib/login-throttle";
 import { listAudit, recordAudit } from "@/lib/data/audit";
+import { recordSystemEvent, sweepSystemEvents } from "@/lib/data/system";
 
 /**
  * Every action resolves the caller from their session cookie. No action ever
@@ -88,9 +89,10 @@ export async function loginAction(_prev: { error?: string } | undefined, formDat
 
   await clearLoginFailures(email, ip);
   await startSession(user.id);
-  // Cheap, and it keeps the table from growing on a busy instance. Deliberately
+  // Cheap, and it keeps the tables from growing on a busy instance. Deliberately
   // not awaited-and-blocking on failure: a failed sweep must not fail a login.
   void sweepThrottles().catch(() => {});
+  void sweepSystemEvents().catch(() => {});
   redirect("/");
 }
 
@@ -905,4 +907,25 @@ export async function deleteSavedViewAction(id: string) {
   const user = await requireUser();
   await views.deleteSavedView(user.id, id);
   revalidatePath("/applications");
+}
+
+// --- errors -----------------------------------------------------------------
+
+/**
+ * Called by the error boundary when a screen throws.
+ *
+ * Next logs the real error to stdout and hands the browser only a `digest`, so
+ * without this an admin has no way to see that anything happened. Requires a
+ * session, so it is not an open write endpoint, and takes nothing from the
+ * client but the digest and the path — never the message, which the browser
+ * cannot be trusted to have not made up.
+ */
+export async function reportRenderErrorAction(input: { digest?: string; path?: string }) {
+  const user = await requireUser();
+  await recordSystemEvent({
+    source: "app",
+    message: `A screen failed to render${input.path ? `: ${input.path}` : "."}`,
+    detail: input.digest ? `digest ${input.digest}` : "",
+    userEmail: user.email,
+  });
 }

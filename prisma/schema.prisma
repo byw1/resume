@@ -205,6 +205,52 @@ model Setting {
   updatedAt DateTime @updatedAt
 }
 
+enum SystemEventLevel {
+  /// It worked. Recorded because "it worked, at 14:02" is the only way to know
+  /// a webhook is still arriving at all.
+  INFO
+  /// Suspicious but not broken — a signature that didn't verify, a send to an
+  /// address Resend refused.
+  WARN
+  /// Something a person tried to do did not happen.
+  ERROR
+}
+
+/// What the instance did, as opposed to what an admin did to an account.
+///
+/// AdminAudit answers "who suspended this user". This answers "is the thing
+/// working" — did the Stripe webhook arrive, did the invite email actually
+/// send, did a tool call blow up, did a page throw. Without it, a hosted
+/// instance fails silently and the first you hear is a customer email.
+///
+/// Instance-level, admin-read-only, same as AdminAudit. Two rules keep it that
+/// way, and both matter:
+///
+///   1. `userEmail` is text, never a relation, so a row still reads correctly
+///      after the account is deleted.
+///   2. **Never write an operation's inputs into this table.** An error message
+///      produced by a failing operation is fine — "Missing required argument:
+///      role_id", "Resend returned 422". The arguments that produced it are
+///      not: they are someone's content, and every admin can read this. If you
+///      are tempted to add `JSON.stringify(args)` to `detail`, don't.
+model SystemEvent {
+  id        String           @id @default(cuid())
+  level     SystemEventLevel @default(ERROR)
+  /// Where it came from: "stripe.webhook", "email.send", "mcp.tool", "app".
+  source    String
+  /// One line, safe to show every admin.
+  message   String
+  /// Specifics — a tool name, an event type, a status code. Never a secret.
+  detail    String           @default("")
+  /// Whose request hit it, when known.
+  userEmail String           @default("")
+  createdAt DateTime         @default(now())
+
+  @@index([createdAt])
+  @@index([source, createdAt])
+  @@index([level, createdAt])
+}
+
 /// Someone who asked for access from the marketing site while the instance is
 /// invite-only. Deliberately not a User and not an Invite: it is a request,
 /// and it becomes an Invite only when an admin decides it should. Nothing here

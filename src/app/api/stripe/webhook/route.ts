@@ -5,6 +5,7 @@ import {
   verifyStripeSignature,
 } from "@/lib/billing";
 import { billingIsConfigured, getSettings } from "@/lib/settings";
+import { recordSystemEvent } from "@/lib/data/system";
 
 export const dynamic = "force-dynamic";
 
@@ -27,6 +28,15 @@ export async function POST(request: NextRequest) {
   const payload = await request.text();
   const signature = request.headers.get("stripe-signature");
   if (!verifyStripeSignature(payload, signature, settings.stripeWebhookSecret)) {
+    // Worth recording rather than only returning 400: the usual cause is the
+    // wrong signing secret pasted into the Billing tab, and that looks exactly
+    // like "Stripe stopped working" from the outside.
+    await recordSystemEvent({
+      level: "WARN",
+      source: "stripe.webhook",
+      message: "Signature verification failed.",
+      detail: "Usually the wrong signing secret in Admin → Billing.",
+    });
     return new NextResponse("Signature verification failed.", { status: 400 });
   }
 
@@ -54,9 +64,25 @@ export async function POST(request: NextRequest) {
 
   try {
     const result = await syncStripeCustomer({ customerId, email, baseUrl, settings });
+    // Recorded on success too, and this is the point of the table: entitlement
+    // only stays correct while these keep arriving, and a webhook that quietly
+    // stops produces no error anywhere. "Last one 4m ago" is the only evidence.
+    await recordSystemEvent({
+      level: "INFO",
+      source: "stripe.webhook",
+      message: `${event.type} — ${result.action}`,
+      detail: "",
+      userEmail: email ?? "",
+    });
     return NextResponse.json({ received: true, action: result.action });
   } catch (error) {
     const message = error instanceof Error ? error.message : "Billing sync failed.";
+    await recordSystemEvent({
+      source: "billing.sync",
+      message,
+      detail: event.type,
+      userEmail: email ?? "",
+    });
     return new NextResponse(message, { status: 500 });
   }
 }
