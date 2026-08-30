@@ -300,6 +300,12 @@ model Profile {
   /// what you want next, salary expectations, non-negotiables, etc.
   summary   String   @default("")
   brainDump String   @default("")
+  /// A square headshot, held as a data URI ("data:image/jpeg;base64,..."). It
+  /// lives in the row rather than an object store so self-hosting still needs
+  /// one environment variable, and so a published resume renders the picture
+  /// with no second request to fetch it. The browser downscales before upload
+  /// and the server refuses anything over PHOTO_MAX_BYTES.
+  photo     String   @default("")
   updatedAt DateTime @updatedAt
 }
 
@@ -468,6 +474,11 @@ model Resume {
   lineHeight    Float    @default(1.2)
   /// 48px = the Harvard template's 0.5in page margin
   pageMargin    Int      @default(48)
+  /// Show the owner's profile photo in this document's header. The picture
+  /// itself is Profile.photo, never a copy — replace it once and every resume
+  /// that shows it follows. Off by default, and templates whose convention
+  /// forbids a photo ignore it.
+  showPhoto     Boolean  @default(false)
   /// The full resume document (see src/lib/resume-schema.ts)
   data          Json
   notes         String   @default("")

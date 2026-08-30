@@ -9,13 +9,21 @@ import { instanceStats, listInvites, listUsers } from "@/lib/data/users";
 import { listWaitlist, waitlistStats } from "@/lib/data/waitlist";
 import { listAudit } from "@/lib/data/audit";
 import { instanceHealth, listSystemEvents } from "@/lib/data/system";
-import { billingIsConfigured, emailIsConfigured, getSettings, maskSecret } from "@/lib/settings";
+import {
+  billingIsConfigured,
+  emailIsConfigured,
+  getSettings,
+  listVariables,
+  maskSecret,
+} from "@/lib/settings";
 import { billedUserCount } from "@/lib/billing";
 import { BillingPanel } from "@/components/admin/billing-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
 import { InvitesPanel } from "@/components/admin/invites-panel";
 import { WaitlistPanel } from "@/components/admin/waitlist-panel";
 import { EmailPanel } from "@/components/admin/email-panel";
+import { InstancePanel } from "@/components/admin/instance-panel";
+import { VariablesPanel } from "@/components/admin/variables-panel";
 import { AuditPanel } from "@/components/admin/audit-panel";
 import { HealthPanel } from "@/components/admin/health-panel";
 import { InboxIcon, ShieldIcon, UserPlusIcon, UsersIcon } from "lucide-react";
@@ -37,10 +45,11 @@ export default async function AdminPage() {
     listWaitlist(),
     waitlistStats(),
   ]);
-  const [auditRows, health, systemEvents] = await Promise.all([
+  const [auditRows, health, systemEvents, variables] = await Promise.all([
     listAudit({ limit: 100 }),
     instanceHealth(),
     listSystemEvents({ limit: 50 }),
+    listVariables(),
   ]);
 
   const emailReady = emailIsConfigured(settings);
@@ -57,7 +66,7 @@ export default async function AdminPage() {
       <PageHeader
         eyebrow="Admin"
         title="Your platform"
-        description="Invite people, manage accounts, and configure how invitation emails go out. Everyone gets their own private workspace — admins never see another person's brain or resumes."
+        description="Invite people, manage accounts, and change how this instance behaves. Everyone gets their own private workspace — admins never see another person's brain or resumes."
       />
 
       <Stagger className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -104,11 +113,19 @@ export default async function AdminPage() {
               </span>
             )}
           </TabsTrigger>
-          <TabsTrigger value="email">
-            Email
+          {/* Email and billing were two tabs holding two forms each; they are
+              one screen now, because "how this instance is set up" is a single
+              question and nobody arrives wanting exactly one half of it. */}
+          <TabsTrigger value="config">
+            Configuration
             {!emailReady && <span className="ml-1 text-[var(--warning)]">•</span>}
           </TabsTrigger>
-          <TabsTrigger value="billing">Billing</TabsTrigger>
+          <TabsTrigger value="variables">
+            Variables
+            <span className="text-muted-foreground ml-1 text-xs tabular-nums">
+              {variables.length}
+            </span>
+          </TabsTrigger>
           {/* The dot is why this tab does not need to be first: a healthy
               instance stays quiet, and a broken one says so from here. */}
           <TabsTrigger value="health">
@@ -185,38 +202,45 @@ export default async function AdminPage() {
           </FadeIn>
         </TabsContent>
 
-        <TabsContent value="email">
+        <TabsContent value="config">
           <FadeIn>
-            <EmailPanel
-              configured={emailReady}
-              settings={{
-                instanceName: settings.instanceName,
-                resendApiKeyMasked: maskSecret(settings.resendApiKey),
-                hasApiKey: Boolean(settings.resendApiKey),
-                resendFromEmail: settings.resendFromEmail,
-                resendFromName: settings.resendFromName,
-                publicUrl: settings.publicUrl || `${proto}://${host}`,
-                companyLogos: settings.companyLogos,
-              }}
-              ownEmail={actor.email}
-            />
+            <div className="space-y-6">
+              <InstancePanel
+                settings={{
+                  instanceName: settings.instanceName,
+                  publicUrl: settings.publicUrl || `${proto}://${host}`,
+                  companyLogos: settings.companyLogos,
+                }}
+              />
+              <EmailPanel
+                configured={emailReady}
+                settings={{
+                  resendApiKeyMasked: maskSecret(settings.resendApiKey),
+                  hasApiKey: Boolean(settings.resendApiKey),
+                  resendFromEmail: settings.resendFromEmail,
+                  resendFromName: settings.resendFromName,
+                }}
+                ownEmail={actor.email}
+              />
+              <BillingPanel
+                configured={billingReady}
+                settings={{
+                  stripeSecretKeyMasked: maskSecret(settings.stripeSecretKey),
+                  hasSecretKey: Boolean(settings.stripeSecretKey),
+                  stripeWebhookSecretMasked: maskSecret(settings.stripeWebhookSecret),
+                  hasWebhookSecret: Boolean(settings.stripeWebhookSecret),
+                  stripePaymentLink: settings.stripePaymentLink,
+                }}
+                billedUsers={billedUsers}
+                webhookUrl={`${settings.publicUrl || `${proto}://${host}`}/api/stripe/webhook`}
+              />
+            </div>
           </FadeIn>
         </TabsContent>
 
-        <TabsContent value="billing">
+        <TabsContent value="variables">
           <FadeIn>
-            <BillingPanel
-              configured={billingReady}
-              settings={{
-                stripeSecretKeyMasked: maskSecret(settings.stripeSecretKey),
-                hasSecretKey: Boolean(settings.stripeSecretKey),
-                stripeWebhookSecretMasked: maskSecret(settings.stripeWebhookSecret),
-                hasWebhookSecret: Boolean(settings.stripeWebhookSecret),
-                stripePaymentLink: settings.stripePaymentLink,
-              }}
-              billedUsers={billedUsers}
-              webhookUrl={`${settings.publicUrl || `${proto}://${host}`}/api/stripe/webhook`}
-            />
+            <VariablesPanel variables={variables} />
           </FadeIn>
         </TabsContent>
         <TabsContent value="health">

@@ -16,10 +16,13 @@ export const dynamic = "force-dynamic";
 
 export default async function ResumesPage() {
   const user = await requireUser();
-  const [resumes, roleCount] = await Promise.all([
+  const [resumes, roleCount, profile] = await Promise.all([
     listResumes(user.id),
     db.role.count({ where: { userId: user.id } }),
+    // One read for the whole grid: the thumbnails all draw the same face.
+    db.profile.findUnique({ where: { userId: user.id }, select: { photo: true } }),
   ]);
+  const photo = profile?.photo ?? "";
 
   return (
     <PageShell>
@@ -62,6 +65,7 @@ export default async function ResumesPage() {
                               fontSize: resume.fontSize,
                               lineHeight: resume.lineHeight,
                               pageMargin: resume.pageMargin,
+                              photo: resume.showPhoto ? photo : "",
                             }}
                           />
                         </PaperThumb>

@@ -15,7 +15,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { saveBillingSettingsAction, syncBillingAction } from "@/server/actions";
+import { saveConfigAction, syncBillingAction } from "@/server/actions";
 
 /**
  * Hosting other people for a fee. The Stripe side is built by hand in their
@@ -51,7 +51,7 @@ export function BillingPanel({
 
   const save = () =>
     startSaving(async () => {
-      const result = await saveBillingSettingsAction(values);
+      const result = await saveConfigAction(values);
       if (result.ok) {
         setValues((v) => ({ ...v, stripeSecretKey: "", stripeWebhookSecret: "" }));
         toast.success("Billing settings saved.");
