@@ -37,11 +37,32 @@ import { logoutAction } from "@/server/actions";
 
 // Navigation only. Settings and Admin are account actions, so they live in the
 // profile menu at the top right rather than in the rail.
-const NAV = [
+//
+// CRM is the one entry with children: it is two peer screens (companies and
+// people), and reaching the second one used to require landing on the first
+// and finding the tabs. The rail names both. In the collapsed rail the
+// children fold into the icon's tooltip-covered single link, which lands on
+// companies — the tabs on the page take it from there.
+type NavItem = {
+  href: string;
+  label: string;
+  icon: typeof LayoutDashboardIcon;
+  children?: { href: string; label: string }[];
+};
+
+const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/brain", label: "Brain", icon: BrainIcon },
   { href: "/resumes", label: "Resumes", icon: FileTextIcon },
-  { href: "/crm", label: "CRM", icon: Building2Icon },
+  {
+    href: "/crm",
+    label: "CRM",
+    icon: Building2Icon,
+    children: [
+      { href: "/crm/companies", label: "Companies" },
+      { href: "/crm/contacts", label: "Contacts" },
+    ],
+  },
   { href: "/applications", label: "Pipeline", icon: KanbanIcon },
 ];
 
@@ -186,7 +207,6 @@ export function Shell({
             const active = isActive(item.href);
             const link = (
               <Link
-                key={item.href}
                 href={item.href}
                 aria-label={item.label}
                 className={cn(
@@ -221,15 +241,43 @@ export function Shell({
               </Link>
             );
 
-            if (!collapsed) return link;
+            if (collapsed) {
+              return (
+                <Tooltip key={item.href}>
+                  <TooltipTrigger asChild>{link}</TooltipTrigger>
+                  <TooltipContent side="right">
+                    {item.label}
+                    {item.href === "/applications" && followUpCount > 0 && ` · ${followUpCount} due`}
+                  </TooltipContent>
+                </Tooltip>
+              );
+            }
+
+            if (!item.children) return <div key={item.href}>{link}</div>;
             return (
-              <Tooltip key={item.href}>
-                <TooltipTrigger asChild>{link}</TooltipTrigger>
-                <TooltipContent side="right">
-                  {item.label}
-                  {item.href === "/applications" && followUpCount > 0 && ` · ${followUpCount} due`}
-                </TooltipContent>
-              </Tooltip>
+              <div key={item.href} className="flex flex-col gap-0.5">
+                {link}
+                {item.children.map((child) => {
+                  const childActive = pathname.startsWith(child.href);
+                  return (
+                    <Link
+                      key={child.href}
+                      href={child.href}
+                      aria-current={childActive ? "page" : undefined}
+                      className={cn(
+                        // Indented to sit under the parent's label, not its icon,
+                        // so the hierarchy reads at a glance.
+                        "ml-[2.4rem] flex items-center rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                        childActive
+                          ? "bg-accent/70 text-foreground"
+                          : "text-muted-foreground hover:text-foreground",
+                      )}
+                    >
+                      {child.label}
+                    </Link>
+                  );
+                })}
+              </div>
             );
           })}
         </nav>
@@ -344,22 +392,32 @@ function MobileNav({
           {NAV.map((item) => {
             const active = isActive(item.href);
             return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className={cn(
-                  "flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors",
-                  active ? "bg-accent text-foreground" : "text-muted-foreground",
-                )}
-              >
-                <item.icon className={cn("size-4 shrink-0", active && "text-primary")} />
-                <span>{item.label}</span>
-                {item.href === "/applications" && followUpCount > 0 && (
-                  <span className="bg-muted text-muted-foreground ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-                    {followUpCount}
-                  </span>
-                )}
-              </Link>
+              <div key={item.href} className="flex flex-col gap-0.5">
+                <Link
+                  href={item.href}
+                  className={cn(
+                    "flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors",
+                    active ? "bg-accent text-foreground" : "text-muted-foreground",
+                  )}
+                >
+                  <item.icon className={cn("size-4 shrink-0", active && "text-primary")} />
+                  <span>{item.label}</span>
+                  {item.href === "/applications" && followUpCount > 0 && (
+                    <span className="bg-muted text-muted-foreground ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+                      {followUpCount}
+                    </span>
+                  )}
+                </Link>
+                {item.children?.map((child) => (
+                  <Link
+                    key={child.href}
+                    href={child.href}
+                    className="text-muted-foreground ml-10 flex h-9 items-center rounded-lg px-3 text-[13px] font-medium transition-colors"
+                  >
+                    {child.label}
+                  </Link>
+                ))}
+              </div>
             );
           })}
         </nav>

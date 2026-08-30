@@ -5,13 +5,21 @@ import { Button } from "@/components/ui/button";
 import { CrmTabs } from "@/components/crm/tabs";
 import { SearchBox } from "@/components/crm/search-box";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
-import { listContacts } from "@/lib/data/pipeline";
+import { listContacts, type ContactFilter } from "@/lib/data/pipeline";
 import { requireUser } from "@/lib/auth";
 import { companyDomain } from "@/lib/company";
 import { getSettings } from "@/lib/settings";
 import { agoDay, cn, relativeDay } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+/** Same rule as everywhere else: the URL is the state of this screen. */
+const FILTERS: { key: ContactFilter | undefined; label: string }[] = [
+  { key: undefined, label: "Everyone" },
+  { key: "ping-due", label: "Ping due" },
+  { key: "with-application", label: "On an application" },
+  { key: "no-company", label: "No company" },
+];
 
 export default async function ContactsPage({
   searchParams,
@@ -21,8 +29,12 @@ export default async function ContactsPage({
   const user = await requireUser();
   const params = await searchParams;
   const search = (Array.isArray(params.q) ? params.q[0] : params.q)?.trim() ?? "";
+  const rawFilter = Array.isArray(params.f) ? params.f[0] : params.f;
+  const filter = FILTERS.some((f) => f.key === rawFilter)
+    ? (rawFilter as ContactFilter)
+    : undefined;
   const [contacts, { companyLogos }] = await Promise.all([
-    listContacts(user.id, { search: search || undefined }),
+    listContacts(user.id, { search: search || undefined, filter }),
     getSettings(),
   ]);
   const today = new Date();
@@ -43,13 +55,38 @@ export default async function ContactsPage({
         </span>
       </div>
 
+      <div className="no-scrollbar -mx-1 mb-3 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
+        {FILTERS.map(({ key, label }) => {
+          const active = filter === key;
+          const query = new URLSearchParams();
+          if (search) query.set("q", search);
+          if (key) query.set("f", key);
+          const string = query.toString();
+          return (
+            <Link
+              key={label}
+              href={string ? `/crm/contacts?${string}` : "/crm/contacts"}
+              aria-current={active ? "page" : undefined}
+              className={cn(
+                "touch-target flex h-11 shrink-0 items-center rounded-chip px-2 text-[12.5px] transition-colors duration-150 md:h-7",
+                active
+                  ? "bg-accent text-foreground font-medium"
+                  : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
+              )}
+            >
+              {label}
+            </Link>
+          );
+        })}
+      </div>
+
       {contacts.length === 0 ? (
         <EmptyState
           icon={UsersIcon}
-          title={search ? "Nobody matches that" : "No contacts yet"}
+          title={search || filter ? "Nobody matches that" : "No contacts yet"}
           description={
-            search
-              ? "Try a shorter search, or clear it to see everyone."
+            search || filter
+              ? "Loosen the search or the filter to see everyone again."
               : "Open an application and add the recruiter or hiring manager you are talking to, and they will show up here."
           }
         />
