@@ -8,6 +8,7 @@ import {
   TERMINAL_STAGES,
   listApplications,
   listSchedule,
+  listSourceOptions,
   pipelineStats,
 } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
@@ -71,11 +72,12 @@ export default async function ApplicationsPage({
 
   // Resolved once per request: with logos off, no domain reaches the browser
   // at all, so there is nothing for it to go and fetch.
-  const [{ companyLogos }, resumes, stats, savedViews] = await Promise.all([
+  const [{ companyLogos }, resumes, stats, savedViews, sourceOptions] = await Promise.all([
     getSettings(),
     listResumes(user.id),
     pipelineStats(user.id),
     listSavedViews(user.id),
+    listSourceOptions(user.id),
   ]);
   const share = await getPipelineShare(user.id);
   const shareBase = `${headerProto}://${headerHost}`;
@@ -117,6 +119,7 @@ export default async function ApplicationsPage({
           action={
             <NewApplicationDialog
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
+              sourceOptions={sourceOptions}
             />
           }
           share={

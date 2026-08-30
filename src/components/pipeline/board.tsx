@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useMemo, useState, useTransition } from "react";
+import { useEffect, useMemo, useRef, useState, useTransition } from "react";
 import {
   DndContext,
   DragOverlay,
@@ -304,6 +304,13 @@ function Column({
 
 function DraggableCard({ card }: { card: Card }) {
   const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
+  // A drop is followed by a click on the element that was dragged — the
+  // browser fires it on the pointerup regardless. Without this guard, filing a
+  // card away would then open the panel for it. Armed during the drag, spent
+  // on the click that follows, and re-cleared on the next press so a cancelled
+  // drag (Escape) cannot leave it swallowing a genuine click later.
+  const wasDragged = useRef(false);
+  if (isDragging) wasDragged.current = true;
 
   return (
     <motion.div
@@ -315,6 +322,21 @@ function DraggableCard({ card }: { card: Card }) {
       ref={setNodeRef}
       {...listeners}
       {...attributes}
+      onPointerDownCapture={() => {
+        wasDragged.current = false;
+      }}
+      // Enter on the card's link synthesizes a click with no pointerdown, so a
+      // drag that ended off the card (its click landed elsewhere) would leave
+      // the guard armed and eat the next keyboard activation.
+      onKeyDownCapture={() => {
+        wasDragged.current = false;
+      }}
+      onClickCapture={(event) => {
+        if (!wasDragged.current) return;
+        wasDragged.current = false;
+        event.preventDefault();
+        event.stopPropagation();
+      }}
       // touch-none here meant "the browser may not scroll from this element",
       // and since the cards cover the board, that disabled scrolling over the
       // whole thing — vertically as well as sideways. touch-manipulation gives
@@ -322,7 +344,12 @@ function DraggableCard({ card }: { card: Card }) {
       // 220ms hold is what distinguishes a drag now, so the browser no longer
       // has to be locked out to make dragging possible. select-none stops the
       // hold from starting a text selection instead of picking the card up.
-      className="touch-manipulation select-none"
+      // The card is an anchor now, and iOS Safari answers a still ~500ms press
+      // on a link with its native preview sheet — which fires touchcancel and
+      // kills the drag the 220ms hold just started. touch-callout is the one
+      // switch that suppresses it (contextmenu never fires for touch on iOS),
+      // and it inherits down to the anchor from here.
+      className="touch-manipulation select-none [-webkit-touch-callout:none]"
     >
       <ApplicationCard card={card} />
     </motion.div>
@@ -333,34 +360,30 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
   const overdue = card.nextFollowUpAt ? new Date(card.nextFollowUpAt) < new Date() : false;
   const openPanel = useOpenApplication();
 
-  return (
-    <div
-      style={{ ["--tone" as string]: STAGE_TONE[card.stage] }}
-      className={cn(
-        "group bg-card relative cursor-grab overflow-hidden rounded-card p-3 pl-3.5 transition-shadow duration-200 ease-[var(--ease-settle)] active:cursor-grabbing",
-        // A stripe of the stage's colour down the edge, so a column reads as
-        // one thing at a glance and a mis-dropped card is obvious.
-        "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--tone)]",
-        overlay ? "shadow-overlay" : "shadow-card hover:shadow-raised",
-      )}
-    >
+  // The WHOLE card is the way in, not just the company's name. Opening a card
+  // is what you do to it far more often than dragging it, so the click target
+  // is the full surface: a plain click opens the panel, cmd/ctrl/shift-click
+  // opens the page in a new tab, and a press that moves 6px is still a drag —
+  // the sensors' activation thresholds are what keep the two gestures apart.
+  const className = cn(
+    "group bg-card relative block overflow-hidden rounded-card p-3 pl-3.5 transition-shadow duration-200 ease-[var(--ease-settle)]",
+    // A stripe of the stage's colour down the edge, so a column reads as
+    // one thing at a glance and a mis-dropped card is obvious.
+    "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--tone)]",
+    overlay
+      ? "shadow-overlay"
+      : "shadow-card hover:shadow-raised cursor-pointer active:cursor-grabbing",
+  );
+  const tone = { ["--tone" as string]: STAGE_TONE[card.stage] };
+
+  const body = (
+    <>
       <div className="flex items-start gap-2">
         <CompanyAvatar name={card.company} domain={card.domain} size={26} className="mt-0.5" />
         <div className="min-w-0 flex-1">
-          {/* A link, so it still opens in a new tab and reads as a
-              destination — but a plain click keeps you on the board. */}
-          <Link
-            href={`/applications/${card.id}`}
-            onClick={(event) => {
-              event.stopPropagation();
-              if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
-              event.preventDefault();
-              openPanel(card.id);
-            }}
-            className="block truncate text-[13px] font-semibold hover:underline"
-          >
+          <div className="truncate text-[13px] font-semibold group-hover:underline">
             {card.company}
-          </Link>
+          </div>
           <div className="text-faint truncate text-[12px]">{card.roleTitle}</div>
         </div>
         {card.excitement >= 4 && (
@@ -407,7 +430,34 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
           )}
         </div>
       </div>
-    </div>
+    </>
+  );
+
+  // The overlay copy that follows the pointer is decoration, not a control.
+  if (overlay) {
+    return (
+      <div style={tone} className={className}>
+        {body}
+      </div>
+    );
+  }
+
+  return (
+    <Link
+      href={`/applications/${card.id}`}
+      // An anchor is natively draggable, and the browser's link-drag would
+      // wrestle dnd-kit for the gesture.
+      draggable={false}
+      onClick={(event) => {
+        if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
+        event.preventDefault();
+        openPanel(card.id);
+      }}
+      style={tone}
+      className={className}
+    >
+      {body}
+    </Link>
   );
 }
 

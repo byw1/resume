@@ -4,7 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
-import { getApplication } from "@/lib/data/pipeline";
+import { getApplication, listSourceOptions } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
 import { requireUser } from "@/lib/auth";
 import { ApplicationDetail } from "@/components/pipeline/application-detail";
@@ -14,9 +14,10 @@ export const dynamic = "force-dynamic";
 export default async function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [application, resumes] = await Promise.all([
+  const [application, resumes, sourceOptions] = await Promise.all([
     getApplication(user.id, id),
     listResumes(user.id),
+    listSourceOptions(user.id),
   ]);
   if (!application) notFound();
 
@@ -33,6 +34,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
           application={{
             id: application.id,
             company: application.company.name,
+            companyId: application.companyId,
             roleTitle: application.roleTitle,
             stage: application.stage,
             jobUrl: application.jobUrl,
@@ -40,7 +42,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             location: application.location,
             workMode: application.workMode,
             salaryRange: application.salaryRange,
-            source: application.source,
+            sources: application.sources,
             excitement: application.excitement,
             fit: application.fit,
             notes: application.notes,
@@ -69,6 +71,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             dueAt: task.dueAt?.toISOString() ?? null,
           }))}
           resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
+          sourceOptions={sourceOptions}
         />
       </FadeIn>
     </PageShell>

@@ -1988,6 +1988,360 @@ Variables flips the Resend card to "Ready".
 
 ---
 
+## 2026-08-30 — Settings is three subjects, and the reference material moved out
+
+The page was one column: an AI-connections card of roughly 1,210px with nothing expanded,
+then Appearance, then the account you actually came to edit. Measured, 872px of that card —
+72% of its body — was three blocks that are not settings: a grid of eight workflow
+descriptions, a strip of hardcoded "try saying" sentences, and six buttons for adding a
+client.
+
+**Three tabs — Connections, Account, Appearance — defaulting to Connections.** One subject
+each. Connections is the default because CLAUDE.md's current focus is a new user's first ten
+minutes, and those are spent pasting a URL into an assistant, not changing a password. A
+validated `?tab=` on `searchParams` keeps the page a server component and lets the resume
+editor link straight at the photo (`/settings?tab=account`); an unknown value falls back to
+the default rather than rendering nothing.
+
+**The workflow grid and the example sentences were deleted, not folded.** `/docs` already
+generates both from the same `promptsFor(user)` call, with more in them — names, admin badges,
+arguments — and its own header comment exists to say why a hand-maintained second copy goes
+wrong. A collapsed duplicate is still a duplicate. What is left is one dashed link row that
+counts the tools live and points at `/docs`. The six add-client buttons became a `Connect ▾`
+dropdown in the card header: picking the client *is* the first step of adding a connection,
+never a separate row. That also closed a real bug — the old bare button wrote `client: "other"`,
+an id absent from `MCP_CLIENTS`, so the card read "Other", no picker chip was selected, and
+`SetupGuide` silently served Claude's instructions for whatever client you had actually meant.
+
+**Vendor brand colours are allowed on a connection's tile, and nowhere else.** This is a
+deliberate, narrow exception to "the brand colour is the existing `--primary` blue and nothing
+else" (2026-08-19). The reasoning there was that twelve hues are already load-bearing and a
+thirteenth would read as a stage. A vendor mark is *identification*, not status: it is scoped
+to its own 34px tile, it never encodes a state, and the alternative — nine identical grey plugs
+— is a list you have to read rather than recognise. Do not extend it. A brand colour outside a
+`ClientTile` is a bug.
+
+**The marks are vendored path data, not a dependency and not a fetch.** `src/lib/mcp/marks.ts`
+holds six 24×24 paths keyed to `MCP_CLIENTS` ids. Checked before choosing: `simple-icons` is
+26.7MB unpacked for 3,457 icons to use six, and current versions no longer ship `openai` or
+`visualstudiocode` at all — they were pulled in 16.0.0 and during 12.x — so the dependency
+would arrive *and* leave two to hand-write. Those two are vendored from 13.x and 11.x
+respectively; that provenance is written here because the predictable "fix" a year from now is
+to add the package and discover the icons missing. A favicon service was disqualified outright:
+`/settings` is the one page that renders the MCP token, and it should not tell a third party
+which assistants you use. Each mark carries a light and a dark colour, because a near-black
+logo is invisible on this app's dark card and a tinted box around it does not fix that.
+
+**Applies to:** `src/app/(app)/settings/page.tsx`, `src/components/settings/connections-panel.tsx`,
+`src/lib/mcp/marks.ts`, `src/components/client-mark.tsx`. `src/components/settings/security-panel.tsx`
+was deleted — it had no importer and told people to set an env var that stopped being the
+access story when settings moved into the `Setting` table.
+
+---
+
+## 2026-08-30 — One photo, and the resume says whether to show it
+
+**Decision:** `Profile.photo` holds a square headshot as a data URI; `Resume.showPhoto` is a
+boolean beside `template` and `accent`. The document says whether to show a face, the profile
+says whose.
+
+**Why not a field in the resume document.** `src/lib/resume-schema.ts` is a contract shared by
+the database, the renderer and the tools (invariant 4), and putting the image in it would mean
+every saved `Resume.data` carrying its own copy — replace the picture and you would be editing
+n documents. As a column it is a design property like the accent colour, no saved document
+changes meaning, and one replacement updates every resume at once, which is what the ask
+actually was.
+
+**Why a data URI and not an object store.** `DATABASE_URL` is the only required env var and
+that is not negotiable for a five-minute self-host. It also happens to be the only shape that
+works everywhere the document renders: `/r/[slug]` is unauthenticated, so a same-origin image
+URL would need its own public route; the PDF path drives headless Chromium at `networkidle`,
+so anything fetched is something that can hang. Inlined, the picture arrives in the same HTML
+as the text and there is nothing to authenticate, fetch or time out. The browser crops and
+re-encodes to a 512px JPEG before upload and the server refuses over `PHOTO_MAX_BYTES`
+(400KB), so rows stay in tens of kilobytes.
+
+**The crop is chosen, not computed.** The first version took a centred square, which is wrong
+for the photo people actually have: a phone portrait is roughly 3:4 with the face in the top
+third, so the middle square lands on their chest. It fails invisibly — a square test image
+passes — so the fix is not a better heuristic but showing the crop and letting it be dragged.
+The dialog opens biased toward the top so the common case needs no dragging, holds the original
+`ImageBitmap` for as long as it is open so re-framing never re-encodes an already-compressed
+JPEG, and closes by releasing it.
+
+**Harvard renders no photo whatever `showPhoto` says.** It is a US academic convention and a
+face on it is the single thing that marks a document as not-that-format. `PHOTO_TEMPLATES` in
+`resume-paper.tsx` is the list; the editor's toggle disables itself and says why rather than
+appearing to work.
+
+**Photo bytes never enter a conversation.** `get_profile`, `update_profile` and
+`get_brain_snapshot` return `hasPhoto: true` instead of the base64, and `get_resume` strips the
+resolved image; a few hundred kilobytes of a picture nobody can look at would drown a tool
+reply. `photo` is deliberately absent from `PROFILE_COLUMNS` so `update_profile` cannot write
+it — every write goes through `setProfilePhoto` and therefore through `resolvePhoto`'s size and
+type gate. Do not "fix" that by adding it to the column list.
+
+**Publishing a resume with a photo on puts a face on an unauthenticated page.** That is a new
+category of thing an unlisted link exposes, so it is said in `publish_resume`'s description, in
+the server instructions every client receives, and in the README.
+
+**Applies to:** `prisma/migrations/20250117000000_profile_photo/`, `src/lib/photo.ts`,
+`setProfilePhoto` in `src/lib/data/brain.ts`, `src/components/settings/photo-field.tsx`,
+`src/components/user-avatar.tsx`, `resume-paper.tsx`, `set_profile_photo`.
+
+---
+
+## 2026-08-30 — The settings page was the one screen you couldn't talk to
+
+Rule zero says a feature is not done until an assistant can do it end to end with no browser
+open. `src/lib/data/connections.ts` had `listConnections`, `createConnection`,
+`renameConnection`, `rotateConnection` and `deleteConnection`, all `userId`-first, and
+`tools.ts` exposed none of them. Every other screen in the app was reachable by conversation;
+the one about connecting assistants was not.
+
+Five tools, no data-layer work: `list_connections`, `create_connection`, `rename_connection`,
+`rotate_connection`, `delete_connection`. "Add this to my work laptop" now returns a URL *and*
+that client's setup steps, which is the answer a person wanted anyway.
+
+**Listing never returns tokens; creating and rotating do.** A token in a `tools/list` reply
+would sit in a transcript forever for no gain — the only place it is useful is the client you
+are pasting it into, and `list_connections` is for "which of these am I still using?".
+Create and rotate return one because handing over a working URL is the entire point of them,
+and both say in their reply that it is a credential.
+
+**`userByMcpToken` now returns `{ user, connectionId }`.** A tool that manages connections has
+to know which one it is speaking through, so `delete_connection` can refuse to cut the wire it
+is standing on and `list_connections` can mark it. That is why the return type changed rather
+than the tools guessing.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `src/lib/auth.ts` (`McpCaller`), `src/lib/mcp/handler.ts`,
+both routes under `src/app/api/mcp/`.
+
+---
+
+## 2026-08-30 — Say what a tool does before it does it
+
+Four changes to the MCP surface, all pointed at the same thing: a client — Claude in
+particular — could not tell this server's tools apart. Everything looked equally dangerous,
+links came back as fields inside a blob, and a brand new account got a confident tour of four
+empty areas.
+
+**Annotations are a required field on `McpTool`, not an optional one.** That is the entire
+enforcement mechanism. Two of MCP's four hints — `destructiveHint` and `openWorldHint` —
+default to the *dangerous* value when omitted, so a tool that forgets them is not neutral,
+it is wrong in the direction that matters. Making the field required meant the compiler
+listed all ninety tools the moment the type changed, which is the same argument as `userId`
+first in `src/lib/data/` and `actor` first in `updateSettings`. All four hints are sent on
+every tool even where the value matches the spec default, because a client cannot tell
+"we decided this" from "they forgot".
+
+**The rule that decided thirty-six of them: replacing is destructive, appending is not.**
+`update_role` overwrites and is destructive; `append_role_brain_dump` — which exists
+*because* `update_role` was eating people's notes — is not. That line already existed in
+CLAUDE.md as advice to whoever was writing a tool description; it is now a machine-readable
+property of every tool.
+
+**`search_brain`, `get_brain_snapshot` and `get_profile` are NOT read-only, and that was the
+find.** `getProfile` lazily creates the Profile row when there isn't one, so the three tools
+that call it write to the database on first use. Every instinct says a search is a read.
+Marking it `readOnlyHint: true` would have told a user it was safe to allow unreviewed, on
+the strength of a name. Found by following the call chain rather than by reading the tool
+description — which is the only way this class of mistake gets found, and the reason the
+classification was checked against the handler rather than accepted from the tool's own
+prose. `brainIsEmpty` deliberately uses `db.profile.findFirst` rather than `getProfile` for
+exactly this reason: a briefing must not create a row as a side effect of describing nothing.
+
+**Links ride alongside the JSON rather than replacing it.** `withLinks` / `splitLinks` in
+`tools.ts`, unwrapped in exactly one place in `handler.ts`. `export_resume_pdf`,
+`publish_resume`, `share_pipeline` and `get_pipeline_share` now return a `resource_link`
+block as well as the object they always returned, so a client that renders links shows
+something clickable and one that doesn't loses nothing. The marker is a Symbol so that a
+result which somehow escapes unwrapping degrades to nested JSON rather than to garbage.
+`share_pipeline` was also handing back a bare slug and telling the caller to assemble the URL
+themselves, while `publish_resume` two hundred lines away returned `publicUrl` — the same job
+answered two different ways. It returns `publicUrl` now.
+
+**An empty workspace gets a different briefing, because the old one was an invitation to
+invent.** The four-area tour describes a brain, resumes, a pipeline and a CRM. To a new
+account all four are empty, so the assistant called `search_brain`, got nothing, and had one
+remaining way to satisfy the request in front of it. `EMPTY_WORKSPACE` names the tools that
+get material *in* and says to take the history in whatever shape the person already has it.
+It does not promise an import tool, because there isn't one — that is still the adoption
+blocker, and this is the seam it will land in.
+
+**Skills ship as a zip as well as a file, and it did not cost a dependency.** Claude's apps
+install a skill by taking a zip of its folder, so handing over a bare `SKILL.md` left people
+to make a directory and compress it themselves. `src/lib/zip.ts` is two headers and a
+trailer, deflate via the built-in `zlib`, with a fixed 1980 timestamp so the same skill
+always produces byte-identical bytes — a download that changes every time you fetch it is a
+download nobody can check. One route serves both shapes: `/docs/skills/hired` is the markdown,
+`/docs/skills/hired.zip` is the folder.
+
+**A bug worth recording, because it only appears at runtime.** The external-attributes field
+is `0o100644 << 16`, which in JavaScript overflows into a negative signed 32-bit integer and
+`Buffer.writeUInt32LE` rejects outright. `>>> 0` fixes it. Found by compiling the one file
+standalone and checking the output with `unzip -t` and Python's `zipfile` — round-trips
+byte-for-byte, valid archive, deterministic across runs — not by reading the code, where it
+looks entirely correct.
+
+**Three of the ninety were wrong, and all three were wrong the same way.**
+`create_application` and `capture_job_posting` were called purely additive because they create
+an Application row. They also call `upsertCompanyByName`, whose `update: extra ?? {}` replaces
+an existing company's website — so adding an application can quietly overwrite research
+already on the company. `complete_task` was called idempotent because setting done twice looks
+like setting it once; it re-stamps `doneAt` with a fresh timestamp on every call. Each mistake
+came from reading what the tool is *for* rather than what its call chain *does*, which is the
+argument for checking the second thing.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `src/lib/mcp/handler.ts`, `src/lib/data/brain.ts`
+(`brainIsEmpty`), `src/lib/zip.ts`, `src/app/(app)/docs/skills/[slug]/route.ts`,
+`src/components/docs/copy-block.tsx`, `src/app/(app)/docs/page.tsx`, `README.md`.
+
+---
+
+## 2026-08-30 — The card is the button, and a source is a list
+
+Four asks from William landed together: opening a board card needed more than a
+13px company name as its click target, an application's source needed to be
+several things at once, outreach-first applications (a DM, no listing) needed a
+home, and the CRM needed to be reachable and filterable without archaeology.
+
+**The whole board card opens the panel; drag still works.** The card became the
+anchor (cmd-click still opens the page) and the sensors' activation thresholds —
+6px of movement for mouse, a 220ms hold for touch — are what keep click and drag
+apart. Two traps found by review and worth remembering:
+
+1. *The click after a drop.* A drop is followed by a click on the same element,
+   which would reopen the panel you just filed the card away from. A `wasDragged`
+   ref armed during the drag and spent in `onClickCapture` swallows it — and it
+   must ALSO be cleared on `keydown`, because Enter on the card's link
+   synthesizes a click with no pointerdown, and a drag that ended off the card
+   leaves the flag armed to eat the next keyboard activation.
+2. *iOS link callout.* A still ~500ms press on an anchor pops Safari's link
+   preview sheet, which fires `touchcancel` and kills the drag the 220ms hold
+   just started — and iOS never dispatches `contextmenu` for touch, so dnd-kit's
+   guard doesn't cover it. `[-webkit-touch-callout:none]` on the draggable
+   wrapper is the one switch that does.
+
+**`Application.source` (string) became `sources String[]`.** Real applications
+arrive from several directions at once — a posting AND a referral AND a DM —
+and one free-text column forced a choice. Free strings, not an enum: the picker
+offers the person's own past spellings first (`list_application_sources`, also a
+tool, so assistants reuse spellings instead of minting near-duplicates), then a
+starter set. The old `source` stays accepted on both application tools as a
+legacy alias — `sources` wins when both arrive — and its update description
+now warns loudly that it replaces the whole list. Migration backfills old
+values as one-element arrays; verified against a live Postgres on the actual
+upgrade path (old schema + data, then the migration).
+
+**Removing a person from an application detaches, never deletes.** The old
+trash button on the application's People card called `deleteContactAction` — a
+person you removed from one thread vanished from the CRM with their whole
+history. The card now attaches people already on file (picker first, blank form
+second) and the remove button only clears `applicationId`. The optimistic merge
+must let the server row win over the local stub after `router.refresh()`, or
+the just-attached contact renders without their email until remount.
+
+**OUTREACH is an activity type**, because "I messaged the hiring manager first"
+was being filed as NOTE and hidden from the record. It is on both timelines'
+pickers — application and contact — since a first touch is usually logged
+against the person.
+
+**Two rules from the tool review worth keeping:** the hand-rolled transport
+never validates `inputSchema`, so an enum argument the data layer would
+silently ignore (an unknown `filter` returning the UNFILTERED list as if it
+were the answer) must be validated in the handler and fail loudly. And a cmdk
+"Add ‘X’" row whose value IS the query outranks every real suggestion — Enter
+on "linked" minted a duplicate instead of picking LinkedIn — so the creatable
+row is `forceMount` with a non-matching value and sorts last.
+
+**README tool counts were already lying** (73/98 against an actual 66/91
+before this change). Corrected to 67/91 by evaluating the array, not by
+counting by hand. The count rule from the 2026-08-30 briefing entry stands:
+/docs is authoritative, the README hand-carries it in three places.
+
+**Applies to:** `prisma/schema.prisma`,
+`prisma/migrations/20250118000000_sources_and_outreach/`,
+`src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/pipeline/{board,application-detail,application-panel,new-application-dialog,sources-input}.tsx`,
+`src/components/crm/contact-detail.tsx`, `src/components/shell.tsx`,
+`src/app/(app)/crm/{companies,contacts}/page.tsx`, `README.md`.
+
+## 2026-08-30 — The manual moves to Mintlify at docs.hired.tools
+
+**The docs are now two things, deliberately.** `/docs` inside the app stays exactly
+what it was: generated from `toolsFor(user)`, so it shows *your* tool count, *your*
+skills, *your* connection URL, and it cannot drift. The written manual — first ten
+minutes, concepts, guides, workflows, the deploy paths, security — is 40 MDX pages
+served by Mintlify at docs.hired.tools. Neither copies the other; each links to it.
+A second rendering of the generated tool list would have been a second one to keep
+right, which is the same argument that stripped the catalogue out of Settings.
+
+**They live in `docs/` in this repo, not in a docs repo.** The Mintlify deployment
+pulls `shifulaboratories/hired` on `main`, and its `contentDirectory` was moved from
+`""` to `docs` so page paths are URLs (`docs/quickstart.mdx` → `/quickstart`) and the
+repo root stays clean. Before this the deployment was still serving the Mintlify
+starter kit, because there was no `docs.json` anywhere in the repo for it to build.
+
+**The tool reference is generated, not transcribed.** `docs/tools/*.mdx` carries every
+argument of all 100 data tools. Writing that by hand guarantees it is wrong within a
+week, so the tables were produced by evaluating each `inputSchema:` expression out of
+`tools.ts` against stubs of `object`/`str`/`num`/`bool`/`strArray` — real JSON Schema,
+no transcription. Regenerating is the same trick; do not hand-edit an argument table.
+
+**README tool counts were lying again, in all three places.** They read 73/100, which
+is the `tools` array alone — but `allTools` appends the eight workflows, so
+`tools/list` returns **80 for a member and 108 for an admin**, and that is what the
+Test button prints, because `testConnectionAction` counts the actual response. The
+claim that the workflows were "among" the 73 was the tell. Corrected to 80/108/28.
+The rule stands and has now failed twice: evaluate the array, never count by hand.
+
+**Verified with Mintlify's own tooling rather than by eye.** `docs.json` passes
+`validateDocsConfig` from `@mintlify/validation`, and all 40 pages compile under
+`@mdx-js/mdx`. The `mint` CLI's TUI cannot run headless here, so link and anchor
+checking is a script over the nav tree — worth rerunning after any page is added.
+
+**Applies to:** `docs/` (new), `README.md`, `site/index.html`, `src/lib/links.ts` (new),
+`src/app/(app)/settings/page.tsx`, `src/app/(app)/docs/page.tsx`.
+
+## 2026-08-30 — What an adversarial pass over the manual found in the code
+
+Writing docs/ meant asserting, in public, what this app does. Six auditors read the
+pages against the source and 17 findings survived independent verification. Most
+were the docs' fault. These were not, and are fixed:
+
+**`create_resume` advertised `seed_from_brain`.** The key is `seedFromBrain`, so
+anyone following the description got a silently empty resume. **Its `lineHeight`
+default said 1.35**, which was true until `20250102000000_harvard_default` lowered
+the column to 1.2; `get_resume_format` has been reporting 1.2 the whole time, from
+the same file. **`admin_health` pointed at "Admin → Billing"**, which has not been a
+tab since email and billing were merged into Configuration. **`save_view` omitted
+`month`** from the parameters it says are kept, then said anything else is dropped —
+so an assistant saving a calendar view would have dropped the month believing that
+was correct.
+
+**`admin_set_user_role` lets any admin promote a member to admin.** `createInvite`
+refuses a non-owner inviting an ADMIN, and the promote control in Admin → People is
+rendered only for the owner — but `setUserRole` checks `canManage` and then only
+refuses `SUPER_ADMIN`, so the MCP path has neither guard. Left as it is rather than
+tightened, because changing an authorisation rule is not a documentation change; the
+manual states the actual behaviour, including that it differs from the browser.
+Worth closing deliberately.
+
+**Two things the docs got wrong that are worth remembering.** `showPhoto` does not
+put a face on a published resume by itself — `PHOTO_TEMPLATES` excludes harvard,
+which is the default, so the warning was unconditionally false for a new resume. And
+`diagnose_search` will not name a weakest step under ten applications; an example
+built on six was describing output the tool refuses to produce.
+
+**Not changed:** `Admin → Billing` in the billing error strings and the Stripe
+webhook comment. There is a card headed Billing inside Configuration, so those are
+imprecise navigation rather than a pointer at nothing.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `skills/hired/SKILL.md`, `docs/`.
+
+---
+
 ## 2026-08-30 — Four questions, not seven tables
 
 Admin had seven tabs. Two rounds of consolidation later it has four, and the rule that got

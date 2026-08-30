@@ -25,7 +25,14 @@ import { ACTIVITY_LABEL } from "@/lib/data/pipeline";
 import type { ActivityType } from "@prisma/client";
 
 /** The kinds of touch a person logs by hand. The rest are written by the system. */
-const TOUCH_TYPES: ActivityType[] = ["NOTE", "CALL", "EMAIL_SENT", "EMAIL_RECEIVED", "FOLLOW_UP"];
+const TOUCH_TYPES: ActivityType[] = [
+  "NOTE",
+  "OUTREACH",
+  "CALL",
+  "EMAIL_SENT",
+  "EMAIL_RECEIVED",
+  "FOLLOW_UP",
+];
 
 export type ContactFields = {
   id: string;

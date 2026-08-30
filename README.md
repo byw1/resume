@@ -21,7 +21,10 @@ just *talk* to it.
   follow-up, salary and location are the cells themselves, a Waiting column counts the days
   since anything last moved, and selecting rows closes a batch out in one action.
   Applications end as accepted, rejected, withdrawn or ghosted — silence is the most common
-  ending, and filing it as a rejection makes the funnel lie about what went wrong. Opening
+  ending, and filing it as a rejection makes the funnel lie about what went wrong. An
+  application knows where it came from — several sources at once, because a job board
+  posting, a referral and a LinkedIn message are often the same job — and a listing is
+  optional: a role you're only chasing through a DM is still worth a card. Opening
   an application slides it in from the right, so you keep your place on the board. A
   read-only link shares the board with whoever is helping you — a friend, a coach, a former
   manager — showing companies, roles, stages and follow-up dates, and never your salaries,
@@ -29,9 +32,12 @@ just *talk* to it.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
   their website, industry, size and whatever you have learned about them, alongside every
   application and every contact you have there. The website is what puts their logo on the
-  pipeline.
+  pipeline. The company list says when you last applied and what's still live, and both
+  lists filter — to the companies where you know someone, to the people whose ping is due.
+  Contacts attach to applications straight from the CRM rather than being retyped, and
+  removing one from an application never deletes the person.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  73 tools any MCP client can call (101 if you're an admin). Claude, Claude Code, ChatGPT,
+  80 tools any MCP client can call (108 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -70,6 +76,10 @@ never content — and if you stop paying it's suspended, not deleted.
 
 **Self-host** — free, AGPL, yours forever. One command if you have Docker, or five
 clicks on Railway if you'd rather never open a terminal. Both below.
+
+The manual is at **[docs.hired.tools](https://docs.hired.tools)** — getting connected,
+filling the brain, tailoring a resume, running the search, every tool written out, and
+the deploy guides in longer form than they are here.
 
 ## Self-host with Docker
 
@@ -175,9 +185,10 @@ to run, now or after any future update.
 
 ### 6. Connect your AI
 
-Open **Settings** in the app. You already have a connection waiting; hit **Set up**, pick
-whichever assistant you use, and the exact steps appear — with the config already filled in
-with your URL, ready to copy.
+Open **Settings** in the app. It opens on **Connections**, because this is the step that
+makes everything else work. You already have one waiting; hit **Set up**, pick whichever
+assistant you use — each is listed with its own logo — and the exact steps appear, with the
+config already filled in with your URL, ready to copy.
 
 | Client | What you paste |
 | --- | --- |
@@ -190,11 +201,11 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 73, or 101 if you're an admin.
+would, then tells you how many tools answered — 80, or 108 if you're an admin.
 
 #### One connection per client
 
-**New connection** gives each assistant its own URL. That matters more than it sounds:
+**Connect** gives each assistant its own URL. That matters more than it sounds:
 
 - Your laptop dies, or you paste a URL somewhere you shouldn't — **Rotate** or
   **Disconnect** that one client. Everything else stays connected.
@@ -301,11 +312,12 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-73 tools across the four areas. The seven workflows below are among them: they're published
-as tools as well as prompts, because prompt support is optional in MCP clients and tool
-support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 28 more tools — and members never even see those in the tool list, so nobody is
-tempted by a permission they don't have.
+80 tools. Seventy-three of them are the data tools across the four areas and your account;
+the other seven are the workflows below, published as tools as well as prompts, because
+prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
+a step-by-step plan that it then follows. Admins get 28 more — 27 data tools and an eighth
+workflow — and members never even see those in the tool list, so nobody is tempted by a
+permission they don't have.
 
 | Workflow | What it does |
 | --- | --- |
@@ -321,10 +333,23 @@ tempted by a permission they don't have.
 Every client is instructed never to invent experience, employers, dates, or metrics. If there's
 no evidence in your brain for something a job asks for, it says so instead of making it up.
 
+Every tool also declares what it does to your data — whether it only reads, whether it can
+overwrite or delete, whether it reaches anything outside this instance. Claude sorts its
+approval screen by that, so you can hand over the whole read side of the server at once and
+still be asked before something gets destroyed. And when a tool's entire job is to give you a
+link — a published resume, a rendered PDF, a shared pipeline — it comes back as a link you can
+click, not a field buried in a blob of JSON.
+
 The **Docs** page inside the app — it's in the profile menu, next to Settings — lists every tool
 and workflow, generated from the server itself rather than written out, so it can't drift. It
 also carries three Claude Skills you can install, which teach an assistant the rules of this
-place before you have to.
+place before you have to. Each comes two ways: the raw `SKILL.md` to drop in
+`~/.claude/skills/`, and a zip for the upload box in Claude's apps, which wants a folder rather
+than a loose file.
+
+That page is about *your* deployment. [docs.hired.tools](https://docs.hired.tools) is the
+manual for the product: the same pages whoever you're hosting reads, whichever instance
+they're on.
 
 ### The four areas
 
@@ -351,6 +376,13 @@ step is losing people rather than handing you six numbers to interpret.
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /
 `delete_contact` for the people at them. A company's `website` is what puts their logo on your
 pipeline. Deleting one refuses while applications still point at it.
+
+**Your account** — `whoami` says who this connection belongs to. `list_connections`,
+`create_connection`, `rename_connection`, `rotate_connection` and `delete_connection` manage
+the wiring itself, so "add this to my work laptop" and "kill the one I pasted in a chat by
+mistake" are things you can just say. Listing never returns tokens — creating and rotating
+do, because that is the point of them. `set_profile_photo` takes a link or a file and sets
+the picture described below.
 
 **Admin** *(admins only)* — `admin_list_users`, `admin_invite_user`, `admin_set_user_role`,
 `admin_set_user_active`, `admin_delete_user`, `admin_instance_stats`, plus
@@ -385,6 +417,26 @@ default order leads with Experience.
 
 The other templates — Classic, Modern, Compact, Editorial — are all still there.
 
+## One photo, every document
+
+**Settings → Account** takes a profile photo. Drop a file in, drag it around the circle until
+your face is where you want it, and that one picture is your avatar in the app *and* the
+headshot on your resumes. Change it once and every document that shows it follows — there is
+never a second copy to keep in sync. Claude can set it too: *"use the photo on my GitHub
+profile."*
+
+Whether a given resume shows it is a design choice like the accent colour: **Design → Photo**
+in the editor, or `showPhoto` from a tool. It's off by default, and Harvard never renders one
+whatever you set — it's a US academic format, and a face on it is the thing that marks it as
+not that format. Classic centres the photo above your name; Modern, Compact and Editorial set
+it beside. US and UK applications generally leave photos off; much of Europe and Latin America
+expects one.
+
+The picture lives in your row in the database as a data URI, not in a file store, which is why
+self-hosting still needs one environment variable and why a published resume paints your face
+from the same HTML as the text — nothing to fetch, nothing to expire. The browser crops and
+shrinks before uploading, so it costs tens of kilobytes.
+
 ## Sharing a resume as a link
 
 Application forms keep asking for a URL, not a file. Open a resume → **Share** → **Create a
@@ -399,7 +451,8 @@ the browser entirely: *"publish my Stripe resume and give me the link."*
 
 The privacy model is the address itself, and nothing else. It's long and random, so it can't
 be guessed or walked, the page tells search engines not to index it, and it's listed nowhere.
-Your private notes on the resume aren't on the public page. That's the whole model — there
+Your private notes on the resume aren't on the public page — but if that resume has the photo
+switched on, your face is, so decide that before you publish. That's the whole model — there
 are no per-viewer permissions and no passwords, because everyone you'd send this to is
 someone you already decided to send it to.
 
@@ -448,7 +501,7 @@ resulting container, so it isn't the shipped default yet.
 
 - **Everything autosaves.** There is no save button anywhere. A small indicator tells you
   when a change has landed.
-- **`⌘K` / `Ctrl+K`** opens a search palette that jumps to any role, resume, or company.
+- **`⌘K` / `Ctrl+K`** opens a search palette that jumps to any role, resume, or application.
 - **Follow-up dates set themselves** when an application changes stage — 7 days after
   applying, 4 after a screen, 3 after a final round. Override any of them by hand.
 - **Dark and light** both supported; toggle is top-right.

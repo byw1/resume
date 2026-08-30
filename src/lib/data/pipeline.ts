@@ -76,7 +76,22 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
   OFFER: "Offer",
   REJECTION: "Rejection",
   REFERRAL: "Referral",
+  OUTREACH: "Outreach",
 };
+
+/**
+ * Starter options for an application's sources. A person's own list is these
+ * plus everything they have already used (listApplicationSources) — the field
+ * stays a free string underneath, so nothing stops "met the CTO at a wedding".
+ */
+export const SOURCE_SUGGESTIONS = [
+  "LinkedIn",
+  "Job board",
+  "Company site",
+  "Referral",
+  "Recruiter reached out",
+  "Cold outreach",
+] as const;
 
 export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN", "GHOSTED"];
 
@@ -115,7 +130,13 @@ const CONTACT_COLUMNS = [
   "notes",
 ] as const;
 
-export async function listCompanies(userId: string, options?: { search?: string }) {
+/** Cuts of the company list that keep coming up as questions. */
+export type CompanyFilter = "active" | "applied" | "never-applied" | "with-contacts";
+
+export async function listCompanies(
+  userId: string,
+  options?: { search?: string; filter?: CompanyFilter },
+) {
   const where: Prisma.CompanyWhereInput = { userId };
   if (options?.search) {
     where.OR = [
@@ -125,7 +146,36 @@ export async function listCompanies(userId: string, options?: { search?: string 
       { notes: { contains: options.search, mode: "insensitive" } },
     ];
   }
-  return db.company.findMany({ where, orderBy: { name: "asc" }, include: companyCounts });
+  if (options?.filter === "active") where.applications = { some: { stage: { notIn: TERMINAL_STAGES } } };
+  if (options?.filter === "applied") where.applications = { some: { appliedAt: { not: null } } };
+  if (options?.filter === "never-applied") where.applications = { none: { appliedAt: { not: null } } };
+  if (options?.filter === "with-contacts") where.contacts = { some: {} };
+
+  const rows = await db.company.findMany({
+    where,
+    orderBy: { name: "asc" },
+    include: {
+      ...companyCounts,
+      // Plumbing for the two derived fields below, not part of the result.
+      applications: { select: { appliedAt: true, stage: true } },
+    },
+  });
+  // "When did I last apply here" and "is anything still live" are the two
+  // questions a company list gets asked; answer them on every row rather than
+  // making callers fetch each company.
+  return rows.map(({ applications, ...company }) => ({
+    ...company,
+    lastAppliedAt: applications.reduce<Date | null>(
+      (latest, application) =>
+        application.appliedAt && (!latest || application.appliedAt > latest)
+          ? application.appliedAt
+          : latest,
+      null,
+    ),
+    openApplications: applications.filter(
+      (application) => !TERMINAL_STAGES.includes(application.stage),
+    ).length,
+  }));
 }
 
 export async function getCompany(userId: string, id: string) {
@@ -223,6 +273,12 @@ export type ApplicationInput = {
   location?: string;
   workMode?: string;
   salaryRange?: string;
+  /** Where it came from — several at once is normal: a board AND a referral. */
+  sources?: string[];
+  /**
+   * Legacy single-source spelling, kept so an assistant (or an old client)
+   * passing `source` still lands the value. `sources` wins when both arrive.
+   */
   source?: string;
   excitement?: number;
   fit?: number;
@@ -293,6 +349,58 @@ export async function getApplication(userId: string, id: string) {
   });
 }
 
+/**
+ * Trim, drop empties, dedupe case-insensitively (first spelling wins). The
+ * column is free strings on purpose; this only stops "LinkedIn, linkedin".
+ */
+function cleanSources(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const clean = value.trim();
+    const key = clean.toLowerCase();
+    if (!clean || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
+}
+
+/** `sources` when given, else the legacy `source` as a one-element list. */
+function resolveSources(input: {
+  sources?: string[];
+  source?: string;
+}): string[] | undefined {
+  if (input.sources !== undefined) return cleanSources(input.sources);
+  if (input.source !== undefined) return cleanSources([input.source]);
+  return undefined;
+}
+
+/**
+ * Every source this person has ever recorded, deduped, most-used first — what
+ * the source picker offers alongside SOURCE_SUGGESTIONS.
+ */
+export async function listApplicationSources(userId: string): Promise<string[]> {
+  const rows = await db.application.findMany({ where: { userId }, select: { sources: true } });
+  const counts = new Map<string, { label: string; count: number }>();
+  for (const row of rows) {
+    for (const value of row.sources) {
+      const key = value.toLowerCase();
+      const entry = counts.get(key);
+      if (entry) entry.count += 1;
+      else counts.set(key, { label: value, count: 1 });
+    }
+  }
+  return [...counts.values()].sort((a, b) => b.count - a.count).map((entry) => entry.label);
+}
+
+/** What the source picker offers: their own channels first, then the starters. */
+export async function listSourceOptions(userId: string): Promise<string[]> {
+  const used = await listApplicationSources(userId);
+  const have = new Set(used.map((value) => value.toLowerCase()));
+  return [...used, ...SOURCE_SUGGESTIONS.filter((value) => !have.has(value.toLowerCase()))];
+}
+
 function toDate(value: Date | string | null | undefined): Date | null | undefined {
   if (value === undefined) return undefined;
   if (value === null || value === "") return null;
@@ -327,7 +435,7 @@ export async function createApplication(userId: string, input: ApplicationInput)
       location: input.location ?? "",
       workMode: input.workMode ?? "",
       salaryRange: input.salaryRange ?? "",
-      source: input.source ?? "",
+      sources: resolveSources(input) ?? [],
       excitement: clamp(input.excitement ?? 3, 1, 5),
       fit: clamp(input.fit ?? 3, 1, 5),
       notes: input.notes ?? "",
@@ -391,7 +499,7 @@ export async function captureJobPosting(userId: string, url: string): Promise<Ca
     location: parsed.location,
     workMode: parsed.workMode,
     salaryRange: parsed.salaryRange,
-    source: parsed.source,
+    sources: parsed.source ? [parsed.source] : [],
   });
   return { captured: true, application, parsed };
 }
@@ -411,7 +519,8 @@ export async function updateApplication(
   if (patch.location !== undefined) data.location = patch.location;
   if (patch.workMode !== undefined) data.workMode = patch.workMode;
   if (patch.salaryRange !== undefined) data.salaryRange = patch.salaryRange;
-  if (patch.source !== undefined) data.source = patch.source;
+  const sources = resolveSources(patch);
+  if (sources !== undefined) data.sources = sources;
   if (patch.notes !== undefined) data.notes = patch.notes;
   if (patch.excitement !== undefined) data.excitement = clamp(patch.excitement, 1, 5);
   if (patch.fit !== undefined) data.fit = clamp(patch.fit, 1, 5);
@@ -698,13 +807,24 @@ const contactInclude = {
   application: { select: { id: true, roleTitle: true, stage: true } },
 } satisfies Prisma.ContactInclude;
 
+/** Cuts of the contact list: who is owed a ping, who is tied to a live thread. */
+export type ContactFilter = "ping-due" | "with-application" | "no-company";
+
 export async function listContacts(
   userId: string,
-  options?: { applicationId?: string; companyId?: string; search?: string },
+  options?: {
+    applicationId?: string;
+    companyId?: string;
+    search?: string;
+    filter?: ContactFilter;
+  },
 ) {
   const where: Prisma.ContactWhereInput = { userId };
   if (options?.applicationId) where.applicationId = options.applicationId;
   if (options?.companyId) where.companyId = options.companyId;
+  if (options?.filter === "ping-due") where.nextFollowUpAt = { lte: new Date() };
+  if (options?.filter === "with-application") where.applicationId = { not: null };
+  if (options?.filter === "no-company") where.companyId = null;
   if (options?.search) {
     where.OR = [
       { name: { contains: options.search, mode: "insensitive" } },

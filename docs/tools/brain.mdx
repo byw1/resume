@@ -1,0 +1,341 @@
+---
+title: "Brain tools"
+sidebarTitle: "Brain"
+description: "Twenty-two tools over roles, brain dumps, highlights, notes, standing rules and the four supporting collections."
+icon: "brain"
+---
+
+Everything the user has written about their own career. `search_brain` is almost always
+the first call — it is the fastest way in, and it is what an assistant is told to reach
+for before writing anything.
+
+<Warning>
+  `update_role` with a `brainDump` **replaces** the entire dump. When somebody tells you
+  something new about a job already on file, the correct tool is
+  `append_role_brain_dump`. That tool exists precisely because the update one was eating
+  people's notes.
+</Warning>
+
+[What each of these concepts is →](/concepts/brain)
+
+<Note>
+  The descriptions below are quoted **verbatim** from what the server sends a connected
+  assistant, which is why they address it rather than you. They are reproduced rather than
+  rewritten so this page cannot drift from what your assistant actually receives.
+</Note>
+
+### `search_brain`
+
+_Search the brain_
+
+Ranked keyword search across everything the user has written about themselves: role brain dumps, achievement highlights, notes, projects and their profile. This is the FIRST tool to call when tailoring a resume or answering a question about their experience. Returns excerpts with the id and kind of each hit so you can fetch the full record.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `query` | string | **required** — Keywords to search for, e.g. 'kubernetes cost savings' or 'led a team' |
+| `limit` | number | Max results (default 25) |
+
+### `get_brain_snapshot`
+
+_Get the whole brain_
+
+Returns EVERYTHING in the knowledge base at once: profile, all roles with their full brain dumps, all highlights, education, projects, skills, certifications and notes. Use when you need complete context (e.g. writing a resume from scratch). Can be large — prefer search_brain for targeted lookups.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `include_brain_dumps` | boolean | Include the full long-form brain dump text for each role (default true). Set false for a lighter payload. |
+
+### `get_profile`
+
+_Get profile_
+
+The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.
+
+No arguments.
+
+### `update_profile`
+
+_Update profile_
+
+Update any subset of the user's profile fields. Only pass the fields you want to change; omitted fields are left untouched.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `fullName` | string | Full name |
+| `headline` | string | Professional headline, e.g. 'Senior Platform Engineer' |
+| `email` | string | Email address |
+| `phone` | string | Phone number |
+| `location` | string | City, State/Country |
+| `website` | string | Personal website URL |
+| `linkedin` | string | LinkedIn URL |
+| `github` | string | GitHub URL |
+| `twitter` | string | X/Twitter URL |
+| `summary` | string | Career summary used as the default resume summary |
+| `brainDump` | string | Long-form personal brain dump. REPLACES the existing text — read it first if you intend to add to it. |
+
+### `set_profile_photo`
+
+_Set the profile photo_
+
+Give the user a headshot, or remove the one they have. One picture serves the whole app: it is their avatar in the interface, and every resume whose design has the photo switched on renders this exact image — so replacing it here updates every document at once, and there is never a second copy to keep in sync. Pass `url` for a picture that already exists on the web (an https link to a JPEG, PNG or WebP — a GitHub avatar, a personal site) and the server fetches it. Pass `data_uri` when you actually hold the bytes, e.g. after reading a local file: 'data:image/jpeg;base64,…'. Pass remove: true to clear it. Anything over 400KB is refused, so downscale first — a resume prints the photo about an inch square and a 512px original is already more than that needs. Turning the photo ON for a given resume is a separate step: update_resume with showPhoto: true. Never invent a picture of somebody: use only a URL or file the user has given you.
+
+**Overwrites or deletes.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `url` | string | https link to an image to fetch and store |
+| `data_uri` | string | The image inline, e.g. 'data:image/jpeg;base64,…' |
+| `remove` | boolean | Remove the existing photo |
+
+### `list_roles`
+
+_List roles_
+
+List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full brain dump — use get_role for that.
+
+No arguments.
+
+### `get_role`
+
+_Get a role_
+
+Full detail for one role including its complete brain dump text and all of its achievement highlights.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Role id |
+
+### `create_role`
+
+_Create a role_
+
+Add a job to the knowledge base. Put every raw detail you were given into brainDump — it is unlimited and is the raw material for future resumes.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `company` | string | **required** — Company name |
+| `title` | string | **required** — Job title |
+| `employmentType` | string | Full-time, Contract, Internship, Freelance… |
+| `location` | string | City, State or 'Remote' |
+| `startDate` | string | Start date as YYYY-MM |
+| `endDate` | string | End date as YYYY-MM. Leave empty if current. |
+| `isCurrent` | boolean | True if this is their current job |
+| `summary` | string | One or two sentences describing the scope of the role |
+| `brainDump` | string | THE BRAIN DUMP. Everything raw: projects, metrics, technologies, stories, praise, failures, org context. Markdown welcome. No length limit. |
+| `tags` | string[] | Freeform tags, e.g. ['fintech','ic','python'] |
+
+### `update_role`
+
+_Update a role_
+
+Update fields on an existing role. WARNING: passing brainDump REPLACES the whole dump — use append_role_brain_dump to add to it safely.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Role id |
+| `company` | string | Company name |
+| `title` | string | Job title |
+| `employmentType` | string | Employment type |
+| `location` | string | Location |
+| `startDate` | string | Start date as YYYY-MM |
+| `endDate` | string | End date as YYYY-MM |
+| `isCurrent` | boolean | Is this the current job |
+| `summary` | string | Scope summary |
+| `brainDump` | string | Replaces the entire brain dump |
+| `tags` | string[] | Tags |
+
+### `append_role_brain_dump`
+
+_Append to a role's brain dump_
+
+Safely ADD text to the end of a role's brain dump without touching what is already there. This is the right tool when the user tells you something new about a job they already have on file.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Role id |
+| `text` | string | **required** — The new material to append. Markdown welcome. |
+| `heading` | string | Optional markdown H2 heading to file it under, e.g. 'Q3 platform migration' |
+
+### `delete_role`
+
+_Delete a role_
+
+Permanently delete a role and all of its highlights.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Role id |
+
+### `list_highlights`
+
+_List highlights_
+
+Reusable, polished achievement bullets, strongest first. These are the distilled lines you pull from when assembling a resume.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `roleId` | string | Only return highlights for this role id |
+
+### `create_highlights`
+
+_Create highlights_
+
+Distil raw brain-dump material into one or more reusable achievement bullets. Write them in resume voice: strong verb, specific scope, quantified outcome. Create several at once.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `highlights` | object[] | **required** — The highlights to create |
+
+### `update_highlight`
+
+_Update a highlight_
+
+Edit or archive one achievement bullet.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Highlight id |
+| `text` | string | New bullet text |
+| `impact` | string | New impact |
+| `tags` | string[] | New tags |
+| `strength` | number | 1-5 |
+| `archived` | boolean | Archive it instead of deleting |
+
+### `delete_highlight`
+
+_Delete a highlight_
+
+Permanently delete an achievement bullet.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Highlight id |
+
+### `list_notes`
+
+_List notes_
+
+Free-floating notes not tied to any single job: STAR stories, interview prep, references, compensation history, anything.
+
+No arguments.
+
+### `create_note`
+
+_Create a note_
+
+Save a free-floating note. Use this for brain-dump material that does not belong to one specific job. Set kind: GUARDRAIL to make it a standing rule instead — see the kind field.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `title` | string | **required** — Short title |
+| `body` | string | The note body. Markdown welcome, no length limit. |
+| `tags` | string[] | Tags |
+| `pinned` | boolean | Pin to the top of the notes list |
+| `kind` | enum | GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.  `NOTE` · `GUARDRAIL` |
+
+### `update_note`
+
+_Update a note_
+
+Edit an existing note. Passing `body` replaces the whole body. Promote a note to a standing rule, or demote one, with `kind`.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Note id |
+| `title` | string | New title |
+| `body` | string | New body (replaces existing) |
+| `tags` | string[] | New tags |
+| `pinned` | boolean | Pinned state |
+| `kind` | enum | GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.  `NOTE` · `GUARDRAIL` |
+
+### `list_extras`
+
+_List education / projects / skills / certifications_
+
+Read one of the supporting knowledge-base collections: education history, side projects, skill groups, or certifications.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `kind` | enum | **required** — Which collection to read  `education` · `projects` · `skills` · `certifications` |
+
+### `create_extra`
+
+_Add education / project / skill group / certification_
+
+Add an item to one of the supporting collections. Only the fields relevant to `kind` are read — see each field's description for which kind it belongs to.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `kind` | enum | **required** — Which collection to add to  `education` · `projects` · `skills` · `certifications` |
+| `school` | string | [education] School name |
+| `degree` | string | [education] e.g. 'B.S.' |
+| `field` | string | [education] e.g. 'Computer Science' |
+| `gpa` | string | [education] GPA |
+| `details` | string | [education] Honours, coursework, activities |
+| `name` | string | [projects] project name · [skills] group name · [certifications] cert name |
+| `role` | string | [projects] Your role on the project |
+| `url` | string | [projects \| certifications] Link |
+| `description` | string | [projects] One-line description |
+| `brainDump` | string | [projects] Long-form raw detail about the project |
+| `skills` | string[] | [skills] The skills in this group, e.g. ['Python','Go','Rust'] |
+| `issuer` | string | [certifications] Issuing body |
+| `date` | string | [certifications] Date earned |
+| `location` | string | [education] Location |
+| `startDate` | string | [education \| projects] YYYY-MM |
+| `endDate` | string | [education \| projects] YYYY-MM |
+| `tags` | string[] | [projects] Tags |
+
+### `update_extra`
+
+_Update an education / project / skill group / certification_
+
+Change fields on an item in one of the supporting collections. Reach for this instead of deleting and re-creating — that would hand the item a new id and break anything referring to it. Only the fields you pass are changed; everything you leave out keeps its current value, so you do not need to read the item first. Fields not relevant to `kind` are ignored.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `kind` | enum | **required** — Which collection the item is in  `education` · `projects` · `skills` · `certifications` |
+| `id` | string | **required** — Id of the item to change |
+| `school` | string | [education] School name |
+| `degree` | string | [education] e.g. 'B.S.' |
+| `field` | string | [education] e.g. 'Computer Science' |
+| `gpa` | string | [education] GPA |
+| `details` | string | [education] Honours, coursework, activities |
+| `name` | string | [projects] project name · [skills] group name · [certifications] cert name |
+| `role` | string | [projects] Your role on the project |
+| `url` | string | [projects \| certifications] Link |
+| `description` | string | [projects] One-line description |
+| `brainDump` | string | [projects] Long-form raw detail about the project |
+| `skills` | string[] | [skills] REPLACES the whole list, e.g. ['Python','Go','Rust'] |
+| `issuer` | string | [certifications] Issuing body |
+| `date` | string | [certifications] Date earned |
+| `location` | string | [education] Location |
+| `startDate` | string | [education \| projects] YYYY-MM |
+| `endDate` | string | [education \| projects] YYYY-MM |
+| `tags` | string[] | [projects] REPLACES the whole list |
+
+### `delete_extra`
+
+_Delete an education / project / skill group / certification_
+
+Remove an item from one of the supporting collections.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `kind` | enum | **required** — Which collection the item is in  `education` · `projects` · `skills` · `certifications` |
+| `id` | string | **required** — Item id |

@@ -82,19 +82,14 @@ export function ApplicationPanelProvider({ children }: { children: React.ReactNo
                 Everything on file for this application.
               </SheetDescription>
 
+              {/* The company's CRM link lives inside ApplicationDetail now,
+                  under the role title, so the page and the panel agree. */}
               <div className="mb-3 flex items-center gap-2">
                 <Button asChild variant="ghost" size="xs" className="text-muted-foreground -ml-1.5">
                   <Link href={`/applications/${data.application.id}`}>
                     <ExternalLinkIcon /> Open as a page
                   </Link>
                 </Button>
-                {data.application.companyId && (
-                  <Button asChild variant="ghost" size="xs" className="text-muted-foreground">
-                    <Link href={`/crm/companies/${data.application.companyId}`}>
-                      {data.application.company}
-                    </Link>
-                  </Button>
-                )}
               </div>
 
               <ApplicationDetail
@@ -103,6 +98,7 @@ export function ApplicationPanelProvider({ children }: { children: React.ReactNo
                 contacts={data.contacts}
                 tasks={data.tasks}
                 resumes={data.resumes}
+                sourceOptions={data.sourceOptions}
               />
             </>
           ) : (

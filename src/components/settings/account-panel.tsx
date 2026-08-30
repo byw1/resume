@@ -1,7 +1,7 @@
 "use client";
 
 import { useActionState, useState, useTransition } from "react";
-import { CheckIcon, LoaderCircleIcon, LogOutIcon, UserIcon } from "lucide-react";
+import { CheckIcon, LoaderCircleIcon, LogOutIcon, UserRoundIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
+import { PhotoField } from "@/components/settings/photo-field";
 import {
   changeOwnPasswordAction,
   logoutAction,
@@ -24,7 +25,7 @@ const ROLE_LABEL: Record<string, string> = {
 export function AccountPanel({
   user,
 }: {
-  user: { name: string; email: string; role: string };
+  user: { name: string; email: string; role: string; photo: string };
 }) {
   const [values, setValues] = useState({ name: user.name, email: user.email });
   const [pending, startTransition] = useTransition();
@@ -45,11 +46,14 @@ export function AccountPanel({
     <Card>
       <CardHeader>
         <div className="flex items-center gap-2.5">
+          {/* A neutral tile, not a second copy of the face: the photo field
+              below is already showing it, and two avatars of the same person
+              a hundred pixels apart reads as a mistake. */}
           <div className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-xl">
-            <UserIcon className="size-[18px]" />
+            <UserRoundIcon className="size-[18px]" />
           </div>
           <div>
-            <CardTitle className="text-[15px]">Your account</CardTitle>
+            <CardTitle className="text-[15px]">{user.name || "Your account"}</CardTitle>
             <p className="text-muted-foreground text-sm">{user.email}</p>
           </div>
           <Badge variant={user.role === "MEMBER" ? "secondary" : "default"} className="ml-auto">
@@ -59,6 +63,8 @@ export function AccountPanel({
       </CardHeader>
 
       <CardContent className="space-y-6">
+        <PhotoField name={user.name} email={user.email} photo={user.photo} />
+
         <div className="grid gap-3 sm:grid-cols-2">
           <div className="space-y-1.5">
             <Label>Name</Label>

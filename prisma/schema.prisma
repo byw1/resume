@@ -300,6 +300,12 @@ model Profile {
   /// what you want next, salary expectations, non-negotiables, etc.
   summary   String   @default("")
   brainDump String   @default("")
+  /// A square headshot, held as a data URI ("data:image/jpeg;base64,..."). It
+  /// lives in the row rather than an object store so self-hosting still needs
+  /// one environment variable, and so a published resume renders the picture
+  /// with no second request to fetch it. The browser downscales before upload
+  /// and the server refuses anything over PHOTO_MAX_BYTES.
+  photo     String   @default("")
   updatedAt DateTime @updatedAt
 }
 
@@ -468,6 +474,11 @@ model Resume {
   lineHeight    Float    @default(1.2)
   /// 48px = the Harvard template's 0.5in page margin
   pageMargin    Int      @default(48)
+  /// Show the owner's profile photo in this document's header. The picture
+  /// itself is Profile.photo, never a copy — replace it once and every resume
+  /// that shows it follows. Off by default, and templates whose convention
+  /// forbids a photo ignore it.
+  showPhoto     Boolean  @default(false)
   /// The full resume document (see src/lib/resume-schema.ts)
   data          Json
   notes         String   @default("")
@@ -517,6 +528,10 @@ enum ActivityType {
   OFFER
   REJECTION
   REFERRAL
+  /// A message you sent first — a LinkedIn DM, a cold email to a hiring
+  /// manager. Half of some searches happen here, before (or instead of) a
+  /// formal application, and NOTE was hiding that from the record.
+  OUTREACH
 }
 
 model Company {
@@ -553,7 +568,11 @@ model Application {
   location       String    @default("")
   workMode       String    @default("")
   salaryRange    String    @default("")
-  source         String    @default("")
+  /// Where this one came from — and it is a list because real applications
+  /// arrive from more than one direction at once: a job board posting AND a
+  /// referral AND a DM to the hiring manager. Free strings, not an enum, so
+  /// people can name their own channels.
+  sources        String[]  @default([])
   /// 1-5 how much you want this
   excitement     Int       @default(3)
   /// 1-5 how strong a fit you are

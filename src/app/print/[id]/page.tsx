@@ -31,6 +31,7 @@ export default async function PrintPage({ params }: { params: Promise<{ id: stri
             fontSize: resume.fontSize,
             lineHeight: resume.lineHeight,
             pageMargin: resume.pageMargin,
+            photo: resume.photo,
           }}
         />
       </div>

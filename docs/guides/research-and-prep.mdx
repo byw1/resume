@@ -1,0 +1,94 @@
+---
+title: "Research and interview prep"
+description: "Building a company record that is worth reading the night before, and turning it into a prep sheet the morning of."
+icon: "user-tie"
+---
+
+Company research has one purpose: to be there the night before an interview, when you do
+not have time to do it. Everything below is aimed at that moment.
+
+## Researching a company
+
+> Research Helios and put it on their record.
+
+[`research_company`](/workflows#research-a-company-into-the-crm) reads what is already on file — including
+every application and contact you have there — tells you what is missing, then writes the
+result back.
+
+The writing-back step is the one that needs care, and the workflow spells it out:
+
+<Warning>
+  `update_company` **replaces** the notes field. The combined text has to be written back
+  whole — what was already there plus what is new. Sending only the new part deletes the
+  old research, which is the worst outcome available in this part of the product.
+</Warning>
+
+### What is worth recording
+
+Not a company profile. The four things you will actually want later:
+
+- **What they do and how they make money.** In your words, not theirs.
+- **The interview loop**, if you know it. Rounds, who is in them, what each one is for.
+- **Who you know there.** The single highest-value line in the record.
+- **Why you do or do not want this** — the honest version, including the reservations.
+
+### Two details that matter
+
+**Set `website` to their own domain.** A Greenhouse or Ashby link is the job board, not
+the employer. The domain is what puts their logo on your pipeline, and it costs nothing to
+include.
+
+**Mark unconfirmed things as unconfirmed.** An assistant is told not to invent facts about
+a company, and to say when it is working from what you told it rather than from something
+it knows. Research that quietly mixes the two is research you cannot trust in three weeks.
+
+## Preparing for a round
+
+> Get me ready for my system design round at Helios.
+
+[`prep_for_interview`](/workflows#prepare-for-an-interview) gathers four things before writing
+anything: the application with its full posting **and its whole timeline** — what has
+already been said matters more than the posting does — the company research on file, the
+contacts at that company, and your own evidence for the two or three themes the posting
+leans on hardest.
+
+Then it gives you:
+
+<CardGroup cols={2}>
+  <Card title="What they care about" icon="bullseye">
+    The three things, read from the posting and the timeline together.
+  </Card>
+  <Card title="Your strongest true story for each" icon="comment">
+    With the specific numbers from your brain. If a number is not on file, the story comes
+    without one and you are told to check — never a metric invented for the occasion.
+  </Card>
+  <Card title="The likely questions" icon="circle-question">
+    Including the weak spots in your own history for this role, which is the half nobody
+    prepares.
+  </Card>
+  <Card title="Five questions to ask them" icon="hand">
+    Drawn from the company research rather than generic ones.
+  </Card>
+</CardGroup>
+
+Plus anything in the timeline worth following up on or referring back to — the thing the
+recruiter mentioned three weeks ago that you would otherwise have forgotten.
+
+If the research on file is thin, it says so and offers to run `research_company` first.
+
+## Afterwards
+
+The interview is new material about you, and it belongs back in the brain. Two minutes
+while it is fresh:
+
+> That was the system design round at Helios. They asked about scaling the billing
+> pipeline and I walked through the Go rewrite — went well. The follow-up on multi-region
+> I fumbled. Interviewer was Dana, staff engineer, seemed to own the platform.
+
+That lands as a timeline entry on the application, a contact if Dana is new, and — the
+part people miss — material in the brain about how you answer that kind of question. The
+next prep sheet is better because of it.
+
+<Card title="Filling the brain" icon="brain" href="/guides/fill-the-brain" horizontal>
+  Why the loop back matters more than it sounds.
+</Card>

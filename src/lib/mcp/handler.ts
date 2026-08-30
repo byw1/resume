@@ -1,8 +1,8 @@
 import type { User } from "@prisma/client";
-import { promptsFor, promptsByName, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
-import { listGuardrails } from "@/lib/data/brain";
+import { promptsFor, promptsByName, splitLinks, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
+import { brainIsEmpty, listGuardrails } from "@/lib/data/brain";
 import { recordSystemEvent } from "@/lib/data/system";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, type McpCaller } from "@/lib/auth";
 
 /**
  * A small, dependency-light implementation of the MCP Streamable HTTP transport.
@@ -23,11 +23,47 @@ const SERVER_INFO = {
   version: "2.0.0",
 };
 
-async function instructionsFor(user: User) {
-  const base = `Hired is ${user.name || user.email}'s career knowledge base, resume builder and
-job-search CRM. You are connected as them; every tool reads and writes only their data.
+/**
+ * What the briefing says when there is nothing to brief on.
+ *
+ * The tour below assumes four areas with something in them. A new account has
+ * none, so an assistant connected to one was handed a confident description of a
+ * brain, called search_brain, got an empty array back and improvised — which is
+ * the exact moment this server's one real rule gets broken, because an invented
+ * career is the only way left to satisfy the request in front of it.
+ *
+ * Naming the tools that get material IN is the whole point. There is no import
+ * tool yet, so the honest instruction is to take whatever shape the person
+ * already has their history in and file it by hand.
+ */
+const EMPTY_WORKSPACE = `This workspace is EMPTY: no roles, no highlights, no notes, no projects.
+Every read tool will come back with nothing, and that is the state of the account rather than a
+failed call. Say so plainly instead of closing the gap with something plausible.
 
-Four areas:
+Ask one thing before anything else: "Do you have a resume or a LinkedIn export you can paste, or
+would you rather talk me through your last job?" Take whatever comes back — a pasted document, an
+old job description, what they remember out loud — and file it yourself. There is no import tool;
+filing is you reading it and calling these:
+• update_profile — name, contact details, links, and their personal brain dump: what they want
+  next, what they will not take.
+• create_role — one per job, with dates. The raw material goes in its brain dump, where length is a
+  feature: keep the detail rather than summarising it away.
+• append_role_brain_dump — what they remember about a role after it already exists. It adds;
+  update_role replaces, which is why this one is here.
+• create_highlights — polished, reusable bullets, once there is raw material to draw them from.
+• create_note — whatever belongs to no single job.
+
+Never hand them a form or a list of fields to fill in; that is the thing they came here to stop
+doing. Resumes, the application pipeline and the CRM are worth explaining once a role exists, and
+not before, because none of them do anything yet.`;
+
+async function instructionsFor(user: User) {
+  // A failed lookup must not cost someone their briefing, so an unreachable
+  // database falls back to the tour rather than telling an established user
+  // their workspace is empty.
+  const areas = (await brainIsEmpty(user.id).catch(() => false))
+    ? EMPTY_WORKSPACE
+    : `Four areas:
 • BRAIN — everything about them. Roles each hold an unlimited free-form "brain dump" of raw
   material, plus polished reusable bullets called highlights. There are also notes, projects,
   education, skills and certifications. search_brain is the fastest way in.
@@ -43,7 +79,20 @@ Four areas:
   their logo on the pipeline, so set it whenever you learn it. People have timelines: when they
   mention talking to someone — a call, a coffee, a reply — log_activity with contactId is how it
   gets remembered, and update_contact's nextFollowUpAt is how "ping them in two weeks" actually
-  happens. list_follow_ups returns due people alongside due applications.
+  happens. list_follow_ups returns due people alongside due applications.`;
+
+  // Outside `areas` deliberately: this is about the connection, not about
+  // content, so it is just as true of a workspace with nothing in it — and a
+  // new account is exactly who is about to wire up a second client.
+  const base = `Hired is ${user.name || user.email}'s career knowledge base, resume builder and
+job-search CRM. You are connected as them; every tool reads and writes only their data.
+
+${areas}
+
+The connection you are talking through is one of several this person may have — list_connections
+shows them all, create_connection wires up another client and hands back its URL and setup steps,
+and rotate_connection kills a URL that has leaked. Those URLs are credentials with full read and
+write over this workspace; never repeat one anywhere it will be stored.
 ${
   isAdmin(user)
     ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are
@@ -61,7 +110,11 @@ Rules of thumb:
   application.
 - A published resume is readable by anyone holding its link, and unpublish_resume destroys that
   link rather than pausing it. Say which resume you are about to publish, and warn before
-  withdrawing a link that may already be out in the world.`;
+  withdrawing a link that may already be out in the world. If it has showPhoto on, that page
+  carries their face — mention it before you publish.
+- The profile photo is one picture the whole app shares. set_profile_photo replaces it
+  everywhere at once, including on every resume already showing it. Only ever use a file or link
+  the user gave you; never find them a picture.`;
 
   return `${base}${await standingRulesFor(user.id)}`;
 }
@@ -195,6 +248,12 @@ async function handleMessage(
           title: tool.title,
           description: tool.description,
           inputSchema: tool.inputSchema,
+          // Sent on every tool, including where a hint matches the spec's own
+          // default: two of the four default to the dangerous answer, and a
+          // client cannot tell "we decided this" from "they forgot". The title
+          // is repeated inside the block because it lived there before it was
+          // promoted to a field of its own, and older clients still read it.
+          annotations: { title: tool.title, ...tool.annotations },
         })),
       });
 
@@ -211,7 +270,13 @@ async function handleMessage(
       const args = (params.arguments ?? {}) as Record<string, unknown>;
       try {
         const result = await tool.handler(args, ctx);
-        return ok(id, { content: [{ type: "text", text: serialize(result ?? { ok: true }) }] });
+        // Links ride alongside the JSON rather than replacing it: a client that
+        // renders resource links gets something clickable, one that doesn't sees
+        // exactly what it always saw.
+        const { data, links } = splitLinks(result);
+        return ok(id, {
+          content: [{ type: "text", text: serialize(data ?? { ok: true }) }, ...links],
+        });
       } catch (error) {
         const message = error instanceof Error ? error.message : String(error);
         // The tool name and the failure, never `args` — those are the caller's
@@ -301,7 +366,8 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 /** Entry point shared by both MCP routes. */
-export async function handleMcpPost(request: Request, user: User): Promise<Response> {
+export async function handleMcpPost(request: Request, caller: McpCaller): Promise<Response> {
+  const { user, connectionId } = caller;
   let body: unknown;
   try {
     body = await request.json();
@@ -315,6 +381,7 @@ export async function handleMcpPost(request: Request, user: User): Promise<Respo
   const ctx: McpContext = {
     userId: user.id,
     user,
+    connectionId,
     baseUrl: `${forwardedProto ?? url.protocol.replace(":", "")}://${forwardedHost ?? url.host}`,
   };
 

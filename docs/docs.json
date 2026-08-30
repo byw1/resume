@@ -1,0 +1,197 @@
+{
+  "$schema": "https://mintlify.com/docs.json",
+  "theme": "mint",
+  "name": "Hired",
+  "description": "Hired is a career operating system you host yourself: a brain of everything you have done, a resume builder that assembles documents from it, and a pipeline for the search \u2014 all of it reachable from the assistant you already talk to.",
+  "colors": {
+    "primary": "#0c71d1",
+    "light": "#2e91f2",
+    "dark": "#0a58a4"
+  },
+  "favicon": "/favicon.svg",
+  "logo": {
+    "light": "/logo/light.svg",
+    "dark": "/logo/dark.svg",
+    "href": "https://hired.tools"
+  },
+  "appearance": {
+    "default": "system"
+  },
+  "navbar": {
+    "links": [
+      {
+        "label": "GitHub",
+        "href": "https://github.com/shifulaboratories/Hired"
+      },
+      {
+        "label": "hired.tools",
+        "href": "https://hired.tools"
+      }
+    ],
+    "primary": {
+      "type": "button",
+      "label": "Sign in",
+      "href": "https://app.hired.tools/login"
+    }
+  },
+  "footer": {
+    "socials": {
+      "github": "https://github.com/shifulaboratories/Hired",
+      "linkedin": "https://www.linkedin.com/company/shifulab/",
+      "x": "https://x.com/shifulab"
+    },
+    "links": [
+      {
+        "header": "Hired",
+        "items": [
+          {
+            "label": "The product",
+            "href": "https://hired.tools"
+          },
+          {
+            "label": "Sign in",
+            "href": "https://app.hired.tools/login"
+          },
+          {
+            "label": "Resources",
+            "href": "https://hired.tools/resources/"
+          }
+        ]
+      },
+      {
+        "header": "Source",
+        "items": [
+          {
+            "label": "GitHub",
+            "href": "https://github.com/shifulaboratories/Hired"
+          },
+          {
+            "label": "AGPL-3.0",
+            "href": "https://github.com/shifulaboratories/Hired/blob/main/LICENSE"
+          },
+          {
+            "label": "Shifu Labs",
+            "href": "https://shifulab.com"
+          }
+        ]
+      }
+    ]
+  },
+  "navigation": {
+    "tabs": [
+      {
+        "tab": "Guide",
+        "groups": [
+          {
+            "group": "Start here",
+            "pages": [
+              "index",
+              "quickstart",
+              "connect",
+              "skills"
+            ]
+          },
+          {
+            "group": "The four areas",
+            "pages": [
+              "concepts/how-it-fits",
+              "concepts/brain",
+              "concepts/resumes",
+              "concepts/pipeline",
+              "concepts/crm"
+            ]
+          },
+          {
+            "group": "Doing the work",
+            "pages": [
+              "guides/fill-the-brain",
+              "guides/tailor-a-resume",
+              "guides/publish-and-export",
+              "guides/run-the-search",
+              "guides/research-and-prep",
+              "guides/weekly-review",
+              "guides/what-to-say"
+            ]
+          },
+          {
+            "group": "Reference",
+            "pages": [
+              "workflows",
+              "app",
+              "reference/security",
+              "reference/troubleshooting",
+              "reference/faq"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Tools",
+        "groups": [
+          {
+            "group": "Tools",
+            "pages": [
+              "tools/overview",
+              "tools/brain",
+              "tools/resumes",
+              "tools/pipeline",
+              "tools/crm",
+              "tools/connections",
+              "tools/admin"
+            ]
+          }
+        ]
+      },
+      {
+        "tab": "Self-hosting",
+        "groups": [
+          {
+            "group": "Deploy it",
+            "pages": [
+              "self-hosting/overview",
+              "self-hosting/docker",
+              "self-hosting/railway",
+              "self-hosting/local"
+            ]
+          },
+          {
+            "group": "Configure it",
+            "pages": [
+              "self-hosting/configuration",
+              "self-hosting/email",
+              "self-hosting/pdf",
+              "self-hosting/billing",
+              "self-hosting/upgrading"
+            ]
+          },
+          {
+            "group": "Run it",
+            "pages": [
+              "administration/people",
+              "administration/waitlist",
+              "administration/health"
+            ]
+          }
+        ]
+      }
+    ]
+  },
+  "search": {
+    "prompt": "Search the manual"
+  },
+  "seo": {
+    "indexing": "navigable"
+  },
+  "contextual": {
+    "options": [
+      "copy",
+      "view",
+      "chatgpt",
+      "claude",
+      "cursor",
+      "vscode",
+      "mcp"
+    ],
+    "display": "header"
+  }
+}

@@ -8,7 +8,23 @@ export type PaperSettings = {
   fontSize: number;
   lineHeight: number;
   pageMargin: number;
+  /**
+   * The owner's headshot as a data URI, or "" for no photo. Resolved by the
+   * data layer from Profile.photo when the document has showPhoto on, so the
+   * picture is never copied into a saved document and one replacement updates
+   * every resume that shows it.
+   */
+  photo?: string;
 };
+
+/**
+ * Templates that will draw a photo.
+ *
+ * Harvard is absent on purpose and not as an oversight: the format is a US
+ * academic convention, and a face on it is the one thing that marks a document
+ * as not-that-format. A resume can carry showPhoto and still render none here.
+ */
+const PHOTO_TEMPLATES = ["classic", "modern", "compact", "editorial"];
 
 const FONT_CLASS: Record<string, string> = {
   inter: "font-inter",
@@ -45,6 +61,7 @@ export function ResumePaper({
   linkify?: boolean;
 }) {
   const { template, accent, fontFamily, fontSize, lineHeight, pageMargin } = settings;
+  const photo = PHOTO_TEMPLATES.includes(template) ? (settings.photo ?? "") : "";
   const sections = doc.sections.filter((section) => section.visible && hasContent(section));
 
   return (
@@ -64,7 +81,7 @@ export function ResumePaper({
         } as React.CSSProperties
       }
     >
-      <Header doc={doc} template={template} linkify={linkify} />
+      <Header doc={doc} template={template} linkify={linkify} photo={photo} />
 
       <div style={{ marginTop: template === "harvard" ? "0.95em" : "1.15em" }}>
         {sections.map((section, index) => (
@@ -119,19 +136,47 @@ function EntryLine({
   );
 }
 
+/**
+ * The headshot, sized in em so it scales with the document's text size rather
+ * than fighting it. `print-color-adjust` is what stops a browser dropping the
+ * image when it prints "background graphics off"; the src is a data URI, so
+ * nothing is fetched and the picture survives the unauthenticated public page
+ * and the headless-browser PDF alike.
+ */
+function Photo({ src, alt, size, round }: { src: string; alt: string; size: string; round: boolean }) {
+  return (
+    <img
+      src={src}
+      alt={alt}
+      style={{
+        width: size,
+        height: size,
+        objectFit: "cover",
+        borderRadius: round ? "50%" : "0.25em",
+        flexShrink: 0,
+        printColorAdjust: "exact",
+        WebkitPrintColorAdjust: "exact",
+      }}
+    />
+  );
+}
+
 function Header({
   doc,
   template,
   linkify,
+  photo,
 }: {
   doc: ResumeDoc;
   template: string;
   linkify: boolean;
+  photo: string;
 }) {
   const { header } = doc;
   const contacts = [header.location, header.email, header.phone].filter(Boolean);
   const centered = template === "classic" || template === "harvard";
   const editorial = template === "editorial";
+  const photoAlt = header.name ? `${header.name}` : "";
 
   // Harvard: name over a full-width rule, contact line centred beneath it,
   // every item the same size, separated by bullets.
@@ -183,8 +228,16 @@ function Header({
     );
   }
 
-  return (
-    <header className={cn("rp-block", centered && "text-center")}>
+  // Centred templates stack the photo over the name; the left-aligned ones set
+  // it beside the text, which is the only arrangement that does not push the
+  // contact line onto a second row.
+  const inner = (
+    <>
+      {photo && centered && (
+        <div style={{ display: "flex", justifyContent: "center", marginBottom: "0.6em" }}>
+          <Photo src={photo} alt={photoAlt} size="4.6em" round />
+        </div>
+      )}
       <h1
         style={{
           fontSize: editorial ? "2.55em" : "1.95em",
@@ -239,6 +292,24 @@ function Header({
           </span>
         ))}
       </div>
+    </>
+  );
+
+  return (
+    <header className={cn("rp-block", centered && "text-center")}>
+      {photo && !centered ? (
+        <div style={{ display: "flex", alignItems: "center", gap: editorial ? "1.1em" : "0.9em" }}>
+          <div style={{ minWidth: 0, flex: 1 }}>{inner}</div>
+          <Photo
+            src={photo}
+            alt={photoAlt}
+            size={editorial ? "5.4em" : "4.4em"}
+            round={!editorial}
+          />
+        </div>
+      ) : (
+        inner
+      )}
 
       {template !== "editorial" && <div className="rp-rule" style={{ marginTop: "0.85em" }} />}
     </header>

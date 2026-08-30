@@ -8,6 +8,7 @@ import * as system from "@/lib/data/system";
 import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
+import * as connections from "@/lib/data/connections";
 import {
   getSettings,
   updateSettings,
@@ -23,6 +24,7 @@ import { sendEmail, testEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
 import { renderPdf, pdfRenderingAvailable } from "@/lib/pdf";
+import { clientName, clientsById, guessClient } from "@/lib/mcp/clients";
 
 type Json = Record<string, unknown>;
 
@@ -34,8 +36,39 @@ type Json = Record<string, unknown>;
 export type McpContext = {
   userId: string;
   user: User;
+  /** The connection this call arrived on, so connection tools can tell which. */
+  connectionId: string;
   /** Where this instance is reachable, for building invite links. */
   baseUrl: string;
+};
+
+/**
+ * What a tool does to the world, in the four hints MCP defines.
+ *
+ * These are not documentation — Claude groups a connector's tools by them in the
+ * approval UI, so a missing hint is the difference between someone allowing the
+ * read side of this server outright and being asked about `search_brain` as
+ * often as about `delete_resume`.
+ *
+ * Two of the four default to the DANGEROUS value when omitted (`destructiveHint`
+ * and `openWorldHint` are both true by default), which is why every tool here
+ * states all four rather than the interesting ones. `annotationsFor` below is
+ * what enforces that.
+ *
+ * The rule for `destructiveHint` in this codebase: replacing a field's contents
+ * is destructive, appending to them is not. That is why `update_role` is
+ * destructive and `append_role_brain_dump` — which exists because `update_role`
+ * was eating people's notes — is not.
+ */
+export type McpAnnotations = {
+  /** True only if the tool writes nothing at all: no row, no email, no link, no audit entry. */
+  readOnlyHint: boolean;
+  /** True if it may overwrite or delete. Meaningless when readOnlyHint is true. */
+  destructiveHint: boolean;
+  /** True if calling it twice with the same arguments does nothing the second time. */
+  idempotentHint: boolean;
+  /** True if it reaches an unbounded set of external things. Almost nothing here does. */
+  openWorldHint: boolean;
 };
 
 export type McpTool = {
@@ -43,10 +76,52 @@ export type McpTool = {
   title: string;
   description: string;
   inputSchema: Json;
+  /** Required, because two of the four hints default to the dangerous value. */
+  annotations: McpAnnotations;
   /** Admin-only tools are hidden from tools/list for members, not just refused. */
   adminOnly?: boolean;
   handler: (args: Json, ctx: McpContext) => Promise<unknown>;
 };
+
+/**
+ * A link a client can render as an attachment instead of a URL buried in JSON.
+ *
+ * `export_resume_pdf` and `publish_resume` exist to hand somebody a link. Before
+ * this they returned it as one field of a serialised object, so whether the user
+ * ever saw something clickable depended on the model quoting it back. A
+ * `resource_link` block is the protocol's own answer to that.
+ */
+export type ResourceLink = {
+  type: "resource_link";
+  uri: string;
+  name: string;
+  description?: string;
+  mimeType?: string;
+};
+
+const RESULT_LINKS = Symbol("mcp.result.links");
+
+type LinkedResult = { [RESULT_LINKS]: ResourceLink[]; data: unknown };
+
+/**
+ * Attach links to a tool result. The data half is serialised exactly as it would
+ * have been, so a client that ignores resource links loses nothing.
+ *
+ * The marker is a symbol so that a result which somehow reaches `JSON.stringify`
+ * without being unwrapped degrades to plain nested JSON rather than to garbage.
+ */
+export function withLinks(data: unknown, links: ResourceLink[]): LinkedResult {
+  return { [RESULT_LINKS]: links, data };
+}
+
+/** Split a handler's return value into the JSON body and any links it carried. */
+export function splitLinks(result: unknown): { data: unknown; links: ResourceLink[] } {
+  if (result && typeof result === "object" && RESULT_LINKS in result) {
+    const linked = result as LinkedResult;
+    return { data: linked.data, links: linked[RESULT_LINKS] };
+  }
+  return { data: result, links: [] };
+}
 
 const str = (description: string) => ({ type: "string", description });
 const num = (description: string) => ({ type: "number", description });
@@ -91,11 +166,45 @@ function publicResumeUrl(baseUrl: string, slug: string | null) {
   return slug ? `${baseUrl}/r/${slug}` : null;
 }
 
+/** Where a shared pipeline lives. A share row always has a slug. */
+function publicPipelineUrl(baseUrl: string, slug: string) {
+  return `${baseUrl}/p/${slug}`;
+}
+
 /** Note kind, validated against the enum rather than trusted. */
 function noteKind(args: Json): NoteKind | undefined {
   const value = s(args, "kind");
   return value === "GUARDRAIL" || value === "NOTE" ? value : undefined;
 }
+
+/**
+ * An enum argument that fails loudly. The transport does not validate schemas,
+ * and a filter the data layer doesn't recognise would otherwise return the
+ * UNFILTERED list — an assistant asking for "companies I never applied to"
+ * must not be handed all of them as if that were the answer.
+ */
+function enumArg<T extends string>(args: Json, key: string, allowed: readonly T[]): T | undefined {
+  const value = s(args, key);
+  if (value === undefined) return undefined;
+  if ((allowed as readonly string[]).includes(value)) return value as T;
+  throw new Error(`Unknown ${key} "${value}". Use one of: ${allowed.join(", ")}.`);
+}
+
+const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"] as const;
+const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"] as const;
+
+/**
+ * The profile as a tool should see it.
+ *
+ * `photo` is hundreds of kilobytes of base64. Returning it would flood an
+ * assistant's context with a picture it cannot look at, so every tool that
+ * hands back a profile reports whether one is set and leaves the bytes here.
+ */
+function withoutPhotoBytes<T extends { photo: string }>(profile: T) {
+  const { photo, ...rest } = profile;
+  return { ...rest, hasPhoto: Boolean(photo) };
+}
+
 
 /** Strip undefined keys so Prisma doesn't try to write them. */
 function defined<T extends object>(input: T): Partial<T> {
@@ -115,6 +224,7 @@ const ACTIVITY_VALUES: ActivityType[] = [
   "OFFER",
   "REJECTION",
   "REFERRAL",
+  "OUTREACH",
 ];
 
 export const tools: McpTool[] = [
@@ -133,6 +243,12 @@ export const tools: McpTool[] = [
       },
       ["query"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => brain.searchBrain(ctx.userId, required(args, "query"), n(args, "limit") ?? 25),
   },
   {
@@ -145,25 +261,38 @@ export const tools: McpTool[] = [
         "Include the full long-form brain dump text for each role (default true). Set false for a lighter payload.",
       ),
     }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const snapshot = await brain.getBrainSnapshot(ctx.userId);
+      const profile = withoutPhotoBytes(snapshot.profile);
       if (b(args, "include_brain_dumps") === false) {
         return {
           ...snapshot,
-          profile: { ...snapshot.profile, brainDump: "[omitted]" },
+          profile: { ...profile, brainDump: "[omitted]" },
           roles: snapshot.roles.map((r) => ({ ...r, brainDump: "[omitted]" })),
         };
       }
-      return snapshot;
+      return { ...snapshot, profile };
     },
   },
   {
     name: "get_profile",
     title: "Get profile",
     description:
-      "The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables).",
+      "The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.",
     inputSchema: object({}),
-    handler: async (_args, ctx) => brain.getProfile(ctx.userId),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => withoutPhotoBytes(await brain.getProfile(ctx.userId)),
   },
   {
     name: "update_profile",
@@ -185,8 +314,14 @@ export const tools: McpTool[] = [
         "Long-form personal brain dump. REPLACES the existing text — read it first if you intend to add to it.",
       ),
     }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
-      brain.updateProfile(ctx.userId, 
+      withoutPhotoBytes(await brain.updateProfile(ctx.userId,
         defined({
           fullName: s(args, "fullName"),
           headline: s(args, "headline"),
@@ -200,7 +335,38 @@ export const tools: McpTool[] = [
           summary: s(args, "summary"),
           brainDump: s(args, "brainDump"),
         }),
-      ),
+      )),
+  },
+  {
+    name: "set_profile_photo",
+    title: "Set the profile photo",
+    description:
+      "Give the user a headshot, or remove the one they have. One picture serves the whole app: it is their avatar in the interface, and every resume whose design has the photo switched on renders this exact image — so replacing it here updates every document at once, and there is never a second copy to keep in sync. Pass `url` for a picture that already exists on the web (an https link to a JPEG, PNG or WebP — a GitHub avatar, a personal site) and the server fetches it. Pass `data_uri` when you actually hold the bytes, e.g. after reading a local file: 'data:image/jpeg;base64,…'. Pass remove: true to clear it. Anything over 400KB is refused, so downscale first — a resume prints the photo about an inch square and a 512px original is already more than that needs. Turning the photo ON for a given resume is a separate step: update_resume with showPhoto: true. Never invent a picture of somebody: use only a URL or file the user has given you.",
+    inputSchema: object({
+      url: str("https link to an image to fetch and store"),
+      data_uri: str("The image inline, e.g. 'data:image/jpeg;base64,…'"),
+      remove: bool("Remove the existing photo"),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (args, ctx) => {
+      if (b(args, "remove")) {
+        await brain.setProfilePhoto(ctx.userId, "");
+        return { photo: false, message: "Photo removed. Resumes that showed it now render without one." };
+      }
+      const source = s(args, "data_uri")?.trim() || s(args, "url")?.trim() || "";
+      if (!source) throw new Error("Pass a url, a data_uri, or remove: true.");
+      const result = await brain.setProfilePhoto(ctx.userId, source);
+      return {
+        ...result,
+        message:
+          "Saved. It shows in the app straight away; a resume also needs showPhoto: true, and the Harvard template never renders one.",
+      };
+    },
   },
   {
     name: "list_roles",
@@ -208,6 +374,12 @@ export const tools: McpTool[] = [
     description:
       "List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full brain dump — use get_role for that.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => brain.listRoles(ctx.userId),
   },
   {
@@ -216,6 +388,12 @@ export const tools: McpTool[] = [
     description:
       "Full detail for one role including its complete brain dump text and all of its achievement highlights.",
     inputSchema: object({ id: str("Role id") }, ["id"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const role = await brain.getRole(ctx.userId, required(args, "id"));
       if (!role) throw new Error(`No role with id ${required(args, "id")}`);
@@ -244,6 +422,12 @@ export const tools: McpTool[] = [
       },
       ["company", "title"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       brain.createRole(ctx.userId, {
         company: required(args, "company"),
@@ -281,6 +465,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       brain.updateRole(ctx.userId, 
         required(args, "id"),
@@ -311,6 +501,12 @@ export const tools: McpTool[] = [
       },
       ["id", "text"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       brain.appendToRoleBrainDump(ctx.userId, required(args, "id"), required(args, "text"), s(args, "heading")),
   },
@@ -319,6 +515,12 @@ export const tools: McpTool[] = [
     title: "Delete a role",
     description: "Permanently delete a role and all of its highlights.",
     inputSchema: object({ id: str("Role id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => brain.deleteRole(ctx.userId, required(args, "id")),
   },
 
@@ -331,6 +533,12 @@ export const tools: McpTool[] = [
     description:
       "Reusable, polished achievement bullets, strongest first. These are the distilled lines you pull from when assembling a resume.",
     inputSchema: object({ roleId: str("Only return highlights for this role id") }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => brain.listHighlights(ctx.userId, s(args, "roleId")),
   },
   {
@@ -357,6 +565,12 @@ export const tools: McpTool[] = [
       },
       ["highlights"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const items = Array.isArray(args.highlights) ? (args.highlights as Json[]) : [];
       return brain.createHighlights(ctx.userId, 
@@ -385,6 +599,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       brain.updateHighlight(ctx.userId, 
         required(args, "id"),
@@ -402,6 +622,12 @@ export const tools: McpTool[] = [
     title: "Delete a highlight",
     description: "Permanently delete an achievement bullet.",
     inputSchema: object({ id: str("Highlight id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => brain.deleteHighlight(ctx.userId, required(args, "id")),
   },
 
@@ -414,6 +640,12 @@ export const tools: McpTool[] = [
     description:
       "Free-floating notes not tied to any single job: STAR stories, interview prep, references, compensation history, anything.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => brain.listNotes(ctx.userId),
   },
   {
@@ -431,11 +663,17 @@ export const tools: McpTool[] = [
           type: "string",
           enum: ["NOTE", "GUARDRAIL"],
           description:
-            "GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
+            "GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
         },
       },
       ["title"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       brain.createNote(ctx.userId, {
         title: required(args, "title"),
@@ -463,11 +701,17 @@ export const tools: McpTool[] = [
           type: "string",
           enum: ["NOTE", "GUARDRAIL"],
           description:
-            "GUARDRAIL makes this a standing rule: it is prepended to the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
+            "GUARDRAIL makes this a standing rule: it is carried in the briefing every AI client receives on connect, so it constrains work before any tool is called. Use it for things that must never be got wrong — how they may and may not be described, numbers that are unsettled and must not be cited, credit that must not be overstated. Everything else is a NOTE (the default), which is only found by searching.",
         },
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       brain.updateNote(ctx.userId, 
         required(args, "id"),
@@ -495,6 +739,12 @@ export const tools: McpTool[] = [
       },
       ["kind"],
     ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       switch (required(args, "kind")) {
         case "education":
@@ -542,6 +792,12 @@ export const tools: McpTool[] = [
       },
       ["kind"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       switch (required(args, "kind")) {
         case "education":
@@ -618,6 +874,12 @@ export const tools: McpTool[] = [
       },
       ["kind", "id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const id = required(args, "id");
       switch (required(args, "kind")) {
@@ -680,6 +942,12 @@ export const tools: McpTool[] = [
       },
       ["kind", "id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const id = required(args, "id");
       switch (required(args, "kind")) {
@@ -706,6 +974,12 @@ export const tools: McpTool[] = [
     description:
       "Returns the exact JSON shape of a resume document plus the available templates, fonts and writing guidance. Call this once before your first create_resume or update_resume so the document you build validates.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => ({
       documentShape: RESUME_DOC_SHAPE,
       defaultTemplate: "harvard",
@@ -715,10 +989,10 @@ export const tools: McpTool[] = [
           description:
             "DEFAULT. The Harvard OCS format: Times-metric serif, everything one size, name and section headings centred over full-width rules, each entry two justified lines (organisation/location, then role/dates). Dense, black-and-white, maximally ATS-safe. Use this unless asked otherwise.",
         },
-        { key: "classic", description: "Serif headings, centred header. Timeless, ATS-safe." },
-        { key: "modern", description: "Sans-serif, accent rules, left-aligned header." },
-        { key: "compact", description: "Tight leading, two-column skills. Fits the most content." },
-        { key: "editorial", description: "Large display name, generous whitespace, magazine feel." },
+        { key: "classic", description: "Serif headings, centred header. Timeless, ATS-safe. Takes a photo, centred above the name." },
+        { key: "modern", description: "Sans-serif, accent rules, left-aligned header. Takes a photo, beside the name." },
+        { key: "compact", description: "Tight leading, two-column skills. Fits the most content. Takes a photo, beside the name." },
+        { key: "editorial", description: "Large display name, generous whitespace, magazine feel. Takes a photo, squared off beside the name." },
       ],
       fonts: ["serif", "inter", "mono"],
       defaults: {
@@ -728,6 +1002,7 @@ export const tools: McpTool[] = [
         fontSize: 10,
         lineHeight: 1.2,
         pageMargin: 48,
+        showPhoto: false,
       },
       guidance: [
         "Dates use YYYY-MM. Set isCurrent: true instead of an endDate for the current job.",
@@ -739,6 +1014,7 @@ export const tools: McpTool[] = [
         "In Harvard, education `details` render as plain lines (thesis, relevant coursework, honours), not bullets.",
         "Set visible: false to keep a section in the document but off the page.",
         "Aim for roughly 40-48 rendered lines per page; call preview_resume_text to sanity-check length before saving.",
+        "Photos: off unless asked. showPhoto draws the user's profile picture (set_profile_photo), never one you supply per document. Harvard never renders one — it is a US academic format and a face on it is wrong. US and UK applications generally omit photos; much of Europe and Latin America expects one.",
       ],
     }),
   },
@@ -748,6 +1024,12 @@ export const tools: McpTool[] = [
     description:
       "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => {
       const all = await resumes.listResumes(ctx.userId);
       return all.map((resume) => ({
@@ -768,10 +1050,19 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const resume = await resumes.getResume(ctx.userId, required(args, "id"));
       if (!resume) throw new Error("Resume not found");
-      const withUrl = { ...resume, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
+      // `photo` is the resolved image itself; showPhoto already says whether
+      // this document uses one, and the base64 helps nobody reading this.
+      const { photo, ...row } = resume;
+      const withUrl = { ...row, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
       if (b(args, "as_text")) {
         return {
           ...withUrl,
@@ -786,7 +1077,7 @@ export const tools: McpTool[] = [
     name: "create_resume",
     title: "Create a resume",
     description:
-      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seed_from_brain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
+      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
     inputSchema: object(
       {
         name: str("What to call this resume, e.g. 'Stripe — Staff Engineer'"),
@@ -796,8 +1087,11 @@ export const tools: McpTool[] = [
         accent: str("Accent colour as a hex string. Defaults to '#000000', which is what Harvard expects."),
         fontFamily: str("serif (default) | inter | mono"),
         fontSize: num("Base font size in points, 9-12. Default 10."),
-        lineHeight: num("Line height, 1.15-1.6. Default 1.35."),
+        lineHeight: num("Line height, 1.15-1.6. Default 1.2."),
         notes: str("Private notes about this version — what you tailored and why"),
+        showPhoto: bool(
+          "Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does.",
+        ),
         seedFromBrain: bool("Auto-build a first draft from the knowledge base"),
         data: {
           type: "object",
@@ -808,6 +1102,12 @@ export const tools: McpTool[] = [
       },
       ["name"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       resumes.createResume(ctx.userId, {
         name: required(args, "name"),
@@ -822,6 +1122,7 @@ export const tools: McpTool[] = [
           fontSize: n(args, "fontSize"),
           lineHeight: n(args, "lineHeight"),
           notes: s(args, "notes"),
+          showPhoto: b(args, "showPhoto"),
         }),
       }),
   },
@@ -843,6 +1144,9 @@ export const tools: McpTool[] = [
         lineHeight: num("Line height"),
         notes: str("Private notes"),
         isFavorite: bool("Pin this resume to the top"),
+        showPhoto: bool(
+          "Render the user's profile photo in the header. The picture is the one on their profile, so this only switches it on or off for this document. Harvard ignores it by convention.",
+        ),
         data: {
           type: "object",
           description: "The complete replacement resume document",
@@ -851,6 +1155,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       resumes.updateResume(ctx.userId, required(args, "id"), {
         ...(args.data !== undefined ? { data: args.data } : {}),
@@ -865,6 +1175,7 @@ export const tools: McpTool[] = [
           lineHeight: n(args, "lineHeight"),
           notes: s(args, "notes"),
           isFavorite: b(args, "isFavorite"),
+          showPhoto: b(args, "showPhoto"),
         }),
       }),
   },
@@ -874,6 +1185,12 @@ export const tools: McpTool[] = [
     description:
       "Render a resume to a real PDF on the server and return a download url, plus how many pages it actually came out to. Reach for this when the user wants a FILE to attach to an email or upload to a form — use publish_resume instead when they want a link. The page count is measured from the rendered document rather than estimated, so it is the reliable way to answer 'does this fit on one page?' before they send it. The url opens in their browser, where they are already signed in; it is not a public link and nobody else can fetch it. If this instance has no headless browser the tool says so and points at the print page, which produces the same document through the browser's own print dialog.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const id = required(args, "id");
       const resume = await resumes.getResume(ctx.userId, id);
@@ -881,12 +1198,24 @@ export const tools: McpTool[] = [
 
       const downloadUrl = `${ctx.baseUrl}/api/resumes/${id}/pdf`;
       if (!pdfRenderingAvailable()) {
-        return {
-          available: false,
-          printUrl: `${ctx.baseUrl}/print/${id}`,
-          message:
-            "This instance has no headless browser, so it cannot render PDFs server-side. Open the print url and use the browser's Save as PDF.",
-        };
+        const printUrl = `${ctx.baseUrl}/print/${id}`;
+        return withLinks(
+          {
+            available: false,
+            printUrl,
+            message:
+              "This instance has no headless browser, so it cannot render PDFs server-side. Open the print url and use the browser's Save as PDF.",
+          },
+          [
+            {
+              type: "resource_link",
+              uri: printUrl,
+              name: `${resume.name} (print page)`,
+              description: "Opens the US-Letter page; use the browser's Save as PDF.",
+              mimeType: "text/html",
+            },
+          ],
+        );
       }
 
       // Render once here so the answer is "it worked, and it is N pages",
@@ -902,13 +1231,24 @@ export const tools: McpTool[] = [
             secure: ctx.baseUrl.startsWith("https:"),
           },
         });
-        return {
-          available: true,
-          url: downloadUrl,
-          pages,
-          sizeKb: Math.round(bytes.length / 1024),
-          name: resume.name,
-        };
+        return withLinks(
+          {
+            available: true,
+            url: downloadUrl,
+            pages,
+            sizeKb: Math.round(bytes.length / 1024),
+            name: resume.name,
+          },
+          [
+            {
+              type: "resource_link",
+              uri: downloadUrl,
+              name: `${resume.name}.pdf`,
+              description: `${pages} page${pages === 1 ? "" : "s"}. Opens in the browser they are already signed in to.`,
+              mimeType: "application/pdf",
+            },
+          ],
+        );
       } finally {
         await destroySession(token);
       }
@@ -918,11 +1258,29 @@ export const tools: McpTool[] = [
     name: "publish_resume",
     title: "Publish a resume to a public link",
     description:
-      "Give a resume a shareable web address. Reach for this whenever the user needs a LINK rather than a file — an application form with a 'portfolio or resume URL' field, a recruiter asking them to send something over, a message where attaching a PDF would be awkward. Returns publicUrl, which is the whole point: hand it straight to the user. Anyone with the link can read the resume without signing in, and the link is the only protection, so it is long and random — it cannot be guessed or found by searching, and the page tells search engines not to index it. The user's private notes on the resume are never shown. Calling this again while the resume is already published returns the SAME url, so it is safe to repeat. If the resume was previously unpublished, publishing mints a brand new url and the old one stays dead.",
+      "Give a resume a shareable web address. Reach for this whenever the user needs a LINK rather than a file — an application form with a 'portfolio or resume URL' field, a recruiter asking them to send something over, a message where attaching a PDF would be awkward. Returns publicUrl, which is the whole point: hand it straight to the user. Anyone with the link can read the resume without signing in, and the link is the only protection, so it is long and random — it cannot be guessed or found by searching, and the page tells search engines not to index it. The user's private notes on the resume are never shown — but if this resume has showPhoto on, their face is on that page, visible to anyone holding the link. Say so before publishing one, or offer to turn the photo off first. Calling this again while the resume is already published returns the SAME url, so it is safe to repeat. If the resume was previously unpublished, publishing mints a brand new url and the old one stays dead.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const resume = await resumes.publishResume(ctx.userId, required(args, "id"));
-      return { ...resume, publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug) };
+      const publicUrl = publicResumeUrl(ctx.baseUrl, resume.slug);
+      const links: ResourceLink[] = publicUrl
+        ? [
+            {
+              type: "resource_link",
+              uri: publicUrl,
+              name: resume.name,
+              description: "Public resume. Anyone holding this link can read it without signing in.",
+              mimeType: "text/html",
+            },
+          ]
+        : [];
+      return withLinks({ ...resume, publicUrl }, links);
     },
   },
   {
@@ -931,6 +1289,12 @@ export const tools: McpTool[] = [
     description:
       "Turn off a resume's public link. Reach for this when the user is done with a link, or has sent one somewhere they regret. The page starts returning 'not found' immediately for everyone who has the url. This is PERMANENT for that address: the link is not parked or paused, it is destroyed, and publishing the same resume later produces a different url. Say so before doing it if the user might still need the old link working. Does not touch the resume itself — nothing is deleted.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => resumes.unpublishResume(ctx.userId, required(args, "id")),
   },
   {
@@ -939,6 +1303,12 @@ export const tools: McpTool[] = [
     description:
       "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application.",
     inputSchema: object({ id: str("Resume id to copy"), name: str("Name for the copy") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => resumes.duplicateResume(ctx.userId, required(args, "id"), s(args, "name")),
   },
   {
@@ -946,6 +1316,12 @@ export const tools: McpTool[] = [
     title: "Delete a resume",
     description: "Permanently delete a resume.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => resumes.deleteResume(ctx.userId, required(args, "id")),
   },
   {
@@ -963,6 +1339,12 @@ export const tools: McpTool[] = [
       },
       ["data"],
     ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const doc = parseResumeDoc(args.data);
       return {
@@ -982,6 +1364,12 @@ export const tools: McpTool[] = [
     description:
       "Counts by stage, active applications, applications sent this week, interviews, offers, open tasks, follow-ups due and response rate. Start here for any 'how is my search going' question.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => pipeline.pipelineStats(ctx.userId),
   },
   {
@@ -994,6 +1382,12 @@ export const tools: McpTool[] = [
       includeClosed: bool("Include accepted / rejected / withdrawn"),
       search: str("Filter by company, role title or notes"),
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.listApplications(ctx.userId, {
         stage: s(args, "stage") as Stage | undefined,
@@ -1007,6 +1401,12 @@ export const tools: McpTool[] = [
     description:
       "Full detail for one application including the job description, the complete activity timeline, contacts and tasks.",
     inputSchema: object({ id: str("Application id") }, ["id"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const application = await pipeline.getApplication(ctx.userId, required(args, "id"));
       if (!application) throw new Error(`No application with id ${required(args, "id")}`);
@@ -1019,13 +1419,33 @@ export const tools: McpTool[] = [
     description:
       "The FIRST tool to call when someone shares a link to a job posting. Fetches the page server-side, reads the structured posting data most job boards publish, and creates the application in one move: company matched or created (with its own website when the posting names one, which puts their logo on the pipeline), role title, full description, location, compensation and source all filled, starting on the wishlist. Returns captured true with the new application and its id. When the page doesn't state the employer or the role readably, returns captured false plus whatever WAS parsed and creates NOTHING — in that case show the person what was found, ask for the missing pieces, and use create_application. Never guess an employer's name from a URL. If they applied already, follow with move_application_stage.",
     inputSchema: object({ url: str("The posting's URL, e.g. a Greenhouse, Lever, Ashby, Workday or LinkedIn job link") }, ["url"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     handler: async (args, ctx) => pipeline.captureJobPosting(ctx.userId, required(args, "url")),
+  },
+  {
+    name: "list_application_sources",
+    title: "List the source channels on file",
+    description:
+      "The source labels this person already uses ('LinkedIn', 'Referral from Dana', …), most-used first, followed by the standard starters. Call it before writing sources on create_application or update_application so you reuse their exact spellings instead of minting near-duplicates — it covers every application including closed ones, which list_applications hides by default. Read-only.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => pipeline.listSourceOptions(ctx.userId),
   },
   {
     name: "create_application",
     title: "Create an application",
     description:
-      "Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist. Pass companyWebsite when you know it — it is what makes the company's logo appear in the pipeline, and it costs nothing to include.",
+      "Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist. Pass companyWebsite when you know it — it is what makes the company's logo appear in the pipeline, and it costs nothing to include. A job link and description are OPTIONAL: an application that started as a LinkedIn message with no listing is still an application — track it with just company and roleTitle, put 'Cold outreach' in sources, and attach the person messaged with create_contact.",
     inputSchema: object(
       {
         company: str("Company name"),
@@ -1037,7 +1457,10 @@ export const tools: McpTool[] = [
         location: str("Job location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Advertised or expected compensation"),
-        source: str("Where you found it, e.g. 'LinkedIn', 'referral from Dana'"),
+        sources: strArray(
+          "Where it came from, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Free strings; call list_application_sources first and reuse the person's existing spellings where they fit.",
+        ),
+        source: str("Legacy single-source spelling. Prefer sources; ignored when sources is passed."),
         excitement: num("1-5 how much they want this"),
         fit: num("1-5 how strong a fit they are"),
         notes: str("Any notes"),
@@ -1047,6 +1470,12 @@ export const tools: McpTool[] = [
       },
       ["company", "roleTitle"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.createApplication(ctx.userId, {
         company: required(args, "company"),
@@ -1059,6 +1488,7 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
+          sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
           fit: n(args, "fit"),
@@ -1073,7 +1503,7 @@ export const tools: McpTool[] = [
     name: "update_application",
     title: "Update an application",
     description:
-      "Update fields on an application. Changing `stage` here also writes a timeline entry and resets the follow-up date.",
+      "Update fields on an application. Changing `stage` here also writes a timeline entry and resets the follow-up date. `sources` REPLACES the whole list — read the current one from get_application, add or remove, and pass the full list back.",
     inputSchema: object(
       {
         id: str("Application id"),
@@ -1086,7 +1516,10 @@ export const tools: McpTool[] = [
         location: str("Location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Compensation"),
-        source: str("Source"),
+        sources: strArray("The full list of where it came from — replaces what is there"),
+        source: str(
+          "Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed.",
+        ),
         excitement: num("1-5"),
         fit: num("1-5"),
         notes: str("Notes"),
@@ -1096,6 +1529,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.updateApplication(ctx.userId, required(args, "id"), {
         ...defined({
@@ -1108,6 +1547,7 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
+          sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
           fit: n(args, "fit"),
@@ -1130,6 +1570,12 @@ export const tools: McpTool[] = [
       },
       ["ids", "stage"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const ids = a(args, "ids");
       if (!ids?.length) throw new Error("ids is required: pass at least one application id");
@@ -1149,6 +1595,12 @@ export const tools: McpTool[] = [
       },
       ["id", "stage"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.moveApplicationStage(ctx.userId, 
         required(args, "id"),
@@ -1161,13 +1613,19 @@ export const tools: McpTool[] = [
     title: "Delete an application",
     description: "Permanently delete an application and its timeline.",
     inputSchema: object({ id: str("Application id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.deleteApplication(ctx.userId, required(args, "id")),
   },
   {
     name: "log_activity",
     title: "Log activity on an application or a contact",
     description:
-      "Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered.",
+      "Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered. Type OUTREACH is for messages the user sent first — a LinkedIn DM to a hiring manager, a cold email — which is how many applications actually start.",
     inputSchema: object(
       {
         applicationId: str("Application id — for events on an application"),
@@ -1178,6 +1636,12 @@ export const tools: McpTool[] = [
       },
       ["body"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.addActivity(ctx.userId, {
         applicationId: s(args, "applicationId"),
@@ -1196,6 +1660,12 @@ export const tools: McpTool[] = [
       applicationId: str("Limit to one application"),
       limit: num("Max entries, default 40"),
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.listActivities(ctx.userId, s(args, "applicationId"), n(args, "limit") ?? 40),
   },
   {
@@ -1206,6 +1676,12 @@ export const tools: McpTool[] = [
     inputSchema: object({
       withinDays: num("Look ahead this many days. 0 = due now, 7 = due within a week."),
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const withinDays = n(args, "withinDays") ?? 0;
       const [applications, contacts] = await Promise.all([
@@ -1221,18 +1697,44 @@ export const tools: McpTool[] = [
     description:
       "Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.diagnoseSearch(ctx.userId),
   },
   {
     name: "share_pipeline",
     title: "Get a read-only link to the pipeline",
     description:
-      "Mint a link that shows this person's pipeline to anyone holding it, without a login — for a friend, a coach or a former manager who is helping review the search. Returns the slug; the full URL is the instance address plus /p/<slug>. Calling it twice returns the same link rather than a second one. What a viewer sees is deliberately narrow: company, role, stage, location, how long each has been sitting and when a follow-up is due. They do NOT see notes, job descriptions, salary, contacts or the activity timeline — say so if someone asks what will be visible, because a share link is consent to show a search, not to publish the people in it. Set include_closed to show finished applications too.",
+      "Mint a link that shows this person's pipeline to anyone holding it, without a login — for a friend, a coach or a former manager who is helping review the search. Returns publicUrl, which is the whole point: hand it straight to the user. Calling it twice returns the same link rather than a second one. What a viewer sees is deliberately narrow: company, role, stage, location, how long each has been sitting and when a follow-up is due. They do NOT see notes, job descriptions, salary, contacts or the activity timeline — say so if someone asks what will be visible, because a share link is consent to show a search, not to publish the people in it. Set include_closed to show finished applications too.",
     inputSchema: object({
       include_closed: bool("Show accepted / rejected / withdrawn / ghosted applications too. Default false."),
     }),
-    handler: async (args, ctx) =>
-      pipelineShare.sharePipeline(ctx.userId, { includeClosed: b(args, "include_closed") }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const share = await pipelineShare.sharePipeline(ctx.userId, {
+        includeClosed: b(args, "include_closed"),
+      });
+      const publicUrl = publicPipelineUrl(ctx.baseUrl, share.slug);
+      return withLinks({ ...share, publicUrl }, [
+        {
+          type: "resource_link",
+          uri: publicUrl,
+          name: "Shared pipeline",
+          description:
+            "Read-only pipeline. Shows company, role, stage and follow-up dates — never notes, salary or contacts.",
+          mimeType: "text/html",
+        },
+      ]);
+    },
   },
   {
     name: "unshare_pipeline",
@@ -1240,15 +1742,39 @@ export const tools: McpTool[] = [
     description:
       "Stop sharing the pipeline. This DESTROYS the address rather than pausing it — anyone holding the old link gets nothing, and sharing again later mints a completely different URL. That is deliberate: the reason to revoke is usually that a link reached someone it should not have, and a pause that can be undone does not fix that.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => pipelineShare.unsharePipeline(ctx.userId),
   },
   {
     name: "get_pipeline_share",
     title: "Check whether the pipeline is shared",
     description:
-      "Whether a read-only pipeline link currently exists, what it shows, and when it was last opened. Returns null when nothing is shared. Use it before minting a link so you can tell someone they already have one, and to answer 'has anyone actually looked at it'.",
+      "Whether a read-only pipeline link currently exists, what it shows, and when it was last opened. Returns null when nothing is shared, and publicUrl when something is. Use it before minting a link so you can tell someone they already have one, and to answer 'has anyone actually looked at it'.",
     inputSchema: object({}),
-    handler: async (_args, ctx) => pipelineShare.getPipelineShare(ctx.userId),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => {
+      const share = await pipelineShare.getPipelineShare(ctx.userId);
+      if (!share) return null;
+      const publicUrl = publicPipelineUrl(ctx.baseUrl, share.slug);
+      return withLinks({ ...share, publicUrl }, [
+        {
+          type: "resource_link",
+          uri: publicUrl,
+          name: "Shared pipeline",
+          mimeType: "text/html",
+        },
+      ]);
+    },
   },
   {
     name: "list_saved_views",
@@ -1256,13 +1782,19 @@ export const tools: McpTool[] = [
     description:
       "The cuts of the pipeline this person has named and kept — 'Chasing', 'Dream jobs', 'Gone quiet'. Each one returns a name and a query string like \"view=list&f=SCREEN,INTERVIEW&sort=waiting\". Call this when someone refers to a view by name, then use the query to work out what they mean: f is a comma-separated list of stages, sort and dir order the table, q is a search. Reading a view tells you what they consider one job; it is a good place to look before asking what they want reviewed.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => views.listSavedViews(ctx.userId),
   },
   {
     name: "save_view",
     title: "Save a pipeline view under a name",
     description:
-      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.",
+      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search), and month (YYYY-MM, which the calendar view uses). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.",
     inputSchema: object(
       {
         name: str("What to call it, e.g. 'Chasing'"),
@@ -1270,6 +1802,12 @@ export const tools: McpTool[] = [
       },
       ["name", "query"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       views.saveView(ctx.userId, required(args, "name"), s(args, "query") ?? ""),
   },
@@ -1279,6 +1817,12 @@ export const tools: McpTool[] = [
     description:
       "Remove a saved pipeline view. Only the view goes — nothing about the applications it was showing is touched. Get the id from list_saved_views.",
     inputSchema: object({ id: str("Saved view id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => views.deleteSavedView(ctx.userId, required(args, "id")),
   },
   {
@@ -1293,6 +1837,12 @@ export const tools: McpTool[] = [
       },
       ["from", "to"],
     ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.listSchedule(ctx.userId, required(args, "from"), endOfDay(required(args, "to"))),
   },
@@ -1301,6 +1851,12 @@ export const tools: McpTool[] = [
     title: "List tasks",
     description: "To-dos, optionally attached to an application.",
     inputSchema: object({ done: bool("Filter by completion state. Omit for all.") }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.listTasks(ctx.userId, { done: b(args, "done") }),
   },
   {
@@ -1316,6 +1872,12 @@ export const tools: McpTool[] = [
       },
       ["title"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.createTask(ctx.userId, {
         title: required(args, "title"),
@@ -1331,6 +1893,12 @@ export const tools: McpTool[] = [
     title: "Complete or reopen a task",
     description: "Mark a task done, or reopen it with done: false.",
     inputSchema: object({ id: str("Task id"), done: bool("Default true") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.setTaskDone(ctx.userId, required(args, "id"), b(args, "done") ?? true),
   },
   // --- CRM: companies and the people at them -------------------------------
@@ -1338,9 +1906,26 @@ export const tools: McpTool[] = [
     name: "list_companies",
     title: "List companies",
     description:
-      "Every company on file, with how many applications and contacts each one has. Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes.",
-    inputSchema: object({ search: str("Match name, industry, location or notes") }),
-    handler: async (args, ctx) => pipeline.listCompanies(ctx.userId, { search: s(args, "search") }),
+      "Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.",
+    inputSchema: object({
+      search: str("Match name, industry, location or notes"),
+      filter: {
+        type: "string",
+        enum: [...COMPANY_FILTERS],
+        description: "Cut the list: active | applied | never-applied | with-contacts",
+      },
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.listCompanies(ctx.userId, {
+        search: s(args, "search"),
+        filter: enumArg(args, "filter", COMPANY_FILTERS),
+      }),
   },
   {
     name: "get_company",
@@ -1348,6 +1933,12 @@ export const tools: McpTool[] = [
     description:
       "Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every contact who works there. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.",
     inputSchema: object({ id: str("Company id") }, ["id"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       // Every other get_* raises here rather than returning null, and it has to:
       // a null serialises as {"ok": true}, which reads like a hit.
@@ -1372,6 +1963,12 @@ export const tools: McpTool[] = [
       },
       ["name"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.createCompany(ctx.userId, {
         name: required(args, "name"),
@@ -1401,6 +1998,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.updateCompany(
         ctx.userId,
@@ -1421,24 +2024,42 @@ export const tools: McpTool[] = [
     description:
       "Remove a company record. Refuses while applications still point at it — move or delete those first, so tidying up a company can never take an application with it. Contacts survive and simply lose their employer.",
     inputSchema: object({ id: str("Company id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.deleteCompany(ctx.userId, required(args, "id")),
   },
   {
     name: "list_contacts",
     title: "List contacts",
     description:
-      "Recruiters, hiring managers and referrals. Narrow by application, by company, or by a search across name, title, email, notes and employer. Returns each person with their company and the application they are attached to.",
+      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = no employer on file. Returns each person with their company and the application they are attached to.",
     inputSchema: object({
       applicationId: str("Limit to one application"),
       companyId: str("Limit to people at one company"),
       search: str("Match name, title, email, notes or company"),
+      filter: {
+        type: "string",
+        enum: [...CONTACT_FILTERS],
+        description: "Cut the list: ping-due | with-application | no-company",
+      },
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.listContacts(ctx.userId, {
         ...defined({
           applicationId: s(args, "applicationId"),
           companyId: s(args, "companyId"),
           search: s(args, "search"),
+          filter: enumArg(args, "filter", CONTACT_FILTERS),
         }),
       }),
   },
@@ -1448,6 +2069,12 @@ export const tools: McpTool[] = [
     description:
       "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => {
       const contact = await pipeline.getContact(ctx.userId, required(args, "id"));
       if (!contact) throw new Error(`No contact with id ${required(args, "id")}`);
@@ -1475,6 +2102,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.updateContact(
         ctx.userId,
@@ -1498,6 +2131,12 @@ export const tools: McpTool[] = [
     title: "Delete a contact",
     description: "Remove a person. Their company and any application they were attached to stay.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) => pipeline.deleteContact(ctx.userId, required(args, "id")),
   },
   {
@@ -1518,6 +2157,12 @@ export const tools: McpTool[] = [
       },
       ["name"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     handler: async (args, ctx) =>
       pipeline.createContact(ctx.userId, {
         name: required(args, "name"),
@@ -1543,6 +2188,12 @@ export const tools: McpTool[] = [
     description:
       "The account this connection belongs to: name, email, role, and whether it can administer the instance. Every other tool acts as this person and can only see their data.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     handler: async (_args, ctx) => ({
       id: ctx.user.id,
       name: ctx.user.name,
@@ -1551,6 +2202,131 @@ export const tools: McpTool[] = [
       isAdmin: isAdmin(ctx.user),
       memberSince: ctx.user.createdAt,
     }),
+  },
+  {
+    name: "list_connections",
+    title: "List AI connections",
+    description:
+      "Every assistant wired to this workspace: what it is called, which client it was set up for, when it last called in and from what. Reach for it to answer 'which of these am I still using?' or before rotating something — the ids come back here. Tokens deliberately do not: they are credentials, they would sit in this transcript forever, and the only place a person needs to see one is the client they are pasting it into. `isThisOne` marks the connection you are calling through right now.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => {
+      const rows = await connections.listConnections(ctx.userId);
+      return rows.map((row) => ({
+        id: row.id,
+        name: row.name,
+        client: row.client,
+        clientName: clientName(row.client),
+        createdAt: row.createdAt,
+        lastUsedAt: row.lastUsedAt,
+        lastUsedFrom: guessClient(row.lastUsedFrom) || null,
+        isThisOne: row.id === ctx.connectionId,
+      }));
+    },
+  },
+  {
+    name: "create_connection",
+    title: "Connect another assistant",
+    description:
+      "Mint a new connection URL so a second client — the laptop's editor, a phone app, a terminal — can reach this workspace too. Returns the URL and the exact steps for that client, so you can hand somebody a copy-paste answer to 'how do I add this to Cursor?'. Give every client its own rather than sharing one: that is what lets a single laptop be disconnected later without breaking everything else. The URL is a credential with full read and write over this person's brain, resumes and pipeline — say so when you hand it over, and never post it anywhere it will be stored.",
+    inputSchema: object({
+      client: str(
+        "Which client it is for: claude | claude-code | chatgpt | cursor | vscode | windsurf | generic-http | stdio-bridge | raw. Sets the setup steps returned.",
+      ),
+      name: str("What to call it in the list, e.g. 'Cursor — work laptop'. Defaults to the client's name."),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const client = s(args, "client") ?? "generic-http";
+      const row = await connections.createConnection(ctx.userId, {
+        client,
+        ...defined({ name: s(args, "name") }),
+      });
+      const url = `${ctx.baseUrl}/api/mcp/${row.token}`;
+      const recipe = clientsById.get(row.client);
+      return {
+        id: row.id,
+        name: row.name,
+        client: row.client,
+        url,
+        setup: recipe?.steps(url) ?? [],
+        docs: recipe?.docs ?? null,
+        warning: "This URL is a password. Anyone holding it can read and write this workspace.",
+      };
+    },
+  },
+  {
+    name: "rename_connection",
+    title: "Rename a connection",
+    description:
+      "Change what a connection is called in the list. Names are for the person, not the machine — 'Cursor — old laptop' is what makes it obvious later which one to revoke. Get the id from list_connections.",
+    inputSchema: object({ id: str("Connection id"), name: str("The new name") }, ["id", "name"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      await connections.renameConnection(ctx.userId, required(args, "id"), required(args, "name"));
+      return { id: required(args, "id"), renamed: true };
+    },
+  },
+  {
+    name: "rotate_connection",
+    title: "Issue a new token for a connection",
+    description:
+      "Kill a connection's URL and issue a fresh one on the same row, keeping its name and place in the list. This is the answer to 'I sold that laptop' or 'I pasted the URL in a chat by mistake' — the old address stops working the moment this returns, and nothing else is affected. It also means the client that was using it goes dark until somebody pastes the new URL in, so say that before doing it. Returns the new URL; treat it like the password it is.",
+    inputSchema: object({ id: str("Connection id, from list_connections") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const id = required(args, "id");
+      const token = await connections.rotateConnection(ctx.userId, id);
+      return {
+        id,
+        url: `${ctx.baseUrl}/api/mcp/${token}`,
+        warning:
+          "The old URL is dead. Paste this one into that client or it stays disconnected. It is a password.",
+      };
+    },
+  },
+  {
+    name: "delete_connection",
+    title: "Disconnect an assistant",
+    description:
+      "Remove a connection for good. Its URL stops working immediately and cannot be brought back — a replacement is a new connection with a new URL. Prefer rotate_connection when the client is still in use and only the URL has leaked. Check list_connections first: deleting the one you are calling through ends this session mid-conversation.",
+    inputSchema: object({ id: str("Connection id, from list_connections") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const id = required(args, "id");
+      if (id === ctx.connectionId) {
+        throw new Error(
+          "That is the connection you are talking through. Delete it from Settings, or delete a different one.",
+        );
+      }
+      await connections.deleteConnection(ctx.userId, id);
+      return { id, deleted: true };
+    },
   },
 
   // -------------------------------------------------------------------------
@@ -1562,6 +2338,12 @@ export const tools: McpTool[] = [
     description:
       "How many people are on this instance, how many are active, how many invites are outstanding, and how much material exists across all accounts. Aggregate counts only — never another person's content.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async () => {
       const [stats, settings] = await Promise.all([users.instanceStats(), getSettings()]);
@@ -1574,6 +2356,12 @@ export const tools: McpTool[] = [
     description:
       "Controls whether the pipeline shows a company's favicon next to its name. When on, each person's browser asks twenty-icons.com for the logo, which means that service can see which companies are in their pipeline — turn it off for an instance where that matters and everyone gets initials on a coloured tile instead. Nothing else changes; no data is stored or deleted either way. Call admin_instance_stats to read the current state.",
     inputSchema: object({ enabled: bool("On shows logos, off shows initials only") }, ["enabled"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const enabled = b(args, "enabled");
@@ -1588,6 +2376,12 @@ export const tools: McpTool[] = [
     description:
       "Everyone on the instance with their role, whether they are active, when they last signed in, and how much they have built. Does not expose anyone's brain, resumes or applications.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async () => users.listUsers(),
   },
@@ -1597,6 +2391,12 @@ export const tools: McpTool[] = [
     description:
       "Everything known about a single account, for when someone asks for help: when they joined, who invited them, whether that invitation email actually went out, when they last signed in, which assistants they have connected and when each last called, whether they are being billed, how much they have built, every administrative change made to their account, and anything the instance recorded against their address — a bounced invite, a tool call that threw. Start here before admin_reset_user_password or admin_set_user_active, because it tells you whether the problem is the account or the email. Takes a user id from admin_list_users. Returns counts of what is in their workspace, never its contents: no brain, no resumes, no applications, and never a connection token. `manageable` says whether you are allowed to act on this account at all — it is false for the instance owner, for yourself, and for another admin when you are not the owner.",
     inputSchema: object({ user_id: str("The user's id, from admin_list_users") }, ["user_id"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const id = required(args, "user_id");
@@ -1625,6 +2425,12 @@ export const tools: McpTool[] = [
       },
       ["email"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const result = await users.createInvite({
@@ -1650,6 +2456,12 @@ export const tools: McpTool[] = [
     title: "List outstanding invites",
     description: "Invitations that have not been accepted yet, with their links and expiry.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async () => users.listInvites(),
   },
@@ -1658,6 +2470,12 @@ export const tools: McpTool[] = [
     title: "Revoke an invite",
     description: "Cancel an outstanding invitation so its link stops working.",
     inputSchema: object({ id: str("Invite id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => users.revokeInvite(ctx.user, required(args, "id")),
   },
@@ -1667,6 +2485,12 @@ export const tools: McpTool[] = [
     description:
       "Generate a new password for a member who is locked out, and return it once so it can be passed on. Every session they had is ended, so an old browser stays logged out. Cannot be used on the instance owner, and an admin cannot reset another admin's password — that restriction is what stops this being a way to take over an instance. The reset is written to the audit log; the password itself never is.",
     inputSchema: object({ user_id: str("The user's id, from admin_list_users") }, ["user_id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => users.adminResetPassword(ctx.user, required(args, "user_id")),
   },
@@ -1685,6 +2509,12 @@ export const tools: McpTool[] = [
       },
       search: str("An email address, whole or partial. Matches the admin who acted or the account acted on."),
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args) =>
       audit.listAudit(
@@ -1700,8 +2530,14 @@ export const tools: McpTool[] = [
     name: "admin_health",
     title: "Check whether the instance is working",
     description:
-      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
+      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Configuration → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async () => system.instanceHealth(),
   },
@@ -1723,6 +2559,12 @@ export const tools: McpTool[] = [
         description: "Only entries from this part of the app. Omit for everything.",
       },
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args) =>
       system.listSystemEvents(
@@ -1741,6 +2583,12 @@ export const tools: McpTool[] = [
     inputSchema: object({
       pendingOnly: bool("Only the people still waiting. Defaults to false, which returns everyone who ever asked."),
     }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args) => {
       const [entries, stats] = await Promise.all([
@@ -1766,6 +2614,12 @@ export const tools: McpTool[] = [
       },
       ["id"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const result = await waitlist.inviteFromWaitlist({
@@ -1792,6 +2646,12 @@ export const tools: McpTool[] = [
     description:
       "Delete a request from the waitlist for good — spam, a duplicate, or someone who asked to be taken off. This does not revoke an invitation that was already sent; use admin_revoke_invite for that. Irreversible, so read admin_list_waitlist first and remove by id.",
     inputSchema: object({ id: str("The signup id from admin_list_waitlist") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args) => {
       await waitlist.removeWaitlistSignup(required(args, "id"));
@@ -1810,6 +2670,12 @@ export const tools: McpTool[] = [
       },
       ["userId", "role"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) =>
       users.setUserRole(ctx.user, required(args, "userId"), required(args, "role") as UserRole),
@@ -1823,6 +2689,12 @@ export const tools: McpTool[] = [
       { userId: str("User id"), isActive: bool("true to reactivate, false to suspend") },
       ["userId", "isActive"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) =>
       users.setUserActive(ctx.user, required(args, "userId"), b(args, "isActive") ?? true),
@@ -1833,6 +2705,12 @@ export const tools: McpTool[] = [
     description:
       "PERMANENT. Removes the account and everything it owns: brain, resumes, applications. Confirm with the person you are talking to before calling this.",
     inputSchema: object({ userId: str("User id") }, ["userId"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => users.deleteUser(ctx.user, required(args, "userId")),
   },
@@ -1842,6 +2720,12 @@ export const tools: McpTool[] = [
     description:
       "Whether Resend is wired up, and the from address invitations will come from. The API key is returned masked.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async () => {
       const settings = await getSettings();
@@ -1868,6 +2752,12 @@ export const tools: McpTool[] = [
       instanceName: str("What this instance is called, used in invitation emails"),
       publicUrl: str("Public base URL, used to build invite links, e.g. https://you.up.railway.app"),
     }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       await updateSettings(
@@ -1889,6 +2779,12 @@ export const tools: McpTool[] = [
     title: "Send a test email",
     description: "Proves the Resend configuration actually delivers. Returns the exact error if it does not.",
     inputSchema: object({ to: str("Where to send it. Defaults to your own address.") }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: true,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const settings = await getSettings();
@@ -1905,6 +2801,12 @@ export const tools: McpTool[] = [
     description:
       "Whether Stripe billing is wired up for hosting other people on this instance for a fee, how many users currently pay, and the exact webhook URL to paste into the Stripe Dashboard. Keys come back masked. Billing only governs users who arrived through a Stripe checkout — the owner and free invitees are never touched by it.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (_args, ctx) => {
       const settings = await getSettings();
@@ -1929,6 +2831,12 @@ export const tools: McpTool[] = [
       stripeWebhookSecret: str("Webhook signing secret, starts with whsec_"),
       stripePaymentLink: str("The Stripe Payment Link people pay through, e.g. https://buy.stripe.com/..."),
     }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       await updateSettings(
@@ -1949,6 +2857,12 @@ export const tools: McpTool[] = [
     description:
       "Asks Stripe for the current subscription state and reconciles this instance against it — the recovery path for a missed webhook. Pass an email to sync one billed user, or nothing to sync everyone with a Stripe customer attached. Reports what changed per person: activated, suspended, or unchanged. Safe to run any time.",
     inputSchema: object({ email: str("One billed user's email. Omit to sync all billed users.") }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const results = await syncAllBilling(ctx.baseUrl, s(args, "email") || undefined);
@@ -1968,6 +2882,12 @@ export const tools: McpTool[] = [
       },
       ["email"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
     adminOnly: true,
     handler: async (args, ctx) =>
       linkBillingCustomer({
@@ -1983,6 +2903,12 @@ export const tools: McpTool[] = [
     description:
       "Every configurable value on this instance in one list: its key, what it does, what it is set to now, and whether it is still on the built-in default. This is the whole of what a self-hosted instance stores as configuration, so start here when someone asks where a setting lives or why the app is behaving a certain way. Secrets come back masked — no tool ever returns a raw key. Variables an admin added by hand are marked known:false; they have no form in the app and are read by whatever feature asked for them.",
     inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async () => ({ variables: await listVariables() }),
   },
@@ -1998,6 +2924,12 @@ export const tools: McpTool[] = [
       },
       ["key", "value"],
     ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => {
       const key = required(args, "key");
@@ -2014,6 +2946,12 @@ export const tools: McpTool[] = [
     description:
       "Removes a variable's stored value. A setting the app declares falls back to its built-in default — clearing the Resend key stops every invitation email, clearing company_logos turns logos back on — and a variable an admin added disappears entirely. Call admin_list_variables first to see what the default would be, because this is the one settings call with no undo. Recorded in the audit log.",
     inputSchema: object({ key: str("The variable's key, from admin_list_variables") }, ["key"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: true,
     handler: async (args, ctx) => deleteVariable(ctx.user, required(args, "key")),
   },
@@ -2287,6 +3225,14 @@ function promptAsTool(prompt: McpPrompt): McpTool {
       `${prompt.description} Returns a step-by-step plan for this job — follow the steps it gives you, ` +
       `calling the tools it names. This is a workflow, not a data lookup: nothing is read or written until you act on it.`,
     inputSchema: object(properties, requiredArgs),
+    // A workflow tool hands back the plan it was always going to hand back.
+    // It reads nothing and writes nothing; the tools it names do that.
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
     adminOnly: prompt.adminOnly,
     handler: async (args) => {
       const stringArgs: Record<string, string> = {};

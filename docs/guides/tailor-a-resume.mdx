@@ -1,0 +1,156 @@
+---
+title: "Tailoring a resume"
+description: "Reading a posting for what it actually rewards, mining the brain for real evidence, and writing bullets that survive the follow-up question."
+icon: "wand-magic-sparkles"
+---
+
+The job is not "rewrite this resume with the posting's words in it". Keyword matching
+gets past a filter and then falls apart in the room, because the person across the table
+asks one follow-up question and there is nothing behind the bullet.
+
+The job is: find the true things that matter most for *this* role, and lead with them.
+
+## The short version
+
+Paste the posting and ask:
+
+> Tailor my resume to this posting, and tell me what I can't evidence.
+
+That triggers the [`tailor_resume`](/workflows#tailor-a-resume-to-a-job) workflow, which runs the
+whole loop below and finishes with a gap report. What follows is what it is doing, and
+why each step is there.
+
+## Read the posting for what it rewards
+
+A posting has three layers, and only one is worth optimising for.
+
+<Steps>
+  <Step title="Boilerplate">
+    "Fast-paced environment", "wear many hats", the benefits list. Ignore entirely.
+  </Step>
+  <Step title="Stated requirements">
+    The bullet list. Necessary, not sufficient — everyone applying matches most of these.
+  </Step>
+  <Step title="The actual problem">
+    What they are hiring someone to *fix*. Usually in the first paragraph, in one oddly
+    specific requirement, or in what the team is described as about to do.
+    "Scale the billing platform ahead of enterprise launch" tells you more than eight
+    bullet points do.
+  </Step>
+</Steps>
+
+Pull out 8–12 things the posting genuinely cares about, ordered by how much they seem to
+matter. State what you think the real problem is — it is a claim you can be corrected on,
+and being wrong out loud is cheap.
+
+## Mine the brain, one requirement at a time
+
+For each requirement, search the brain for it — and search for the **concept**, not the
+posting's phrasing. Your brain dump says "cut the nightly job from 6h to 20m". It does
+not say "experience with performance optimisation".
+
+Three outcomes, and all three are fine:
+
+| Outcome | What to do |
+| --- | --- |
+| **Strong evidence** | A highlight or a dump passage with a number in it. Use it, lead with it. |
+| **Weak evidence** | Adjacent, real, but not the thing. Use it honestly, positioned as what it is. |
+| **Nothing** | Say so. Do not stretch. |
+
+<Warning>
+  **Do not upgrade the middle row into the top one.** That is the failure this whole
+  product is built around. "Helped with" becoming "led", a credit becoming a hire, an
+  unverified number becoming a cited one — each maps neatly onto a stated requirement, so
+  it never feels like invention while it is happening.
+</Warning>
+
+## Should you even apply?
+
+Sometimes the answer to a posting is no, and it is much cheaper to find that out before
+writing anything.
+
+> Run a gap report on this posting.
+
+[`gap_report`](/workflows#gap-report) does the mining without the writing. It returns
+three lists — **backed**, **thin**, **missing** — with the strongest quote for each backed
+item and the precise gap for each thin one. Then it says roughly how much of the posting's
+core is covered and whether tailoring is worth it.
+
+The best part is the last step: for each missing and thin item it asks one concrete
+question that would surface the evidence if it exists. People forget their own work
+constantly. Anything you answer gets appended to the brain, and it is backed for every
+future application rather than just this one.
+
+## Writing the bullets
+
+A bullet that survives an interview has a shape: **what changed, by how much, because of
+what you did.**
+
+> Cut nightly billing runtime from 6h to 20m by rewriting the pipeline in Go — 18x
+> faster, and it stopped paging the on-call every Tuesday.
+
+Not:
+
+> Responsible for performance optimisation of billing infrastructure.
+
+Rules that hold up:
+
+- **The number goes in the bullet, not the summary.** Summaries are skimmed.
+- **Lead with the outcome, not the technology.** The stack is a detail of how.
+- **One idea per bullet.** Two ideas joined by "and" is either two bullets or one weak one.
+- **Their words for their concepts, your words for your work.** If they say "platform
+  reliability" and your brain says "uptime", use "reliability" — same idea. Do not import
+  a *verb* the evidence does not support.
+- **Never a metric that is not in the brain.** If the number is not on file, the bullet
+  does not get a number. Ask for it instead.
+
+## The order of operations
+
+<Steps>
+  <Step title="get_resume_format">
+    The document shape and what each field means, so what gets written validates.
+  </Step>
+  <Step title="Read the posting">
+    State the 8–12 requirements and your read of the real problem.
+  </Step>
+  <Step title="search_brain, per requirement">
+    Collect the evidence with its ids, so every claim can be traced.
+  </Step>
+  <Step title="get_brain_snapshot">
+    Profile, dates, education, skills — the parts that are the same on every document.
+  </Step>
+  <Step title="Draft">
+    Order the experience so the most relevant role leads. Rename headings where it helps.
+  </Step>
+  <Step title="preview_resume_text">
+    Check it lands near one page **before** saving anything.
+  </Step>
+  <Step title="Save it">
+    `create_resume`, named `"<Company> — <Role>"`, with `targetRole` and `targetCompany`
+    set. Adapting an existing one? `duplicate_resume` first and edit the copy — never the
+    version already attached to an application.
+  </Step>
+  <Step title="Hand back the honest summary">
+    What was led with, what was cut, and what could not be evidenced.
+  </Step>
+</Steps>
+
+## If there is a company record
+
+Check it. `list_companies` then `get_company` — research notes often carry the thing the
+posting does not say: who you know there, what the loop is, why you actually want it.
+That shapes the summary line more than the posting does.
+
+## What you should get back
+
+- The resume, saved, with its name.
+- The two or three bullets worth defending hardest, and why.
+- The requirements with no evidence behind them.
+- Anything deliberately left off, so you can put it back.
+
+That third item is the one to read twice. It is a to-do list for your career, not a
+failure report.
+
+<Card title="Publishing or exporting it" icon="link" href="/guides/publish-and-export" horizontal>
+  A PDF for the forms that want a file, an unlisted URL for the ones that want a link.
+</Card>

@@ -1,0 +1,164 @@
+---
+title: "Security and privacy"
+description: "What one person can and cannot see of another, what a connection token grants, what an unlisted link exposes, and what is deliberately not built."
+icon: "lock"
+---
+
+## Workspaces are isolated by construction
+
+Every function that touches content takes the owning account as its **first positional
+argument**, and every query filters on it. It is positional and required precisely so that
+a call site which forgot does not compile.
+
+An account id never arrives from a client. Server actions resolve the caller from their
+session cookie; MCP tools resolve them from the connection token, on every request.
+
+The practical consequence: there is no code path from one workspace to another. Not
+through the app, not through an assistant, not through an admin.
+
+## What an admin can and cannot do
+
+<CardGroup cols={2}>
+  <Card title="Can" icon="check">
+    Invite people, revoke invitations, change roles, suspend and reactivate accounts,
+    delete accounts, reset a member's password, configure email and billing, change any
+    instance variable, read the audit log and the error stream, see per-workspace
+    **counts**.
+  </Card>
+  <Card title="Cannot" icon="xmark">
+    Read anyone's brain, resumes, applications, companies, contacts or notes. See a
+    connection token. Reset another admin's password, or the owner's. Act on themselves.
+  </Card>
+</CardGroup>
+
+An admin can act on members only — never on the owner, never on another admin, never on
+themselves. That is what stops the admin area being a route to taking over an instance, and
+it is enforced on every path.
+
+Creating new admins is *mostly* the owner's alone: inviting someone as an admin refuses any
+other caller, and the promote control in **Admin → People** is only rendered for the owner.
+The exception is `admin_set_user_role` over MCP, which checks only that an admin is acting
+on a member — so an admin with a connection can promote one. It gains that admin nothing
+they did not already have, but it does mean the admin set is not the owner's to control
+alone. Treat an admin account as trusted accordingly.
+
+Every administrative action is written to the audit log with the acting admin's name,
+values included for everything that is not a secret. Secrets are recorded as having been
+set, never as their value. Audit rows survive the deletion of the account they describe.
+
+## Connection tokens
+
+A connection URL contains a secret token tied to **one account**. It cannot reach anyone
+else's data. It can read and write all of that account's data.
+
+- **Treat it like a password.** Never in a chat, a ticket, a screenshot or a repository.
+- **One per client.** That is what makes revocation surgical rather than all-or-nothing.
+- **`list_connections` never returns tokens** — they would sit in a transcript forever. The
+  only place anyone needs to see one is the client they are pasting it into.
+- **`rotate_connection`** kills a URL and issues a fresh one on the same row, keeping its
+  name and place in the list. The old address stops working the moment it returns.
+- **`delete_connection`** removes it for good; a replacement is a new connection with a new
+  URL.
+
+Suspending an account blocks its logins **and** its MCP connections immediately.
+
+## Passwords and sessions
+
+Passwords are **scrypt** hashes from the standard library — no native dependency, and the
+parameters are stored alongside each hash so they can be raised later.
+
+Sessions are `httpOnly` cookies with `sameSite: lax`, and `secure` in production. Signing
+out and every password reset end existing sessions, so an old browser stays logged out.
+
+Sign-in attempts are counted two ways: **8 failures per account** and **30 per address**,
+both in a rolling fifteen-minute window, with a fifteen-minute lockout. The code being
+public is not the same as the door being open.
+
+## The three public pages
+
+Only two of them are reachable without signing in, and unlisted links are the entire
+privacy model for both.
+
+<AccordionGroup>
+  <Accordion title="/r/<slug> — a published resume" icon="file-lines">
+    Readable by anyone holding the link. The slug is long and random so it cannot be
+    guessed or walked, the page tells search engines not to index it, and it is listed
+    nowhere.
+
+    Your private notes on the resume are **not** on the page. If the resume has
+    `showPhoto` on, **your face is** — decide that before publishing.
+
+    Withdrawing **destroys** the address rather than pausing it. Publishing the same resume
+    again mints a different URL, so a link you regret sending stays dead.
+  </Accordion>
+
+  <Accordion title="/p/<slug> — a shared pipeline" icon="table-columns">
+    Deliberately narrow. A viewer sees company, role, stage, location, how long each has
+    been sitting, and when a follow-up is due — optionally the closed applications too.
+
+    They do **not** see notes, job descriptions, salary, contacts, or the activity
+    timeline. A share link is consent to show a search, not to publish the people in it.
+
+    Revoking destroys the address. Sharing again later mints a different one.
+  </Accordion>
+
+  <Accordion title="/print/<id> — the print page" icon="print">
+    **Auth-gated**, unlike the other two. It is the US-Letter page your browser prints, and
+    the fallback where a host has no headless browser.
+  </Accordion>
+</AccordionGroup>
+
+There are no per-viewer permissions and no passwords on these pages, because everyone you
+would send one to is someone you already decided to send it to.
+
+## What connected assistants are told
+
+Before an assistant sees a single tool, it receives a briefing generated for the account
+it is connected as. It carries the four areas, which tool to reach for first in each, the
+fact that connection URLs are credentials that must never be repeated where they will be
+stored — and the standing rules:
+
+- Never invent experience, employers, dates or metrics. Everything on a resume must trace
+  back to something in the brain. If evidence is missing, say so and ask.
+- Use `append_role_brain_dump` rather than `update_role` for new material about a job
+  already on file.
+- `update_resume` and `update_role` replace what you send. Read first, modify, write back
+  whole.
+- Prefer a tailored copy over editing a resume already attached to an application.
+- A published resume is readable by anyone holding its link, and unpublishing destroys the
+  link rather than pausing it. Say which resume you are publishing, and warn before
+  withdrawing one that may already be out in the world.
+- The profile photo is one picture the whole app shares. Only ever use a file or link the
+  user gave you; never find them a picture.
+
+Your own [standing rules](/concepts/brain#standing-rules) are appended to that briefing,
+under a header saying they override any inference the assistant would otherwise make. They
+share a 4,096-character budget; if you have more than fits, the rest are dropped — and the
+briefing says so out loud rather than truncating them silently, so the assistant knows some
+are missing and you can trim them.
+
+## What leaves your instance
+
+Very little, and all of it is optional.
+
+| What | When | How to stop it |
+| --- | --- | --- |
+| Company favicons from `twenty-icons.com` | Only if company logos are on. Each viewer's browser makes the request, so that service can see which companies are in a pipeline. | Turn logos off instance-wide. |
+| Invitation and notification email, via Resend | Only if email is configured. | Do not configure it — invites still work as links. |
+| Stripe API calls | Only if billing is configured. | Do not configure it. |
+| Fetching a job posting page | Only when `capture_job_posting` is called. | Do not call it. |
+| Fetching an image URL | Only when `set_profile_photo` is given an `https` URL. | Pass the bytes instead. |
+
+Nothing else. No analytics, no telemetry, no webfont on a rendered document.
+
+## What is deliberately not built
+
+Sharing that involves **accounts** — viewers, editors, workspace members — does not exist,
+and it is not an oversight.
+
+The unlisted links are the deliberate ceiling: a link is consent. An account system is a
+permissions model this product does not have, and growing one as a side quest is how a
+tool that keeps one person's career history becomes a tool that leaks it.
+
+If you need a second person to have their own data, invite them — they get a completely
+private workspace, and neither of you can see the other's.

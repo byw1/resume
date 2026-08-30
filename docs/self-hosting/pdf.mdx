@@ -1,0 +1,76 @@
+---
+title: "PDF export"
+description: "What the renderer needs, which hosts already have it, and the fallback that produces the same document where they do not."
+icon: "file-pdf"
+---
+
+Server-side PDF rendering needs a **Chromium on the machine** and a Times-metric serif
+font. Where both are present, the **PDF** button in the resume editor downloads the file
+and `export_resume_pdf` returns a download link plus the page count it actually came out
+to.
+
+| Host | One-click PDF |
+| --- | --- |
+| Docker / Compose | **Yes.** The image ships the browser and the fonts. |
+| Railway (Nixpacks) | No. Use the print-view fallback below. |
+| Your own machine | Depends on whether a Chromium is installed. |
+
+## The fallback
+
+Where the browser is missing, the **PDF** button says so rather than failing silently, and
+`export_resume_pdf` reports the same thing. The fallback produces an identical document:
+
+<Steps>
+  <Step title="Open the print view">
+    In the resume editor: **⋯ → Open print view**. It is a US-Letter page at
+    `/print/<id>`, and it is auth-gated like the rest of the app.
+  </Step>
+  <Step title="Save as PDF">
+    Your browser's print dialog → **Save as PDF**, with margins set to **None**. The page
+    already carries the template's own half-inch margins.
+  </Step>
+</Steps>
+
+Same document, one more step. The output is real selectable text either way, which is what
+matters for an applicant tracking system reading it.
+
+## Getting one-click export on a host without it
+
+The renderer checks these paths in order, and uses the first one that exists:
+
+1. `PDF_CHROMIUM_PATH`
+2. `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH`
+3. `/usr/bin/chromium`
+4. `/usr/bin/chromium-browser`
+5. `/usr/bin/google-chrome`
+6. `/usr/bin/google-chrome-stable`
+7. `/opt/pw-browsers/chromium/chrome-linux/chrome`
+8. `/root/.cache/ms-playwright/chromium/chrome-linux/chrome`
+
+Then Playwright's own versioned layout under `PLAYWRIGHT_BROWSERS_PATH` or
+`/root/.cache/ms-playwright`.
+
+So on a host where you control the image, installing `chromium`, `fonts-croscore` and
+`fonts-liberation` is usually enough, with `PDF_CHROMIUM_PATH` pointed at the browser if it
+lands somewhere unusual.
+
+<Note>
+  On Railway specifically, a Dockerfile installing those three packages does produce a
+  working renderer — but Railway's healthcheck did not come up on the resulting container,
+  so it is not the shipped default. If you want one-click PDF and do not want to solve
+  that, deploy with Compose instead.
+</Note>
+
+`PDF_CHROMIUM_PATH` is the narrow exception to the one-variable rule: it is a
+machine-level fact about the host that the app cannot discover, it is never required, and
+self-hosting still needs only `DATABASE_URL`.
+
+## Why the output looks the same everywhere
+
+No webfont is fetched. The serif stack is Tinos → Times New Roman → Liberation Serif,
+which are metrically identical, so the document renders the same on macOS, Windows and
+Linux with nothing to download and nothing to expire.
+
+The page is exactly 8.5in × 11in with the template's own margins, and the renderer is the
+same component the editor's live preview and the published page use — so what you see in
+the editor is what comes out of the file.

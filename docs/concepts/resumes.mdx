@@ -1,0 +1,167 @@
+---
+title: "Resumes"
+description: "One flat JSON document, five templates, the Harvard OCS format by default. What the contract looks like, how the editor behaves, and why every field has a default."
+icon: "file-lines"
+---
+
+A resume in Hired is two things: a document, and the design settings that decide how it
+is drawn. The document is JSON with a fixed shape; the settings are template, font, size,
+leading, accent and whether the photo shows.
+
+## The document contract
+
+One schema is shared by the database, the renderer and the tools, which is what makes it
+safe for an assistant to write documents directly. Every field is optional with a
+default, so a half-generated document still renders rather than erroring.
+
+```json The shape
+{
+  "header": {
+    "name": "", "title": "", "email": "", "phone": "",
+    "location": "", "links": [{ "label": "", "url": "" }]
+  },
+  "sections": [
+    { "kind": "experience", "heading": "Experience", "visible": true,
+      "experience": [{
+        "company": "", "title": "", "location": "",
+        "startDate": "YYYY-MM", "endDate": "YYYY-MM", "isCurrent": false,
+        "summary": "", "bullets": [""]
+      }] }
+  ]
+}
+```
+
+Seven section kinds, each reading exactly one field of the section object:
+
+| `kind` | Reads | Holds |
+| --- | --- | --- |
+| `summary` | `text` | A paragraph. |
+| `experience` | `experience[]` | company, title, location, dates, `isCurrent`, summary, bullets. |
+| `education` | `education[]` | school, degree, field, location, dates, details. |
+| `projects` | `projects[]` | name, role, url, dates, description, bullets. |
+| `skills` | `skills[]` | groups of `{ name, skills[] }`. |
+| `certifications` | `certifications[]` | name, issuer, date. |
+| `custom` | `items[]` | title, subtitle, meta, bullets — for anything else. |
+
+A new document starts with Summary, Experience, Education and Skills. Sections can be
+hidden with `visible: false` rather than deleted, reordered with the ⌃/⌄ buttons in the
+editor, and renamed freely — a *Leadership & Activities* section is an `experience`
+section with a different heading, and organisation, role, location and dates all lay out
+correctly.
+
+<Tip>
+  Call `get_resume_format` once before writing your first document. It returns this exact
+  shape plus the available templates, fonts and writing guidance, so what you build
+  validates the first time.
+</Tip>
+
+## The Harvard template
+
+New resumes default to the Harvard OCS format — the one Harvard's career office hands out
+and recruiters have read ten thousand times.
+
+- Times-metric serif, everything at one size: 10pt body, 11pt name and headings
+- Name and section headings centred over full-width rules
+- Each entry is two justified lines: **organisation** / location, then **role** / dates
+- Black and white, half-inch margins, disc bullets indented half an inch
+- No accent colours, no columns, nothing an applicant tracking system can trip over
+
+Because it leads with the organisation, fill in **both** company and title on every
+entry. An assistant is told to do this; if you are typing, do it anyway.
+
+Harvard's own convention puts Education first. That is right for students and recent
+graduates and wrong for most people with real work history, so the default order leads
+with Experience.
+
+### The other four
+
+Classic, Modern, Compact and Editorial. The **Design** menu — the palette icon in the
+editor — switches template, font family (`serif`, `inter`, `mono`), accent colour, and
+three sliders: text size 8–13pt in half points, line height 1.1–1.7, and page margins
+24–80px. All of it is per resume.
+
+<Note>
+  The tools take a narrower range than the sliders do — `fontSize` 9–12 and `lineHeight`
+  1.15–1.6 — because those are the values that reliably still look like a resume. The
+  editor lets you go further by hand.
+</Note>
+
+Only the non-Harvard templates render a photo: Classic centres it above the name; Modern,
+Compact and Editorial set it beside. Harvard ignores `showPhoto` whatever you set it to,
+because a US academic format with a face on it is the thing that marks it as not that
+format.
+
+<Note>
+  US and UK applications generally leave photos off. Much of Europe and Latin America
+  expects one. The default is off.
+</Note>
+
+## Writing one
+
+Three routes, and they suit different moments.
+
+<CardGroup cols={3}>
+  <Card title="Seed from the brain" icon="wand-magic-sparkles">
+    `create_resume` with `seedFromBrain: true` auto-populates a first draft from the
+    knowledge base. Good for the very first document, when anything beats nothing.
+  </Card>
+  <Card title="Write the document" icon="pen-to-square">
+    `create_resume` with a complete `data` document. This is what tailoring does: choose
+    the evidence deliberately, then write the whole thing.
+  </Card>
+  <Card title="Duplicate and edit" icon="copy">
+    `duplicate_resume`, then change the copy. The usual flow for a new application, and
+    the only safe one when the original is already attached to something.
+  </Card>
+</CardGroup>
+
+<Warning>
+  `update_resume` with `data` replaces the **entire** document. Call `get_resume` first,
+  modify the JSON you get back, and send the whole thing. Sending only the section you
+  changed deletes the rest.
+</Warning>
+
+### Checking length before you commit
+
+`preview_resume_text` renders a document to plain text and estimates the lines it will
+occupy **without saving anything**. It is the cheap way to answer "does this fit on one
+page?" while there is still something to cut.
+
+For the real answer, `export_resume_pdf` reports the page count measured from the
+rendered document rather than estimated.
+
+## Publishing and exporting
+
+<CardGroup cols={2}>
+  <Card title="A link" icon="link" href="/guides/publish-and-export">
+    `publish_resume` gives the document an unlisted address at `/r/<slug>`. For the
+    application forms that ask for a URL rather than a file.
+  </Card>
+  <Card title="A file" icon="file-pdf" href="/guides/publish-and-export">
+    `export_resume_pdf` renders a real PDF server-side — selectable text, exactly
+    8.5in × 11in — and hands back a download link.
+  </Card>
+</CardGroup>
+
+## In the editor
+
+The resume editor is one of the two places in Hired that is deliberately
+direct-manipulation rather than conversational. You type into the document and it saves
+itself; there is no save button anywhere, and a small indicator tells you when a change
+has landed.
+
+The paper on the right is the real renderer, not an approximation — it is the same
+component the published page and the PDF use, so what you see is what comes out.
+
+A resume also carries `notes`, which are private to you: what you tailored and why. They
+are never shown on a published page.
+
+## The rule underneath all of it
+
+Nothing goes on a resume that the brain cannot back. Not because honesty is a nice
+policy, but because a bullet with nothing behind it fails at the follow-up question,
+which is a worse place to fail than the draft.
+
+Every connected assistant is instructed accordingly, and the
+[`gap_report`](/workflows#gap-report) workflow exists to run that check *before* anything
+is written.

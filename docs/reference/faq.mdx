@@ -1,0 +1,129 @@
+---
+title: "Questions"
+sidebarTitle: "FAQ"
+description: "The things people ask before deciding whether to use this."
+icon: "circle-question"
+---
+
+<AccordionGroup>
+  <Accordion title="Do I have to use an AI assistant?">
+    No. The web app is complete: you can type brain dumps, edit resumes, drag cards, run
+    the CRM and never connect anything.
+
+    But the product is designed around the conversation, and the two halves are not equal
+    in effort. Twenty minutes of talking produces a better brain dump than twenty minutes
+    of typing into a textarea, and "tailor this to the posting and tell me what I can't
+    evidence" has no equivalent button.
+  </Accordion>
+
+  <Accordion title="Which assistant should I use?">
+    Any MCP client. Claude, Claude Code, ChatGPT, Cursor, VS Code and Windsurf all have
+    one-paste setup built into the app, and anything else takes a standard
+    `streamable-http` entry — or `mcp-remote` if it only speaks stdio.
+
+    Two things differ between clients: whether MCP **prompts** are rendered, which decides
+    whether the workflows appear as slash commands, and whether **skills** can be
+    installed. The workflows are published as ordinary tools too, so nothing is unreachable
+    either way.
+  </Accordion>
+
+  <Accordion title="Can my assistant see other people's data?">
+    No. A connection token resolves to exactly one account, on every request, and every
+    query filters on it. That is enforced by the type system rather than by a permission
+    check — a data function that forgot the account id does not compile.
+
+    Admins are the same: they manage accounts, and there is no path from an admin to
+    another person's content.
+  </Accordion>
+
+  <Accordion title="What stops it inventing things on my resume?">
+    Three layers, and they exist because the failure is real.
+
+    The **server briefing** tells every connecting client, before it sees a tool, never to
+    invent experience, employers, dates or metrics. The **skills** carry the same rule with
+    the specific failure mode named — quiet upgrading during tailoring, not fabrication
+    from nothing. And your own **standing rules** are carried in that briefing, so a
+    thing you have been burned by is stated before any work starts.
+
+    None of that is a guarantee. Read the gap list you get back; it is the part that tells
+    you what the resume could not evidence.
+  </Accordion>
+
+  <Accordion title="Is my data used to train anything?">
+    Not by Hired — it is your database on your server, and nothing leaves it except the
+    handful of optional outbound calls listed in
+    [security](/reference/security#what-leaves-your-instance).
+
+    What your assistant's vendor does with a conversation is between you and them, and
+    worth checking. Anything you ask about your career passes through their model.
+  </Accordion>
+
+  <Accordion title="What is the difference between the app's Docs page and this manual?">
+    The **Docs page inside your instance** is generated from your own deployment: your tool
+    count, your skills, your connection URL, the descriptions your assistant actually
+    receives. It cannot drift, because it is the server describing itself.
+
+    **This manual** is the written guide to the product, and it is the same for every
+    deployment.
+  </Accordion>
+
+  <Accordion title="Can I import my existing resume or LinkedIn export?">
+There is no import **tool** yet — that is the next thing being built. But there is no
+    need to wait for one, and your assistant already knows what to do.
+
+    On an empty workspace the briefing tells it to ask whether you have a resume or a
+    LinkedIn export to paste, take whatever comes back, and file it itself: your profile,
+    a role per job with the raw material in its brain dump, highlights once there is
+    something to draw them from. Paste and say "file this".
+
+    Treat it as a floor rather than a ceiling. A resume is the compressed version of your
+    career; the point of the brain is to hold what compression threw away.
+  </Accordion>
+
+  <Accordion title="Why the Harvard format?">
+    Because it is the one recruiters have read ten thousand times, and because it has
+    nothing in it for an applicant tracking system to trip over: one column, real text, no
+    graphics, no accent colours.
+
+    It is a starting point, not a cage. Four other templates ship, and the Design menu
+    changes template, font, size, leading, accent and margins per document.
+  </Accordion>
+
+  <Accordion title="Can I share a resume without publishing it publicly?">
+    Publishing *is* the private option. The address is long and random, unindexed and
+    listed nowhere, and it is the entire privacy model — there are no per-viewer
+    permissions, because everyone you would send it to is someone you already decided to
+    send it to.
+
+    If you would rather send a file, export a PDF instead.
+  </Accordion>
+
+  <Accordion title="Can two people share one workspace?">
+    No, and that is deliberate. One person per workspace, many people per instance.
+
+    Sharing that involves accounts — viewers, editors, members — is a permissions model this
+    product does not have and will not grow as a side quest. The unlisted links are the
+    ceiling: a link is consent.
+  </Accordion>
+
+  <Accordion title="What happens if I stop paying on the hosted instance?">
+    Your account is suspended, not deleted. Sign-in and assistant access stop; the data
+    stays. Paying again turns it back on.
+  </Accordion>
+
+  <Accordion title="How do I get my data out?">
+    On a self-hosted instance, `pg_dump` — the database is the whole thing, photos
+    included, because they are stored in the owning row rather than in a file store.
+
+    From either kind of instance, `get_brain_snapshot` returns everything in the knowledge
+    base in one call, and `list_resumes` plus `get_resume` returns every document as JSON.
+    Ask your assistant to write them to files.
+  </Accordion>
+
+  <Accordion title="What does it cost to self-host?">
+    Whatever your host charges for a small app and a Postgres. There is no licence fee, no
+    account, and no phone-home. AGPL-3.0: self-host it, modify it, run it for yourself and
+    your friends. The one obligation is that if you run a *modified* copy as a service for
+    other people, you publish your modifications.
+  </Accordion>
+</AccordionGroup>

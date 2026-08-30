@@ -5,6 +5,7 @@ import { AnimatePresence, motion } from "framer-motion";
 import {
   ArrowUpRightIcon,
   CheckIcon,
+  ChevronDownIcon,
   CircleAlertIcon,
   CopyIcon,
   EyeIcon,
@@ -18,10 +19,18 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { ClientMark, ClientTile } from "@/components/client-mark";
 import { cn } from "@/lib/utils";
 import { MCP_CLIENTS, clientName } from "@/lib/mcp/clients";
 import {
@@ -138,14 +147,19 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
   const [open, setOpen] = useState(false);
   const [client, setClient] = useState(connection.client);
   const [test, setTest] = useState<{ ok: boolean; message: string } | null>(null);
+  // Two transitions, not one: testing a connection and rotating its token are
+  // different waits, and sharing a pending flag put a spinner on the Test
+  // button while a rotate was in flight.
+  const [testing, startTest] = useTransition();
   const [pending, startTransition] = useTransition();
 
+  const label = clientName(connection.client);
   const url = `${baseUrl}/api/mcp/${token}`;
   const masked = url.replace(/(rsm_)([a-f0-9]{6})[a-f0-9]+/, "$1$2••••••••••••••••");
   const lastUsed = ago(connection.lastUsedAt);
 
   const runTest = () =>
-    startTransition(async () => {
+    startTest(async () => {
       setTest(null);
       const result = await testConnectionAction(connection.id);
       setTest(
@@ -178,11 +192,9 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
     });
 
   return (
-    <div className="rounded-xl border">
-      <div className="flex flex-wrap items-center gap-3 p-3.5">
-        <div className="bg-muted text-muted-foreground flex size-9 shrink-0 items-center justify-center rounded-lg">
-          <PlugZapIcon className="size-4" />
-        </div>
+    <div className={cn("rounded-xl border transition-colors", open && "bg-inset")}>
+      <div className="flex flex-wrap items-center gap-3 p-3">
+        <ClientTile client={connection.client} size={34} />
 
         <div className="min-w-0 flex-1">
           {renaming ? (
@@ -204,17 +216,25 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
             <button
               type="button"
               onClick={() => setRenaming(true)}
-              className="hover:text-primary min-h-11 max-w-full truncate text-sm font-medium transition-colors md:min-h-0"
+              className="hover:text-primary max-w-full truncate text-sm font-medium transition-colors"
               title="Rename"
             >
               {name}
             </button>
           )}
-          <div className="text-muted-foreground flex flex-wrap items-center gap-x-2 text-xs">
-            <span>{clientName(connection.client)}</span>
-            <span aria-hidden>·</span>
+          <div className="text-muted-foreground flex flex-wrap items-center gap-x-1.5 text-xs">
+            {/* The default connection is named after its client, and "Claude ·
+                Claude" reads like a bug. Say the client only when it adds
+                something the name doesn't. */}
+            {label !== name && (
+              <>
+                <span>{label}</span>
+                <span aria-hidden>·</span>
+              </>
+            )}
             {lastUsed ? (
-              <span className="text-success">
+              <span className="text-success inline-flex items-center gap-1.5">
+                <span className="bg-success size-1.5 rounded-full" aria-hidden />
                 used {lastUsed}
                 {connection.lastUsedFrom ? ` from ${connection.lastUsedFrom}` : ""}
               </span>
@@ -224,17 +244,25 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5">
-          <Button variant="ghost" size="sm" onClick={runTest} disabled={pending}>
-            {pending ? (
+        <div className="flex items-center gap-1">
+          <Button variant="ghost" size="sm" onClick={runTest} disabled={testing}>
+            {testing ? (
               <LoaderCircleIcon className="size-3.5 animate-spin" />
             ) : (
               <ZapIcon className="size-3.5" />
             )}
             Test
           </Button>
-          <Button variant="ghost" size="sm" onClick={() => setOpen((value) => !value)}>
-            {open ? "Hide setup" : "Set up"}
+          <Button
+            variant={open ? "secondary" : "outline"}
+            size="sm"
+            onClick={() => setOpen((value) => !value)}
+            aria-expanded={open}
+          >
+            {open ? "Done" : "Set up"}
+            <ChevronDownIcon
+              className={cn("size-3.5 transition-transform duration-200", open && "rotate-180")}
+            />
           </Button>
         </div>
       </div>
@@ -245,7 +273,7 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
             initial={{ opacity: 0, height: 0 }}
             animate={{ opacity: 1, height: "auto" }}
             exit={{ opacity: 0, height: 0 }}
-            className="overflow-hidden px-3.5"
+            className="overflow-hidden px-3"
           >
             <div
               className={cn(
@@ -274,44 +302,47 @@ function ConnectionCard({ connection, baseUrl }: { connection: ConnectionRow; ba
             exit={{ opacity: 0, height: 0 }}
             className="overflow-hidden"
           >
-            <div className="space-y-5 border-t p-3.5">
-              <div className="space-y-2">
-                <div className="flex items-center gap-2">
-                  <code className="bg-muted/70 min-w-0 flex-1 truncate rounded-lg border px-3 py-2 font-mono text-[12.5px]">
-                    {revealed ? url : masked}
-                  </code>
-                  <Button
-                    variant="ghost"
-                    size="icon"
-                    onClick={() => setRevealed((value) => !value)}
-                    aria-label={revealed ? "Hide token" : "Reveal token"}
-                  >
-                    {revealed ? <EyeOffIcon /> : <EyeIcon />}
-                  </Button>
-                  <CopyButton value={url} label="Copy URL" />
-                </div>
+            <div className="bg-card space-y-5 rounded-b-xl border-t p-3.5">
+              <div className="flex items-center gap-2">
+                <code className="bg-muted/70 min-w-0 flex-1 truncate rounded-lg border px-3 py-2 font-mono text-[12.5px]">
+                  {revealed ? url : masked}
+                </code>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  onClick={() => setRevealed((value) => !value)}
+                  aria-label={revealed ? "Hide token" : "Reveal token"}
+                >
+                  {revealed ? <EyeOffIcon /> : <EyeIcon />}
+                </Button>
+                <CopyButton value={url} label="Copy URL" />
               </div>
 
               <div>
                 <div className="mb-2 text-[13px] font-semibold">Where are you pasting this?</div>
+                {/* Wrapping rather than scrolling: nine logo chips fold into
+                    two short rows, and nothing sits half-cut at the edge the way
+                    a scroll container leaves it. Still shorter than the nine
+                    two-line cards this replaced. */}
                 <div className="flex flex-wrap gap-1.5">
                   {MCP_CLIENTS.map((entry) => (
                     <button
                       key={entry.id}
                       type="button"
                       onClick={() => setClient(entry.id)}
+                      title={entry.tagline}
+                      aria-pressed={client === entry.id}
                       className={cn(
-                        // Real height rather than a ::after hit area: the panel
-                        // that holds these animates open behind overflow-hidden,
-                        // which would clip anything reaching outside the box.
-                        "min-h-11 rounded-lg border px-2.5 py-1.5 text-left text-xs transition-colors md:min-h-0",
+                        // A real height, not a ::after hit area: this row lives
+                        // inside two overflow-hidden boxes, which would clip one.
+                        "flex min-h-11 shrink-0 items-center gap-1.5 rounded-control border px-2.5 text-xs font-medium whitespace-nowrap transition-colors md:min-h-9",
                         client === entry.id
-                          ? "border-primary/50 bg-muted text-muted-foreground"
-                          : "hover:bg-accent/60",
+                          ? "border-primary/50 bg-accent text-foreground"
+                          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
                       )}
                     >
-                      <div className="font-medium">{entry.name}</div>
-                      <div className="text-muted-foreground text-[10.5px]">{entry.tagline}</div>
+                      <ClientMark client={entry.id} size={14} />
+                      {entry.name}
                     </button>
                   ))}
                 </div>
@@ -354,28 +385,30 @@ export function ConnectionsPanel({
   toolCount,
   adminToolCount,
   isAdmin,
-  prompts,
+  promptCount,
 }: {
   baseUrl: string;
   connections: ConnectionRow[];
   toolCount: number;
   adminToolCount: number;
   isAdmin: boolean;
-  prompts: { name: string; title: string; description: string }[];
+  promptCount: number;
 }) {
   const [pending, startTransition] = useTransition();
   const used = useMemo(() => connections.filter((c) => c.lastUsedAt).length, [connections]);
 
   const add = (client: string) =>
     startTransition(async () => {
-      await createConnectionAction({ client });
-      toast.success("Connection created — open Set up to get the URL");
+      await createConnectionAction({ client, name: clientName(client) });
+      toast.success("Connection added — open Set up to get the URL");
     });
 
-  return (
-    <Card className="relative overflow-hidden">
+  const products = MCP_CLIENTS.filter((entry) => entry.category !== "any");
+  const generic = MCP_CLIENTS.filter((entry) => entry.category === "any");
 
-      <CardHeader className="relative">
+  return (
+    <Card>
+      <CardHeader>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2.5">
             <div className="bg-muted text-muted-foreground flex size-9 items-center justify-center rounded-xl">
@@ -384,21 +417,49 @@ export function ConnectionsPanel({
             <div>
               <CardTitle className="text-[15px]">AI connections</CardTitle>
               <p className="text-muted-foreground text-sm">
-                {toolCount} tools · {prompts.length} ready-made workflows
-                {isAdmin && adminToolCount > 0 && (
-                  <span> · including {adminToolCount} admin tools</span>
-                )}
+                {connections.length === 1 ? "1 assistant" : `${connections.length} assistants`} ·{" "}
+                {toolCount} tools · {promptCount} workflows
+                {isAdmin && adminToolCount > 0 && <span> · {adminToolCount} admin</span>}
               </p>
             </div>
           </div>
-          <Button variant="default" size="sm" onClick={() => add("other")} disabled={pending}>
-            <PlusIcon className="size-3.5" /> New connection
-          </Button>
+
+          {/* One button instead of six: picking the client is the first step of
+              adding a connection, not a separate row of buttons below it. */}
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button size="sm" disabled={pending}>
+                {pending ? (
+                  <LoaderCircleIcon className="size-3.5 animate-spin" />
+                ) : (
+                  <PlusIcon className="size-3.5" />
+                )}
+                Connect
+                <ChevronDownIcon className="size-3.5" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuLabel>Connect an assistant</DropdownMenuLabel>
+              {products.map((entry) => (
+                <DropdownMenuItem key={entry.id} onSelect={() => add(entry.id)}>
+                  <ClientMark client={entry.id} size={15} />
+                  <span className="flex-1">{entry.name}</span>
+                </DropdownMenuItem>
+              ))}
+              <DropdownMenuSeparator />
+              {generic.map((entry) => (
+                <DropdownMenuItem key={entry.id} onSelect={() => add(entry.id)}>
+                  <ClientMark client={entry.id} size={15} />
+                  <span className="flex-1">{entry.name}</span>
+                </DropdownMenuItem>
+              ))}
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardHeader>
 
-      <CardContent className="relative space-y-6">
-        <div className="space-y-2.5">
+      <CardContent className="space-y-4">
+        <div className="space-y-2">
           {connections.map((connection) => (
             <ConnectionCard key={connection.id} connection={connection} baseUrl={baseUrl} />
           ))}
@@ -409,74 +470,9 @@ export function ConnectionsPanel({
           )}
         </div>
 
-        <div>
-          <h3 className="mb-2 text-[13px] font-semibold">Connect another assistant</h3>
-          <p className="text-muted-foreground mb-3 text-xs">
-            Each one gets its own URL, so you can disconnect a single client without touching the
-            rest.
-          </p>
-          <div className="flex flex-wrap gap-1.5">
-            {MCP_CLIENTS.filter((entry) => entry.category !== "any").map((entry) => (
-              <Button
-                key={entry.id}
-                variant="outline"
-                size="sm"
-                // The card around this is overflow-hidden, which clips the
-                // coarse-pointer hit area, so the height has to be real.
-                className="min-h-11 md:min-h-0"
-                disabled={pending}
-                onClick={() => add(entry.id)}
-              >
-                <PlusIcon className="size-3.5" /> {entry.name}
-              </Button>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h3 className="mb-1 text-[13px] font-semibold">Workflows every client gets</h3>
-          <p className="text-muted-foreground mb-3 text-xs">
-            These arrive as slash commands or prompt shortcuts, depending on the client.
-          </p>
-          <div className="grid gap-2 sm:grid-cols-2">
-            {prompts.map((prompt) => (
-              <div key={prompt.name} className="rounded-lg border px-3 py-2.5">
-                <div className="text-[13px] font-medium">{prompt.title}</div>
-                <p className="text-muted-foreground mt-1 text-xs leading-relaxed">
-                  {prompt.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <Separator />
-
-        <div>
-          <h3 className="mb-2 text-[13px] font-semibold">Try saying</h3>
-          <div className="flex flex-wrap gap-2">
-            {[
-              "Here's everything I did at my last job — file it.",
-              "Tailor my resume to this posting.",
-              "What should I follow up on this week?",
-              "Mine my Stripe role into resume bullets.",
-              "I just had a screen with Acme — log it and move them forward.",
-              ...(isAdmin
-                ? ["Invite sam@example.com to the platform.", "Is email set up? Send a test."]
-                : []),
-            ].map((example) => (
-              <Badge key={example} variant="secondary" className="px-2.5 py-1 text-[11px] font-normal">
-                {example}
-              </Badge>
-            ))}
-          </div>
-        </div>
-
-        <p className="text-muted-foreground text-xs">
-          Every URL above reaches your data and nobody else&apos;s — but anyone holding one can read
-          and write yours, so treat them like passwords.
+        <p className="text-muted-foreground text-xs leading-relaxed">
+          Each URL reaches your data and nobody else&apos;s — but anyone holding one can read and
+          write yours, so treat them like passwords.
           {used > 0 && ` ${used} of ${connections.length} have been used.`}
         </p>
       </CardContent>

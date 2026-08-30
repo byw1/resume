@@ -1,0 +1,121 @@
+---
+title: "Publishing and exporting"
+description: "A real PDF for the forms that want a file, an unlisted link for the ones that want a URL, and exactly what each one exposes."
+icon: "link"
+---
+
+Application forms ask for one of two things and never agree on which. Hired does both,
+and the difference between them is worth understanding before you send either.
+
+<CardGroup cols={2}>
+  <Card title="A link" icon="link">
+    `publish_resume`, or **Share → Create a link** in the editor. An unlisted address
+    anyone holding it can read without signing in.
+  </Card>
+  <Card title="A file" icon="file-pdf">
+    `export_resume_pdf`, or **PDF** in the editor. A real PDF, rendered server-side,
+    downloaded to your machine.
+  </Card>
+</CardGroup>
+
+## Publishing a link
+
+```
+https://your-instance.example.com/r/staff-engineer-stripe-k7m2qx4bnp8t
+```
+
+Or just ask: *"publish my Stripe resume and give me the link."*
+
+### The privacy model is the address, and nothing else
+
+The slug is long and random, so it cannot be guessed or walked. The page tells search
+engines not to index it. It is listed nowhere. That is the whole model — there are no
+per-viewer permissions and no passwords, because everyone you would send this to is
+someone you already decided to send it to.
+
+<Warning>
+  **If the resume uses a template that draws a photo — Classic, Modern, Compact or
+  Editorial — and has `showPhoto` on, your face is on that page**, visible to anyone
+  holding the link. Decide that before you publish. An assistant is instructed to mention
+  it, and to offer to turn the photo off first.
+
+  Harvard, the default, never renders one whatever `showPhoto` says, so a default resume
+  carries no face.
+</Warning>
+
+Your private notes on the resume are never shown on the public page.
+
+### Republishing and withdrawing
+
+Publishing a resume that is already published returns the **same** URL, so it is safe to
+ask twice.
+
+`unpublish_resume` — or **Withdraw** — **destroys** the address rather than pausing it.
+The page starts returning "not found" for everyone immediately, and publishing that
+resume again later gives a completely different link. That is deliberate: the reason to
+withdraw is usually that a URL went somewhere you regret, and a pause you can undo does
+not fix that.
+
+Nothing about the resume itself is deleted either way.
+
+## Exporting a PDF
+
+Open a resume and press **PDF**. The file downloads. There is no print dialog and no
+margin setting to get wrong.
+
+The server renders the same page you would have printed by hand, so what you see is what
+you get: exactly 8.5in × 11in, with the Harvard template's half-inch margins. The output
+is **real selectable text**, not an image, so an applicant tracking system can read it.
+
+Ask instead and you get the thing you actually wanted to know:
+
+> Export my Stripe resume.
+
+`export_resume_pdf` hands back a download link *and* the page count, measured from the
+rendered document rather than estimated. "Does this fit on one page?" is answered before
+you send it rather than after.
+
+<Note>
+  The download URL opens in your browser, where you are already signed in. It is not a
+  public link and nobody else can fetch it.
+</Note>
+
+### No webfont is fetched
+
+The serif stack is Tinos → Times New Roman → Liberation Serif, which are metrically
+identical. The document renders the same on macOS, Windows and Linux with nothing to
+download and nothing to expire.
+
+### If your host has no headless browser
+
+Server-side rendering needs a Chromium on the machine. The Docker image ships one, so a
+compose deploy has working one-click PDF from first boot. A stock Railway deploy does not.
+
+Where it is missing, the **PDF** button says so and the fallback still works:
+**⋯ → Open print view**, then your browser's **Save as PDF** with margins set to
+**None**. Same document, one more step. `export_resume_pdf` reports the same thing rather
+than failing silently.
+
+[Getting one-click PDF on a host without Chromium →](/self-hosting/pdf)
+
+## Checking length before either
+
+`preview_resume_text` renders a document to plain text and estimates its length
+**without saving**. Use it while there is still something to cut:
+
+> Show me that resume as text and tell me if it fits on a page.
+
+For the measured answer, export the PDF — the page count comes back with it.
+
+## Which resume went where
+
+An application can have a resume attached, and `diagnose_search` reports the response rate
+of each resume so you can see which one is actually working. That is only true if you
+attach them, which is one field on the application — `resumeId`, or the cell in the
+pipeline table.
+
+<Tip>
+  Never edit a resume that is already attached to an application. That is the version you
+  actually sent, and it is the record of what a recruiter read. `duplicate_resume` first,
+  then tailor the copy.
+</Tip>

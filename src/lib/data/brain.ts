@@ -1,6 +1,7 @@
 import type { NoteKind } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
+import { resolvePhoto } from "@/lib/photo";
 
 /**
  * Every function here takes the owning userId as its first argument, and every
@@ -57,6 +58,23 @@ const PROFILE_COLUMNS = [
 export async function updateProfile(userId: string, patch: ProfilePatch) {
   await getProfile(userId);
   return db.profile.update({ where: { userId }, data: pick(patch, PROFILE_COLUMNS) });
+}
+
+/**
+ * Set or clear the profile photo.
+ *
+ * Takes what a person or an assistant actually has — a data URI from the file
+ * picker, or a https link to a picture that already exists somewhere — and does
+ * the resolving here so the settings page and `set_profile_photo` cannot end up
+ * enforcing different limits. An empty string removes the photo.
+ */
+export async function setProfilePhoto(userId: string, input: string) {
+  const resolved = await resolvePhoto(input);
+  await getProfile(userId);
+  await db.profile.update({ where: { userId }, data: { photo: resolved?.dataUri ?? "" } });
+  return resolved
+    ? { photo: true, bytes: resolved.bytes, type: resolved.type }
+    : { photo: false, bytes: 0, type: "" };
 }
 
 // ---------------------------------------------------------------------------
@@ -614,6 +632,43 @@ export async function getBrainSnapshot(userId: string) {
       listNotes(userId),
     ]);
   return { profile, roles, highlights, education, projects, skillGroups, certifications, notes };
+}
+
+/**
+ * Whether there is anything here yet.
+ *
+ * The briefing every MCP client receives branches on this, so it runs on every
+ * `initialize` — which is why it asks for one id per table rather than counting,
+ * and why it is a single round trip.
+ *
+ * It reads the Profile row directly rather than through `getProfile`, which
+ * creates one when it finds none. A predicate whose whole job is to report that
+ * nothing exists must not bring something into existence to answer, and it must
+ * not then read its own row back as evidence of a filled-in workspace. The row
+ * is judged on its contents for the same reason: blank fields are not a career.
+ *
+ * Deliberately brain-only. Someone can have applications and no brain — that is
+ * exactly the person this predicate exists to catch, because they have a
+ * pipeline and nothing to build a resume out of.
+ */
+export async function brainIsEmpty(userId: string) {
+  const id = { select: { id: true } };
+  const where = { where: { userId } };
+  const [profile, role, highlight, note, education, project, skillGroup, certification] =
+    await Promise.all([
+      db.profile.findFirst({ where: { userId }, select: { fullName: true, headline: true, summary: true, brainDump: true } }),
+      db.role.findFirst({ ...where, ...id }),
+      db.highlight.findFirst({ ...where, ...id }),
+      db.note.findFirst({ ...where, ...id }),
+      db.education.findFirst({ ...where, ...id }),
+      db.project.findFirst({ ...where, ...id }),
+      db.skillGroup.findFirst({ ...where, ...id }),
+      db.certification.findFirst({ ...where, ...id }),
+    ]);
+
+  const profileIsBlank = !profile || ![profile.fullName, profile.headline, profile.summary, profile.brainDump].some((field) => field?.trim());
+
+  return profileIsBlank && !role && !highlight && !note && !education && !project && !skillGroup && !certification;
 }
 
 export function clamp(value: number, min: number, max: number) {
