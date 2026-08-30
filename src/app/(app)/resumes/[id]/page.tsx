@@ -1,6 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getResume } from "@/lib/data/resumes";
+import { getProfile } from "@/lib/data/brain";
 import { requireUser } from "@/lib/auth";
 import { ResumeEditor } from "@/components/resume/resume-editor";
 
@@ -12,6 +13,10 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const resume = await getResume(user.id, id);
   if (!resume) notFound();
+
+  // The editor gets the photo whether or not this document shows it, so the
+  // toggle in the design popover previews instantly.
+  const profile = await getProfile(user.id);
 
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const proto =
@@ -34,7 +39,9 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
         pageMargin: resume.pageMargin,
         notes: resume.notes,
         isFavorite: resume.isFavorite,
+        showPhoto: resume.showPhoto,
       }}
+      photo={profile.photo}
     />
   );
 }

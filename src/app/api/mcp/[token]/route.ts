@@ -15,15 +15,15 @@ type Params = { params: Promise<{ token: string }> };
  */
 export async function POST(request: Request, { params }: Params) {
   const { token } = await params;
-  const user = await userByMcpToken(token, request.headers.get("user-agent") ?? "");
-  if (!user) return mcpUnauthorized();
-  return handleMcpPost(request, user);
+  const caller = await userByMcpToken(token, request.headers.get("user-agent") ?? "");
+  if (!caller) return mcpUnauthorized();
+  return handleMcpPost(request, caller);
 }
 
 export async function GET(_request: Request, { params }: Params) {
   const { token } = await params;
-  const user = await userByMcpToken(token);
-  if (!user) return mcpUnauthorized();
+  const caller = await userByMcpToken(token);
+  if (!caller) return mcpUnauthorized();
   // No server-initiated stream: clients fall back to POST-only, which is all we need.
   return new Response(null, { status: 405, headers: { Allow: "POST", ...corsHeaders() } });
 }

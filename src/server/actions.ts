@@ -481,6 +481,24 @@ export async function saveProfileAction(patch: brain.ProfilePatch) {
   revalidatePath("/");
 }
 
+/**
+ * Store a headshot, or clear it with an empty string.
+ *
+ * The browser has already cropped and downscaled by the time this runs, so what
+ * arrives is a small data URI; the size and type rules still live in the data
+ * layer, because `set_profile_photo` posts here through the same function and
+ * neither door should be the lenient one.
+ */
+export async function setProfilePhotoAction(input: string) {
+  const user = await requireUser();
+  const result = await brain.setProfilePhoto(user.id, input);
+  revalidatePath("/settings");
+  revalidatePath("/brain");
+  revalidatePath("/resumes");
+  revalidatePath("/");
+  return result;
+}
+
 export async function createRoleAction(input: brain.RoleInput) {
   const user = await requireUser();
   const role = await brain.createRole(user.id, input);
