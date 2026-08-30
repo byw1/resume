@@ -502,7 +502,7 @@ resulting container, so it isn't the shipped default yet.
 
 - **Everything autosaves.** There is no save button anywhere. A small indicator tells you
   when a change has landed.
-- **`⌘K` / `Ctrl+K`** opens a search palette that jumps to any role, resume, or company.
+- **`⌘K` / `Ctrl+K`** opens a search palette that jumps to any role, resume, or application.
 - **Follow-up dates set themselves** when an application changes stage — 7 days after
   applying, 4 after a screen, 3 after a final round. Override any of them by hand.
 - **Dark and light** both supported; toggle is top-right.
