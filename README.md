@@ -36,7 +36,10 @@ just *talk* to it.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
   under Settings → Admin: invitations, accounts, per-workspace usage, a password reset for
-  whoever is locked out, and a log of every administrative change. Click any name for that
+  whoever is locked out, and a log of every administrative change — including changes to how
+  the instance itself is configured, so clearing the Resend key is traceable rather than a
+  mystery three weeks later. Secrets are recorded as having been set, never as their value.
+  Click any name for that
   account on one page — when they joined, who invited them, whether that invitation email
   actually left, which assistants they have connected, and everything the instance recorded
   against their address. It is the page you open when somebody emails asking why they can't

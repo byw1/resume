@@ -1566,10 +1566,10 @@ export const tools: McpTool[] = [
       "Controls whether the pipeline shows a company's favicon next to its name. When on, each person's browser asks twenty-icons.com for the logo, which means that service can see which companies are in their pipeline — turn it off for an instance where that matters and everyone gets initials on a coloured tile instead. Nothing else changes; no data is stored or deleted either way. Call admin_instance_stats to read the current state.",
     inputSchema: object({ enabled: bool("On shows logos, off shows initials only") }, ["enabled"]),
     adminOnly: true,
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       const enabled = b(args, "enabled");
       if (enabled === undefined) throw new Error('Missing required boolean argument "enabled"');
-      await updateSettings({ companyLogos: enabled });
+      await updateSettings(ctx.user, { companyLogos: enabled });
       return { companyLogos: enabled };
     },
   },
@@ -1665,10 +1665,27 @@ export const tools: McpTool[] = [
     name: "admin_audit_log",
     title: "Read the admin audit log",
     description:
-      "What admins have done to accounts on this instance, newest first: invitations, role changes, suspensions, deletions and password resets, each with who did it, to whom, and when. Rows survive the deletion of the account they describe. Use it to answer 'who suspended this person' or to review what happened while you were away. Nothing here touches anyone's brain, resumes or applications — it is a record of account administration only.",
-    inputSchema: object({ limit: num("How many entries, newest first. Default 100, max 500.") }),
+      "What admins have done on this instance, newest first: invitations, role changes, suspensions, deletions, password resets, billing links and changes to the instance's own configuration, each with who did it, to whom, and when. Rows survive the deletion of the account they describe. Use it to answer 'who suspended this person', 'who changed the Resend key', or to review what happened while you were away. Narrow with group (accounts, invites, passwords, billing, settings) and search, which matches either side of a row — the admin who acted or the account acted on — and page with offset. Nothing here touches anyone's brain, resumes or applications, and a secret is recorded as having been set, never as its value.",
+    inputSchema: object({
+      limit: num("How many entries, newest first. Default 100, max 500."),
+      offset: num("Skip this many before returning, for paging through a long log."),
+      group: {
+        type: "string",
+        enum: ["accounts", "invites", "passwords", "billing", "settings"],
+        description: "Only one kind of change. Omit for everything.",
+      },
+      search: str("An email address, whole or partial. Matches the admin who acted or the account acted on."),
+    }),
     adminOnly: true,
-    handler: async (args) => audit.listAudit({ limit: n(args, "limit") ?? 100 }),
+    handler: async (args) =>
+      audit.listAudit(
+        defined({
+          limit: n(args, "limit") ?? 100,
+          offset: n(args, "offset"),
+          group: s(args, "group"),
+          search: s(args, "search"),
+        }),
+      ),
   },
   {
     name: "admin_health",
@@ -1843,8 +1860,9 @@ export const tools: McpTool[] = [
       publicUrl: str("Public base URL, used to build invite links, e.g. https://you.up.railway.app"),
     }),
     adminOnly: true,
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       await updateSettings(
+        ctx.user,
         defined({
           resendApiKey: s(args, "resendApiKey"),
           resendFromEmail: s(args, "resendFromEmail"),
@@ -1903,8 +1921,9 @@ export const tools: McpTool[] = [
       stripePaymentLink: str("The Stripe Payment Link people pay through, e.g. https://buy.stripe.com/..."),
     }),
     adminOnly: true,
-    handler: async (args) => {
+    handler: async (args, ctx) => {
       await updateSettings(
+        ctx.user,
         defined({
           stripeSecretKey: s(args, "stripeSecretKey"),
           stripeWebhookSecret: s(args, "stripeWebhookSecret"),

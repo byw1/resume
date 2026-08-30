@@ -379,11 +379,11 @@ export async function saveEmailSettingsAction(patch: {
   publicUrl?: string;
   companyLogos?: boolean;
 }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   // An empty API key field means "leave it alone", not "clear it".
   const clean = { ...patch };
   if (clean.resendApiKey !== undefined && clean.resendApiKey.trim() === "") delete clean.resendApiKey;
-  await updateSettings(clean);
+  await updateSettings(actor, clean);
   revalidatePath("/settings/admin");
   revalidatePath("/applications");
   return { ok: true as const };
@@ -410,13 +410,13 @@ export async function saveBillingSettingsAction(patch: {
   stripeWebhookSecret?: string;
   stripePaymentLink?: string;
 }) {
-  await requireAdmin();
+  const actor = await requireAdmin();
   // Empty secret fields mean "leave it alone", not "clear it" — same rule as
   // the Resend key above.
   const clean = { ...patch };
   if (clean.stripeSecretKey !== undefined && clean.stripeSecretKey.trim() === "") delete clean.stripeSecretKey;
   if (clean.stripeWebhookSecret !== undefined && clean.stripeWebhookSecret.trim() === "") delete clean.stripeWebhookSecret;
-  await updateSettings(clean);
+  await updateSettings(actor, clean);
   revalidatePath("/settings/admin");
   return { ok: true as const };
 }
@@ -907,6 +907,44 @@ export async function deleteSavedViewAction(id: string) {
   const user = await requireUser();
   await views.deleteSavedView(user.id, id);
   revalidatePath("/applications");
+}
+
+// --- the audit log ----------------------------------------------------------
+
+/**
+ * A page of the audit log, filtered.
+ *
+ * The Log tab pages through the server rather than filtering rows already in
+ * the browser, because the log outlives everything else on an instance: cutting
+ * a page and then filtering it shows you the wrong hundred rows.
+ */
+export async function loadAuditAction(input: {
+  group?: string;
+  search?: string;
+  offset?: number;
+  limit?: number;
+}) {
+  await requireAdmin();
+  const limit = Math.min(input.limit ?? 100, 200);
+  const rows = await listAudit({
+    group: input.group,
+    search: input.search,
+    offset: input.offset ?? 0,
+    limit,
+  });
+  return {
+    rows: rows.map((row) => ({
+      id: row.id,
+      actorEmail: row.actorEmail,
+      action: row.action,
+      targetEmail: row.targetEmail,
+      detail: row.detail,
+      createdAt: row.createdAt.toISOString(),
+    })),
+    // Fewer than asked for means this was the last page. One boolean beats a
+    // count query the tab would run on every keystroke.
+    more: rows.length === limit,
+  };
 }
 
 // --- errors -----------------------------------------------------------------

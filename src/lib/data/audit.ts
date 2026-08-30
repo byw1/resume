@@ -1,5 +1,6 @@
 import type { User } from "@prisma/client";
 import { db } from "@/lib/db";
+import { AUDIT_GROUPS, type AuditGroup } from "@/lib/audit-groups";
 
 /**
  * A record of what an admin did to whose account.
@@ -24,7 +25,8 @@ export type AuditAction =
   | "user.delete"
   | "user.password_reset"
   | "billing.link"
-  | "billing.unlink";
+  | "billing.unlink"
+  | "settings.change";
 
 export async function recordAudit(input: {
   actor: Pick<User, "id" | "email">;
@@ -46,10 +48,41 @@ export async function recordAudit(input: {
   });
 }
 
-export async function listAudit(options?: { limit?: number; targetId?: string }) {
+/**
+ * Read the log, newest first.
+ *
+ * Filtering is done here rather than in the browser because the log outlives
+ * everything else on the instance: paging through it a hundred rows at a time
+ * only works if the filter is applied before the page is cut, not after.
+ */
+export async function listAudit(options?: {
+  limit?: number;
+  offset?: number;
+  targetId?: string;
+  /** One of AUDIT_GROUPS. Anything unrecognised means no filter. */
+  group?: string;
+  /** Matches either side of the row — who did it, or who it was done to. */
+  search?: string;
+}) {
+  const actions = options?.group
+    ? (AUDIT_GROUPS[options.group as AuditGroup] as readonly AuditAction[] | undefined)
+    : undefined;
+  const search = options?.search?.trim();
   return db.adminAudit.findMany({
-    where: options?.targetId ? { targetId: options.targetId } : undefined,
+    where: {
+      ...(options?.targetId ? { targetId: options.targetId } : {}),
+      ...(actions ? { action: { in: [...actions] } } : {}),
+      ...(search
+        ? {
+            OR: [
+              { actorEmail: { contains: search, mode: "insensitive" as const } },
+              { targetEmail: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
     orderBy: { createdAt: "desc" },
     take: Math.min(options?.limit ?? 100, 500),
+    skip: options?.offset ?? 0,
   });
 }

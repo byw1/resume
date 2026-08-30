@@ -1582,3 +1582,43 @@ contains no connection tokens.
 
 **Applies to:** `src/app/(app)/settings/admin/people/[id]/`,
 `src/components/admin/person-actions.tsx`, `getUserDetail` in `src/lib/data/users.ts`.
+
+---
+
+## 2026-08-30 — Configuration changes are administrative changes
+
+The audit log recorded what admins did to *accounts* and nothing about what they did to the
+*instance*. That left the quietest destructive click in the app unrecorded: clearing the
+Resend key breaks every future invitation, produces no error anywhere, and is invisible
+until somebody mentions they were never emailed. Nine audited actions, and the one that
+takes the whole instance down was not among them.
+
+**`updateSettings` now takes the actor first and is the thing that writes the row.** Not the
+server action, not the tool — the shared function both of them already call, which is why
+one change covers five call sites and no future one can forget. Making the argument
+required rather than optional was the whole point: the compiler listed all five call sites
+the moment the signature changed, which is the same argument as `userId` first in
+`src/lib/data/`. It also matches `setUserRole(actor, …)` and `adminResetPassword(actor, …)`,
+so instance-level writes now read the same way everywhere.
+
+**One row per save, listing what moved, and secrets by name only.** `Resend API key set` or
+`Resend API key cleared`, never the key. Non-secrets carry their new value, because
+`Public URL → https://app.hired.tools` is the entire reason anyone reads the row. A save
+that changes nothing writes nothing — the panel sends every field on every submit, so
+without the before-comparison the log would fill with rows recording that somebody opened
+a form.
+
+**The log filters on the server, not in the browser.** Tempting to load rows and slice them
+client-side; wrong, because the log outlives everything else on an instance, and cutting a
+page before filtering it shows you the wrong hundred rows. Group chips and the email search
+each re-query, `Show more` pages by offset, and "is there more" is `rows.length === limit`
+rather than a count query on every keystroke.
+
+**`src/lib/audit-groups.ts` exists so the Log tab can be a client component.**
+`src/lib/data/audit.ts` imports `db`; importing the group constants from there into a
+client component would have pulled Prisma into the browser bundle. The constants live in a
+pure module that both sides import, so a filter means the same thing in the chips and in
+the query.
+
+**Applies to:** `src/lib/settings.ts`, `src/lib/audit-groups.ts`, `src/lib/data/audit.ts`,
+`src/components/admin/audit-panel.tsx`, `loadAuditAction` in `src/server/actions.ts`.

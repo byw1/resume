@@ -239,6 +239,7 @@ export default async function AdminPage() {
         <TabsContent value="audit">
           <FadeIn>
             <AuditPanel
+              filterable
               rows={auditRows.map((row) => ({
                 id: row.id,
                 actorEmail: row.actorEmail,

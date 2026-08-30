@@ -1,4 +1,5 @@
 import { db } from "@/lib/db";
+import { recordAudit } from "@/lib/data/audit";
 
 /**
  * Instance-wide configuration, stored in the database rather than in env vars
@@ -32,11 +33,16 @@ export type InstanceSettings = {
   stripePaymentLink: string;
 };
 
-export async function getSettings(): Promise<InstanceSettings> {
+/** Raw stored values, so a write can tell what actually changed. */
+async function getSettingsMap() {
   const rows = await db.setting.findMany({
     where: { key: { in: Object.values(SETTING_KEYS) } },
   });
-  const map = new Map(rows.map((row) => [row.key, row.value]));
+  return new Map(rows.map((row) => [row.key, row.value]));
+}
+
+export async function getSettings(): Promise<InstanceSettings> {
+  const map = await getSettingsMap();
   return {
     instanceName: map.get(SETTING_KEYS.instanceName) ?? "Hired",
     resendApiKey: map.get(SETTING_KEYS.resendApiKey) ?? "",
@@ -61,7 +67,41 @@ export async function setSetting(key: string, value: string) {
   });
 }
 
-export async function updateSettings(patch: Partial<InstanceSettings>) {
+/**
+ * How each field is described in the audit log.
+ *
+ * `secret: true` means the row records that the field was set, never what it
+ * was set to. Everything else records the new value, because "public URL →
+ * https://app.hired.tools" is the whole reason you would read the row.
+ */
+const FIELD_LABEL: Record<string, { label: string; secret?: boolean }> = {
+  [SETTING_KEYS.instanceName]: { label: "Instance name" },
+  [SETTING_KEYS.resendApiKey]: { label: "Resend API key", secret: true },
+  [SETTING_KEYS.resendFromEmail]: { label: "From address" },
+  [SETTING_KEYS.resendFromName]: { label: "From name" },
+  [SETTING_KEYS.publicUrl]: { label: "Public URL" },
+  [SETTING_KEYS.companyLogos]: { label: "Company logos" },
+  [SETTING_KEYS.stripeSecretKey]: { label: "Stripe secret key", secret: true },
+  [SETTING_KEYS.stripeWebhookSecret]: { label: "Stripe signing secret", secret: true },
+  [SETTING_KEYS.stripePaymentLink]: { label: "Stripe payment link" },
+};
+
+/**
+ * Change instance configuration.
+ *
+ * The actor is first and required, the same shape as `setUserRole` and
+ * `adminResetPassword`, and for the same reason: the compiler rejects a call
+ * site that forgets, so nothing can change how the instance behaves without a
+ * name attached. That matters most for the quietest failure this app has —
+ * clearing the Resend key breaks every future invitation and produces no error
+ * anywhere until somebody notices they were never emailed.
+ *
+ * One row per save, listing what moved. Secret values never appear in it.
+ */
+export async function updateSettings(
+  actor: { id: string; email: string },
+  patch: Partial<InstanceSettings>,
+) {
   const entries: [string, string | undefined][] = [
     [SETTING_KEYS.instanceName, patch.instanceName],
     [SETTING_KEYS.resendApiKey, patch.resendApiKey],
@@ -73,8 +113,24 @@ export async function updateSettings(patch: Partial<InstanceSettings>) {
     [SETTING_KEYS.stripeWebhookSecret, patch.stripeWebhookSecret],
     [SETTING_KEYS.stripePaymentLink, patch.stripePaymentLink],
   ];
+
+  const before = await getSettingsMap();
+  const changed: string[] = [];
+
   for (const [key, value] of entries) {
-    if (value !== undefined) await setSetting(key, value.trim());
+    if (value === undefined) continue;
+    const next = value.trim();
+    if ((before.get(key) ?? "") === next) continue;
+    await setSetting(key, next);
+
+    const field = FIELD_LABEL[key];
+    if (!field) continue;
+    if (field.secret) changed.push(next ? `${field.label} set` : `${field.label} cleared`);
+    else changed.push(`${field.label} → ${next || "(empty)"}`);
+  }
+
+  if (changed.length > 0) {
+    await recordAudit({ actor, action: "settings.change", detail: changed.join(", ") });
   }
 }
 
