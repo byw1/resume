@@ -1,0 +1,84 @@
+---
+title: "Running it locally"
+sidebarTitle: "Locally"
+description: "Node 20 or newer, a Postgres, and four commands."
+icon: "laptop-code"
+---
+
+```bash
+cp .env.example .env      # only DATABASE_URL is required
+npm install
+npx prisma migrate deploy
+npm run dev
+```
+
+Open `http://localhost:3000`. Your owner password is printed in the terminal on first
+start.
+
+<Warning>
+  `npm run dev` applies **no** migrations. Only `npm start` does, because it runs
+  `prisma migrate deploy` first. Run the migrate command yourself after pulling changes
+  that touch the schema.
+</Warning>
+
+## The commands that matter
+
+| Command | What it does |
+| --- | --- |
+| `npm run dev` | The development server. No migrations. |
+| `npm run build` | `prisma generate && next build`. This is what a deploy runs. |
+| `npm start` | `prisma migrate deploy && next start`. |
+| `npm run typecheck` | `tsc --noEmit`. |
+| `npx prisma migrate deploy` | Apply pending migrations. |
+| `npm run db:push` | Push the schema without a migration. **Local scratch only.** |
+
+## Contributing
+
+Issues and pull requests are welcome. Two commands are the whole verification story —
+there is no CI on branches and no test suite, so the first thing that compiles a change
+after it lands on `main` is the Docker image build that self-hosters pull.
+
+```bash
+npm run typecheck   # must be clean
+npm run build       # must succeed
+```
+
+Two things are worth knowing before changing anything:
+
+<AccordionGroup>
+  <Accordion title="Tenant isolation is a compile-time property" icon="lock">
+    Every function in `src/lib/data/` takes the owning `userId` as its **first positional
+    argument**, and every query filters on it. It is positional and required precisely so
+    the compiler rejects a call site that forgets. Do not add a data function with an
+    optional or object-bag `userId`, and never let one arrive from a client — server
+    actions resolve the caller from their session cookie, MCP tools from the connection
+    token.
+  </Accordion>
+  <Accordion title="The MCP tools and the UI share one data layer" icon="code-branch">
+    Both call `src/lib/data/`. Logic written into a server action that a tool would also
+    need has been forked — move it down. There is exactly one implementation of every rule
+    about the data, which is why anything an assistant writes shows up in the app
+    immediately and vice versa.
+  </Accordion>
+</AccordionGroup>
+
+After editing `prisma/schema.prisma`, run `npx prisma generate` before typechecking. Only
+`postinstall` and `build` regenerate the client, so without it the compiler rejects a new
+model with an error that looks like your code is wrong when it is only stale.
+
+## The stack
+
+Next.js 15 (App Router) · React 19 · Tailwind v4 · shadcn/ui · Framer Motion · Prisma ·
+PostgreSQL.
+
+The MCP server lives in `src/lib/mcp/` and speaks the Streamable HTTP transport directly,
+with no session state — which is what lets it survive restarts and replicas without
+anything reconnecting. Tools are defined once in `src/lib/mcp/tools.ts`, and setup recipes
+are data in `src/lib/mcp/clients.ts`, so supporting a new client is one entry in an array.
+
+## Licence
+
+AGPL-3.0. In practice: self-host it, modify it, run it for yourself and your friends, all
+free, forever. The one obligation is that if you run a *modified* copy as a service for
+other people, you publish your modifications. If you would rather keep changes private,
+run it unmodified.

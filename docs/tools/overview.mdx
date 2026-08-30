@@ -1,0 +1,143 @@
+---
+title: "How tools work"
+sidebarTitle: "Overview"
+description: "What a connected assistant can see, how the counts break down, what the annotations mean, and the conventions every tool in Hired follows."
+icon: "wrench"
+---
+
+Once an assistant is [connected](/connect), it gets the whole product as callable tools.
+This section is the full catalogue, generated from the same definitions the server sends.
+
+## The counts
+
+| | Member | Admin |
+| --- | --- | --- |
+| Data tools | 73 | 100 |
+| Workflows, also published as tools | 7 | 8 |
+| **What `tools/list` returns** | **80** | **108** |
+
+Admin tools are **hidden** from a member's `tools/list` entirely, not merely refused — so
+nobody is tempted by a permission they do not have.
+
+The **Test** button next to any connection in the app calls the endpoint the way a client
+would and reports the number that answered, which is the quickest way to confirm a
+connection is real.
+
+<CardGroup cols={3}>
+  <Card title="Brain" icon="brain" href="/tools/brain">
+    22 tools · roles, brain dumps, highlights, notes, standing rules, and the four
+    supporting collections.
+  </Card>
+  <Card title="Resumes" icon="file-lines" href="/tools/resumes">
+    11 tools · writing documents, previewing them, publishing, exporting.
+  </Card>
+  <Card title="Pipeline" icon="list-check" href="/tools/pipeline">
+    24 tools · applications, stages, timeline, tasks, follow-ups, views, sharing,
+    diagnosis.
+  </Card>
+  <Card title="CRM" icon="building" href="/tools/crm">
+    10 tools · companies and the people at them.
+  </Card>
+  <Card title="Your account" icon="plug" href="/tools/connections">
+    6 tools · who you are, and the wiring itself.
+  </Card>
+  <Card title="Admin" icon="shield-halved" href="/tools/admin">
+    27 tools · accounts, invitations, waitlist, email, billing, health, configuration.
+  </Card>
+</CardGroup>
+
+That is 100. The remaining eight are the [workflows](/workflows), which are published as
+tools as well as prompts — so they appear in `tools/list` alongside everything above, and
+are documented on their own page rather than here.
+
+<Card title="The eight workflows" icon="list-ol" href="/workflows" horizontal>
+  Multi-step plans an assistant follows: tailoring, gap reports, mining a brain dump, the
+  weekly review, company research, interview prep, filing your week, onboarding someone.
+</Card>
+
+## The annotations
+
+Every tool declares all four MCP behaviour hints, including the ones that match the
+spec's own default. Two of the four default to the *dangerous* answer when omitted, and a
+client cannot tell "we decided this" from "they forgot" — so all four are always stated.
+
+| Hint | Means |
+| --- | --- |
+| `readOnlyHint` | The tool writes nothing at all: no row, no email, no link, no audit entry. |
+| `destructiveHint` | It may overwrite or delete. |
+| `idempotentHint` | Calling it twice with the same arguments does nothing the second time. |
+| `openWorldHint` | It reaches an unbounded set of external things. Almost nothing here does. |
+
+The rule for `destructiveHint` in this codebase: **replacing a field's contents is
+destructive; appending to them is not.** That is why `update_role` is marked destructive
+and `append_role_brain_dump` — which exists because `update_role` was eating people's
+notes — is not.
+
+This is not decoration. Claude groups a connector's tools by these hints in its approval
+screen, so you can hand over the entire read side of the server at once and still be asked
+before something gets destroyed.
+
+In the pages that follow, a tool marked **Overwrites or deletes** carries
+`destructiveHint: true`, and one marked **Reaches outside this instance** carries
+`openWorldHint: true`.
+
+## Conventions worth knowing
+
+<AccordionGroup>
+  <Accordion title="Read first, write back whole" icon="pen-to-square">
+    `update_role`, `update_resume`, `update_company`, `update_contact` and
+    `update_application` all **replace** the fields you pass rather than merging into
+    them. Read the record, modify what you got back, send the whole thing.
+
+    `append_role_brain_dump` is the additive counterpart, and it is the right call
+    whenever somebody says something new about a job already on file.
+  </Accordion>
+
+  <Accordion title="List filters fail loudly" icon="triangle-exclamation">
+    The transport does not validate schemas, so a filter value the data layer does not
+    recognise would otherwise be dropped — and an assistant asking for "companies I never
+    applied to" must not be handed all of them as though that were the answer. An
+    unrecognised value for `list_companies` or `list_contacts`' `filter` therefore throws,
+    naming the allowed set.
+
+    Not every enum is re-checked that way. A `kind` on `create_note` or `update_note` that
+    is neither `NOTE` nor `GUARDRAIL` is dropped rather than refused, so the note is filed
+    as a plain `NOTE` instead of the standing rule that was asked for. Worth checking with
+    `list_notes` after making one.
+  </Accordion>
+
+  <Accordion title="Links come back as links" icon="link">
+    When a tool's whole job is to hand you a URL — a published resume, a rendered PDF, a
+    shared pipeline — it returns an MCP `resource_link` alongside the JSON. A client that
+    renders those gives you something clickable; one that does not sees exactly what it
+    always saw.
+  </Accordion>
+
+  <Accordion title="Nothing returns another person's data" icon="lock">
+    Every tool runs as exactly one account, resolved from the connection token on every
+    request. The account id is threaded into every data call as a required first argument,
+    so there is no code path from one workspace to another. Admin tools act on accounts
+    and instance settings, never on content.
+  </Accordion>
+
+  <Accordion title="Photos and tokens are withheld on purpose" icon="eye-slash">
+    Any tool returning a profile reports `hasPhoto` rather than the image, because the
+    bytes are hundreds of kilobytes of base64 an assistant cannot look at.
+    `list_connections` never returns tokens — they are credentials, and they would sit in
+    a transcript forever. Creating and rotating a connection *does* return one, because
+    handing you the URL is the point of them.
+  </Accordion>
+</AccordionGroup>
+
+## Errors
+
+A call to a tool that does not exist is a JSON-RPC error. A call to an admin tool by a
+member returns a normal result with `isError: true` and a plain sentence, rather than
+failing the connection. Anything a tool throws is recorded in the instance's event stream
+with the tool's name and the failure — never the arguments, which are your content and
+readable by every admin.
+
+<Card title="Your instance's own list" icon="book-open" href="https://app.hired.tools/docs" horizontal>
+  The Docs page inside the app renders the same catalogue from your own deployment, so it
+  shows exactly what your account can see.
+</Card>

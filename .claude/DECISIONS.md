@@ -2267,6 +2267,81 @@ counting by hand. The count rule from the 2026-08-30 briefing entry stands:
 `src/components/crm/contact-detail.tsx`, `src/components/shell.tsx`,
 `src/app/(app)/crm/{companies,contacts}/page.tsx`, `README.md`.
 
+## 2026-08-30 — The manual moves to Mintlify at docs.hired.tools
+
+**The docs are now two things, deliberately.** `/docs` inside the app stays exactly
+what it was: generated from `toolsFor(user)`, so it shows *your* tool count, *your*
+skills, *your* connection URL, and it cannot drift. The written manual — first ten
+minutes, concepts, guides, workflows, the deploy paths, security — is 40 MDX pages
+served by Mintlify at docs.hired.tools. Neither copies the other; each links to it.
+A second rendering of the generated tool list would have been a second one to keep
+right, which is the same argument that stripped the catalogue out of Settings.
+
+**They live in `docs/` in this repo, not in a docs repo.** The Mintlify deployment
+pulls `shifulaboratories/hired` on `main`, and its `contentDirectory` was moved from
+`""` to `docs` so page paths are URLs (`docs/quickstart.mdx` → `/quickstart`) and the
+repo root stays clean. Before this the deployment was still serving the Mintlify
+starter kit, because there was no `docs.json` anywhere in the repo for it to build.
+
+**The tool reference is generated, not transcribed.** `docs/tools/*.mdx` carries every
+argument of all 100 data tools. Writing that by hand guarantees it is wrong within a
+week, so the tables were produced by evaluating each `inputSchema:` expression out of
+`tools.ts` against stubs of `object`/`str`/`num`/`bool`/`strArray` — real JSON Schema,
+no transcription. Regenerating is the same trick; do not hand-edit an argument table.
+
+**README tool counts were lying again, in all three places.** They read 73/100, which
+is the `tools` array alone — but `allTools` appends the eight workflows, so
+`tools/list` returns **80 for a member and 108 for an admin**, and that is what the
+Test button prints, because `testConnectionAction` counts the actual response. The
+claim that the workflows were "among" the 73 was the tell. Corrected to 80/108/28.
+The rule stands and has now failed twice: evaluate the array, never count by hand.
+
+**Verified with Mintlify's own tooling rather than by eye.** `docs.json` passes
+`validateDocsConfig` from `@mintlify/validation`, and all 40 pages compile under
+`@mdx-js/mdx`. The `mint` CLI's TUI cannot run headless here, so link and anchor
+checking is a script over the nav tree — worth rerunning after any page is added.
+
+**Applies to:** `docs/` (new), `README.md`, `site/index.html`, `src/lib/links.ts` (new),
+`src/app/(app)/settings/page.tsx`, `src/app/(app)/docs/page.tsx`.
+
+## 2026-08-30 — What an adversarial pass over the manual found in the code
+
+Writing docs/ meant asserting, in public, what this app does. Six auditors read the
+pages against the source and 17 findings survived independent verification. Most
+were the docs' fault. These were not, and are fixed:
+
+**`create_resume` advertised `seed_from_brain`.** The key is `seedFromBrain`, so
+anyone following the description got a silently empty resume. **Its `lineHeight`
+default said 1.35**, which was true until `20250102000000_harvard_default` lowered
+the column to 1.2; `get_resume_format` has been reporting 1.2 the whole time, from
+the same file. **`admin_health` pointed at "Admin → Billing"**, which has not been a
+tab since email and billing were merged into Configuration. **`save_view` omitted
+`month`** from the parameters it says are kept, then said anything else is dropped —
+so an assistant saving a calendar view would have dropped the month believing that
+was correct.
+
+**`admin_set_user_role` lets any admin promote a member to admin.** `createInvite`
+refuses a non-owner inviting an ADMIN, and the promote control in Admin → People is
+rendered only for the owner — but `setUserRole` checks `canManage` and then only
+refuses `SUPER_ADMIN`, so the MCP path has neither guard. Left as it is rather than
+tightened, because changing an authorisation rule is not a documentation change; the
+manual states the actual behaviour, including that it differs from the browser.
+Worth closing deliberately.
+
+**Two things the docs got wrong that are worth remembering.** `showPhoto` does not
+put a face on a published resume by itself — `PHOTO_TEMPLATES` excludes harvard,
+which is the default, so the warning was unconditionally false for a new resume. And
+`diagnose_search` will not name a weakest step under ten applications; an example
+built on six was describing output the tool refuses to produce.
+
+**Not changed:** `Admin → Billing` in the billing error strings and the Stripe
+webhook comment. There is a card headed Billing inside Configuration, so those are
+imprecise navigation rather than a pointer at nothing.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `skills/hired/SKILL.md`, `docs/`.
+
+---
+
 ---
 
 ## 2026-08-30 — A person is more than a LinkedIn URL, and a company is a place you can go
@@ -2313,14 +2388,20 @@ above a "Linked to" card naming the same employer, and editing it renamed the co
 every other contact and application attached to it. It now appears only when nothing is
 linked, which is the one case where typing a name is the way to attach one.
 
-**`src/lib/links.ts` is pure for the same reason `audit-groups.ts` is** — the contact form
+**`src/lib/social.ts` is pure for the same reason `audit-groups.ts` is** — the contact form
 is a client component, and anything importing `db` would drag Prisma into the browser
 bundle. Its parsing was exercised by hand against the awkward cases (bare handles, missing
 scheme, `www.`, trailing slashes, `bsky.app`, "not a url at all") before shipping, because
 there is no test suite to catch it later.
 
+**It is `social.ts`, not `links.ts`, because main got there first.** This branch and the
+manual work both added a `src/lib/links.ts` — one for a person's social addresses, one for
+the project's own (docs.hired.tools). The name fits both, which is exactly why neither
+could keep it by default: the file already merged and already imported by two screens kept
+it, and the newcomer took the name that says what it actually holds.
+
 **Applies to:** `prisma/schema.prisma`,
-`prisma/migrations/20250119000000_contact_socials/`, `src/lib/links.ts`,
+`prisma/migrations/20250119000000_contact_socials/`, `src/lib/social.ts`,
 `src/components/crm/{company-chip,contact-links,contact-detail,company-detail}.tsx`,
 `src/app/(app)/crm/contacts/page.tsx`, `src/app/(app)/crm/contacts/[id]/page.tsx`,
 `src/app/(app)/crm/companies/[id]/page.tsx`, `src/lib/data/pipeline.ts`,

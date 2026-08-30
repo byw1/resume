@@ -24,7 +24,7 @@ import {
   detectPlatform,
   linkHref,
   type PlatformKey,
-} from "@/lib/links";
+} from "@/lib/social";
 import { agoDay, cn, relativeDay } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";

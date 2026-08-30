@@ -1,0 +1,96 @@
+---
+title: "Hired"
+sidebarTitle: "What this is"
+description: "An applicant tracking system, for applicants. A career brain, a resume builder and a job-search CRM you host yourself, wired into the assistant you already talk to."
+icon: "compass"
+---
+
+Every company you apply to runs an applicant tracking system. Theirs keeps a record on
+you, scores what you sent, and decides what happens next. Hired keeps the record on
+them.
+
+It is three things that only make sense together:
+
+<CardGroup cols={3}>
+  <Card title="A brain" icon="brain" href="/concepts/brain">
+    Everything you know about every job you have had. No length limit, no structure
+    required. This is the raw material every resume gets built from.
+  </Card>
+  <Card title="A resume builder" icon="file-lines" href="/concepts/resumes">
+    Documents assembled from that material, in the Harvard OCS format by default.
+    A real PDF, or a link for the forms that want a URL.
+  </Card>
+  <Card title="A pipeline" icon="list-check" href="/concepts/pipeline">
+    Ten stages, an activity timeline, tasks, and follow-up dates that schedule
+    themselves. Plus the companies and people behind each one.
+  </Card>
+</CardGroup>
+
+## The part that matters
+
+**The interface is a conversation.** There is a web app, it is real, and you will use
+it — to look at a resume, drag a card, read the board. But the product thesis is that
+you talk to this thing:
+
+> Here's everything I did at Vertex last quarter — file it.
+
+> Tailor my resume to this posting, and tell me what I can't evidence.
+
+> What do I need to chase this week?
+
+Every capability in Hired is reachable that way. Your instance publishes an MCP server;
+you paste one URL into Claude, Claude Code, ChatGPT, Cursor, VS Code or Windsurf, and your
+assistant gets 80 tools — 108 if you are an admin — seven of which are ready-made
+workflows. No feature is browser-only.
+
+<Card title="Connect an assistant" icon="plug" href="/connect" horizontal>
+  One URL, one paste. This is the step that makes everything else work.
+</Card>
+
+## What it refuses to do
+
+Every connected client is told, before it sees a single tool, never to invent
+experience, employers, dates or metrics. Everything on a resume has to trace back to
+something you actually wrote down.
+
+That rule exists because of a specific failure, and it is not fabrication from nothing —
+nobody does that. It is *quiet upgrading* during tailoring. A distribution credit
+becomes a hire. "Helped with" becomes "led". An unsettled number becomes a cited one.
+Each of those maps neatly onto a requirement in the posting, so it never feels like
+invention to whoever is drafting.
+
+So when the evidence is not there, Hired says so and asks. A gap you name costs a
+rewrite. A gap you paper over costs the interview.
+
+## Two ways to run it
+
+<CardGroup cols={2}>
+  <Card title="Hosted" icon="cloud" href="https://hired.tools">
+    An instance at app.hired.tools, run for a monthly fee. Pay, get an invite, connect
+    your assistant. Your workspace is private — instance admins manage accounts, never
+    content.
+  </Card>
+  <Card title="Self-hosted" icon="server" href="/self-hosting/overview">
+    Free, AGPL, yours forever. One command with Docker, or five clicks on Railway if
+    you would rather never open a terminal. `DATABASE_URL` is the only thing it asks of
+    its host.
+  </Card>
+</CardGroup>
+
+## Where to go next
+
+<CardGroup cols={2}>
+  <Card title="Your first ten minutes" icon="rocket" href="/quickstart">
+    Connect, install a skill, fill the brain, build a resume. In that order, and the
+    order matters.
+  </Card>
+  <Card title="How it all fits together" icon="diagram-project" href="/concepts/how-it-fits">
+    Brain to resume to application to company, and which direction the arrows point.
+  </Card>
+  <Card title="Every tool" icon="wrench" href="/tools/overview">
+    Every one, by area, with its arguments and whether it overwrites.
+  </Card>
+  <Card title="Deploy your own" icon="server" href="/self-hosting/overview">
+    Docker, Railway, or a laptop. Migrations apply themselves on boot.
+  </Card>
+</CardGroup>

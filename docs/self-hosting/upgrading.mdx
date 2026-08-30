@@ -1,0 +1,82 @@
+---
+title: "Upgrading and backups"
+sidebarTitle: "Upgrading"
+description: "Migrations run themselves on boot, so upgrading is pulling a new image. Backing up is one pg_dump."
+icon: "arrows-rotate"
+---
+
+## Upgrading
+
+<Tabs>
+  <Tab title="Docker">
+    ```bash
+    docker compose pull && docker compose up -d
+    ```
+
+    Your data lives in a named volume and survives upgrades and restarts.
+  </Tab>
+  <Tab title="Railway">
+    Push, or let Railway redeploy from the repository. Nothing else to do.
+  </Tab>
+  <Tab title="From source">
+    ```bash
+    git pull
+    npm install
+    npx prisma migrate deploy
+    npm run build
+    npm start
+    ```
+  </Tab>
+</Tabs>
+
+**There is no migration step for you to run.** `npm start` runs `prisma migrate deploy`
+before the server comes up, so every deploy applies whatever is pending. The Docker image
+and the Railway start command both do this.
+
+<Warning>
+  `npm run dev` applies no migrations. Only `start` does. If you are running from source in
+  development, run `npx prisma migrate deploy` yourself after pulling schema changes.
+</Warning>
+
+## Backups
+
+The database *is* the instance. Every account, every brain dump, every resume document,
+every application, every profile photo — photos are stored as data URIs in the owning row
+rather than in a file store, so there is no second thing to back up.
+
+```bash
+docker compose exec db pg_dump -U hired hired > backup.sql
+```
+
+On a managed database, use whatever that platform gives you. Railway's Postgres has its
+own backup facility.
+
+<Warning>
+  A dump is the whole instance in one file, in the clear. It contains everyone's career
+  history. Store it accordingly, and do not leave it in a repository or a shared drive.
+</Warning>
+
+## Restoring
+
+```bash
+docker compose exec -T db psql -U hired hired < backup.sql
+```
+
+Then start the app. It applies any migrations the dump predates on the way up.
+
+## After an upgrade
+
+Ask, rather than clicking around:
+
+> Is anything broken on this instance?
+
+`admin_health` checks database reachability and response time, whether every migration
+finished, whether email is configured and whether the last send succeeded, whether Stripe
+is still calling the webhook, when an assistant last made a tool call, and how many errors
+were recorded in the last 24 hours. Each check comes back `ok`, `warn` or `down` with a
+plain-language summary.
+
+The migration check is the one that matters after an upgrade: a half-applied migration is
+the failure mode that is invisible until somebody hits the screen that needs it.
+
+[Health and errors →](/administration/health)

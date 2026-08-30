@@ -1,0 +1,62 @@
+---
+title: "The waitlist"
+description: "An open endpoint a static landing page can post to, a queue you review, and one click that turns a request into an invitation."
+icon: "clipboard-list"
+---
+
+If you run a landing page in front of your instance, point its sign-up form at the
+waitlist endpoint. Requests land in **Admin → Waitlist**, and you get an email the moment
+one arrives — no polling an empty screen.
+
+## The endpoint
+
+```http
+POST /api/waitlist
+Content-Type: application/json
+
+{ "email": "...", "name": "...", "context": "..." }
+```
+
+Only `email` is required.
+
+It is open to any origin **on purpose** — that is what makes it work from a static site
+you host anywhere, with nothing to configure. The design follows from that:
+
+<AccordionGroup>
+  <Accordion title="It grants nothing" icon="lock">
+    A request is a row on a list. Nothing on that list has access to anything until an
+    admin presses **Invite**.
+  </Accordion>
+  <Accordion title="It never reads anything back" icon="eye-slash">
+    There is no read side. The endpoint accepts and answers.
+  </Accordion>
+  <Accordion title="It answers identically either way" icon="equals">
+    The response is the same whether or not an address is already on the list, so it
+    cannot be used to find out who signed up.
+  </Accordion>
+  <Accordion title="Junk is cheap to keep out" icon="filter">
+    A honeypot field, a unique index on the address and a burst ceiling handle the obvious
+    cases. Anything that gets through is one click to delete.
+  </Accordion>
+</AccordionGroup>
+
+## Working the queue
+
+> Who asked for access this week?
+
+`admin_list_waitlist` returns each request with the address, what they said they are
+looking for, which site they came from, and when they asked. Entries already turned into
+invites are included with an `invitedAt` date, so the list is the whole history — pass
+`pendingOnly: true` for just the queue. Reading it tells nobody anything.
+
+`admin_invite_waitlist_signup` turns a request into a real invitation: creates the invite,
+emails it, and marks the request as invited so it leaves the queue. It takes the **signup
+id**, not an email address. If email is not configured the invite is still created and the
+reply carries a link you can send by hand.
+
+The row stays afterwards, stamped with the date, so the list remains a record of who asked
+and when.
+
+`admin_remove_waitlist_signup` deletes a request for good — spam, a duplicate, or somebody
+who asked to be taken off. It does **not** revoke an invitation that was already sent; that
+is `admin_revoke_invite`. Irreversible, so read the list first and remove by id.

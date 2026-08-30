@@ -15,7 +15,7 @@ import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
-import { linkHref } from "@/lib/links";
+import { linkHref } from "@/lib/social";
 import { companyDomain } from "@/lib/company";
 import { createContactAction, deleteCompanyAction, saveCompanyAction } from "@/server/actions";
 import { relativeDay } from "@/lib/utils";

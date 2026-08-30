@@ -31,7 +31,7 @@ import {
   linkLabel,
   normaliseLink,
   type PlatformKey,
-} from "@/lib/links";
+} from "@/lib/social";
 
 export type ContactLinkValues = {
   linkedin: string;

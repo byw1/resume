@@ -1,0 +1,238 @@
+---
+title: "The pipeline"
+description: "Ten stages including four different endings, an activity timeline, tasks, follow-up dates that set themselves, saved views, and a read-only link for whoever is helping you."
+icon: "list-check"
+---
+
+An application is one job you are chasing at one company. It carries the posting, a
+stage, a timeline of everything that happened, and the dates that decide what you do next.
+
+## The ten stages
+
+Six are positions on the path. Four are endings, and the difference between them is the
+whole point.
+
+| Stage | Label | Means |
+| --- | --- | --- |
+| `WISHLIST` | Wishlist | Interested, nothing sent. |
+| `APPLIED` | Applied | Sent. |
+| `SCREEN` | Screening | Recruiter conversation under way. |
+| `INTERVIEW` | Interviewing | In the loop. |
+| `FINAL` | Final round | Last stage before a decision. |
+| `OFFER` | Offer | They made one. |
+| `ACCEPTED` | Accepted | Signed. |
+| `REJECTED` | Rejected | They said no. |
+| `WITHDRAWN` | Withdrawn | You pulled out. |
+| `GHOSTED` | Ghosted | Nobody ever replied. |
+
+The first six are the board columns. The four endings get their own view.
+
+```mermaid
+flowchart LR
+  W[Wishlist] --> A[Applied] --> S[Screening] --> I[Interviewing] --> F[Final round] --> O[Offer]
+  O --> AC[Accepted]
+  A -.-> G[Ghosted]
+  S -.-> G
+  I -.-> G
+  A -.-> R[Rejected]
+  S -.-> R
+  I -.-> R
+  F -.-> R
+  W -.-> WD[Withdrawn]
+  O -.-> WD
+```
+
+Solid arrows are progress; dotted ones are the endings, and an application can reach any
+of them from anywhere. Nothing enforces the order — you can move a card straight from the
+wishlist to an offer if that is what happened.
+
+<Warning>
+  **File silence as `GHOSTED`, not `REJECTED`.** Silence is the most common ending in any
+  search, and calling it a rejection makes the funnel lie about what went wrong. A
+  rejection is a decision against you; a ghosting is a non-response — and the advice that
+  falls out of those two is completely different.
+</Warning>
+
+Colour carries the same information: hue rotates in one direction as an application
+advances — steel, blue, violet, pink, then gold at the offer — so two chips read as
+"further along" without you knowing which label is which. The endings sit outside that
+rotation, because they mean something other than progress.
+
+## Capturing something
+
+<CardGroup cols={2}>
+  <Card title="From a URL" icon="link">
+    `capture_job_posting` fetches the page server-side, reads the structured posting data
+    most job boards publish, and creates the application in one move — company matched or
+    created with its own website, role title, full description, location, compensation
+    and source, starting on the wishlist.
+  </Card>
+  <Card title="By hand" icon="pen-to-square">
+    `create_application` needs only `company` and `roleTitle`. The company is created
+    automatically if it does not exist yet.
+  </Card>
+</CardGroup>
+
+When a page does not state the employer or the role readably, `capture_job_posting`
+returns `captured: false` with whatever it *did* parse and creates nothing — deliberately,
+because an employer guessed from a URL is worse than an employer you were asked about.
+
+<Tip>
+  Paste the **whole** posting into `jobDescription`. It is what a resume gets tailored
+  against later, and postings disappear from the web the moment the role is filled.
+</Tip>
+
+### A listing is optional
+
+A role you are chasing through a LinkedIn DM with no posting at all is still an
+application. Track it with just company and role title, put `Cold outreach` in `sources`,
+and attach the person you messaged as a contact.
+
+### Where it came from
+
+`sources` is a list, because a job board posting, a referral and a LinkedIn message are
+often the same job. They are free strings underneath, so nothing stops
+`met the CTO at a wedding`.
+
+The starters are LinkedIn, Job board, Company site, Referral, Recruiter reached out and
+Cold outreach. Your own list is those plus everything you have already used — call
+`list_application_sources` before writing one so you reuse your existing spellings
+instead of minting near-duplicates.
+
+## The timeline
+
+Every application has one, and everything that happened goes on it. Twelve activity types:
+
+`NOTE` · `STAGE_CHANGE` · `EMAIL_SENT` · `EMAIL_RECEIVED` · `CALL` · `INTERVIEW` ·
+`FOLLOW_UP` · `APPLIED` · `OFFER` · `REJECTION` · `REFERRAL` · `OUTREACH`
+
+`OUTREACH` is for a message you sent first — a DM to a hiring manager, a cold email.
+Half of some searches happen there, before or instead of a formal application.
+
+Moving a stage writes its own timeline entry and resets the follow-up date, so
+`move_application_stage` is one call rather than two. Do not also log the change by hand.
+
+<Note>
+  Write the entry the way you said it. "Recruiter said the team is six people and they
+  want someone to own billing end to end" is worth far more in three months than "had a
+  call" — and it is what makes a follow-up message refer to something real.
+</Note>
+
+## Follow-ups that set themselves
+
+Changing stage schedules the next nudge automatically, for 9am on the day it falls:
+
+| Entering | Nudge after |
+| --- | --- |
+| `APPLIED` | 7 days |
+| `SCREEN` | 4 days |
+| `INTERVIEW` | 4 days |
+| `FINAL` | 3 days |
+| `OFFER` | 2 days |
+
+Moving to `WISHLIST` schedules nothing. Moving to one of the four endings **clears** any
+follow-up date the application had and stamps it closed — a finished application should not
+keep nagging you. Override any of it by hand: `nextFollowUpAt` on the application, or the
+cell in the table.
+
+Moving out of `WISHLIST` for the first time also stamps the applied date, if it was not
+already set.
+
+Contacts have their own version: `nextFollowUpAt` on a person is where "ping Sarah in two
+weeks" lives.
+
+### Three ways to ask what is due
+
+<CardGroup cols={3}>
+  <Card title="list_follow_ups" icon="bell">
+    What is already due, or due within N days. Returns two lists: applications whose date
+    has arrived, and contacts whose ping has. Both are work.
+  </Card>
+  <Card title="list_schedule" icon="calendar-days">
+    Everything dated between two dates, merged and sorted: follow-ups, task deadlines and
+    activity already logged. The right call for "what does my week look like".
+  </Card>
+  <Card title="list_tasks" icon="square-check">
+    To-dos, with or without a due date, optionally attached to an application.
+  </Card>
+</CardGroup>
+
+## Reading the search
+
+`pipeline_stats` gives you the counts: by stage, active, sent this week, interviews,
+offers, open tasks, follow-ups due, response rate.
+
+`diagnose_search` gives you the answer. It returns a one-sentence verdict naming which
+step of the funnel is losing people — no responses at all is a resume or targeting
+problem, responses that die at the phone screen is a story problem, interviews that do
+not convert is something else again — plus per-step conversion, median days in each
+stage, weekly volume for the last six weeks, applications that have gone quiet, and the
+response rate of each resume so you can see which one is working.
+
+Progress is measured by the furthest stage an application ever reached, so a rejection
+after a final round counts as having got that far. When there is not enough data yet, it
+says so plainly rather than inventing a trend.
+
+<Tip>
+  Reach for `diagnose_search` before giving or taking advice about a search. It is the
+  difference between "send more applications" and "stop sending, the resume is the
+  problem".
+</Tip>
+
+## Views and cuts
+
+The pipeline toolbar picks the view — a drag-and-drop **board**, a sortable **table**, or
+a month **calendar** of everything with a date on it — plus the stage filter and a search.
+
+Stage filters combine, so "screening and interviewing" is one view rather than two trips.
+The table edits in place: stage, follow-up, salary and location are the cells themselves,
+a **Waiting** column counts days since anything last moved, and selecting rows closes a
+batch out in one action.
+
+A cut worth keeping gets saved under a name. A saved view stores the pipeline URL's own
+parameters:
+
+```
+view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc
+```
+
+| Parameter | Values |
+| --- | --- |
+| `view` | `board`, `list`, `calendar` |
+| `f` | Comma-separated stages, or `overdue`, or `closed` |
+| `sort`, `dir` | Column and direction |
+| `q` | Search text |
+| `month` | `YYYY-MM`, for the calendar view |
+
+Saving under a name that already exists replaces that view, which is how you edit one.
+Anything outside those six parameters is dropped, and they are always written in that
+order — so the same view saved twice is the same string.
+
+## Sharing the board
+
+`share_pipeline` mints a read-only link at `/p/<slug>` for a friend, a coach or a former
+manager who is helping you review the search. What a viewer sees is deliberately narrow:
+
+<CardGroup cols={2}>
+  <Card title="They see" icon="eye">
+    Company, role, stage, location, how long each has been sitting, and when a follow-up
+    is due. Optionally the closed applications too.
+  </Card>
+  <Card title="They never see" icon="eye-slash">
+    Notes, job descriptions, salary, contacts, or the activity timeline.
+  </Card>
+</CardGroup>
+
+Calling it twice returns the same link rather than a second one. `unshare_pipeline`
+**destroys** the address rather than pausing it — sharing again later mints a completely
+different URL — because the reason to revoke is usually that a link reached someone it
+should not have, and a pause you can undo does not fix that.
+
+## In the app
+
+The dashboard leads with what is due and what has gone quiet. **Pipeline** is the board,
+table and calendar. Opening an application slides it in from the right, so you keep your
+place on the board — posting, timeline, contacts, tasks and the resume you attached, all
+on one panel.
+
+Everything here is reachable by conversation — see [the pipeline tools](/tools/pipeline).

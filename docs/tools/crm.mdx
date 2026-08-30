@@ -1,0 +1,179 @@
+---
+title: "CRM tools"
+sidebarTitle: "Companies & contacts"
+description: "Ten tools over the companies you are talking to and the people at them, including their own timelines and ping dates."
+icon: "building"
+---
+
+`get_company` before writing anything about a company, so you add to the research rather
+than replacing it — `update_company` replaces the `notes` field it is passed.
+
+A company's `website` is their **own** domain, not a job-board link. Nothing else depends
+on it, but it is what puts their logo on the pipeline, so it is worth setting whenever you
+learn it.
+
+<Note>
+  `log_activity` takes either an `applicationId` or a `contactId`, never both. With a
+  contact id it becomes that person's history — their page shows it and their "last
+  touched" date moves. `update_contact`'s `nextFollowUpAt` is where "ping them in two
+  weeks" lives, and due pings surface in `list_follow_ups` alongside due applications.
+</Note>
+
+[How companies and contacts work →](/concepts/crm)
+
+<Note>
+  The descriptions below are quoted **verbatim** from what the server sends a connected
+  assistant, which is why they address it rather than you. They are reproduced rather than
+  rewritten so this page cannot drift from what your assistant actually receives.
+</Note>
+
+### `list_companies`
+
+_List companies_
+
+Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `search` | string | Match name, industry, location or notes |
+| `filter` | enum | Cut the list: active \| applied \| never-applied \| with-contacts  `active` · `applied` · `never-applied` · `with-contacts` |
+
+### `get_company`
+
+_Get a company_
+
+Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every contact who works there. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Company id |
+
+### `create_company`
+
+_Create a company_
+
+Add a company before you have applied to them — somewhere to keep research while you decide. Applications create their company automatically, so reach for this only when there is no application yet. Names are unique per person; creating one that already exists is an error rather than a silent merge.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `name` | string | **required** — Company name |
+| `website` | string | Their own site, e.g. stripe.com. This is what the logo comes from. |
+| `industry` | string | e.g. 'Fintech', 'Developer tools' |
+| `size` | string | e.g. '200-500', 'Series B' |
+| `location` | string | Headquarters or main office |
+| `notes` | string | Anything you have learned about them |
+
+### `update_company`
+
+_Update a company_
+
+Change what you know about a company. Only the fields you pass are touched, but each one REPLACES what was there — notes especially, so call get_company first and write back the whole thing if you are adding to research rather than replacing it. Setting website is the single thing that makes their logo show in the pipeline; a job board URL is not their website.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Company id |
+| `name` | string | Company name |
+| `website` | string | Their own site, e.g. stripe.com |
+| `industry` | string | Industry |
+| `size` | string | Headcount or funding stage |
+| `location` | string | Headquarters |
+| `notes` | string | Research notes — replaces what is there |
+
+### `delete_company`
+
+_Delete a company_
+
+Remove a company record. Refuses while applications still point at it — move or delete those first, so tidying up a company can never take an application with it. Contacts survive and simply lose their employer.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Company id |
+
+### `list_contacts`
+
+_List contacts_
+
+Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = no employer on file. Returns each person with their company and the application they are attached to.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `applicationId` | string | Limit to one application |
+| `companyId` | string | Limit to people at one company |
+| `search` | string | Match name, title, email, notes or company |
+| `filter` | enum | Cut the list: ping-due \| with-application \| no-company  `ping-due` · `with-application` · `no-company` |
+
+### `get_contact`
+
+_Get a contact_
+
+One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Contact id |
+
+### `update_contact`
+
+_Update a contact_
+
+Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes or otherLinks rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Contact id |
+| `name` | string | Their name |
+| `title` | string | Their job title |
+| `email` | string | Email |
+| `phone` | string | Phone |
+| `linkedin` | string | LinkedIn URL |
+| `twitter` | string | X / Twitter — a URL or an @handle |
+| `instagram` | string | Instagram — a URL or an @handle |
+| `github` | string | GitHub profile URL |
+| `website` | string | Their own site, blog or portfolio |
+| `otherLinks` | string[] | Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first. |
+| `relationship` | string | e.g. 'recruiter', 'hiring manager', 'referral' |
+| `notes` | string | Notes — replaces what is there |
+| `company` | string | Employer, or empty string to detach |
+| `applicationId` | string | Application to attach to, or empty string to detach |
+| `nextFollowUpAt` | string | ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard. |
+
+### `delete_contact`
+
+_Delete a contact_
+
+Remove a person. Their company and any application they were attached to stay.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Contact id |
+
+### `create_contact`
+
+_Create a contact_
+
+Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `name` | string | **required** — Their name |
+| `title` | string | Their job title |
+| `email` | string | Email |
+| `phone` | string | Phone |
+| `linkedin` | string | LinkedIn URL |
+| `twitter` | string | X / Twitter — a URL or an @handle |
+| `instagram` | string | Instagram — a URL or an @handle |
+| `github` | string | GitHub profile URL |
+| `website` | string | Their own site, blog or portfolio |
+| `otherLinks` | string[] | Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first. |
+| `relationship` | string | e.g. 'recruiter', 'hiring manager', 'referral' |
+| `notes` | string | Notes |
+| `company` | string | Company they work at |
+| `applicationId` | string | Attach to this application |

@@ -1,0 +1,148 @@
+---
+title: "Running the search"
+description: "Capturing a posting, logging what happened, and chasing what is due — done by talking about your week rather than by maintaining a spreadsheet."
+icon: "list-check"
+---
+
+A job search decays into a spreadsheet nobody updates, because logging feels like admin.
+The way to stop that is to make logging a side effect of talking about what happened,
+which is exactly what a conversation is good at.
+
+## Capturing something new
+
+### From a link
+
+> Here's a job — track it. https://boards.greenhouse.io/…
+
+`capture_job_posting` fetches the page server-side, reads the structured posting data most
+job boards publish, and creates the application in one move: company matched or created
+with its own website — which puts the logo on your board — role title, full description,
+location, compensation and source, starting on the wishlist.
+
+Greenhouse, Lever, Ashby, Workday and LinkedIn links all work. When a page does not state
+the employer or the role readably it creates **nothing** and hands back whatever it did
+parse, so you can fill in the missing pieces. An employer guessed from a URL is worse than
+one you were asked about.
+
+If you already applied, say so and it moves the stage.
+
+### By hand, or from nothing
+
+> I applied to Helios for a staff engineer role yesterday. Here's the posting: …
+
+Only company and role title are required. Paste the **whole** posting into the
+description — it is what a resume gets tailored against later, and postings vanish from
+the web the moment a role is filled.
+
+A listing is optional. A role you are chasing through a LinkedIn DM is still an
+application: track it with company and title, put `Cold outreach` in the sources, and
+attach the person you messaged as a contact.
+
+<Tip>
+  Do not set a follow-up date unless you want a specific one.
+  [They set themselves](/concepts/pipeline#follow-ups-that-set-themselves) from the stage.
+</Tip>
+
+## Logging what happened
+
+Everything that happens with a company goes on the application's timeline:
+
+> Had a call with the Helios recruiter. Team is six people, they want someone to own
+> billing end to end. She's sending me the loop this week.
+
+Write it the way you said it. "Recruiter said the team is six people and they want
+someone to own billing end to end" is worth far more in three months than "had a call" —
+and it is what lets a follow-up message refer to something real, which is what gets a
+follow-up answered.
+
+Twelve activity types are available; the ones that come up are `CALL`, `INTERVIEW`,
+`EMAIL_SENT`, `EMAIL_RECEIVED`, `NOTE`, and `OUTREACH` for a message you sent first.
+
+### Moving stages
+
+> Helios moved me to the final round.
+
+`move_application_stage` writes its own timeline entry and resets the follow-up date, so
+it is one call. Do not also log the change by hand.
+
+Closing several at once is one call too: *"close out everything I never heard back from"*
+moves a batch to `GHOSTED`, each with its own timeline entry and its own follow-up reset,
+so the funnel history stays intact.
+
+<Warning>
+  Silence is `GHOSTED`, not `REJECTED`. A rejection is a decision against you; a ghosting
+  is a non-response. Filing one as the other makes `diagnose_search` give you the wrong
+  advice about what to fix.
+</Warning>
+
+### People
+
+If a person comes up — a recruiter, a hiring manager, whoever referred you — say their
+name and it becomes a contact attached to that application and that company. Names
+disappear fast, and they are the thing that matters most later.
+
+Things that happened *with a person* rather than on an application go on their own
+timeline: a coffee, a call, a reply. That is what makes "when did I last talk to them?"
+answerable.
+
+## Chasing
+
+<CardGroup cols={2}>
+  <Card title="What is due now" icon="bell">
+    > What do I need to chase this week?
+
+    Returns two lists — applications whose follow-up date has arrived, and people whose
+    ping date has. Both are work; plan a day from the pair.
+  </Card>
+  <Card title="What the week looks like" icon="calendar-days">
+    > What does next week look like?
+
+    Merges follow-ups, task deadlines and logged activity into one window, sorted
+    earliest first.
+  </Card>
+</CardGroup>
+
+When something is overdue, do not just report it — draft the actual message, using the
+timeline so it refers to what was said. Ask for that:
+
+> Draft the follow-ups for anything overdue, using what was actually said on each one.
+
+## Views worth keeping
+
+The pipeline toolbar switches between a drag-and-drop board, a sortable table and a month
+calendar, filters by stage — several at once — and searches. A cut you keep returning to
+gets saved under a name:
+
+> Save this as "Gone quiet".
+
+Saved views are readable by an assistant too, so referring to one by name in conversation
+works: reading a view tells it what you consider one job.
+
+## Sharing the board
+
+> Give me a link to share my pipeline with my coach.
+
+A read-only page showing company, role, stage, location, waiting time and follow-up
+dates — and never your notes, job descriptions, salary, contacts or timeline. Asking twice
+returns the same link. Revoking destroys the address rather than pausing it.
+
+## The three things not to do
+
+<AccordionGroup>
+  <Accordion title="Do not log the same thing twice" icon="copy">
+    Check the timeline first. A duplicate entry makes the record harder to read and skews
+    "what moved this week".
+  </Accordion>
+  <Accordion title="Do not move a stage nobody told you about" icon="forward">
+    An interview being *scheduled* is not an interview happening. The stage is where the
+    application actually is, and `diagnose_search` reads it literally.
+  </Accordion>
+  <Accordion title="Do not create a company just to have one" icon="building">
+    Applications create their company automatically. `create_company` is for somewhere you
+    are researching before there is an application.
+  </Accordion>
+</AccordionGroup>
+
+<Card title="The weekly review" icon="gauge" href="/guides/weekly-review" horizontal>
+  Once a week, ask what is actually going wrong rather than what the counts are.
+</Card>

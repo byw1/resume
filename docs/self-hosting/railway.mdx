@@ -1,0 +1,91 @@
+---
+title: "Self-host on Railway"
+sidebarTitle: "Railway"
+description: "Five minutes, one variable, no terminal. The app provisions itself on first boot."
+icon: "train"
+---
+
+<Steps>
+  <Step title="Create the project">
+    Go to [railway.com](https://railway.com) → **New Project** → **Deploy from GitHub
+    repo** → pick the Hired repository. Railway starts building immediately.
+
+    The build will succeed, but the app will not start yet — it has nowhere to store
+    anything, so you will see it crash and retry. That is expected; the next two steps fix
+    it, and Railway redeploys on its own.
+  </Step>
+
+  <Step title="Add a database">
+    In the same project: **+ Create** → **Database** → **Add PostgreSQL**.
+
+    Railway names the service **Postgres**. Leave it alone; you never have to configure it.
+  </Step>
+
+  <Step title="Point the app at it">
+    Click your **app service** — not the Postgres one — then **Variables** → **New
+    Variable**:
+
+    | Variable | Value |
+    | --- | --- |
+    | `DATABASE_URL` | `${{Postgres.DATABASE_URL}}` |
+
+    Type it exactly as shown, `${{ }}` included — Railway autocompletes it. It is a
+    *reference*, so if the database credentials ever rotate, your app follows
+    automatically.
+
+    That is the only variable. Everything else is configured inside the app.
+  </Step>
+
+  <Step title="Give it a web address">
+    **Settings** → **Networking** → **Generate Domain**. You will get something like
+    `hired-production.up.railway.app`.
+  </Step>
+
+  <Step title="Get your password from the logs">
+    On first boot the app creates your owner account and prints the credentials once.
+
+    Open the **Deploy Logs** tab on your app service and scroll to the top of the latest
+    deploy. Copy the password, sign in, then change your email and password from
+    **Settings**.
+
+    Database tables are created automatically on every boot — there is no migration step
+    for you to run, now or after any future update.
+  </Step>
+
+  <Step title="Connect your AI">
+    Open **Settings** in the app. It opens on **Connections**, because this is the step
+    that makes everything else work. You already have one waiting; hit **Set up**, pick
+    whichever assistant you use, and the exact steps appear with the config already filled
+    in with your URL.
+
+    [Per-client setup →](/connect)
+  </Step>
+</Steps>
+
+## Optional variables
+
+| Variable | What it does |
+| --- | --- |
+| `ADMIN_EMAIL` | Use this address for the owner account instead of `owner@localhost`. |
+| `APP_PASSWORD` | Use this as the owner's first password instead of a generated one. |
+| `RESET_OWNER_PASSWORD` | Set to `1` and redeploy to generate a fresh owner password and print it again. Remove the variable afterwards. |
+
+`RAILWAY_PUBLIC_DOMAIN` is set by the platform, and the app uses it for the sign-in address
+it prints in the deploy log. Invitation links need no public URL either — the app falls back
+to the address the request came in on — but set **Public URL** in **Admin → Variables** once
+a custom domain or a proxy sits in front of the app.
+
+## Deploy configuration
+
+The repository carries a `railway.json`, so there is nothing to configure in the
+dashboard. It builds with Nixpacks, starts with `prisma migrate deploy && next start`, and
+health-checks `/login` with a 120-second timeout.
+
+<Warning>
+  **One-click PDF export does not work on a stock Railway deploy.** Nixpacks' image has no
+  headless browser, so the **PDF** button reports that and points at the fallback:
+  **⋯ → Open print view**, then your browser's **Save as PDF** with margins set to
+  **None**. Same document, one more step.
+
+  [How to get one-click PDF anyway →](/self-hosting/pdf)
+</Warning>

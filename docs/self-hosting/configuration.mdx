@@ -1,0 +1,87 @@
+---
+title: "Configuration"
+description: "Everything an instance can be configured with lives in the database, not in environment variables. One screen, one tool, and it takes effect on the next request."
+icon: "sliders"
+---
+
+`DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in
+the database, which is what makes **Admin → Variables** possible: one table of everything
+the instance stores as configuration, with what each one does written next to it.
+
+Change one and it takes effect on the next request. There is nothing to redeploy.
+
+## What is in there
+
+| Key | Group | What it does | Default |
+| --- | --- | --- | --- |
+| `instance_name` | Instance | What this instance is called. Shown on the sign-in page and in every email it sends. | `Hired` |
+| `public_url` | Instance | Where this instance is reachable from outside. Invitation links and the Stripe webhook URL are built from it. Left empty, the app guesses from the incoming request — right until something sits in front of it. | *(empty)* |
+| `company_logos` | Instance | Shows each company's favicon in the pipeline. | On |
+| `resend_api_key` | Email | Starts with `re_`. Stored on your server and never shown again. | *(empty)* |
+| `resend_from_email` | Email | The address invitations are sent from, on a domain verified in Resend. | *(empty)* |
+| `resend_from_name` | Email | Display name on outgoing mail. | `Hired` |
+| `stripe_secret_key` | Billing | Stripe API key. A restricted `rk_` key is enough and safer. | *(empty)* |
+| `stripe_webhook_secret` | Billing | Webhook signing secret, starts with `whsec_`. | *(empty)* |
+| `stripe_payment_link` | Billing | The public checkout URL people pay through. | *(empty)* |
+
+<Note>
+  **Company logos and privacy.** With logos on, each person's browser asks
+  `twenty-icons.com` for the icon, which means that service can see which companies are in
+  their pipeline. Turn it off for an instance where that matters and everyone gets initials
+  on a coloured tile instead. Nothing is stored or deleted either way.
+</Note>
+
+## How secrets behave
+
+Secrets show **masked** and can only be replaced or cleared, never read back. No tool
+returns a raw key.
+
+Sending an empty value for a secret leaves it alone rather than clearing it —
+`admin_delete_variable` is how you clear one.
+
+Every change is one line in **Admin → Log**, with your name on it, values included for
+everything that is not a secret. A secret is recorded as having been *set*, never as its
+value.
+
+## Clearing one
+
+Clearing a value resets it to the default the app ships with, and the button tells you
+what that default is before you press it. Clearing the Resend key stops every invitation
+email; clearing `company_logos` turns logos back **on**, because on is the default.
+
+<Warning>
+  `admin_delete_variable` is the one settings call with no undo. Read
+  `admin_list_variables` first to see what the default would be.
+</Warning>
+
+## Adding your own
+
+You can add a variable that nothing ships with. That is the escape hatch for a setting
+that exists before it has a form — a feature can read a key, and you can set it today
+rather than waiting for a screen.
+
+A key starts with a lowercase letter and continues in lowercase letters, digits and
+underscores, between 2 and 64 characters — anything else is refused. Variables added by hand
+come back marked `known: false`; they have no form in the app and are read by whatever
+feature asked for them.
+
+<Warning>
+  Values of undeclared keys are written to the audit log in full, because the app has no
+  way to know they are sensitive. Never put a secret in a key that is not declared as one.
+</Warning>
+
+## By conversation
+
+> Where does the instance name live? And what is it set to?
+
+> Turn company logos off.
+
+`admin_list_variables` is the whole of what a self-hosted instance stores as
+configuration, so it is the right first call when somebody asks where a setting lives or
+why the app is behaving a certain way. `admin_set_variable` and `admin_delete_variable`
+change and clear one.
+
+Prefer `admin_set_email_config` and `admin_set_billing_config` where they apply — they set
+the same values and also report whether that area now works.
+
+[All 27 admin tools →](/tools/admin)

@@ -1,0 +1,151 @@
+---
+title: "Troubleshooting"
+description: "The failures people actually hit, and the first thing to check for each."
+icon: "screwdriver-wrench"
+---
+
+## Connecting
+
+<AccordionGroup>
+  <Accordion title="The client says it connected but no tools appear" icon="plug-circle-xmark">
+    Press **Test** next to that connection in **Settings**. It calls the endpoint the way
+    a client would and reports how many tools answered — 80 for a member, 108 for an admin.
+
+    If the test passes and the client still shows nothing, the client is usually caching a
+    failed handshake: remove the server from its config, restart it, and add it again.
+  </Accordion>
+
+  <Accordion title="The client refuses a URL with a token in the path" icon="key">
+    Use the bearer form instead. Drop the token from the path, point the URL at
+    `/api/mcp`, and send `Authorization: Bearer <token>`. Both routes resolve to the same
+    connection. [The config →](/connect#a-client-that-insists-on-a-header)
+  </Accordion>
+
+  <Accordion title="The client only speaks stdio" icon="terminal">
+    Bridge it with `mcp-remote`. It needs Node and nothing else.
+    [The config →](/connect#a-client-that-only-speaks-stdio)
+  </Accordion>
+
+  <Accordion title="It worked yesterday and stopped today" icon="clock">
+    Three things end a connection: the token was **rotated**, the connection was
+    **deleted**, or the account was **suspended**. `list_connections` from another client
+    tells you which — and if you have no other client, the Connections tab shows the same
+    rows.
+  </Accordion>
+
+  <Accordion title="An admin tool says it is only available to admins" icon="shield-halved">
+    Admin tools are hidden from a member's tool list entirely, so a member should never see
+    one offered. If a tool is being *called* and refused, the client has a stale tool list
+    cached from an admin session — restart it.
+  </Accordion>
+</AccordionGroup>
+
+## Resumes
+
+<AccordionGroup>
+  <Accordion title="The PDF button says there is no browser" icon="file-pdf">
+    Your host has no headless Chromium. Use **⋯ → Open print view** and your browser's
+    **Save as PDF** with margins set to **None** — the same document, one more step.
+    [Getting one-click export →](/self-hosting/pdf)
+  </Accordion>
+
+  <Accordion title="Half the resume disappeared after an edit" icon="triangle-exclamation">
+    `update_resume` with `data` replaces the **whole** document. Something sent a partial
+    one. There is no undo.
+
+    Prevention: install the [`hired` skill](/skills), which carries the read-first rule, and
+    tailor into a `duplicate_resume` copy rather than editing an original.
+  </Accordion>
+
+  <Accordion title="The photo is not showing on a resume" icon="image">
+    Three things have to be true: a photo is set on your profile, `showPhoto` is on for
+    that document, and the template renders one. **Harvard never does**, whatever you set —
+    Classic, Modern, Compact and Editorial do.
+  </Accordion>
+
+  <Accordion title="Setting a photo is refused" icon="image">
+    Anything over 400KB is rejected. Downscale first — a resume prints the photo about an
+    inch square, and a 512px original is already more than that needs.
+  </Accordion>
+
+  <Accordion title="A published link stopped working" icon="link-slash">
+    Unpublishing **destroys** the address rather than pausing it, and publishing the same
+    resume again mints a different one. The old URL cannot be recovered. Send the new link.
+  </Accordion>
+</AccordionGroup>
+
+## The pipeline
+
+<AccordionGroup>
+  <Accordion title="capture_job_posting created nothing" icon="link">
+    It returns `captured: false` and creates nothing when the page does not state the
+    employer or the role readably — deliberately, because an employer guessed from a URL is
+    worse than one you were asked about. It hands back whatever it *did* parse; fill in the
+    rest and create the application by hand.
+  </Accordion>
+
+  <Accordion title="Company logos are missing" icon="building">
+    A company's logo comes from its `website`, and only from its own domain — a Greenhouse
+    or Ashby link is the job board rather than the employer. `list_companies` is the fast
+    way to spot companies with no website on file.
+
+    If **no** logos show anywhere, an admin has turned them off instance-wide.
+  </Accordion>
+
+  <Accordion title="diagnose_search gives advice that seems wrong" icon="gauge">
+    Check how your dead applications are filed. Silence filed as `REJECTED` reads as
+    people deciding against you; filed as `GHOSTED` it reads as a non-response. Those two
+    produce different advice, and the second one is usually the true story.
+  </Accordion>
+
+  <Accordion title="Research notes were overwritten" icon="building">
+    `update_company` replaces the `notes` field. Something wrote new notes without reading
+    the old ones first. There is no undo — the [`research_company`](/workflows#research-a-company-into-the-crm)
+    workflow exists specifically to make the read-first step explicit.
+  </Accordion>
+</AccordionGroup>
+
+## The instance
+
+<AccordionGroup>
+  <Accordion title="Something is broken and I do not know what" icon="heart-pulse">
+    `admin_health` first — database, migrations, email, billing, assistant activity, error
+    count. Then `admin_recent_errors` for the specifics behind an error count.
+    [Health and errors →](/administration/health)
+  </Accordion>
+
+  <Accordion title="An invitation never arrived" icon="envelope">
+    `admin_user_detail` says whether the email actually left, which tells you whether the
+    problem is the account or the email. `admin_list_invites` gives you the link to send by
+    hand. [Email →](/self-hosting/email)
+  </Accordion>
+
+  <Accordion title="A test email fails" icon="envelope-circle-check">
+    You get Resend's exact reason back, and it is almost always an unverified sending
+    domain. Verify the domain first, then make the from address one on it.
+  </Accordion>
+
+  <Accordion title="The app crashes on boot" icon="server">
+    Almost always `DATABASE_URL` — missing, or pointing at a database that is not up yet.
+    On Railway that shows as a crash-and-retry loop until the Postgres service exists and
+    the reference is set.
+  </Accordion>
+
+  <Accordion title="Stripe is not activating anyone" icon="credit-card">
+    A billing check that reads **down** usually means the signing secret is wrong; one that
+    says Stripe has never called means the webhook endpoint was never added on Stripe's
+    side. `admin_sync_billing` reconciles a missed webhook.
+    [Billing →](/self-hosting/billing)
+  </Accordion>
+
+  <Accordion title="Locked out of the owner account" icon="key">
+    Set `RESET_OWNER_PASSWORD=1` on the app service and restart. A fresh owner password is
+    printed to the logs. Remove the variable afterwards, or it resets on every boot.
+  </Accordion>
+
+  <Accordion title="A screen errors after an upgrade" icon="arrows-rotate">
+    Check the migration line in `admin_health`. A half-applied migration is invisible until
+    somebody hits the screen that needs it. `npm start`, the Docker image and the Railway
+    start command all run `prisma migrate deploy` first — `npm run dev` does not.
+  </Accordion>
+</AccordionGroup>

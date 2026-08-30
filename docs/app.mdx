@@ -1,0 +1,165 @@
+---
+title: "The web app"
+description: "A tour of every screen: what it shows, what you can do there directly, and which parts are deliberately browser-only."
+icon: "window-maximize"
+---
+
+Everything in Hired is reachable from a conversation. The web app is where you go to
+*look* at the result, adjust it by hand, and do the two jobs a conversation is bad at:
+direct manipulation and rendering.
+
+The left rail holds Dashboard, Brain, Resumes, CRM and Pipeline — the content. Docs,
+Settings and — for admins — Admin are account actions, so they live in the profile menu at
+the top right instead. `⌘K` / `Ctrl+K` opens a search palette: somewhere to go, something
+to create, and every role, resume and application by name.
+
+**Your work autosaves.** The brain, the resume editor, the pipeline and the CRM have no
+save button anywhere; a small indicator tells you when a change has landed. The settings
+and admin forms are the exception — those have a **Save**, and typing a new name into
+Settings → Account and navigating away loses it.
+
+Both themes are supported. The toggle is on the **Appearance** tab in Settings, not in the
+top bar.
+
+## Dashboard
+
+`/`
+
+What is due and what has gone quiet, ahead of everything else. Stats across the top —
+what is in flight, response rate, what you sent this week, how much is in the brain —
+then follow-ups due, recent activity and open tasks.
+
+It is the screen to open on a Monday, and it answers the same question `list_follow_ups`
+does, laid out rather than listed.
+
+## Brain
+
+`/brain` and `/brain/<roleId>`
+
+Every role with its date range and highlight count. Opening one gives you the brain dump
+in a full-width editor beside its highlights, plus the role's own fields — company, title,
+employment type, location, dates, scope summary and tags.
+
+The four supporting collections — education, projects, skills, certifications — and your
+free-floating notes live here too.
+
+<Tip>
+  You can type into a brain dump directly, and sometimes that is the right thing. But the
+  fastest way to fill one is still to talk: twenty minutes of rambling beats twenty
+  minutes of typing into a textarea, and it produces better material.
+</Tip>
+
+## Resumes
+
+`/resumes` and `/resumes/<id>`
+
+The list is every document with its target role and company, how many applications it is
+attached to, and whether it is published. Favourites pin to the top.
+
+The editor is one of the two deliberately browser-first parts of the product. On the left,
+the document — sections you can reorder with ⌃/⌄, hide rather than delete, and rename
+freely. On the right, the paper: the real renderer, not an approximation, so what you see
+is what the PDF and the published page produce.
+
+<CardGroup cols={3}>
+  <Card title="Design" icon="palette">
+    The palette icon. Template, font family, base size, line height, accent colour,
+    margins, and whether the photo shows — per resume.
+  </Card>
+  <Card title="Share" icon="link">
+    Create an unlisted public link, or withdraw one. [What that
+    exposes](/guides/publish-and-export#the-privacy-model-is-the-address-and-nothing-else).
+  </Card>
+  <Card title="PDF" icon="file-pdf">
+    Downloads the file. Where the host has no headless browser, **⋯ → Open print view** is
+    the fallback.
+  </Card>
+</CardGroup>
+
+## Pipeline
+
+`/applications` and `/applications/<id>`
+
+One toolbar across the top picks the view, the cut and the search.
+
+<AccordionGroup>
+  <Accordion title="Board" icon="table-columns">
+    Drag-and-drop across the six live stages. The four endings get their own view rather
+    than a column each.
+  </Accordion>
+  <Accordion title="Table" icon="table">
+    Sortable, and it edits in place — stage, follow-up, salary and location are the cells
+    themselves. A **Waiting** column counts days since anything last moved, which is the
+    column to sort on when you want to know what has gone quiet. Select rows to close a
+    batch out in one action.
+  </Accordion>
+  <Accordion title="Calendar" icon="calendar-days">
+    A month of everything that has a date on it — follow-ups, task deadlines, logged
+    activity.
+  </Accordion>
+</AccordionGroup>
+
+Stage filters combine, so "screening and interviewing" is one view rather than two trips,
+and a cut worth keeping saves under a name.
+
+Opening an application slides it in from the right, so you keep your place on the board:
+the posting, the whole timeline, contacts, tasks, sources, and the resume attached to it.
+
+## CRM
+
+`/crm/companies`, `/crm/contacts`, and a page per record
+
+Two filterable lists. Companies shows when you last applied and what is still live;
+contacts shows who is attached to what. Both filter — to the companies where you know
+someone, to the people whose ping is due.
+
+A company page carries its details, its research notes, every application you have there
+and every contact who works there. A contact page carries their details and their own
+timeline. Contacts attach to applications straight from here rather than being retyped,
+and removing one from an application never deletes the person.
+
+## Docs
+
+`/docs`
+
+Your instance's own reference, generated from the server rather than written out — so it
+cannot drift. Every tool and workflow your account can see, grouped by area, with the
+descriptions your assistant actually receives. It also carries the three
+[skills](/skills), each as a raw `SKILL.md` and as a zip.
+
+That page is about *your deployment*. This manual is about the product.
+
+## Settings
+
+`/settings`
+
+Three tabs, opening on **Connections** — because a new user's first ten minutes are spent
+pasting a URL into an assistant, not changing a password.
+
+<CardGroup cols={3}>
+  <Card title="Connections" icon="plug">
+    Every assistant wired to your workspace, when each last called in and from what.
+    Set up, test, rename, rotate, disconnect.
+  </Card>
+  <Card title="Account" icon="user">
+    Name, email, password, and the profile photo that every document shares.
+  </Card>
+  <Card title="Appearance" icon="palette">
+    Theme.
+  </Card>
+</CardGroup>
+
+Admins get a link through to **Settings → Admin** from here.
+[What lives there →](/administration/people)
+
+## The pages without a login
+
+Three, and they are the entire public surface of an instance.
+
+| Route | What it is |
+| --- | --- |
+| `/r/<slug>` | A published resume. Unlisted, not indexed, readable by anyone with the link. |
+| `/p/<slug>` | A shared pipeline. Company, role, stage, location, waiting time, follow-up date — and nothing else. |
+| `/print/<id>` | The US-Letter print page. **Auth-gated**, unlike the other two. The fallback for hosts without a headless browser. |
+
+[Exactly what each one exposes →](/reference/security)

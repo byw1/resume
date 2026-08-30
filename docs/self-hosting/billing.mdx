@@ -1,0 +1,72 @@
+---
+title: "Charging for it"
+sidebarTitle: "Billing"
+description: "Optional. If you host an instance for other people and want them to pay for it, this is the Stripe wiring — and the deliberate gap in it."
+icon: "credit-card"
+---
+
+Entirely optional, and irrelevant if you are the only person on your instance. Billing
+governs **only** users who arrived through a Stripe checkout: the owner and anyone you
+invited for free are never touched by it.
+
+## Wiring it up
+
+<Steps>
+  <Step title="Paste an API key">
+    **Admin → Configuration.** Prefer a **restricted** key (`rk_...`) with read-only
+    Customers and Subscriptions over your full secret key. Reading those two things is all
+    this app ever does with Stripe, and a restricted key that leaks cannot move money or
+    alter your Stripe account.
+  </Step>
+  <Step title="Register the webhook">
+    The panel shows you the exact webhook URL to paste into the Stripe Dashboard. It is
+    built from the instance's public URL, so set that first if you have not.
+  </Step>
+  <Step title="Paste the signing secret">
+    Stripe gives you one when you create the endpoint. It starts with `whsec_`.
+  </Step>
+  <Step title="Publish your Payment Link">
+    Put your Stripe Payment Link wherever you send people.
+  </Step>
+</Steps>
+
+## What happens then
+
+| Event | Effect |
+| --- | --- |
+| Someone new pays through the link | Invited automatically. |
+| Their subscription lapses | Suspended — sign-in and assistant access stop, **data stays**. |
+| They pay again | Reactivated. |
+
+## The deliberate gap
+
+An **existing** member who starts paying is connected by you, on purpose, with
+`admin_link_billing`.
+
+That is not an oversight. A checkout email is whatever the payer typed, so an unattended
+webhook that matched on it could attach a subscription to an account that already exists —
+someone else's. The webhook therefore only ever invites strangers, and connecting a
+current member to a subscription is a deliberate admin act.
+
+`admin_link_billing` finds their Stripe customer by the same email, or takes a
+`customerId` when Stripe holds several. Pass `unlink: true` to detach someone from billing
+entirely, which also ends billing's authority over their account. The owner can never be
+linked.
+
+## When a webhook goes missing
+
+`admin_sync_billing` asks Stripe for the current subscription state and reconciles the
+instance against it — for one email, or for everyone with a Stripe customer attached. It
+reports what changed per person: activated, suspended, or unchanged. Safe to run any time,
+and there is a **Resync from Stripe** button that does the same thing.
+
+## Checking it is alive
+
+`admin_health` includes a billing check.
+
+- **Down** usually means the signing secret in **Admin → Configuration → Billing** is wrong.
+- **Never called** means the webhook endpoint was never added on Stripe's side.
+
+`admin_recent_errors` with `source: "stripe.webhook"` carries the specifics. Note that the
+default level includes `INFO` entries such as successful webhook deliveries — those are
+what prove Stripe is still reaching your instance at all.

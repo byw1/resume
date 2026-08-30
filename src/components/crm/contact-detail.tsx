@@ -24,7 +24,7 @@ import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { addActivityAction, deleteCrmContactAction, saveContactAction } from "@/server/actions";
 import { ACTIVITY_LABEL, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
-import { linkHref } from "@/lib/links";
+import { linkHref } from "@/lib/social";
 import { relativeDay } from "@/lib/utils";
 import type { ActivityType, Stage } from "@prisma/client";
 
