@@ -1333,7 +1333,7 @@ export const tools: McpTool[] = [
     inputSchema: object({ url: str("The posting's URL, e.g. a Greenhouse, Lever, Ashby, Workday or LinkedIn job link") }, ["url"]),
     annotations: {
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: true,
     },
@@ -1367,7 +1367,7 @@ export const tools: McpTool[] = [
     ),
     annotations: {
       readOnlyHint: false,
-      destructiveHint: false,
+      destructiveHint: true,
       idempotentHint: false,
       openWorldHint: false,
     },
@@ -1786,7 +1786,7 @@ export const tools: McpTool[] = [
     annotations: {
       readOnlyHint: false,
       destructiveHint: true,
-      idempotentHint: true,
+      idempotentHint: false,
       openWorldHint: false,
     },
     handler: async (args, ctx) => pipeline.setTaskDone(ctx.userId, required(args, "id"), b(args, "done") ?? true),

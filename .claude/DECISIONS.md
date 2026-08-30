@@ -1991,6 +1991,15 @@ standalone and checking the output with `unzip -t` and Python's `zipfile` — ro
 byte-for-byte, valid archive, deterministic across runs — not by reading the code, where it
 looks entirely correct.
 
+**Three of the ninety were wrong, and all three were wrong the same way.**
+`create_application` and `capture_job_posting` were called purely additive because they create
+an Application row. They also call `upsertCompanyByName`, whose `update: extra ?? {}` replaces
+an existing company's website — so adding an application can quietly overwrite research
+already on the company. `complete_task` was called idempotent because setting done twice looks
+like setting it once; it re-stamps `doneAt` with a fresh timestamp on every call. Each mistake
+came from reading what the tool is *for* rather than what its call chain *does*, which is the
+argument for checking the second thing.
+
 **Applies to:** `src/lib/mcp/tools.ts`, `src/lib/mcp/handler.ts`, `src/lib/data/brain.ts`
 (`brainIsEmpty`), `src/lib/zip.ts`, `src/app/(app)/docs/skills/[slug]/route.ts`,
 `src/components/docs/copy-block.tsx`, `src/app/(app)/docs/page.tsx`, `README.md`.

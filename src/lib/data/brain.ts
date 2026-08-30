@@ -621,9 +621,13 @@ export async function getBrainSnapshot(userId: string) {
  *
  * The briefing every MCP client receives branches on this, so it runs on every
  * `initialize` — which is why it asks for one id per table rather than counting,
- * and why it is a single round trip. A workspace with a bare Profile row and
- * nothing else still counts as empty: `bootstrap` creates that row, so its
- * existence says only that the account was provisioned.
+ * and why it is a single round trip.
+ *
+ * It reads the Profile row directly rather than through `getProfile`, which
+ * creates one when it finds none. A predicate whose whole job is to report that
+ * nothing exists must not bring something into existence to answer, and it must
+ * not then read its own row back as evidence of a filled-in workspace. The row
+ * is judged on its contents for the same reason: blank fields are not a career.
  *
  * Deliberately brain-only. Someone can have applications and no brain — that is
  * exactly the person this predicate exists to catch, because they have a

@@ -36,28 +36,26 @@ const SERVER_INFO = {
  * tool yet, so the honest instruction is to take whatever shape the person
  * already has their history in and file it by hand.
  */
-const EMPTY_WORKSPACE = `This workspace is EMPTY: no roles, no highlights, no notes, no resumes.
+const EMPTY_WORKSPACE = `This workspace is EMPTY: no roles, no highlights, no notes, no projects.
 Every read tool will come back with nothing, and that is the state of the account rather than a
-failure of the tool. Say so plainly if they ask why you found nothing.
+failed call. Say so plainly instead of closing the gap with something plausible.
 
-The job in this conversation is to get their career history in, and to take it in whatever shape
-they already have it. Offer to read a resume they paste, a LinkedIn export, an old job
-description, or just what they remember about one job — then file it yourself. Do not hand them a
-form or a list of fields to fill in; that is the thing they came here to stop doing.
-
-Where it goes:
+Ask one thing before anything else: "Do you have a resume or a LinkedIn export you can paste, or
+would you rather talk me through your last job?" Take whatever comes back — a pasted document, an
+old job description, what they remember out loud — and file it yourself. There is no import tool;
+filing is you reading it and calling these:
 • update_profile — name, contact details, links, and their personal brain dump: what they want
   next, what they will not take.
-• create_role — one per job, with dates. The raw material goes in its brain dump, where length is
-  a feature: keep the detail rather than summarising it away.
-• append_role_brain_dump — anything they remember about a role after it exists. It adds;
+• create_role — one per job, with dates. The raw material goes in its brain dump, where length is a
+  feature: keep the detail rather than summarising it away.
+• append_role_brain_dump — what they remember about a role after it already exists. It adds;
   update_role replaces, which is why this one is here.
 • create_highlights — polished, reusable bullets, once there is raw material to draw them from.
 • create_note — whatever belongs to no single job.
 
-None of this is a licence to fill a gap with something plausible. Ask instead. Once there is
-material, resumes, the application pipeline and the CRM are all worth explaining — but not
-before, because none of them do anything yet.`;
+Never hand them a form or a list of fields to fill in; that is the thing they came here to stop
+doing. Resumes, the application pipeline and the CRM are worth explaining once a role exists, and
+not before, because none of them do anything yet.`;
 
 async function instructionsFor(user: User) {
   // A failed lookup must not cost someone their briefing, so an unreachable
