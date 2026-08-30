@@ -9,7 +9,16 @@ import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
-import { getSettings, updateSettings, emailIsConfigured, billingIsConfigured, maskSecret } from "@/lib/settings";
+import {
+  getSettings,
+  updateSettings,
+  emailIsConfigured,
+  billingIsConfigured,
+  maskSecret,
+  listVariables,
+  setVariables,
+  deleteVariable,
+} from "@/lib/settings";
 import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/billing";
 import { sendEmail, testEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
@@ -2001,7 +2010,7 @@ export const tools: McpTool[] = [
     name: "admin_set_email_config",
     title: "Configure email",
     description:
-      "Set the Resend API key and the address invitations are sent from. Only the fields you pass are changed. Follow with admin_send_test_email to prove it works.",
+      "Set the Resend API key and the address invitations are sent from. Only the fields you pass are changed. Follow with admin_send_test_email to prove it works. instanceName and publicUrl are instance-wide rather than email-only — they are what the sign-in page, invitation links and the Stripe webhook URL are built from — and they can also be set on their own with admin_set_variable.",
     inputSchema: object({
       resendApiKey: str("Resend API key, starts with re_"),
       resendFromEmail: str("From address on a domain verified in Resend, e.g. hello@yourdomain.com"),
@@ -2117,6 +2126,46 @@ export const tools: McpTool[] = [
         unlink: b(args, "unlink") ?? false,
         baseUrl: ctx.baseUrl,
       }),
+  },
+  {
+    name: "admin_list_variables",
+    title: "List instance variables",
+    description:
+      "Every configurable value on this instance in one list: its key, what it does, what it is set to now, and whether it is still on the built-in default. This is the whole of what a self-hosted instance stores as configuration, so start here when someone asks where a setting lives or why the app is behaving a certain way. Secrets come back masked — no tool ever returns a raw key. Variables an admin added by hand are marked known:false; they have no form in the app and are read by whatever feature asked for them.",
+    inputSchema: object({}),
+    adminOnly: true,
+    handler: async () => ({ variables: await listVariables() }),
+  },
+  {
+    name: "admin_set_variable",
+    title: "Set an instance variable",
+    description:
+      "Changes one instance setting by key — the general way in, for anything without a tool of its own. Take the key from admin_list_variables and send the new value as a string; an on-off variable takes \"1\" or \"0\". Prefer admin_set_email_config or admin_set_billing_config where they apply, because they also report whether that area now works. Sending an empty value for a secret leaves it alone rather than clearing it — admin_delete_variable is how you clear one. A key nothing recognises creates a new variable, which is how a setting exists before it has a screen: lowercase letters, numbers and underscores. Every change is written to the audit log against your name, values included, so never put a secret in a key that is not declared as one.",
+    inputSchema: object(
+      {
+        key: str("The variable's key, e.g. instance_name — from admin_list_variables"),
+        value: str('The new value as a string. "1" or "0" for an on-off variable.'),
+      },
+      ["key", "value"],
+    ),
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      const key = required(args, "key");
+      const value = s(args, "value");
+      if (value === undefined) throw new Error('Missing required string argument "value"');
+      const changed = await setVariables(ctx.user, { [key]: value });
+      const after = (await listVariables()).find((variable) => variable.key === key);
+      return { key, changed: changed.length > 0, value: after?.value ?? value, variable: after };
+    },
+  },
+  {
+    name: "admin_delete_variable",
+    title: "Clear an instance variable",
+    description:
+      "Removes a variable's stored value. A setting the app declares falls back to its built-in default — clearing the Resend key stops every invitation email, clearing company_logos turns logos back on — and a variable an admin added disappears entirely. Call admin_list_variables first to see what the default would be, because this is the one settings call with no undo. Recorded in the audit log.",
+    inputSchema: object({ key: str("The variable's key, from admin_list_variables") }, ["key"]),
+    adminOnly: true,
+    handler: async (args, ctx) => deleteVariable(ctx.user, required(args, "key")),
   },
 ];
 

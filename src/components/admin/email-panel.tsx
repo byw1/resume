@@ -16,8 +16,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
-import { Switch } from "@/components/ui/switch";
-import { saveEmailSettingsAction, sendTestEmailAction } from "@/server/actions";
+import { saveConfigAction, sendTestEmailAction } from "@/server/actions";
 
 export function EmailPanel({
   configured,
@@ -26,23 +25,17 @@ export function EmailPanel({
 }: {
   configured: boolean;
   settings: {
-    instanceName: string;
     resendApiKeyMasked: string;
     hasApiKey: boolean;
     resendFromEmail: string;
     resendFromName: string;
-    publicUrl: string;
-    companyLogos: boolean;
   };
   ownEmail: string;
 }) {
   const [values, setValues] = useState({
-    instanceName: settings.instanceName,
     resendApiKey: "",
     resendFromEmail: settings.resendFromEmail,
     resendFromName: settings.resendFromName,
-    publicUrl: settings.publicUrl,
-    companyLogos: settings.companyLogos,
   });
   const [testTo, setTestTo] = useState(ownEmail);
   const [pending, startTransition] = useTransition();
@@ -50,7 +43,7 @@ export function EmailPanel({
 
   const save = () =>
     startTransition(async () => {
-      await saveEmailSettingsAction(values);
+      await saveConfigAction(values);
       setValues((prev) => ({ ...prev, resendApiKey: "" }));
       toast.success("Email settings saved");
     });
@@ -156,48 +149,11 @@ export function EmailPanel({
                 placeholder="Hired"
               />
             </div>
-
-            <div className="space-y-1.5">
-              <Label>Instance name</Label>
-              <Input
-                value={values.instanceName}
-                onChange={(event) => setValues({ ...values, instanceName: event.target.value })}
-                placeholder="Hired"
-              />
-              <p className="text-muted-foreground text-xs">Shown on the sign-in page and in emails.</p>
-            </div>
-            <div className="space-y-1.5">
-              <Label>Public URL</Label>
-              <Input
-                value={values.publicUrl}
-                onChange={(event) => setValues({ ...values, publicUrl: event.target.value })}
-                placeholder="https://your-app.up.railway.app"
-              />
-              <p className="text-muted-foreground text-xs">Used to build invitation links.</p>
-            </div>
-          </div>
-
-          <Separator />
-
-          <div className="flex items-start justify-between gap-4">
-            <div className="min-w-0">
-              <Label htmlFor="company-logos">Company logos</Label>
-              <p className="text-muted-foreground mt-1 text-xs">
-                Shows each company&apos;s favicon in the pipeline. Fetching it means the browser
-                asks twenty-icons.com for the logo, so that service can see which companies
-                people here are tracking. Turn it off and everyone gets initials instead.
-              </p>
-            </div>
-            <Switch
-              id="company-logos"
-              checked={values.companyLogos}
-              onCheckedChange={(checked) => setValues({ ...values, companyLogos: checked })}
-            />
           </div>
 
           <Button variant="default" onClick={save} disabled={pending}>
             {pending && <LoaderCircleIcon className="animate-spin" />}
-            Save settings
+            Save
           </Button>
 
           <Separator />

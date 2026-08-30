@@ -1926,6 +1926,68 @@ map and the "five workflows" comment in tools.ts (there are eight).
 
 ---
 
+## 2026-08-30 — One configuration screen, and a table of every knob under it
+
+Admin had an **Email** tab and a **Billing** tab, each holding one form. Nobody arrives at
+an admin panel wanting exactly one half of "how is this instance set up", and the split was
+costing more than it explained: the instance name, the public URL and the company-logo
+switch all lived inside the *email* panel, because that is where the first form happened to
+be built. A public URL that every invitation link, published resume and Stripe webhook URL
+is built from is not a Resend setting.
+
+**One `Configuration` tab, three cards: Instance, Resend, Billing.** The panels themselves
+were not rewritten — they were already good, and the Resend card still carries its
+four-step setup and its test-send button, which is the part that earns a guided form. What
+moved is the three instance-wide fields, out of Email and into their own card at the top.
+
+**And a `Variables` tab: every setting the instance stores, in one editable table.** This is
+the piece the guided forms can't be. `DATABASE_URL` is the only thing this app asks of its
+host (invariant 5), which means everything else is a row in `Setting` — so an admin should
+be able to see and change all of it, including the things that have no form yet. You can
+add a key of your own, which is the escape hatch: a feature can read a setting today and
+grow a screen for it later, instead of the setting waiting on the screen. Keys are
+`^[a-z][a-z0-9_]{1,63}$` so an invented one reads like a declared one.
+
+**The duplication between the two tabs is deliberate and one-directional.** Both render from
+`VARIABLES` in `src/lib/settings.ts` — a single declaration of key, field, label, help,
+kind and default. That list now generates the typed `InstanceSettings` defaults, the audit
+wording and both screens, so adding a knob is one entry plus one field and nothing has to
+be taught about it twice. It also deleted `FIELD_LABEL`, which was a second copy of the
+same labels, and fixed what it was quietly getting wrong: a logo toggle used to log
+`Company logos → 1`, and now logs `Company logos → off`.
+
+**`keepExistingSecrets` is why there is one save action instead of two.** "An empty secret
+field means keep it, not clear it" was retyped in `saveEmailSettingsAction` and again in
+`saveBillingSettingsAction`, each naming its own fields — the kind of rule that is correct
+until someone adds a third secret and forgets. It is now derived from `kind: "secret"` in
+the registry, so `saveConfigAction` replaces both actions and covers every secret that will
+ever exist. Clearing one on purpose is `deleteVariable`, which is also what "reset to
+default" is: delete the row, let the fallback take over. One operation, because for a
+declared key those are the same thing.
+
+**A settings change now revalidates the whole tree** (`revalidatePath("/", "layout")`)
+rather than the two paths someone remembered. The instance name is on the sign-in page, the
+logo switch is on every pipeline and CRM screen, and a custom variable could be read
+anywhere — guessing which routes a settings change touches is a bug waiting for its second
+reader.
+
+**Tried and rejected:** a route of its own at `/settings/admin/variables`. The admin area is
+one page of tabs and a tab is what "page" means there; a second route would have needed its
+own header, its own stats row and its own way back. The tab count is unchanged at seven —
+two became one, and one is new.
+
+Verified against a real Postgres end to end, not just typecheck and build: defaults with
+nothing stored, a masked secret that never reaches the audit log, a blank secret that
+leaves the stored one alone, a no-op save that writes no row, a rejected bad key, reset to
+default, and the flat table and the guided form agreeing — setting the Resend key from
+Variables flips the Resend card to "Ready".
+
+**Applies to:** `src/lib/settings.ts`, `src/lib/mcp/tools.ts` (`admin_list_variables`,
+`admin_set_variable`, `admin_delete_variable`), `src/server/actions.ts`,
+`src/app/(app)/settings/admin/page.tsx`, `src/components/admin/{instance,variables,email,billing}-panel.tsx`.
+
+---
+
 ## 2026-08-30 — Settings is three subjects, and the reference material moved out
 
 The page was one column: an AI-connections card of roughly 1,210px with nothing expanded,
