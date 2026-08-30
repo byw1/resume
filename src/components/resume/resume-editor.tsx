@@ -19,6 +19,7 @@ import {
   PlusIcon,
   StarIcon,
   Trash2Icon,
+  UserRoundIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
@@ -64,12 +65,19 @@ import {
   updateResumeAction,
 } from "@/server/actions";
 
-type Meta = PaperSettings & {
+/**
+ * Everything autosave writes back. `photo` is deliberately not here: the
+ * picture is the profile's, not the document's, and round-tripping fifty
+ * kilobytes of base64 through every keystroke's save would be absurd. The
+ * document only stores whether to show one.
+ */
+type Meta = Omit<PaperSettings, "photo"> & {
   name: string;
   targetRole: string;
   targetCompany: string;
   notes: string;
   isFavorite: boolean;
+  showPhoto: boolean;
 };
 
 const ACCENTS = ["#000000", "#B30000", "#0C5B97", "#1f2937", "#6366f1", "#0ea5e9"];
@@ -80,10 +88,17 @@ export function ResumeEditor({
   doc: initialDoc,
   meta: initialMeta,
   shareUrl,
+  photo,
 }: {
   id: string;
   doc: ResumeDoc;
   meta: Meta;
+  /**
+   * The owner's headshot, whether or not this document shows it. Held here so
+   * the toggle is instant — flipping it repaints the preview rather than
+   * waiting for a save and a refetch.
+   */
+  photo: string;
   /**
    * The public link, or null when unpublished. Deliberately NOT part of `meta`:
    * meta is what autosave writes back through updateResumeAction, and a public
@@ -178,7 +193,7 @@ export function ResumeEditor({
             <StarIcon className={cn(meta.isFavorite && "fill-primary text-primary")} />
           </Button>
 
-          <DesignPopover meta={meta} onChange={setMetaValue} />
+          <DesignPopover meta={meta} onChange={setMetaValue} hasPhoto={Boolean(photo)} />
 
           <div className="hidden items-center gap-1 md:flex">
             <Button
@@ -300,7 +315,7 @@ export function ResumeEditor({
               className="origin-top-left shadow-2xl"
               style={{ transform: `scale(${zoom})`, width: "8.5in" }}
             >
-              <ResumePaper doc={doc} settings={meta} />
+              <ResumePaper doc={doc} settings={{ ...meta, photo: meta.showPhoto ? photo : "" }} />
             </div>
           </motion.div>
         </div>
@@ -1049,10 +1064,15 @@ function AddSectionMenu({
 function DesignPopover({
   meta,
   onChange,
+  hasPhoto,
 }: {
   meta: Meta;
   onChange: <K extends keyof Meta>(key: K, value: Meta[K]) => void;
+  hasPhoto: boolean;
 }) {
+  // Harvard is a format, not a style: it does not take a photo, so the switch
+  // says so rather than doing nothing when flipped.
+  const templateTakesPhoto = meta.template !== "harvard";
   return (
     <Popover>
       <PopoverTrigger asChild>
@@ -1089,6 +1109,57 @@ function DesignPopover({
               <SelectItem value="mono">Mono</SelectItem>
             </SelectContent>
           </Select>
+        </div>
+
+        <div className="space-y-1.5">
+          <Label>Photo</Label>
+          <button
+            type="button"
+            role="switch"
+            aria-checked={meta.showPhoto && templateTakesPhoto}
+            disabled={!templateTakesPhoto || !hasPhoto}
+            onClick={() => onChange("showPhoto", !meta.showPhoto)}
+            className={cn(
+              "flex w-full items-center justify-between gap-2 rounded-control border px-2.5 py-2 text-left text-[13px] transition-colors",
+              meta.showPhoto && templateTakesPhoto && hasPhoto
+                ? "border-primary/50 bg-accent"
+                : "hover:bg-accent/60",
+              (!templateTakesPhoto || !hasPhoto) && "cursor-not-allowed opacity-60 hover:bg-transparent",
+            )}
+          >
+            <span className="flex items-center gap-2">
+              <UserRoundIcon className="size-3.5 shrink-0" />
+              {meta.showPhoto && templateTakesPhoto && hasPhoto ? "Showing" : "Hidden"}
+            </span>
+            <span
+              className={cn(
+                "flex h-4 w-7 shrink-0 items-center rounded-full p-0.5 transition-colors",
+                meta.showPhoto && templateTakesPhoto && hasPhoto ? "bg-primary" : "bg-input",
+              )}
+            >
+              <span
+                className={cn(
+                  "size-3 rounded-full bg-white transition-transform",
+                  meta.showPhoto && templateTakesPhoto && hasPhoto && "translate-x-3",
+                )}
+              />
+            </span>
+          </button>
+          <p className="text-muted-foreground text-[11px] leading-relaxed">
+            {!hasPhoto ? (
+              <>
+                Add one in{" "}
+                <Link href="/settings?tab=account" className="underline underline-offset-2">
+                  Settings
+                </Link>{" "}
+                and every resume can use it.
+              </>
+            ) : !templateTakesPhoto ? (
+              "Harvard format doesn't take a photo. Switch template to use yours."
+            ) : (
+              "Your profile photo. Replace it once and every resume follows."
+            )}
+          </p>
         </div>
 
         <div className="space-y-2">

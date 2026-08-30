@@ -1923,3 +1923,134 @@ map and the "five workflows" comment in tools.ts (there are eight).
 
 **Applies to:** `AGENTS.md`, `CLAUDE.md`, `.claude/skills/mcp-tool/SKILL.md`,
 `src/lib/mcp/tools.ts` (comment only).
+
+---
+
+## 2026-08-30 — Settings is three subjects, and the reference material moved out
+
+The page was one column: an AI-connections card of roughly 1,210px with nothing expanded,
+then Appearance, then the account you actually came to edit. Measured, 872px of that card —
+72% of its body — was three blocks that are not settings: a grid of eight workflow
+descriptions, a strip of hardcoded "try saying" sentences, and six buttons for adding a
+client.
+
+**Three tabs — Connections, Account, Appearance — defaulting to Connections.** One subject
+each. Connections is the default because CLAUDE.md's current focus is a new user's first ten
+minutes, and those are spent pasting a URL into an assistant, not changing a password. A
+validated `?tab=` on `searchParams` keeps the page a server component and lets the resume
+editor link straight at the photo (`/settings?tab=account`); an unknown value falls back to
+the default rather than rendering nothing.
+
+**The workflow grid and the example sentences were deleted, not folded.** `/docs` already
+generates both from the same `promptsFor(user)` call, with more in them — names, admin badges,
+arguments — and its own header comment exists to say why a hand-maintained second copy goes
+wrong. A collapsed duplicate is still a duplicate. What is left is one dashed link row that
+counts the tools live and points at `/docs`. The six add-client buttons became a `Connect ▾`
+dropdown in the card header: picking the client *is* the first step of adding a connection,
+never a separate row. That also closed a real bug — the old bare button wrote `client: "other"`,
+an id absent from `MCP_CLIENTS`, so the card read "Other", no picker chip was selected, and
+`SetupGuide` silently served Claude's instructions for whatever client you had actually meant.
+
+**Vendor brand colours are allowed on a connection's tile, and nowhere else.** This is a
+deliberate, narrow exception to "the brand colour is the existing `--primary` blue and nothing
+else" (2026-08-19). The reasoning there was that twelve hues are already load-bearing and a
+thirteenth would read as a stage. A vendor mark is *identification*, not status: it is scoped
+to its own 34px tile, it never encodes a state, and the alternative — nine identical grey plugs
+— is a list you have to read rather than recognise. Do not extend it. A brand colour outside a
+`ClientTile` is a bug.
+
+**The marks are vendored path data, not a dependency and not a fetch.** `src/lib/mcp/marks.ts`
+holds six 24×24 paths keyed to `MCP_CLIENTS` ids. Checked before choosing: `simple-icons` is
+26.7MB unpacked for 3,457 icons to use six, and current versions no longer ship `openai` or
+`visualstudiocode` at all — they were pulled in 16.0.0 and during 12.x — so the dependency
+would arrive *and* leave two to hand-write. Those two are vendored from 13.x and 11.x
+respectively; that provenance is written here because the predictable "fix" a year from now is
+to add the package and discover the icons missing. A favicon service was disqualified outright:
+`/settings` is the one page that renders the MCP token, and it should not tell a third party
+which assistants you use. Each mark carries a light and a dark colour, because a near-black
+logo is invisible on this app's dark card and a tinted box around it does not fix that.
+
+**Applies to:** `src/app/(app)/settings/page.tsx`, `src/components/settings/connections-panel.tsx`,
+`src/lib/mcp/marks.ts`, `src/components/client-mark.tsx`. `src/components/settings/security-panel.tsx`
+was deleted — it had no importer and told people to set an env var that stopped being the
+access story when settings moved into the `Setting` table.
+
+---
+
+## 2026-08-30 — One photo, and the resume says whether to show it
+
+**Decision:** `Profile.photo` holds a square headshot as a data URI; `Resume.showPhoto` is a
+boolean beside `template` and `accent`. The document says whether to show a face, the profile
+says whose.
+
+**Why not a field in the resume document.** `src/lib/resume-schema.ts` is a contract shared by
+the database, the renderer and the tools (invariant 4), and putting the image in it would mean
+every saved `Resume.data` carrying its own copy — replace the picture and you would be editing
+n documents. As a column it is a design property like the accent colour, no saved document
+changes meaning, and one replacement updates every resume at once, which is what the ask
+actually was.
+
+**Why a data URI and not an object store.** `DATABASE_URL` is the only required env var and
+that is not negotiable for a five-minute self-host. It also happens to be the only shape that
+works everywhere the document renders: `/r/[slug]` is unauthenticated, so a same-origin image
+URL would need its own public route; the PDF path drives headless Chromium at `networkidle`,
+so anything fetched is something that can hang. Inlined, the picture arrives in the same HTML
+as the text and there is nothing to authenticate, fetch or time out. The browser crops and
+re-encodes to a 512px JPEG before upload and the server refuses over `PHOTO_MAX_BYTES`
+(400KB), so rows stay in tens of kilobytes.
+
+**The crop is chosen, not computed.** The first version took a centred square, which is wrong
+for the photo people actually have: a phone portrait is roughly 3:4 with the face in the top
+third, so the middle square lands on their chest. It fails invisibly — a square test image
+passes — so the fix is not a better heuristic but showing the crop and letting it be dragged.
+The dialog opens biased toward the top so the common case needs no dragging, holds the original
+`ImageBitmap` for as long as it is open so re-framing never re-encodes an already-compressed
+JPEG, and closes by releasing it.
+
+**Harvard renders no photo whatever `showPhoto` says.** It is a US academic convention and a
+face on it is the single thing that marks a document as not-that-format. `PHOTO_TEMPLATES` in
+`resume-paper.tsx` is the list; the editor's toggle disables itself and says why rather than
+appearing to work.
+
+**Photo bytes never enter a conversation.** `get_profile`, `update_profile` and
+`get_brain_snapshot` return `hasPhoto: true` instead of the base64, and `get_resume` strips the
+resolved image; a few hundred kilobytes of a picture nobody can look at would drown a tool
+reply. `photo` is deliberately absent from `PROFILE_COLUMNS` so `update_profile` cannot write
+it — every write goes through `setProfilePhoto` and therefore through `resolvePhoto`'s size and
+type gate. Do not "fix" that by adding it to the column list.
+
+**Publishing a resume with a photo on puts a face on an unauthenticated page.** That is a new
+category of thing an unlisted link exposes, so it is said in `publish_resume`'s description, in
+the server instructions every client receives, and in the README.
+
+**Applies to:** `prisma/migrations/20250117000000_profile_photo/`, `src/lib/photo.ts`,
+`setProfilePhoto` in `src/lib/data/brain.ts`, `src/components/settings/photo-field.tsx`,
+`src/components/user-avatar.tsx`, `resume-paper.tsx`, `set_profile_photo`.
+
+---
+
+## 2026-08-30 — The settings page was the one screen you couldn't talk to
+
+Rule zero says a feature is not done until an assistant can do it end to end with no browser
+open. `src/lib/data/connections.ts` had `listConnections`, `createConnection`,
+`renameConnection`, `rotateConnection` and `deleteConnection`, all `userId`-first, and
+`tools.ts` exposed none of them. Every other screen in the app was reachable by conversation;
+the one about connecting assistants was not.
+
+Five tools, no data-layer work: `list_connections`, `create_connection`, `rename_connection`,
+`rotate_connection`, `delete_connection`. "Add this to my work laptop" now returns a URL *and*
+that client's setup steps, which is the answer a person wanted anyway.
+
+**Listing never returns tokens; creating and rotating do.** A token in a `tools/list` reply
+would sit in a transcript forever for no gain — the only place it is useful is the client you
+are pasting it into, and `list_connections` is for "which of these am I still using?".
+Create and rotate return one because handing over a working URL is the entire point of them,
+and both say in their reply that it is a credential.
+
+**`userByMcpToken` now returns `{ user, connectionId }`.** A tool that manages connections has
+to know which one it is speaking through, so `delete_connection` can refuse to cut the wire it
+is standing on and `list_connections` can mark it. That is why the return type changed rather
+than the tools guessing.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `src/lib/auth.ts` (`McpCaller`), `src/lib/mcp/handler.ts`,
+both routes under `src/app/api/mcp/`.

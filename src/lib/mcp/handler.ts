@@ -2,7 +2,7 @@ import type { User } from "@prisma/client";
 import { promptsFor, promptsByName, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
 import { listGuardrails } from "@/lib/data/brain";
 import { recordSystemEvent } from "@/lib/data/system";
-import { isAdmin } from "@/lib/auth";
+import { isAdmin, type McpCaller } from "@/lib/auth";
 
 /**
  * A small, dependency-light implementation of the MCP Streamable HTTP transport.
@@ -44,6 +44,11 @@ Four areas:
   mention talking to someone — a call, a coffee, a reply — log_activity with contactId is how it
   gets remembered, and update_contact's nextFollowUpAt is how "ping them in two weeks" actually
   happens. list_follow_ups returns due people alongside due applications.
+
+The connection you are talking through is one of several this person may have — list_connections
+shows them all, create_connection wires up another client and hands back its URL and setup steps,
+and rotate_connection kills a URL that has leaked. Those URLs are credentials with full read and
+write over this workspace; never repeat one anywhere it will be stored.
 ${
   isAdmin(user)
     ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are
@@ -61,7 +66,11 @@ Rules of thumb:
   application.
 - A published resume is readable by anyone holding its link, and unpublish_resume destroys that
   link rather than pausing it. Say which resume you are about to publish, and warn before
-  withdrawing a link that may already be out in the world.`;
+  withdrawing a link that may already be out in the world. If it has showPhoto on, that page
+  carries their face — mention it before you publish.
+- The profile photo is one picture the whole app shares. set_profile_photo replaces it
+  everywhere at once, including on every resume already showing it. Only ever use a file or link
+  the user gave you; never find them a picture.`;
 
   return `${base}${await standingRulesFor(user.id)}`;
 }
@@ -301,7 +310,8 @@ function jsonResponse(payload: unknown, status = 200) {
 }
 
 /** Entry point shared by both MCP routes. */
-export async function handleMcpPost(request: Request, user: User): Promise<Response> {
+export async function handleMcpPost(request: Request, caller: McpCaller): Promise<Response> {
+  const { user, connectionId } = caller;
   let body: unknown;
   try {
     body = await request.json();
@@ -315,6 +325,7 @@ export async function handleMcpPost(request: Request, user: User): Promise<Respo
   const ctx: McpContext = {
     userId: user.id,
     user,
+    connectionId,
     baseUrl: `${forwardedProto ?? url.protocol.replace(":", "")}://${forwardedHost ?? url.host}`,
   };
 

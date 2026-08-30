@@ -9,7 +9,7 @@ export const dynamic = "force-dynamic";
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
 
-  const [roles, resumes, applications, followUps] = await Promise.all([
+  const [roles, resumes, applications, followUps, profile] = await Promise.all([
     db.role.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 30 }),
     db.resume.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 30 }),
     db.application.findMany({
@@ -19,6 +19,7 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       include: { company: true },
     }),
     followUpsDue(user.id, 0),
+    db.profile.findUnique({ where: { userId: user.id }, select: { photo: true } }),
   ]);
 
   const index = {
@@ -44,7 +45,12 @@ export default async function AppLayout({ children }: { children: React.ReactNod
       <Shell
         index={index}
         followUpCount={followUps.length}
-        user={{ name: user.name, email: user.email, role: user.role }}
+        user={{
+          name: user.name,
+          email: user.email,
+          role: user.role,
+          photo: profile?.photo ?? "",
+        }}
       >
         {children}
       </Shell>

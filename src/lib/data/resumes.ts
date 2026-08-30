@@ -26,6 +26,7 @@ export type ResumeMeta = Partial<{
   pageMargin: number;
   notes: string;
   isFavorite: boolean;
+  showPhoto: boolean;
 }>;
 
 export async function listResumes(userId: string) {
@@ -39,7 +40,25 @@ export async function listResumes(userId: string) {
 export async function getResume(userId: string, id: string) {
   const resume = await db.resume.findFirst({ where: { id, userId } });
   if (!resume) return null;
-  return { ...resume, doc: parseResumeDoc(resume.data) };
+  return { ...resume, doc: parseResumeDoc(resume.data), photo: await resumePhoto(userId, resume) };
+}
+
+/**
+ * The headshot a document should render, or "".
+ *
+ * The picture is never copied into the resume — it is read from the owner's
+ * profile at render time, which is the whole point of one photo across every
+ * document. Reading it here rather than in each page means the editor preview,
+ * the print page, the PDF and the public link cannot disagree about whether a
+ * face appears.
+ */
+async function resumePhoto(userId: string, resume: { showPhoto: boolean }) {
+  if (!resume.showPhoto) return "";
+  const profile = await db.profile.findUnique({
+    where: { userId },
+    select: { photo: true },
+  });
+  return profile?.photo ?? "";
 }
 
 export async function createResume(
@@ -65,6 +84,7 @@ export async function createResume(
       lineHeight: input.lineHeight ?? 1.2,
       pageMargin: input.pageMargin ?? 48,
       notes: input.notes ?? "",
+      showPhoto: input.showPhoto ?? false,
       data: doc as unknown as object,
     },
   });
@@ -72,7 +92,7 @@ export async function createResume(
 
 const RESUME_COLUMNS = [
   "name", "targetRole", "targetCompany", "template", "accent", "fontFamily",
-  "fontSize", "lineHeight", "pageMargin", "notes", "isFavorite",
+  "fontSize", "lineHeight", "pageMargin", "notes", "isFavorite", "showPhoto",
 ] as const;
 
 export async function updateResume(
@@ -348,9 +368,20 @@ export async function getResumeBySlug(slug: string) {
       fontSize: true,
       lineHeight: true,
       pageMargin: true,
+      showPhoto: true,
       updatedAt: true,
+      // Only to look up the owner's photo below, and dropped before this
+      // returns: the public page renders a document, and the id of the person
+      // behind it is not part of one.
+      userId: true,
     },
   });
   if (!resume) return null;
-  return { ...resume, doc: parseResumeDoc(resume.data) };
+
+  // Publishing a resume with the photo switched on is the consent, and it is
+  // the only thing about the owner this reads. With it off nothing is fetched
+  // at all — the picture is not loaded and then hidden.
+  const photo = await resumePhoto(resume.userId, resume);
+  const { userId, ...row } = resume;
+  return { ...row, doc: parseResumeDoc(resume.data), photo };
 }

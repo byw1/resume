@@ -262,10 +262,19 @@ export async function requireSuperAdmin(): Promise<User> {
 /** Don't write a timestamp on every single tool call. */
 const LAST_USED_RESOLUTION_MS = 60_000;
 
+/**
+ * The caller, and the connection they came in on.
+ *
+ * The connection id travels with the user because a tool that manages
+ * connections has to know which one it is speaking through — that is what lets
+ * "disconnect the old laptop" refuse to cut the wire it is standing on.
+ */
+export type McpCaller = { user: User; connectionId: string };
+
 export async function userByMcpToken(
   token: string | null | undefined,
   userAgent = "",
-): Promise<User | null> {
+): Promise<McpCaller | null> {
   if (!token || !token.startsWith("rsm_")) return null;
 
   const connection = await db.mcpConnection.findUnique({
@@ -293,7 +302,7 @@ export async function userByMcpToken(
       .catch(() => {});
   }
 
-  return user;
+  return { user, connectionId: connection.id };
 }
 
 /** Every user starts with one connection so Settings is never an empty page. */
