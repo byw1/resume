@@ -21,7 +21,10 @@ just *talk* to it.
   follow-up, salary and location are the cells themselves, a Waiting column counts the days
   since anything last moved, and selecting rows closes a batch out in one action.
   Applications end as accepted, rejected, withdrawn or ghosted — silence is the most common
-  ending, and filing it as a rejection makes the funnel lie about what went wrong. Opening
+  ending, and filing it as a rejection makes the funnel lie about what went wrong. An
+  application knows where it came from — several sources at once, because a job board
+  posting, a referral and a LinkedIn message are often the same job — and a listing is
+  optional: a role you're only chasing through a DM is still worth a card. Opening
   an application slides it in from the right, so you keep your place on the board. A
   read-only link shares the board with whoever is helping you — a friend, a coach, a former
   manager — showing companies, roles, stages and follow-up dates, and never your salaries,
@@ -29,9 +32,12 @@ just *talk* to it.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
   their website, industry, size and whatever you have learned about them, alongside every
   application and every contact you have there. The website is what puts their logo on the
-  pipeline.
+  pipeline. The company list says when you last applied and what's still live, and both
+  lists filter — to the companies where you know someone, to the people whose ping is due.
+  Contacts attach to applications straight from the CRM rather than being retyped, and
+  removing one from an application never deletes the person.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  73 tools any MCP client can call (98 if you're an admin). Claude, Claude Code, ChatGPT,
+  67 tools any MCP client can call (91 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -190,7 +196,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 73, or 98 if you're an admin.
+would, then tells you how many tools answered — 67, or 91 if you're an admin.
 
 #### One connection per client
 
@@ -283,10 +289,10 @@ this key and send a test."*
 
 ## What your AI can do once it's connected
 
-73 tools across the four areas. The seven workflows below are among them: they're published
+67 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 25 more tools — and members never even see those in the tool list, so nobody is
+Admins get 24 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |

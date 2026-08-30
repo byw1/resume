@@ -1923,3 +1923,73 @@ map and the "five workflows" comment in tools.ts (there are eight).
 
 **Applies to:** `AGENTS.md`, `CLAUDE.md`, `.claude/skills/mcp-tool/SKILL.md`,
 `src/lib/mcp/tools.ts` (comment only).
+
+---
+
+## 2026-08-30 — The card is the button, and a source is a list
+
+Four asks from William landed together: opening a board card needed more than a
+13px company name as its click target, an application's source needed to be
+several things at once, outreach-first applications (a DM, no listing) needed a
+home, and the CRM needed to be reachable and filterable without archaeology.
+
+**The whole board card opens the panel; drag still works.** The card became the
+anchor (cmd-click still opens the page) and the sensors' activation thresholds —
+6px of movement for mouse, a 220ms hold for touch — are what keep click and drag
+apart. Two traps found by review and worth remembering:
+
+1. *The click after a drop.* A drop is followed by a click on the same element,
+   which would reopen the panel you just filed the card away from. A `wasDragged`
+   ref armed during the drag and spent in `onClickCapture` swallows it — and it
+   must ALSO be cleared on `keydown`, because Enter on the card's link
+   synthesizes a click with no pointerdown, and a drag that ended off the card
+   leaves the flag armed to eat the next keyboard activation.
+2. *iOS link callout.* A still ~500ms press on an anchor pops Safari's link
+   preview sheet, which fires `touchcancel` and kills the drag the 220ms hold
+   just started — and iOS never dispatches `contextmenu` for touch, so dnd-kit's
+   guard doesn't cover it. `[-webkit-touch-callout:none]` on the draggable
+   wrapper is the one switch that does.
+
+**`Application.source` (string) became `sources String[]`.** Real applications
+arrive from several directions at once — a posting AND a referral AND a DM —
+and one free-text column forced a choice. Free strings, not an enum: the picker
+offers the person's own past spellings first (`list_application_sources`, also a
+tool, so assistants reuse spellings instead of minting near-duplicates), then a
+starter set. The old `source` stays accepted on both application tools as a
+legacy alias — `sources` wins when both arrive — and its update description
+now warns loudly that it replaces the whole list. Migration backfills old
+values as one-element arrays; verified against a live Postgres on the actual
+upgrade path (old schema + data, then the migration).
+
+**Removing a person from an application detaches, never deletes.** The old
+trash button on the application's People card called `deleteContactAction` — a
+person you removed from one thread vanished from the CRM with their whole
+history. The card now attaches people already on file (picker first, blank form
+second) and the remove button only clears `applicationId`. The optimistic merge
+must let the server row win over the local stub after `router.refresh()`, or
+the just-attached contact renders without their email until remount.
+
+**OUTREACH is an activity type**, because "I messaged the hiring manager first"
+was being filed as NOTE and hidden from the record. It is on both timelines'
+pickers — application and contact — since a first touch is usually logged
+against the person.
+
+**Two rules from the tool review worth keeping:** the hand-rolled transport
+never validates `inputSchema`, so an enum argument the data layer would
+silently ignore (an unknown `filter` returning the UNFILTERED list as if it
+were the answer) must be validated in the handler and fail loudly. And a cmdk
+"Add ‘X’" row whose value IS the query outranks every real suggestion — Enter
+on "linked" minted a duplicate instead of picking LinkedIn — so the creatable
+row is `forceMount` with a non-matching value and sorts last.
+
+**README tool counts were already lying** (73/98 against an actual 66/91
+before this change). Corrected to 67/91 by evaluating the array, not by
+counting by hand. The count rule from the 2026-08-30 briefing entry stands:
+/docs is authoritative, the README hand-carries it in three places.
+
+**Applies to:** `prisma/schema.prisma`,
+`prisma/migrations/20250117000000_sources_and_outreach/`,
+`src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/pipeline/{board,application-detail,application-panel,new-application-dialog,sources-input}.tsx`,
+`src/components/crm/contact-detail.tsx`, `src/components/shell.tsx`,
+`src/app/(app)/crm/{companies,contacts}/page.tsx`, `README.md`.
