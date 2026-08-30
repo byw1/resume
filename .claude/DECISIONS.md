@@ -1723,3 +1723,41 @@ questions in the schema against the questions in the markup and throws if they d
 editing an answer and forgetting the head fails the build. This is the third time a
 hand-maintained copy of generated-looking data on this page has gone stale without
 complaining; the tool catalogue is still the one that has no such check.
+
+## 2026-08-30 — The header is a pill
+
+The full-width bar was measured before it was redesigned, which is the only
+reason the fix was obvious: at 1440 the brand ended at x=184 and the links began
+at x=792. Six hundred and eight pixels of nothing, 42% of the row, and the whole
+navigation crushed into the right quarter. That is what "the nav bar sucks"
+meant — not the items in it, the shape of it.
+
+It is now a contained capsule, max-width 1080px, floating 12px below the top.
+A pill has no full-width row to leave empty, so the imbalance cannot recur.
+
+**Three grid tracks, not a flex row.** `1fr auto 1fr` puts the links on the pill's
+true centre no matter how wide the brand or the actions grow; `margin-left: auto`
+on a flex row only ever shoves them up against the right-hand group, which is
+exactly how the 608px void got there. The brand needs `justify-self: start` or it
+stretches across its whole 1fr track and half the header becomes a link to the
+home page — a bug you cannot see, only measure.
+
+**The transparent strip above a floating pill is the part nobody plans for.**
+Scrolled content appeared in it, clipped by the top of the viewport, which reads
+as a rendering fault rather than a design. `.nav::before` is the ground the page
+dissolves into first: opaque `--page` down to roughly the pill's bottom edge, then
+a 40px fade, and only while stuck. The first attempt started thinning immediately
+and left a legible ghost of the heading sliding past above the pill.
+
+**A 999px radius needs asymmetric padding.** At the height of the button's
+corners the curve turns in about five pixels, so the filled CTA on the right wants
+more clearance than the text on the left. 20px and 14px, measured rather than
+guessed — 10px on the right looked like the button was escaping the capsule.
+
+**The GitHub chip lost its label and its star count.** Word plus mono number made
+it a third button competing with the two that matter. Icon only in the pill; the
+count moved to the footer beside the existing GitHub link, where a live number is
+a detail rather than a distraction. It ships `hidden` and motion.js reveals it only
+if the number arrives, so a rate limit shows a plain link rather than an empty chip.
+The page still makes exactly one third-party request, and it is still the only live
+number on it.

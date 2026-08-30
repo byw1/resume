@@ -470,7 +470,9 @@
   if (/[?&]slots\b/.test(location.search)) document.body.classList.add("show-slots");
 
   // -------------------------------------------------------------------------
-  // The one live number on the page. Fails silently to the word "GitHub".
+  // The one live number on the page, in the footer beside the GitHub link. It
+  // ships hidden and only appears if the count actually arrives, so a rate
+  // limit or an offline visitor sees a plain link rather than an empty chip.
   // -------------------------------------------------------------------------
 
   var stars = $("#stars");
@@ -483,6 +485,7 @@
           repo.stargazers_count >= 1000
             ? (repo.stargazers_count / 1000).toFixed(1) + "k"
             : String(repo.stargazers_count);
+        stars.hidden = false;
       })
       .catch(function () {});
   }

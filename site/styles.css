@@ -911,42 +911,87 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
    PAGE CHROME
    =========================================================================== */
 
+/* The header is a floating capsule, not an edge-to-edge bar. Full width put
+   the links six hundred pixels from the brand and left 42% of the row empty at
+   1440; a contained pill has no void to leave. It stays sticky rather than
+   fixed so it keeps its space in the flow and the hero needs no offset. */
 .nav {
   position: sticky;
   top: 0;
   z-index: 50;
-  transition: background-color 0.25s var(--settle), box-shadow 0.25s var(--settle);
+  padding-block: 12px;
+  transition: padding-block 0.25s var(--settle);
 }
-.nav-inner {
-  display: flex;
-  align-items: center;
-  gap: 16px;
-  height: 62px;
-  transition: height 0.25s var(--settle);
-}
-.nav.stuck {
-  background: color-mix(in oklch, var(--page) 78%, transparent);
-  backdrop-filter: saturate(180%) blur(20px);
-  -webkit-backdrop-filter: saturate(180%) blur(20px);
-  box-shadow: 0 1px 0 var(--rim);
-}
-.nav.stuck .nav-inner { height: 54px; }
+.nav-rail { position: relative; padding-inline: var(--gutter); }
 
-.brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
+/* A floating pill leaves a see-through strip above it, and scrolled content
+   was appearing in that strip clipped by the top of the viewport. This is the
+   ground the page dissolves into before it gets there: opaque at the very top,
+   gone by just below the pill. Only once scrolled — at rest there is nothing
+   behind it to hide. */
+.nav::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 0;
+  /* Opaque down to roughly the bottom of the pill, then a long fade. A gradient
+     that starts thinning immediately leaves a legible ghost of the heading
+     scrolling past above the pill, which reads as a bug rather than an effect. */
+  height: calc(100% + 40px);
+  pointer-events: none;
+  background: linear-gradient(
+    to bottom,
+    var(--page) 0%,
+    var(--page) 55%,
+    transparent 100%
+  );
+  opacity: 0;
+  transition: opacity 0.25s var(--settle);
+}
+.nav.stuck::before { opacity: 1; }
+
+/* Three tracks, not a flex row: 1fr auto 1fr puts the links on the true centre
+   of the pill however wide the brand and the actions grow. margin-left:auto
+   would only ever push them up against the right-hand group. */
+.nav-inner {
+  max-width: 1080px;
+  margin-inline: auto;
+  display: grid;
+  grid-template-columns: 1fr auto 1fr;
+  align-items: center;
+  gap: 12px;
+  height: 56px;
+  /* Asymmetric on purpose. A 999px radius curves in about five pixels at the
+     height of the button's corners, so the right side needs more clearance
+     than the left, where only text sits. */
+  padding-inline: 20px 14px;
+  border-radius: 999px;
+  background: color-mix(in oklch, var(--card) 72%, transparent);
+  backdrop-filter: saturate(180%) blur(18px);
+  -webkit-backdrop-filter: saturate(180%) blur(18px);
+  box-shadow: var(--shadow-hairline);
+  transition:
+    height 0.25s var(--settle),
+    background-color 0.25s var(--settle),
+    box-shadow 0.25s var(--settle);
+}
+
+/* Scrolled: the pill tightens, settles onto the page and stops being see-through. */
+.nav.stuck { padding-block: 8px; }
+.nav.stuck .nav-inner {
+  height: 50px;
+  background: color-mix(in oklch, var(--card) 92%, transparent);
+  box-shadow: var(--shadow-card);
+}
+
+/* justify-self, or the brand stretches across its whole 1fr track and half the
+   pill becomes a link to the home page. */
+.brand { display: flex; align-items: center; justify-self: start; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
 .brand svg { border-radius: 6px; }
 
-/* Two groups sit to the right of the brand: where you can go, and what you can
-   do. The hairline between them is what stops "Resources" and "Log in" reading
-   as one undifferentiated row of six. */
-.nav-links { margin-left: auto; display: flex; align-items: center; gap: 2px; }
-.nav-acts { display: flex; align-items: center; gap: 8px; }
-.nav-acts::before {
-  content: "";
-  width: 1px;
-  height: 18px;
-  background: var(--rim);
-  margin: 0 4px 0 8px;
-}
+.nav-links { display: flex; align-items: center; gap: 2px; }
+.nav-acts { display: flex; align-items: center; justify-self: end; gap: 6px; }
 .nav-login { white-space: nowrap; }
 
 /* Scoped to the header rather than to .nav-links, because the same link style
@@ -990,7 +1035,9 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 
 .nav-sheet {
   position: absolute;
-  right: 0;
+  /* Pulled out to the pill's own edge rather than the button's, so the sheet
+     hangs flush under the capsule instead of nine pixels inside it. */
+  right: -9px;
   top: calc(100% + 8px);
   min-width: 208px;
   padding: 8px;
@@ -1012,20 +1059,34 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 .nav-sheet .btn { margin-top: 2px; justify-content: center; color: var(--on-primary); }
 .nav-sheet .btn:hover { color: var(--on-primary); }
 
+/* Icon only in the pill. The word "GitHub" beside a mono star count made it a
+   third button competing with the two that matter; the count moved to the
+   footer, where a live number is a nice detail rather than a distraction. */
 .gh {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  padding: 6px 11px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border-radius: var(--r-control);
+  color: var(--muted);
+  transition: color 0.15s var(--settle), background-color 0.15s var(--settle);
+}
+.gh:hover { color: var(--foreground); background: var(--wash); }
+.gh svg { width: 15px; height: 15px; fill: currentColor; }
+
+/* The star count, beside the footer's GitHub link. Ships hidden; motion.js
+   reveals it only if the number actually arrives. */
+.stars {
+  display: inline-block;
+  margin-left: 5px;
+  padding: 1px 6px;
+  border-radius: var(--r-chip);
   box-shadow: var(--shadow-hairline);
   font-family: var(--mono);
-  font-size: 12px;
-  color: var(--muted);
-  transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle);
+  font-size: 11px;
+  color: var(--faint);
 }
-.gh:hover { color: var(--foreground); box-shadow: 0 0 0 1px var(--rim-strong); }
-.gh svg { width: 14px; height: 14px; fill: currentColor; }
 
 /* The scroll progress line, wearing the stage rotation. It is the only place
    on the page where all six hues appear at once, and it doubles as the motif. */
@@ -1967,7 +2028,9 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   body { font-size: 14.5px; }
   .rail { display: none; }
   .nav-links, .nav-acts { display: none; }
-  .nav-menu { display: block; margin-left: auto; }
+  .nav-menu { display: block; justify-self: end; }
+  .nav-inner { grid-template-columns: 1fr auto; height: 52px; padding-inline: 18px 9px; }
+  .nav.stuck .nav-inner { height: 48px; }
   .search { margin-left: 0; width: 100%; }
   .funnel-row .step { width: 118px; font-size: 11.5px; }
   .funnel-row .median, .funnel-row .of { display: none; }

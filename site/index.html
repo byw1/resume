@@ -87,49 +87,54 @@
 <div class="progress" role="presentation"></div>
 
 <header class="nav">
-  <div class="wrap nav-inner">
-    <a class="brand" href="/" aria-label="Hired, home">
-      <svg width="26" height="26" viewBox="0 0 64 64" aria-hidden="true">
-        <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
-        <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-        <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-        <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-      </svg>
-      Hired
-    </a>
-
-    <nav class="nav-links" aria-label="Main">
-      <a class="link" href="#features">Features</a>
-      <a class="link" href="#pricing">Pricing</a>
-      <a class="link" href="/resources/">Resources</a>
-    </nav>
-
-    <div class="nav-acts">
-      <a class="gh" href="https://github.com/shifulaboratories/Hired" rel="noopener" aria-label="Hired on GitHub">
-        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><use href="#i-gh"/></svg>
-        <span id="stars">GitHub</span>
+  <!-- A floating capsule rather than an edge-to-edge bar. Full width put the
+       links 600px from the brand and left 42% of the row empty; a contained
+       pill has no void to leave. Three grid tracks (1fr auto 1fr) put the links
+       on the true centre of the pill no matter how wide the two ends grow. -->
+  <div class="nav-rail">
+    <div class="nav-inner">
+      <a class="brand" href="/" aria-label="Hired, home">
+        <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
+          <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+        </svg>
+        Hired
       </a>
-      <a class="link nav-login" href="https://app.hired.tools/login">Log in</a>
-      <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
-    </div>
 
-    <!-- The small-screen menu is a <details>, so it opens, closes and takes
-         focus with no JavaScript at all. The links used to simply vanish below
-         720px, which left the nav with nowhere to go but the CTA. -->
-    <details class="nav-menu">
-      <summary aria-label="Menu">
-        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
-      </summary>
-      <div class="nav-sheet">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="/resources/">Resources</a>
-        <a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a>
-        <hr class="fold">
-        <a href="https://app.hired.tools/login">Log in</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="link" href="#features">Features</a>
+        <a class="link" href="#pricing">Pricing</a>
+        <a class="link" href="/resources/">Resources</a>
+      </nav>
+
+      <div class="nav-acts">
+        <a class="gh" href="https://github.com/shifulaboratories/Hired" rel="noopener" aria-label="Hired on GitHub" title="Hired on GitHub">
+          <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><use href="#i-gh"/></svg>
+        </a>
+        <a class="link nav-login" href="https://app.hired.tools/login">Log in</a>
         <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
       </div>
-    </details>
+
+      <!-- The small-screen menu is a <details>, so it opens, closes and takes
+           focus with no JavaScript at all. The links used to simply vanish below
+           720px, which left the nav with nowhere to go but the CTA. -->
+      <details class="nav-menu">
+        <summary aria-label="Menu">
+          <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18"/></svg>
+        </summary>
+        <div class="nav-sheet">
+          <a href="#features">Features</a>
+          <a href="#pricing">Pricing</a>
+          <a href="/resources/">Resources</a>
+          <a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a>
+          <hr class="fold">
+          <a href="https://app.hired.tools/login">Log in</a>
+          <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
+        </div>
+      </details>
+    </div>
   </div>
 </header>
 
@@ -2231,7 +2236,7 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
         <div>
           <p class="foot-h">Source</p>
           <ul>
-            <li><a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a></li>
+            <li><a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub <span class="stars" id="stars" hidden></span></a></li>
             <li><a href="https://github.com/shifulaboratories/Hired/blob/main/README.md" rel="noopener">Docs</a></li>
             <li><a href="https://github.com/shifulaboratories/Hired/blob/main/LICENSE" rel="noopener">AGPL-3.0</a></li>
             <li><a href="https://app.hired.tools">Sign in</a></li>
