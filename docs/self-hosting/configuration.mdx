@@ -60,9 +60,10 @@ You can add a variable that nothing ships with. That is the escape hatch for a s
 that exists before it has a form — a feature can read a key, and you can set it today
 rather than waiting for a screen.
 
-Keys are lowercase letters, numbers and underscores. Variables added by hand come back
-marked `known: false`; they have no form in the app and are read by whatever feature asked
-for them.
+A key starts with a lowercase letter and continues in lowercase letters, digits and
+underscores, between 2 and 64 characters — anything else is refused. Variables added by hand
+come back marked `known: false`; they have no form in the app and are read by whatever
+feature asked for them.
 
 <Warning>
   Values of undeclared keys are written to the audit log in full, because the app has no
