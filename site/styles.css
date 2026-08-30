@@ -935,18 +935,82 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 .brand { display: flex; align-items: center; gap: 9px; font-size: 15px; font-weight: 600; letter-spacing: -0.015em; }
 .brand svg { border-radius: 6px; }
 
-.nav-links { margin-left: auto; display: flex; align-items: center; gap: 4px; }
-.nav-links a.link {
+/* Two groups sit to the right of the brand: where you can go, and what you can
+   do. The hairline between them is what stops "Resources" and "Log in" reading
+   as one undifferentiated row of six. */
+.nav-links { margin-left: auto; display: flex; align-items: center; gap: 2px; }
+.nav-acts { display: flex; align-items: center; gap: 8px; }
+.nav-acts::before {
+  content: "";
+  width: 1px;
+  height: 18px;
+  background: var(--rim);
+  margin: 0 4px 0 8px;
+}
+.nav-login { white-space: nowrap; }
+
+/* Scoped to the header rather than to .nav-links, because the same link style
+   is wanted on "Log in" over in the actions group. */
+.nav-inner a.link {
   padding: 7px 11px;
   border-radius: var(--r-control);
   font-size: 13.5px;
   color: var(--muted);
   transition: color 0.15s var(--settle), background-color 0.15s var(--settle);
 }
-.nav-links a.link:hover { color: var(--foreground); background: var(--wash); }
-/* Which section you are actually in. Set by motion.js as aria-current, so the
-   marker is announced rather than only drawn. */
-.nav-links a.link[aria-current="true"] { color: var(--foreground); background: var(--wash); }
+.nav-inner a.link:hover { color: var(--foreground); background: var(--wash); }
+/* Which section you are actually in — aria-current="true" set by motion.js as you
+   scroll, aria-current="page" written into the markup on a subpage. Either way
+   the marker is announced rather than only drawn. */
+.nav-inner a.link[aria-current],
+.nav-sheet a[aria-current] { color: var(--foreground); background: var(--wash); }
+
+/* ---------------------------------------------------------------------------
+   The small-screen menu
+   A <details>, so it opens and closes and takes keyboard focus without a line
+   of JavaScript. Below 720px it replaces both link rows; above, it is not
+   rendered at all.
+   --------------------------------------------------------------------------- */
+
+.nav-menu { display: none; position: relative; }
+.nav-menu summary {
+  list-style: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 38px;
+  height: 38px;
+  border-radius: var(--r-control);
+  color: var(--muted);
+  cursor: pointer;
+}
+.nav-menu summary::-webkit-details-marker { display: none; }
+.nav-menu summary:hover { color: var(--foreground); background: var(--wash); }
+.nav-menu[open] summary { color: var(--foreground); background: var(--wash); }
+
+.nav-sheet {
+  position: absolute;
+  right: 0;
+  top: calc(100% + 8px);
+  min-width: 208px;
+  padding: 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-overlay);
+}
+.nav-sheet a {
+  padding: 9px 11px;
+  border-radius: var(--r-control);
+  font-size: 14px;
+  color: var(--muted);
+}
+.nav-sheet a:hover { color: var(--foreground); background: var(--wash); }
+.nav-sheet .fold { margin: 6px 0; }
+.nav-sheet .btn { margin-top: 2px; justify-content: center; color: var(--on-primary); }
+.nav-sheet .btn:hover { color: var(--on-primary); }
 
 .gh {
   display: inline-flex;
@@ -1902,7 +1966,8 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   .frame-url span { max-width: 62vw; }
   body { font-size: 14.5px; }
   .rail { display: none; }
-  .nav-links a.link { display: none; }
+  .nav-links, .nav-acts { display: none; }
+  .nav-menu { display: block; margin-left: auto; }
   .search { margin-left: 0; width: 100%; }
   .funnel-row .step { width: 118px; font-size: 11.5px; }
   .funnel-row .median, .funnel-row .of { display: none; }
