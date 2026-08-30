@@ -32,10 +32,13 @@ just *talk* to it.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
   their website, industry, size and whatever you have learned about them, alongside every
   application and every contact you have there. The website is what puts their logo on the
-  pipeline. The company list says when you last applied and what's still live, and both
+  pipeline. Their roles read as job listings, each one a click from the posting it came
+  from. The company list says when you last applied and what's still live, and both
   lists filter — to the companies where you know someone, to the people whose ping is due.
   Contacts attach to applications straight from the CRM rather than being retyped, and
-  removing one from an application never deletes the person.
+  removing one from an application never deletes the person. A person keeps every way you
+  can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
+  paste — because the address that matters is whichever one they actually answer on.
 - **AI connections** — every person gets their own URL that turns all of the above into
   80 tools any MCP client can call (108 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
@@ -220,7 +223,7 @@ would, then tells you how many tools answered — 80, or 108 if you're an admin.
 
 ## Inviting other people
 
-**Admin → Invites** → type an email → **Send invite**. They get a link, pick a password, and
+**Admin → People → Invitations** → type an email → **Send invite**. They get a link, pick a password, and
 land in their own empty workspace.
 
 Email is optional. Until you set up Resend, creating an invite gives you a link to send
@@ -230,7 +233,7 @@ however you like — it stays valid for 14 days. Nothing is blocked on email bei
 
 If you run a landing page in front of your instance, point its sign-up form at
 `POST /api/waitlist` with a JSON body of `{"email": "...", "name": "...", "context": "..."}`.
-Only `email` is required. Requests land in **Admin → Waitlist**, and you get an email the
+Only `email` is required. Requests land in **Admin → People → Waiting for access**, and you get an email the
 moment one arrives — no polling an empty screen.
 
 Nothing on that list has access to anything. A request becomes an invite when you press
@@ -279,7 +282,7 @@ won't let a caller omit.
 
 ### Setting up email (Resend)
 
-**Admin → Configuration → Resend**:
+**Admin → Configuration → Email**:
 
 1. Make a free account at [resend.com](https://resend.com).
 2. Add and verify the domain you want to send from.
@@ -293,19 +296,18 @@ this key and send a test."*
 ### Everything else you can change
 
 `DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in the
-database, which is what makes **Admin → Variables** possible: one table of everything the
-instance stores as configuration — what it's called, its public URL, whether the pipeline
-fetches company logos, the Resend and Stripe values — with what each one does written next
-to it. Change one and it takes effect on the next request; there is nothing to redeploy.
+database, so **Admin → Configuration** is all of it on one screen — instance, email, billing
+and anything you add — with what each setting does written next to the box you type it in.
+Change one and it takes effect on the next request; there is nothing to redeploy.
 
 Secrets show masked and can only be replaced or cleared, never read back. Anything you
 change is one line in **Admin → Log**, with your name on it, values included for everything
 that isn't a secret. Clearing a value resets it to the default the app ships with, and the
 button tells you what that is before you press it.
 
-You can also add a variable of your own. That's the escape hatch for a setting that exists
-before it has a form — a feature can read a key, and you can set it today rather than
-waiting for a screen. Keys are lowercase letters, numbers and underscores.
+You can also add a setting of your own. That's the escape hatch for one that exists before
+it has a section — a feature can read a key, and you can set it today rather than waiting
+for a screen. Keys are lowercase letters, numbers and underscores.
 
 By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_variable`.
 
@@ -375,7 +377,8 @@ step is losing people rather than handing you six numbers to interpret.
 
 **CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /
-`delete_contact` for the people at them. A company's `website` is what puts their logo on your
+`delete_contact` for the people at them, each carrying every way to reach them rather than
+just a LinkedIn URL. A company's `website` is what puts their logo on your
 pipeline. Deleting one refuses while applications still point at it.
 
 **Your account** — `whoami` says who this connection belongs to. `list_connections`,

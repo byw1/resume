@@ -2339,3 +2339,113 @@ webhook comment. There is a card headed Billing inside Configuration, so those a
 imprecise navigation rather than a pointer at nothing.
 
 **Applies to:** `src/lib/mcp/tools.ts`, `skills/hired/SKILL.md`, `docs/`.
+
+---
+
+---
+
+## 2026-08-30 — A person is more than a LinkedIn URL, and a company is a place you can go
+
+Four complaints about the CRM, all of them the same complaint: the screens knew things they
+would not let you act on.
+
+**The employer became a chip.** A contact's company was a monogram and grey text — on the
+list, and twice on the detail page. Nothing said there was a page behind it, so the
+research, the people and the other roles at that employer went unvisited. `CompanyChip`
+(bordered, hovering, carrying the company's own favicon) is now the one way a company is
+drawn anywhere it is mentioned. The favicon needs `website`, which is why the chip takes a
+company record rather than a name: the contact page was not fetching it at all, which is
+the actual reason a letter was showing where a logo should have been.
+
+**The contacts table is one link with a stretched overlay, not three anchors.** Making the
+company clickable inside a row that was itself one big `<Link>` is not allowed — an anchor
+inside an anchor is invalid HTML and browsers drop the inner one. Two anchors to the same
+contact would have fixed the nesting and made every row two tab stops reading the same
+name; the first attempt hid the second from screen readers with `aria-hidden`, which also
+hid the ping and last-touch dates from anyone using one. So: the name is the only link, a
+`before:absolute before:inset-0` overlay stretches it across the row, and the chip and the
+icon buttons are positioned so they paint above it and stay independently clickable.
+
+**Five named link columns plus a list, not one `links` array.** `linkedin` alone is the
+right guess for a recruiter and wrong for everyone else. Named columns (`twitter`,
+`instagram`, `github`, `website`) because a tool argument called `twitter` is one an
+assistant gets right first time, and because `Profile` already settled this shape;
+`otherLinks String[]` for the tail — Bluesky, Mastodon, a Substack — which has no end and
+does not need one. The column is `twitter`, the label is X: renaming a column to follow a
+rebrand is a migration that buys nothing.
+
+**Six inputs would have been the obvious fix and a worse one.** Most are empty for most
+people, and an empty box still costs a row of the sidebar. `ContactLinks` lists what is set
+and adds with one row: paste a URL and the platform comes from its host; type `@handle` and
+the picker is how you say which platform it belongs to, because nothing in `@will` says X
+rather than Instagram. A handle under Website or Other is refused rather than stored — it
+expands to nothing, and a row you can never open is worse than a rejected one. A second
+LinkedIn URL lands in `otherLinks` instead of overwriting the first: losing an address you
+just pasted is worse than an untidy list.
+
+**The Company text field is gone once there is a company to link to.** It sat directly
+above a "Linked to" card naming the same employer, and editing it renamed the company for
+every other contact and application attached to it. It now appears only when nothing is
+linked, which is the one case where typing a name is the way to attach one.
+
+**`src/lib/social.ts` is pure for the same reason `audit-groups.ts` is** — the contact form
+is a client component, and anything importing `db` would drag Prisma into the browser
+bundle. Its parsing was exercised by hand against the awkward cases (bare handles, missing
+scheme, `www.`, trailing slashes, `bsky.app`, "not a url at all") before shipping, because
+there is no test suite to catch it later.
+
+**It is `social.ts`, not `links.ts`, because main got there first.** This branch and the
+manual work both added a `src/lib/links.ts` — one for a person's social addresses, one for
+the project's own (docs.hired.tools). The name fits both, which is exactly why neither
+could keep it by default: the file already merged and already imported by two screens kept
+it, and the newcomer took the name that says what it actually holds.
+
+**Applies to:** `prisma/schema.prisma`,
+`prisma/migrations/20250119000000_contact_socials/`, `src/lib/social.ts`,
+`src/components/crm/{company-chip,contact-links,contact-detail,company-detail}.tsx`,
+`src/app/(app)/crm/contacts/page.tsx`, `src/app/(app)/crm/contacts/[id]/page.tsx`,
+`src/app/(app)/crm/companies/[id]/page.tsx`, `src/lib/data/pipeline.ts`,
+`src/lib/mcp/tools.ts`, `src/server/actions.ts`, `README.md`.
+
+---
+
+## 2026-08-30 — Four questions, not seven tables
+
+Admin had seven tabs. Two rounds of consolidation later it has four, and the rule that got
+it there is worth keeping: **a tab should be a question, not a table.** Who is here, how is
+this set up, is it working, what changed.
+
+**People, Invites and Waitlist were one funnel split across three clicks.** Somebody asks,
+you invite them, they become a member — and the answer to "has this person got in yet?"
+always lived in whichever tab you were not on. They are three `Section`s on one screen now,
+read downwards in that order, with the counts still in the tab label and a warning dot when
+anyone is waiting. `Section` and `SectionEmpty` are new in `page-header.tsx`: a heading with
+a count, and a one-line empty state, because `EmptyState`'s dashed box is a whole screen's
+worth of nothing and a section only needs a sentence.
+
+**Configuration and Variables became one screen, which is a correction.** The previous entry
+shipped them as two tabs and called the duplication "deliberate and one-directional" — the
+guided forms for email and billing, and a flat table of the same nine rows underneath. That
+was wrong, and it was wrong in a way worth naming: two screens editing the same values pose
+a question ("which one is authoritative?") that has no good answer, and the answer a user
+invents is usually the wrong one. What actually earned its place was not the *forms* but the
+*guidance* — Resend's four setup steps, the webhook URL to paste into Stripe, the test send,
+the resync. So the guidance moved into the section it belongs to and the forms went away.
+Every field on the page is now the same editable row, and one sticky save covers all of
+them, so you can fix a from address and a payment link in the same pass.
+
+**Deleting `saveConfigAction` and `keepExistingSecrets` was the tell that this was right.**
+They existed to serve typed forms. With the forms gone they had no callers, and the rule
+they carried — a blank secret field means keep what is stored — already lives in
+`setVariables`, on the path that survived. A helper that only one dead caller needs is not
+a helper.
+
+**What did not change:** the data layer, the three `admin_*_variable` tools, and the tool
+counts. This was entirely a question of where things sit on a screen, which is the cheapest
+kind of change to get right and the most expensive to leave wrong.
+
+**Applies to:** `src/app/(app)/settings/admin/page.tsx`,
+`src/components/admin/configuration-panel.tsx` (was `variables-panel.tsx`, and absorbs
+`instance-panel.tsx`, `email-panel.tsx` and `billing-panel.tsx`, all deleted),
+`src/components/page-header.tsx`, `src/components/admin/{invites,waitlist}-panel.tsx`,
+`src/server/actions.ts`, `src/lib/settings.ts`.

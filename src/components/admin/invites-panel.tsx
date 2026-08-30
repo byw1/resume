@@ -25,7 +25,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { EmptyState } from "@/components/page-header";
+import { SectionEmpty } from "@/components/page-header";
 import { relativeDay } from "@/lib/utils";
 import { inviteUserAction, revokeInviteAction } from "@/server/actions";
 
@@ -82,7 +82,7 @@ export function InvitesPanel({
           <p className="text-muted-foreground text-sm">
             {emailReady
               ? "They'll get an email with a link to pick a password."
-              : "Email isn't configured yet, so you'll get a link to send them yourself. Set up Resend in the Email tab to automate it."}
+              : "Email isn't configured yet, so you'll get a link to send them yourself. Set up Resend under Configuration to automate it."}
           </p>
         </CardHeader>
         <CardContent className="space-y-4">
@@ -122,11 +122,7 @@ export function InvitesPanel({
       </Card>
 
       {visible.length === 0 ? (
-        <EmptyState
-          icon={MailIcon}
-          title="No pending invitations"
-          description="Everyone you've invited has already joined."
-        />
+        <SectionEmpty>Nothing outstanding — everyone invited has already joined.</SectionEmpty>
       ) : (
         <div className="space-y-2">
           <AnimatePresence initial={false}>

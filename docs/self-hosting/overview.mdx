@@ -68,14 +68,14 @@ Only the first is required, and everything else has a working default.
 | `ADMIN_EMAIL` | Address for the auto-created owner account. Defaults to `owner@localhost`. |
 | `APP_PASSWORD` | The owner's first password, instead of a generated one. |
 | `RESET_OWNER_PASSWORD` | Set to `1` and restart to generate a fresh owner password and print it again. Remove it afterwards. |
-| `PUBLIC_URL` | The sign-in address printed in the first-boot banner, and nothing else. On Railway, `RAILWAY_PUBLIC_DOMAIN` is set by the platform and used ahead of it. Invitation links and the Stripe webhook URL come from **Public URL** in **Admin → Variables**, or from the incoming request when that is empty. |
+| `PUBLIC_URL` | The sign-in address printed in the first-boot banner, and nothing else. On Railway, `RAILWAY_PUBLIC_DOMAIN` is set by the platform and used ahead of it. Invitation links and the Stripe webhook URL come from **Public URL** in **Admin → Configuration**, or from the incoming request when that is empty. |
 | `PDF_CHROMIUM_PATH` | Path to a Chromium for server-side PDF rendering. Only needed if it lives somewhere unusual. |
 | `PORT` | The port the server listens on, default 3000 — both the image's start command and Railway's honour it. Under Compose it is the host-side port instead, because nothing passes it into the container. |
 | `POSTGRES_PASSWORD` | Docker Compose only — the bundled database's password. |
 
 <Note>
   This list is short on purpose. Everything else an instance can be configured with lives
-  in the database and is changed from **Admin → Variables** without a redeploy — including
+  in the database and is changed from **Admin → Configuration** without a redeploy — including
   the instance name, the public URL, email and billing.
   [What is in there →](/self-hosting/configuration)
 

@@ -7,13 +7,14 @@ import { FadeIn } from "@/components/motion";
 import { ContactDetail } from "@/components/crm/contact-detail";
 import { getContact } from "@/lib/data/pipeline";
 import { requireUser } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const contact = await getContact(user.id, id);
+  const [contact, { companyLogos }] = await Promise.all([getContact(user.id, id), getSettings()]);
   if (!contact) notFound();
 
   return (
@@ -33,6 +34,11 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             email: contact.email,
             phone: contact.phone,
             linkedin: contact.linkedin,
+            twitter: contact.twitter,
+            instagram: contact.instagram,
+            github: contact.github,
+            website: contact.website,
+            otherLinks: contact.otherLinks,
             relationship: contact.relationship,
             notes: contact.notes,
             company: contact.company?.name ?? "",
@@ -50,12 +56,29 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
               year: "numeric",
             }),
           }))}
-          companyId={contact.companyId}
-          application={
-            contact.application
-              ? { id: contact.application.id, roleTitle: contact.application.roleTitle }
+          company={
+            contact.company
+              ? {
+                  id: contact.company.id,
+                  name: contact.company.name,
+                  website: contact.company.website,
+                }
               : null
           }
+          application={
+            contact.application
+              ? {
+                  id: contact.application.id,
+                  roleTitle: contact.application.roleTitle,
+                  stage: contact.application.stage,
+                  location: contact.application.location,
+                  salaryRange: contact.application.salaryRange,
+                  jobUrl: contact.application.jobUrl,
+                  nextFollowUpAt: contact.application.nextFollowUpAt?.toISOString() ?? null,
+                }
+              : null
+          }
+          logos={companyLogos}
         />
       </FadeIn>
     </PageShell>

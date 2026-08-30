@@ -126,6 +126,10 @@ const CONTACT_COLUMNS = [
   "email",
   "phone",
   "linkedin",
+  "twitter",
+  "instagram",
+  "github",
+  "website",
   "relationship",
   "notes",
 ] as const;
@@ -189,7 +193,11 @@ export async function getCompany(userId: string, id: string) {
           roleTitle: true,
           stage: true,
           location: true,
+          workMode: true,
           salaryRange: true,
+          jobUrl: true,
+          sources: true,
+          appliedAt: true,
           nextFollowUpAt: true,
           updatedAt: true,
         },
@@ -347,6 +355,24 @@ export async function getApplication(userId: string, id: string) {
       tasks: { orderBy: [{ done: "asc" }, { dueAt: "asc" }] },
     },
   });
+}
+
+/**
+ * Links a person is reachable at: trimmed, blanks dropped, deduped. Same rule
+ * as sources below, and for the same reason — a form that submits an empty row
+ * should not persist one.
+ */
+function cleanLinks(values: string[]): string[] {
+  const seen = new Set<string>();
+  const out: string[] = [];
+  for (const value of values) {
+    const clean = value.trim();
+    const key = clean.toLowerCase();
+    if (!clean || seen.has(key)) continue;
+    seen.add(key);
+    out.push(clean);
+  }
+  return out;
 }
 
 /**
@@ -773,6 +799,11 @@ export async function createContact(
     email?: string;
     phone?: string;
     linkedin?: string;
+    twitter?: string;
+    instagram?: string;
+    github?: string;
+    website?: string;
+    otherLinks?: string[];
     relationship?: string;
     notes?: string;
     company?: string;
@@ -794,6 +825,11 @@ export async function createContact(
       email: input.email ?? "",
       phone: input.phone ?? "",
       linkedin: input.linkedin ?? "",
+      twitter: input.twitter ?? "",
+      instagram: input.instagram ?? "",
+      github: input.github ?? "",
+      website: input.website ?? "",
+      otherLinks: cleanLinks(input.otherLinks ?? []),
       relationship: input.relationship ?? "",
       notes: input.notes ?? "",
       companyId,
@@ -804,7 +840,17 @@ export async function createContact(
 
 const contactInclude = {
   company: true,
-  application: { select: { id: true, roleTitle: true, stage: true } },
+  application: {
+    select: {
+      id: true,
+      roleTitle: true,
+      stage: true,
+      location: true,
+      salaryRange: true,
+      jobUrl: true,
+      nextFollowUpAt: true,
+    },
+  },
 } satisfies Prisma.ContactInclude;
 
 /** Cuts of the contact list: who is owed a ping, who is tied to a live thread. */
@@ -861,6 +907,11 @@ export async function updateContact(
     email: string;
     phone: string;
     linkedin: string;
+    twitter: string;
+    instagram: string;
+    github: string;
+    website: string;
+    otherLinks: string[];
     relationship: string;
     notes: string;
     company: string;
@@ -873,6 +924,9 @@ export async function updateContact(
 
   const data: Prisma.ContactUpdateInput = pick(patch, CONTACT_COLUMNS);
   if (patch.nextFollowUpAt !== undefined) data.nextFollowUpAt = toDate(patch.nextFollowUpAt);
+  // An array is not a column pick: it replaces wholesale, and blank rows from a
+  // half-filled form should never reach the database.
+  if (patch.otherLinks !== undefined) data.otherLinks = cleanLinks(patch.otherLinks);
   // Company and application are relations, so they are resolved by hand rather
   // than picked — and both are re-checked against this user.
   if (patch.company !== undefined) {

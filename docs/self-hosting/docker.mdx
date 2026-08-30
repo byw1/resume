@@ -32,7 +32,7 @@ Every one is optional. Put them in a `.env` file next to `docker-compose.yml`:
 | --- | --- |
 | `ADMIN_EMAIL` | Owner email instead of `owner@localhost`. |
 | `APP_PASSWORD` | Owner password instead of a generated one. |
-| `PUBLIC_URL` | The sign-in address printed in the startup banner beside your owner password. Invite links come from **Public URL** in **Admin → Variables**, not from this. |
+| `PUBLIC_URL` | The sign-in address printed in the startup banner beside your owner password. Invite links come from **Public URL** in **Admin → Configuration**, not from this. |
 | `POSTGRES_PASSWORD` | Database password. The database is not reachable from outside the compose network, which is why a default is acceptable — set one anyway if your host is shared. |
 | `PORT` | Host port to listen on. The container stays on 3000. |
 
@@ -62,7 +62,7 @@ application. Treat it accordingly.
 ## Putting it behind a domain
 
 Point a reverse proxy at the app's port and terminate TLS there. Then set **Public URL**
-in **Admin → Variables** to the address people will actually use: invitation links and the
+in **Admin → Configuration** to the address people will actually use: invitation links and the
 Stripe webhook URL are built from it, and it takes effect on the next request with nothing
 to restart.
 

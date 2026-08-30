@@ -1,5 +1,5 @@
 import { headers } from "next/headers";
-import { PageHeader, PageShell } from "@/components/page-header";
+import { PageHeader, PageShell, Section } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FadeIn, Stagger, StaggerItem } from "@/components/motion";
 import { Card, CardContent } from "@/components/ui/card";
@@ -9,21 +9,12 @@ import { instanceStats, listInvites, listUsers } from "@/lib/data/users";
 import { listWaitlist, waitlistStats } from "@/lib/data/waitlist";
 import { listAudit } from "@/lib/data/audit";
 import { instanceHealth, listSystemEvents } from "@/lib/data/system";
-import {
-  billingIsConfigured,
-  emailIsConfigured,
-  getSettings,
-  listVariables,
-  maskSecret,
-} from "@/lib/settings";
+import { billingIsConfigured, emailIsConfigured, getSettings, listVariables } from "@/lib/settings";
 import { billedUserCount } from "@/lib/billing";
-import { BillingPanel } from "@/components/admin/billing-panel";
 import { UsersPanel } from "@/components/admin/users-panel";
 import { InvitesPanel } from "@/components/admin/invites-panel";
 import { WaitlistPanel } from "@/components/admin/waitlist-panel";
-import { EmailPanel } from "@/components/admin/email-panel";
-import { InstancePanel } from "@/components/admin/instance-panel";
-import { VariablesPanel } from "@/components/admin/variables-panel";
+import { ConfigurationPanel } from "@/components/admin/configuration-panel";
 import { AuditPanel } from "@/components/admin/audit-panel";
 import { HealthPanel } from "@/components/admin/health-panel";
 import { InboxIcon, ShieldIcon, UserPlusIcon, UsersIcon } from "lucide-react";
@@ -95,36 +86,21 @@ export default async function AdminPage() {
         />
       </Stagger>
 
+      {/* Four tabs, and each is a question rather than a table: who is here,
+          how is this thing set up, is it working, what changed. Members,
+          invitations and the waitlist were three of them — one funnel split
+          across three clicks, where the answer to "has this person got in
+          yet?" lived in whichever tab you were not on. */}
       <Tabs defaultValue="people">
         <TabsList className="mb-6">
           <TabsTrigger value="people">
             People
             <span className="text-muted-foreground ml-1 text-xs tabular-nums">{users.length}</span>
+            {waiting.waiting > 0 && <span className="ml-1 text-[var(--warning)]">&bull;</span>}
           </TabsTrigger>
-          <TabsTrigger value="invites">
-            Invites
-            <span className="text-muted-foreground ml-1 text-xs tabular-nums">{invites.length}</span>
-          </TabsTrigger>
-          <TabsTrigger value="waitlist">
-            Waitlist
-            {waiting.waiting > 0 && (
-              <span className="text-muted-foreground ml-1 text-xs tabular-nums">
-                {waiting.waiting}
-              </span>
-            )}
-          </TabsTrigger>
-          {/* Email and billing were two tabs holding two forms each; they are
-              one screen now, because "how this instance is set up" is a single
-              question and nobody arrives wanting exactly one half of it. */}
           <TabsTrigger value="config">
             Configuration
-            {!emailReady && <span className="ml-1 text-[var(--warning)]">•</span>}
-          </TabsTrigger>
-          <TabsTrigger value="variables">
-            Variables
-            <span className="text-muted-foreground ml-1 text-xs tabular-nums">
-              {variables.length}
-            </span>
+            {!emailReady && <span className="ml-1 text-[var(--warning)]">&bull;</span>}
           </TabsTrigger>
           {/* The dot is why this tab does not need to be first: a healthy
               instance stays quiet, and a broken one says so from here. */}
@@ -136,111 +112,101 @@ export default async function AdminPage() {
                   worstCheck === "down" ? "ml-1 text-[var(--destructive)]" : "ml-1 text-[var(--warning)]"
                 }
               >
-                •
+                &bull;
               </span>
             )}
           </TabsTrigger>
           <TabsTrigger value="audit">Log</TabsTrigger>
         </TabsList>
 
+        {/* One funnel, read downwards: who is here, who is on the way, who
+            has asked. */}
         <TabsContent value="people">
           <FadeIn>
-            <UsersPanel
-              actor={{ id: actor.id, role: actor.role }}
-              users={users.map((user) => ({
-                id: user.id,
-                name: user.name,
-                email: user.email,
-                role: user.role,
-                isActive: user.isActive,
-                lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
-                createdAt: user.createdAt.toISOString(),
-                invitedBy: user.invitedBy ? user.invitedBy.name || user.invitedBy.email : null,
-                counts: user._count,
-                mcpLastUsedAt: user.mcpLastUsedAt ? user.mcpLastUsedAt.toISOString() : null,
-                billed: Boolean(user.stripeCustomerId),
-              }))}
-            />
-          </FadeIn>
-        </TabsContent>
+            <div className="space-y-9">
+              <Section
+                title="Members"
+                count={users.length}
+                description="Everyone with an account here. Click a name for their page — when they joined, whether their invitation arrived, which assistants they have connected. Never their brain, resumes or applications."
+              >
+                <UsersPanel
+                  actor={{ id: actor.id, role: actor.role }}
+                  users={users.map((user) => ({
+                    id: user.id,
+                    name: user.name,
+                    email: user.email,
+                    role: user.role,
+                    isActive: user.isActive,
+                    lastLoginAt: user.lastLoginAt ? user.lastLoginAt.toISOString() : null,
+                    createdAt: user.createdAt.toISOString(),
+                    invitedBy: user.invitedBy ? user.invitedBy.name || user.invitedBy.email : null,
+                    counts: user._count,
+                    mcpLastUsedAt: user.mcpLastUsedAt ? user.mcpLastUsedAt.toISOString() : null,
+                    billed: Boolean(user.stripeCustomerId),
+                  }))}
+                />
+              </Section>
 
-        <TabsContent value="invites">
-          <FadeIn>
-            <InvitesPanel
-              canInviteAdmins={actor.role === "SUPER_ADMIN"}
-              emailReady={emailReady}
-              baseUrl={settings.publicUrl || `${proto}://${host}`}
-              invites={invites.map((invite) => ({
-                id: invite.id,
-                email: invite.email,
-                role: invite.role,
-                token: invite.token,
-                expiresAt: invite.expiresAt.toISOString(),
-                emailSent: invite.emailSent,
-                emailError: invite.emailError,
-                invitedBy: invite.invitedBy.name || invite.invitedBy.email,
-              }))}
-            />
-          </FadeIn>
-        </TabsContent>
+              <Section
+                title="Invitations"
+                count={invites.length}
+                description="Sent, not yet accepted. A link stays valid for 14 days and can be copied or revoked from here."
+              >
+                <InvitesPanel
+                  canInviteAdmins={actor.role === "SUPER_ADMIN"}
+                  emailReady={emailReady}
+                  baseUrl={settings.publicUrl || `${proto}://${host}`}
+                  invites={invites.map((invite) => ({
+                    id: invite.id,
+                    email: invite.email,
+                    role: invite.role,
+                    token: invite.token,
+                    expiresAt: invite.expiresAt.toISOString(),
+                    emailSent: invite.emailSent,
+                    emailError: invite.emailError,
+                    invitedBy: invite.invitedBy.name || invite.invitedBy.email,
+                  }))}
+                />
+              </Section>
 
-        <TabsContent value="waitlist">
-          <FadeIn>
-            <WaitlistPanel
-              entries={waitlist.map((entry) => ({
-                id: entry.id,
-                email: entry.email,
-                name: entry.name,
-                context: entry.context,
-                source: entry.source,
-                notified: entry.notified,
-                notifyError: entry.notifyError,
-                invitedAt: entry.invitedAt ? entry.invitedAt.toISOString() : null,
-                createdAt: entry.createdAt.toISOString(),
-              }))}
-            />
+              <Section
+                title="Waiting for access"
+                count={waiting.waiting}
+                description="People who asked through the sign-up form on your marketing site. They have access to nothing until you invite them."
+              >
+                <WaitlistPanel
+                  entries={waitlist.map((entry) => ({
+                    id: entry.id,
+                    email: entry.email,
+                    name: entry.name,
+                    context: entry.context,
+                    source: entry.source,
+                    notified: entry.notified,
+                    notifyError: entry.notifyError,
+                    invitedAt: entry.invitedAt ? entry.invitedAt.toISOString() : null,
+                    createdAt: entry.createdAt.toISOString(),
+                  }))}
+                />
+              </Section>
+            </div>
           </FadeIn>
         </TabsContent>
 
         <TabsContent value="config">
           <FadeIn>
-            <div className="space-y-6">
-              <InstancePanel
-                settings={{
-                  instanceName: settings.instanceName,
-                  publicUrl: settings.publicUrl || `${proto}://${host}`,
-                  companyLogos: settings.companyLogos,
-                }}
-              />
-              <EmailPanel
-                configured={emailReady}
-                settings={{
-                  resendApiKeyMasked: maskSecret(settings.resendApiKey),
-                  hasApiKey: Boolean(settings.resendApiKey),
-                  resendFromEmail: settings.resendFromEmail,
-                  resendFromName: settings.resendFromName,
-                }}
-                ownEmail={actor.email}
-              />
-              <BillingPanel
-                configured={billingReady}
-                settings={{
-                  stripeSecretKeyMasked: maskSecret(settings.stripeSecretKey),
-                  hasSecretKey: Boolean(settings.stripeSecretKey),
-                  stripeWebhookSecretMasked: maskSecret(settings.stripeWebhookSecret),
-                  hasWebhookSecret: Boolean(settings.stripeWebhookSecret),
-                  stripePaymentLink: settings.stripePaymentLink,
-                }}
-                billedUsers={billedUsers}
-                webhookUrl={`${settings.publicUrl || `${proto}://${host}`}/api/stripe/webhook`}
-              />
-            </div>
-          </FadeIn>
-        </TabsContent>
-
-        <TabsContent value="variables">
-          <FadeIn>
-            <VariablesPanel variables={variables} />
+            <ConfigurationPanel
+              variables={variables}
+              email={{
+                configured: emailReady,
+                fromEmail: settings.resendFromEmail,
+                ownEmail: actor.email,
+              }}
+              billing={{
+                configured: billingReady,
+                billedUsers,
+                webhookUrl: `${settings.publicUrl || `${proto}://${host}`}/api/stripe/webhook`,
+              }}
+            />
           </FadeIn>
         </TabsContent>
         <TabsContent value="health">
