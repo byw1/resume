@@ -1933,6 +1933,8 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 
 .post-title { max-width: 26ch; margin-bottom: 12px; }
 .post-meta {
+  align-items: center;
+  flex-wrap: wrap;
   font-family: var(--mono);
   font-size: 12px;
   color: var(--faint);
@@ -2015,6 +2017,44 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 .post-more a:hover { color: var(--primary); }
 .post-more span { display: block; font-size: 13.5px; color: var(--faint); font-weight: 400; margin-top: 3px; }
 
+.post-link { margin: 0 0 30px; }
+
+/* Not everything here is an article. The badge says which, in the colour the
+   stage rotation already assigns to that kind. */
+.kind {
+  display: inline-flex;
+  align-items: center;
+  padding: 2px 8px;
+  border-radius: var(--r-chip);
+  font-family: var(--sans);
+  font-size: 11px;
+  font-weight: 500;
+  letter-spacing: 0.01em;
+  color: var(--tone);
+  background: color-mix(in oklch, var(--tone) var(--stage-wash), transparent);
+}
+
+/* The filter bar. Revealed by the hub's own script — it is hidden in the
+   markup, so with scripting off the page is the full list and nothing that
+   does not work. */
+.res-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  margin-top: 30px;
+}
+.res-bar .search { margin-left: auto; }
+.res-empty { margin-top: 22px; font-size: 14px; color: var(--muted); }
+.linkish {
+  font: inherit;
+  color: var(--primary);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  padding: 0;
+}
+.res[hidden] { display: none; }
+
 /* The hub. */
 .post-list { list-style: none; margin: 36px 0 0; display: flex; flex-direction: column; gap: 14px; }
 .post-list a {
@@ -2026,6 +2066,7 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   transition: box-shadow 0.25s var(--settle);
 }
 .post-list a:hover { box-shadow: var(--shadow-raised); }
+.post-list .kind { margin-bottom: 10px; }
 .post-list h2 { font-size: 17px; letter-spacing: -0.02em; margin-bottom: 7px; }
 .post-list p { font-size: 14px; line-height: 1.6; color: var(--muted); margin-bottom: 11px; }
 .post-list .meta { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }

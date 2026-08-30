@@ -1640,3 +1640,35 @@ second copy.
 **Left for William:** verify hired.tools in Google Search Console and submit the sitemap.
 Nothing gets indexed quickly without it, and it is the only step here that cannot be
 automated from this side.
+
+## 2026-08-30 — Resources holds more than articles, and can be searched
+
+**Decision (William's):** search on the hub, room for things that are not posts, and a
+shout-out to Ethan Evans' YouTube channel.
+
+**Kinds, rather than a second section.** `kind` in the frontmatter picks a badge, a filter
+chip and whether the page leads with an outbound button — `article`, `watch`, `template`,
+`tool`, with the first two in use. An unknown kind fails the build rather than rendering a
+blank badge. Adding a fifth is one line in `KINDS`. The chip row only offers kinds that
+actually have something in them, so a filter can never return nothing.
+
+**The search bar is hidden in the markup and revealed by the page's own script.** A search
+box that does nothing without JavaScript is worse than no search box; with scripting off the
+hub is the complete list, which is a finished page. Same reasoning as everything else here.
+
+**On recommending someone else's work.** The temptation was to describe videos I have not
+watched. Everything factual about Evans is attributed — "by his own count" for the 10,000
+resumes and 2,500 interviews — and the specifics I could verify (Amazon VP until 2020, Prime
+Video, Appstore, Merch, Prime Gaming, Twitch Commerce) are stated plainly while the rest is
+left to the link. On a site whose entire pitch is that it does not invent things, a
+recommendation padded with invented detail would be the worst possible place to slip. The
+byline flips to "Recommended by" when an entry points outward, because the author line would
+otherwise claim someone else's work.
+
+It is also noted in the post that the ethanevans.com link is not an affiliate link, since
+recommending a person who sells classes without saying so reads badly whether or not money
+changed hands.
+
+**Why it belongs here at all:** the site argues that the software on the other side keeps a
+record you cannot see. Evans covers the human half — the judgment made in rooms you are not
+in. Both land on the same point, that you cannot influence a decision you have no record for.
