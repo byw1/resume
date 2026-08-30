@@ -31,7 +31,7 @@ just *talk* to it.
   application and every contact you have there. The website is what puts their logo on the
   pipeline.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  73 tools any MCP client can call (98 if you're an admin). Claude, Claude Code, ChatGPT,
+  73 tools any MCP client can call (101 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -190,7 +190,7 @@ with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 73, or 98 if you're an admin.
+would, then tells you how many tools answered — 73, or 101 if you're an admin.
 
 #### One connection per client
 
@@ -240,7 +240,7 @@ By conversation: `admin_list_waitlist`, `admin_invite_waitlist_signup`,
 ### Charging for it (optional)
 
 If you host an instance for other people and want them to pay for it, wire it to Stripe
-from **Admin → Billing**: paste an API key — a restricted key with read-only Customers and
+from **Admin → Configuration**: paste an API key — a restricted key with read-only Customers and
 Subscriptions is all it needs, and safer than your full secret key — and a webhook signing secret, register the
 webhook URL the panel shows you, and put your Stripe Payment Link wherever you send people.
 Someone new who pays through the link is invited automatically. If their subscription
@@ -268,7 +268,7 @@ won't let a caller omit.
 
 ### Setting up email (Resend)
 
-**Admin → Email**:
+**Admin → Configuration → Resend**:
 
 1. Make a free account at [resend.com](https://resend.com).
 2. Add and verify the domain you want to send from.
@@ -279,6 +279,25 @@ won't let a caller omit.
 You can do all of this by talking to Claude instead: *"is email set up? configure Resend with
 this key and send a test."*
 
+### Everything else you can change
+
+`DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in the
+database, which is what makes **Admin → Variables** possible: one table of everything the
+instance stores as configuration — what it's called, its public URL, whether the pipeline
+fetches company logos, the Resend and Stripe values — with what each one does written next
+to it. Change one and it takes effect on the next request; there is nothing to redeploy.
+
+Secrets show masked and can only be replaced or cleared, never read back. Anything you
+change is one line in **Admin → Log**, with your name on it, values included for everything
+that isn't a secret. Clearing a value resets it to the default the app ships with, and the
+button tells you what that is before you press it.
+
+You can also add a variable of your own. That's the escape hatch for a setting that exists
+before it has a form — a feature can read a key, and you can set it today rather than
+waiting for a screen. Keys are lowercase letters, numbers and underscores.
+
+By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_variable`.
+
 ---
 
 ## What your AI can do once it's connected
@@ -286,7 +305,7 @@ this key and send a test."*
 73 tools across the four areas. The seven workflows below are among them: they're published
 as tools as well as prompts, because prompt support is optional in MCP clients and tool
 support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 25 more tools — and members never even see those in the tool list, so nobody is
+Admins get 28 more tools — and members never even see those in the tool list, so nobody is
 tempted by a permission they don't have.
 
 | Workflow | What it does |
@@ -337,8 +356,9 @@ pipeline. Deleting one refuses while applications still point at it.
 **Admin** *(admins only)* — `admin_list_users`, `admin_invite_user`, `admin_set_user_role`,
 `admin_set_user_active`, `admin_delete_user`, `admin_instance_stats`, plus
 `admin_get_email_config` / `admin_set_email_config` / `admin_send_test_email` for wiring up
-Resend without leaving the conversation. These act on accounts and instance settings only —
-none of them can read another person's content.
+Resend without leaving the conversation, and `admin_list_variables` / `admin_set_variable` /
+`admin_delete_variable` for every other setting the instance stores. These act on accounts
+and instance settings only — none of them can read another person's content.
 
 ---
 
