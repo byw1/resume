@@ -185,7 +185,8 @@ export default async function DocsPage() {
                   </li>
                   <li>
                     <span className="text-foreground font-medium">Claude apps</span> — Settings →
-                    Capabilities → Skills → upload the file.
+                    Capabilities → Skills → upload the zip. The upload wants a folder, not a loose
+                    file, which is what the zip below already is.
                   </li>
                   <li>
                     <span className="text-foreground font-medium">Anything else</span> — paste the
@@ -208,8 +209,18 @@ export default async function DocsPage() {
                       </div>
                       <CopyBlock
                         body={skill.body}
-                        downloadHref={`/docs/skills/${skill.slug}`}
-                        downloadName="SKILL.md"
+                        downloads={[
+                          {
+                            href: `/docs/skills/${skill.slug}`,
+                            name: "SKILL.md",
+                            label: "SKILL.md",
+                          },
+                          {
+                            href: `/docs/skills/${skill.slug}.zip`,
+                            name: `${skill.slug}.zip`,
+                            label: "Zip",
+                          },
+                        ]}
                       />
                     </div>
                   ))}
