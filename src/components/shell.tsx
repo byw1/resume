@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { motion } from "framer-motion";
 import {
+  ArrowUpRightIcon,
   BookOpenIcon,
   CircleUserRoundIcon,
   Building2Icon,
@@ -11,6 +12,7 @@ import {
   FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
+  LibraryBigIcon,
   LogOutIcon,
   MenuIcon,
   PanelLeftCloseIcon,
@@ -35,6 +37,7 @@ import { CommandPalette, type PaletteIndex } from "@/components/command-palette"
 import { HiredMark } from "@/components/hired-mark";
 import { UserAvatar } from "@/components/user-avatar";
 import { logoutAction } from "@/server/actions";
+import { MANUAL_URL } from "@/lib/links";
 
 // Navigation only. Settings and Admin are account actions, so they live in the
 // profile menu at the top right rather than in the rail.
@@ -422,10 +425,16 @@ function MobileNav({
   branchOpen: (href: string) => boolean;
   onToggleBranch: (href: string) => void;
 }) {
+  // Docs is this instance describing itself; the manual is the written guide to
+  // the product and lives on another origin, so it opens in its own tab and says
+  // so with an arrow rather than looking like one more screen of the app.
   const secondary = [
-    { href: "/docs", label: "Docs", icon: BookOpenIcon },
-    { href: "/settings", label: "Settings", icon: SettingsIcon },
-    ...(canAdmin ? [{ href: "/settings/admin", label: "Admin", icon: ShieldIcon }] : []),
+    { href: "/docs", label: "Docs", icon: BookOpenIcon, external: false },
+    { href: MANUAL_URL, label: "Manual", icon: LibraryBigIcon, external: true },
+    { href: "/settings", label: "Settings", icon: SettingsIcon, external: false },
+    ...(canAdmin
+      ? [{ href: "/settings/admin", label: "Admin", icon: ShieldIcon, external: false }]
+      : []),
   ];
 
   return (
@@ -515,16 +524,32 @@ function MobileNav({
         </nav>
 
         <div className="mt-auto flex flex-col gap-0.5 border-t px-3 py-3">
-          {secondary.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className="text-muted-foreground flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors"
-            >
-              <item.icon className="size-4 shrink-0" />
-              <span>{item.label}</span>
-            </Link>
-          ))}
+          {secondary.map((item) => {
+            const className =
+              "text-muted-foreground flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors";
+            const body = (
+              <>
+                <item.icon className="size-4 shrink-0" />
+                <span>{item.label}</span>
+                {item.external && <ArrowUpRightIcon className="ml-auto size-3.5 shrink-0" />}
+              </>
+            );
+            return item.external ? (
+              <a
+                key={item.href}
+                href={item.href}
+                target="_blank"
+                rel="noreferrer"
+                className={className}
+              >
+                {body}
+              </a>
+            ) : (
+              <Link key={item.href} href={item.href} className={className}>
+                {body}
+              </Link>
+            );
+          })}
           <form action={logoutAction}>
             <button
               type="submit"
@@ -574,6 +599,15 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
           <Link href="/docs">
             <BookOpenIcon /> Docs
           </Link>
+        </DropdownMenuItem>
+        {/* Two places to read. Docs is generated from this instance; the manual
+            is the written guide to the product, the same for every deployment
+            of it, and it is on another origin — hence the arrow and the tab. */}
+        <DropdownMenuItem asChild>
+          <a href={MANUAL_URL} target="_blank" rel="noreferrer">
+            <LibraryBigIcon /> Manual
+            <ArrowUpRightIcon className="text-muted-foreground ml-auto size-3.5" />
+          </a>
         </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <Link href="/settings">
