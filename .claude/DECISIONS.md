@@ -2266,3 +2266,61 @@ counting by hand. The count rule from the 2026-08-30 briefing entry stands:
 `src/components/pipeline/{board,application-detail,application-panel,new-application-dialog,sources-input}.tsx`,
 `src/components/crm/contact-detail.tsx`, `src/components/shell.tsx`,
 `src/app/(app)/crm/{companies,contacts}/page.tsx`, `README.md`.
+
+---
+
+## 2026-08-30 — The screen is called Me; the concept is still the brain
+
+**Decision (William's ask):** the rail item reads **Me** and wears an avatar
+(`CircleUserRoundIcon`) rather than a brain. The route stays `/brain`, the MCP tools keep
+their names — `search_brain`, `get_brain_snapshot`, `append_role_brain_dump`,
+`mine_brain_dump` — and "brain dump" survives as the name for the raw free-form text on a
+role.
+
+**Why the line is drawn there.** Two different things were both called Brain: a place in the
+navigation, and a body of knowledge. Only the first was doing badly. "Brain" as a nav item
+asks somebody to learn a metaphor before they know what the app is; "Me" is what the screen
+actually holds and needs no explaining. The concept is fine as it stands, and renaming it
+would have cost far more than it bought: every connected client's saved prompts name the
+tools, every skill in `skills/` names them, and the URL is in people's history. A rename
+that breaks a working assistant to improve a label is a bad trade.
+
+**So the rule for the future is:** where the word names a destination, it is Me — the rail,
+the command palette's "Go to", the role page's back link, the dashboard's stat card, the
+`/brain` page's eyebrow, the four rail mockups and the chapter tab on hired.tools. Where it
+names the material, it is still the brain — the page's own title ("Your brain"), the feature
+card on the landing page, "Brain dump" as an action, and the docs tool group, which is
+labelled after tools that are literally called `*_brain`.
+
+**Applies to:** `src/components/shell.tsx`, `src/components/command-palette.tsx`,
+`src/app/(app)/page.tsx`, `src/app/(app)/brain/page.tsx`, `src/app/(app)/brain/[roleId]/page.tsx`,
+`site/index.html`, `README.md`.
+
+---
+
+## 2026-08-30 — A nav branch you can open, and still click
+
+**Decision:** CRM's children are folded away by default. The parent stays a real link to
+`/crm`; a chevron beside it opens the branch, and the choice is remembered in
+`hired:nav-open-branches`.
+
+**Why:** a permanently open branch made a five-item rail read as seven and pushed Pipeline —
+the screen used most days — to the bottom. The previous note in this file argued the rail
+should name both children because reaching Contacts otherwise meant landing on Companies and
+finding the tabs. That is still true; it just does not require them to be visible always.
+Open once and it stays open.
+
+**The chevron is a sibling of the link, positioned over it, not inside it.** A `<button>`
+nested in an `<a>` is invalid HTML and the browser's behaviour for it is not something to
+rely on. Clicking the row navigates to CRM; clicking the chevron unfolds. Both are real
+controls with real names — `aria-expanded`, `aria-controls`, and a label that says which it
+is.
+
+**Being inside the branch opens it regardless of what was stored.** Arriving at
+`/crm/contacts` from a link and finding the rail insisting Contacts is hidden would be the
+rail arguing with the page. The stored value is a preference, not a lock.
+
+**The drawer shares the rail's state** rather than keeping its own, so a phone and a desktop
+window of the same account never disagree about whether the branch is open.
+
+**Applies to:** `src/components/shell.tsx` (`NAV`, `branchOpen`, `toggleBranch`, `MobileNav`).

@@ -21,7 +21,7 @@ export default async function RolePage({ params }: { params: Promise<{ roleId: s
       <FadeIn>
         <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-2 mb-4">
           <Link href="/brain">
-            <ArrowLeftIcon /> Brain
+            <ArrowLeftIcon /> Me
           </Link>
         </Button>
 
