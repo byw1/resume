@@ -1723,3 +1723,28 @@ questions in the schema against the questions in the markup and throws if they d
 editing an answer and forgetting the head fails the build. This is the third time a
 hand-maintained copy of generated-looking data on this page has gone stale without
 complaining; the tool catalogue is still the one that has no such check.
+
+## 2026-08-30 — Resend is wired up on hired.tools, and Namecheap will not hold the MX
+
+Set up sending for the Railway instance at `app.hired.tools`. No code changed — `src/lib/email.ts`,
+the `Setting` rows and `admin_set_email_config` already did all of it. This is an account and DNS
+job, recorded here because the next person to touch it will hit the same wall.
+
+**Sending domain is the apex, `hired.tools`, not a subdomain.** Resend puts the return path on
+`send.hired.tools` of its own accord, so the SPF and MX records live there and the apex keeps only
+DKIM at `resend._domainkey`. Nothing collides with the GitHub Pages A records on the apex or the
+Railway `CNAME` on `app`, and there is no mailbox mail on the domain to disturb.
+
+**The API key is `sending_access` scoped to the domain, not `full_access`.** The app makes exactly
+one call — `POST /emails` — so a key that leaks cannot read the account, mint more keys, or touch
+another domain. Same reasoning as the restricted Stripe key in `admin_set_billing_config`.
+
+**Namecheap silently drops MX records unless the domain's Mail Settings say Custom MX.** This is the
+whole blocker. `dns_records_save` returns `business.gatewayConflict`, and with `force: true` it
+returns `{"saved": 1}` and stores nothing — the record is simply absent on the next read. The two TXT
+records went in on the first try; the MX never has. The setting is on the Advanced DNS page and
+there is no API for it, so it is a manual step in the dashboard before the MX can be written and
+before Resend will move the domain off `pending`.
+
+Worth remembering that `force` here reports success it did not achieve. Always re-read the zone
+after writing rather than trusting the save count.
