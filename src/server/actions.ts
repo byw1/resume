@@ -852,6 +852,11 @@ export async function saveContactAction(
     email?: string;
     phone?: string;
     linkedin?: string;
+    twitter?: string;
+    instagram?: string;
+    github?: string;
+    website?: string;
+    otherLinks?: string[];
     relationship?: string;
     notes?: string;
     company?: string;

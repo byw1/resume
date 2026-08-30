@@ -2342,6 +2342,73 @@ imprecise navigation rather than a pointer at nothing.
 
 ---
 
+---
+
+## 2026-08-30 — A person is more than a LinkedIn URL, and a company is a place you can go
+
+Four complaints about the CRM, all of them the same complaint: the screens knew things they
+would not let you act on.
+
+**The employer became a chip.** A contact's company was a monogram and grey text — on the
+list, and twice on the detail page. Nothing said there was a page behind it, so the
+research, the people and the other roles at that employer went unvisited. `CompanyChip`
+(bordered, hovering, carrying the company's own favicon) is now the one way a company is
+drawn anywhere it is mentioned. The favicon needs `website`, which is why the chip takes a
+company record rather than a name: the contact page was not fetching it at all, which is
+the actual reason a letter was showing where a logo should have been.
+
+**The contacts table is one link with a stretched overlay, not three anchors.** Making the
+company clickable inside a row that was itself one big `<Link>` is not allowed — an anchor
+inside an anchor is invalid HTML and browsers drop the inner one. Two anchors to the same
+contact would have fixed the nesting and made every row two tab stops reading the same
+name; the first attempt hid the second from screen readers with `aria-hidden`, which also
+hid the ping and last-touch dates from anyone using one. So: the name is the only link, a
+`before:absolute before:inset-0` overlay stretches it across the row, and the chip and the
+icon buttons are positioned so they paint above it and stay independently clickable.
+
+**Five named link columns plus a list, not one `links` array.** `linkedin` alone is the
+right guess for a recruiter and wrong for everyone else. Named columns (`twitter`,
+`instagram`, `github`, `website`) because a tool argument called `twitter` is one an
+assistant gets right first time, and because `Profile` already settled this shape;
+`otherLinks String[]` for the tail — Bluesky, Mastodon, a Substack — which has no end and
+does not need one. The column is `twitter`, the label is X: renaming a column to follow a
+rebrand is a migration that buys nothing.
+
+**Six inputs would have been the obvious fix and a worse one.** Most are empty for most
+people, and an empty box still costs a row of the sidebar. `ContactLinks` lists what is set
+and adds with one row: paste a URL and the platform comes from its host; type `@handle` and
+the picker is how you say which platform it belongs to, because nothing in `@will` says X
+rather than Instagram. A handle under Website or Other is refused rather than stored — it
+expands to nothing, and a row you can never open is worse than a rejected one. A second
+LinkedIn URL lands in `otherLinks` instead of overwriting the first: losing an address you
+just pasted is worse than an untidy list.
+
+**The Company text field is gone once there is a company to link to.** It sat directly
+above a "Linked to" card naming the same employer, and editing it renamed the company for
+every other contact and application attached to it. It now appears only when nothing is
+linked, which is the one case where typing a name is the way to attach one.
+
+**`src/lib/social.ts` is pure for the same reason `audit-groups.ts` is** — the contact form
+is a client component, and anything importing `db` would drag Prisma into the browser
+bundle. Its parsing was exercised by hand against the awkward cases (bare handles, missing
+scheme, `www.`, trailing slashes, `bsky.app`, "not a url at all") before shipping, because
+there is no test suite to catch it later.
+
+**It is `social.ts`, not `links.ts`, because main got there first.** This branch and the
+manual work both added a `src/lib/links.ts` — one for a person's social addresses, one for
+the project's own (docs.hired.tools). The name fits both, which is exactly why neither
+could keep it by default: the file already merged and already imported by two screens kept
+it, and the newcomer took the name that says what it actually holds.
+
+**Applies to:** `prisma/schema.prisma`,
+`prisma/migrations/20250119000000_contact_socials/`, `src/lib/social.ts`,
+`src/components/crm/{company-chip,contact-links,contact-detail,company-detail}.tsx`,
+`src/app/(app)/crm/contacts/page.tsx`, `src/app/(app)/crm/contacts/[id]/page.tsx`,
+`src/app/(app)/crm/companies/[id]/page.tsx`, `src/lib/data/pipeline.ts`,
+`src/lib/mcp/tools.ts`, `src/server/actions.ts`, `README.md`.
+
+---
+
 ## 2026-08-30 — Four questions, not seven tables
 
 Admin had seven tabs. Two rounds of consolidation later it has four, and the rule that got

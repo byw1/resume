@@ -120,7 +120,7 @@ One person in full, with their company and the application they belong to. Call 
 
 _Update a contact_
 
-Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.
+Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes or otherLinks rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.
 
 **Overwrites or deletes.**
 
@@ -132,6 +132,11 @@ Change a person's details. Only the fields you pass are touched, and each REPLAC
 | `email` | string | Email |
 | `phone` | string | Phone |
 | `linkedin` | string | LinkedIn URL |
+| `twitter` | string | X / Twitter — a URL or an @handle |
+| `instagram` | string | Instagram — a URL or an @handle |
+| `github` | string | GitHub profile URL |
+| `website` | string | Their own site, blog or portfolio |
+| `otherLinks` | string[] | Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first. |
 | `relationship` | string | e.g. 'recruiter', 'hiring manager', 'referral' |
 | `notes` | string | Notes — replaces what is there |
 | `company` | string | Employer, or empty string to detach |
@@ -154,7 +159,7 @@ Remove a person. Their company and any application they were attached to stay.
 
 _Create a contact_
 
-Save a person: recruiter, hiring manager, referral, friend at the company.
+Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -163,6 +168,11 @@ Save a person: recruiter, hiring manager, referral, friend at the company.
 | `email` | string | Email |
 | `phone` | string | Phone |
 | `linkedin` | string | LinkedIn URL |
+| `twitter` | string | X / Twitter — a URL or an @handle |
+| `instagram` | string | Instagram — a URL or an @handle |
+| `github` | string | GitHub profile URL |
+| `website` | string | Their own site, blog or portfolio |
+| `otherLinks` | string[] | Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first. |
 | `relationship` | string | e.g. 'recruiter', 'hiring manager', 'referral' |
 | `notes` | string | Notes |
 | `company` | string | Company they work at |

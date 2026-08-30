@@ -3,7 +3,7 @@
 import { useId, useState, useTransition } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { ExternalLinkIcon, MailIcon, PhoneIcon, Trash2Icon } from "lucide-react";
+import { BriefcaseIcon, ExternalLinkIcon, MailIcon, PhoneIcon, Trash2Icon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -18,11 +18,15 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
+import { CompanyChip } from "@/components/crm/company-chip";
+import { ContactLinks } from "@/components/crm/contact-links";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { addActivityAction, deleteCrmContactAction, saveContactAction } from "@/server/actions";
-import { ACTIVITY_LABEL } from "@/lib/data/pipeline";
-import type { ActivityType } from "@prisma/client";
+import { ACTIVITY_LABEL, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
+import { linkHref } from "@/lib/social";
+import { relativeDay } from "@/lib/utils";
+import type { ActivityType, Stage } from "@prisma/client";
 
 /** The kinds of touch a person logs by hand. The rest are written by the system. */
 const TOUCH_TYPES: ActivityType[] = [
@@ -41,11 +45,27 @@ export type ContactFields = {
   email: string;
   phone: string;
   linkedin: string;
+  twitter: string;
+  instagram: string;
+  github: string;
+  website: string;
+  otherLinks: string[];
   relationship: string;
   notes: string;
   company: string;
   /** ISO date (yyyy-mm-dd) or empty — when to next get in touch. */
   nextFollowUpAt: string;
+};
+
+/** The job this person is attached to, as much of it as a card should show. */
+export type LinkedApplication = {
+  id: string;
+  roleTitle: string;
+  stage: Stage;
+  location: string;
+  salaryRange: string;
+  jobUrl: string;
+  nextFollowUpAt: string | null;
 };
 
 export type ContactTouch = {
@@ -57,14 +77,17 @@ export type ContactTouch = {
 
 export function ContactDetail({
   contact,
-  companyId,
+  company,
   application,
   touches,
+  logos,
 }: {
   contact: ContactFields;
-  companyId: string | null;
-  application: { id: string; roleTitle: string } | null;
+  /** The employer's record, when they have one. Null means unattached. */
+  company: { id: string; name: string; website: string } | null;
+  application: LinkedApplication | null;
   touches: ContactTouch[];
+  logos: boolean;
 }) {
   const [values, setValues] = useState(contact);
   const [state, setState] = useState<SaveState>("idle");
@@ -143,9 +166,12 @@ export function ContactDetail({
             onBlur={() => commit({ name: values.name })}
             className="h-auto border-0 bg-transparent px-0 text-[22px] font-semibold tracking-tight shadow-none focus-visible:ring-0"
           />
-          <div className="text-faint text-[12.5px]">
-            {values.title || "No title set"}
-            {values.company ? ` at ${values.company}` : ""}
+          {/* The employer sits under the name as something you can open, not
+              as " at Stripe" in grey text — their research, their people and
+              the other roles there are one click from here. */}
+          <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
+            <span className="text-faint text-[12.5px]">{values.title || "No title set"}</span>
+            {company && <CompanyChip company={company} logos={logos} size="sm" />}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -154,17 +180,6 @@ export function ContactDetail({
             <Button asChild variant="outline" size="sm">
               <a href={`mailto:${values.email}`}>
                 <MailIcon /> Email
-              </a>
-            </Button>
-          )}
-          {values.linkedin && (
-            <Button asChild variant="outline" size="icon-sm" aria-label="Open LinkedIn">
-              <a
-                href={values.linkedin.startsWith("http") ? values.linkedin : `https://${values.linkedin}`}
-                target="_blank"
-                rel="noreferrer noopener"
-              >
-                <ExternalLinkIcon />
               </a>
             </Button>
           )}
@@ -268,11 +283,16 @@ export function ContactDetail({
             </CardHeader>
             <CardContent className="space-y-3">
               <Field label="Title" value={values.title} placeholder="Engineering Manager" onChange={(title) => set({ title })} onCommit={() => commit({ title: values.title })} />
-              <Field label="Company" value={values.company} placeholder="Stripe" onChange={(company) => set({ company })} onCommit={() => commit({ company: values.company })} hint="Creates the company if it does not exist yet." />
+              {/* Only asked for when there is nothing to link to. Once they
+                  have an employer the chip under their name IS the answer, and
+                  a second copy of it in a text box is a way to rename the
+                  company by accident. */}
+              {!company && (
+                <Field label="Company" value={values.company} placeholder="Stripe" onChange={(company) => set({ company })} onCommit={() => commit({ company: values.company })} hint="Creates the company if it does not exist yet." />
+              )}
               <Field label="Relationship" value={values.relationship} placeholder="Recruiter" onChange={(relationship) => set({ relationship })} onCommit={() => commit({ relationship: values.relationship })} />
               <Field label="Email" value={values.email} placeholder="name@company.com" onChange={(email) => set({ email })} onCommit={() => commit({ email: values.email })} />
               <Field label="Phone" value={values.phone} placeholder="+1 555 0100" onChange={(phone) => set({ phone })} onCommit={() => commit({ phone: values.phone })} />
-              <Field label="LinkedIn" value={values.linkedin} placeholder="linkedin.com/in/…" onChange={(linkedin) => set({ linkedin })} onCommit={() => commit({ linkedin: values.linkedin })} />
               <div className="space-y-1.5">
                 <Label htmlFor="contact-ping">Ping them next</Label>
                 <Input
@@ -312,28 +332,29 @@ export function ContactDetail({
             </CardContent>
           </Card>
 
-          {(companyId || application) && (
+          <Card>
+            <CardHeader>
+              <CardTitle className="text-[15px]">Links</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ContactLinks
+                values={values}
+                onChange={(patch) => {
+                  set(patch);
+                  commit(patch);
+                }}
+              />
+            </CardContent>
+          </Card>
+
+          {(company || application) && (
             <Card>
               <CardHeader>
                 <CardTitle className="text-[15px]">Linked to</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-1">
-                {companyId && (
-                  <Link
-                    href={`/crm/companies/${companyId}`}
-                    className="hover:bg-accent/50 -mx-2 flex items-center gap-2 rounded-control px-2 py-1.5 text-[13px] transition-colors duration-150"
-                  >
-                    {values.company}
-                  </Link>
-                )}
-                {application && (
-                  <Link
-                    href={`/applications/${application.id}`}
-                    className="hover:bg-accent/50 -mx-2 flex items-center gap-2 rounded-control px-2 py-1.5 text-[13px] transition-colors duration-150"
-                  >
-                    {application.roleTitle}
-                  </Link>
-                )}
+              <CardContent className="space-y-2">
+                {company && <CompanyChip company={company} logos={logos} />}
+                {application && <LinkedJob application={application} />}
               </CardContent>
             </Card>
           )}
@@ -345,6 +366,57 @@ export function ContactDetail({
           )}
         </div>
       </div>
+    </div>
+  );
+}
+
+/**
+ * The role this person is attached to.
+ *
+ * It was the role's title as bare text, which told you nothing about whether
+ * the thread was alive — and the posting it came from was unreachable from
+ * here entirely. Now it reads as the job: where it has got to, where it is,
+ * what it pays, when you next chase it, and a way through to the listing.
+ */
+function LinkedJob({ application }: { application: LinkedApplication }) {
+  const posting = linkHref(application.jobUrl);
+  const meta = [application.location, application.salaryRange].filter(Boolean).join(" · ");
+
+  return (
+    <div className="bg-inset rounded-control p-2">
+      <div className="flex items-start gap-2">
+        <BriefcaseIcon className="text-muted-foreground mt-0.5 size-3.5 shrink-0" />
+        <Link
+          href={`/applications/${application.id}`}
+          className="min-w-0 flex-1 text-[13px] font-medium hover:underline"
+        >
+          {application.roleTitle}
+        </Link>
+        <span
+          className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11px] font-medium"
+          style={{ ["--tone" as string]: STAGE_TONE[application.stage] }}
+        >
+          {STAGE_LABEL[application.stage]}
+        </span>
+      </div>
+      {(meta || application.nextFollowUpAt || posting) && (
+        <div className="text-faint mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 pl-5.5 text-[11.5px]">
+          {meta && <span className="truncate">{meta}</span>}
+          {application.nextFollowUpAt && (
+            <span>Chase {relativeDay(new Date(application.nextFollowUpAt))}</span>
+          )}
+          {posting && (
+            <a
+              href={posting}
+              target="_blank"
+              rel="noreferrer noopener"
+              className="hover:text-foreground ml-auto inline-flex items-center gap-1 transition-colors"
+            >
+              <ExternalLinkIcon className="size-3" /> Listing
+            </a>
+          )}
+        </div>
+      )}
     </div>
   );
 }

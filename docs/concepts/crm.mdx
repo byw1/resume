@@ -75,12 +75,28 @@ and what is still live" is one call.
 ## Contacts
 
 Recruiters, hiring managers, referrals, the friend who works there. A contact holds
-`name`, `title`, `email`, `phone`, `linkedin`, `relationship`, `notes`, an employer, and
-optionally the application they belong to.
+`name`, `title`, `email`, `phone`, `relationship`, `notes`, an employer, optionally the
+application they belong to, and every way you can reach them.
 
 Attaching and detaching are the same field: pass `company` or `applicationId` to attach —
 the company is created if it does not exist — or an empty string to detach. Removing
 someone from an application never deletes the person.
+
+### Where to find them
+
+`linkedin` is the one everybody has, and the wrong assumption for everybody else — the
+founder who only answers on X, the designer whose portfolio is the point. So a contact
+carries `linkedin`, `twitter`, `instagram`, `github` and `website` as named fields, plus
+`otherLinks` for the tail that has no end: Bluesky, Mastodon, a Substack.
+
+<Note>
+  `otherLinks` is a list and **replaces** what is there, like every other array in the
+  API. Read the current one with `get_contact` before writing it back.
+</Note>
+
+The fields take a URL or a bare handle — `@bywilliaml` under `twitter` becomes
+`https://x.com/bywilliaml`. The column is `twitter` and the label in the app is X:
+renaming a column to follow a rebrand is a migration that buys nothing.
 
 ### People have timelines too
 
@@ -100,9 +116,15 @@ Two other filters: `with-application` and `no-company`.
 
 ## In the app
 
-**CRM** splits into Companies and Contacts, each a filterable list. A company page holds
-its details, its research notes, every application and every contact there. A contact page
-holds their details and their timeline.
+**CRM** splits into Companies and Contacts, each a filterable list, and both are named in
+the sidebar so neither needs finding. A company page holds its details, its research notes,
+every contact there, and its roles as job listings — each one a click from the posting it
+came from. A contact page holds their details, their links and their timeline.
+
+Wherever a company is named it is drawn as a chip carrying its own favicon, and clicking it
+opens that company. On a contact, the employer is that chip rather than a text field: the
+field only appears when there is nothing linked yet, because editing it renames the company
+for everyone else attached to it.
 
 Contacts attach to applications straight from the CRM rather than being retyped.
 

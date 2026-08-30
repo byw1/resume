@@ -603,8 +603,20 @@ model Contact {
   title         String       @default("")
   email         String       @default("")
   phone         String       @default("")
-  linkedin      String       @default("")
   relationship  String       @default("")
+  /// Where to find them. Named columns for the platforms people actually ask
+  /// for by name, so a tool can say "their LinkedIn" and mean one field —
+  /// same shape as Profile, which settled this argument already.
+  linkedin      String       @default("")
+  twitter       String       @default("")
+  instagram     String       @default("")
+  github        String       @default("")
+  website       String       @default("")
+  /// Everything else someone is reachable at: Bluesky, Mastodon, a Substack,
+  /// a personal page. A list rather than five more columns, because the tail
+  /// of "other means of social media" has no end and none of it needs a name
+  /// of its own to be openable.
+  otherLinks    String[]     @default([])
   notes         String       @default("")
   /// When to next get in touch — the date that keeps a relationship warm.
   nextFollowUpAt DateTime?
