@@ -1,0 +1,178 @@
+---
+title: "The brain"
+description: "Everything you know about your own career, stored raw and searched rather than read. Roles, brain dumps, highlights, notes, standing rules and the four supporting collections."
+icon: "brain"
+---
+
+The brain is the part of Hired that makes the rest work. A resume builder with nothing
+behind it is a text editor; a resume builder sitting on ten thousand words of what you
+actually did is something else.
+
+Nothing in here is a document. It is raw material, and it is searched rather than read.
+
+## Roles
+
+A role is one job you have had. It holds:
+
+| Field | Notes |
+| --- | --- |
+| `company`, `title` | The only two required to create one. |
+| `employmentType` | Full-time, Contract, Internship, Freelance — a free string. |
+| `location` | City, state, or `Remote`. |
+| `startDate`, `endDate` | `YYYY-MM`. Leave `endDate` empty for a current job. |
+| `isCurrent` | Whether this is the job you have now. |
+| `summary` | One or two sentences on the scope of the role. |
+| `brainDump` | The point of the whole thing. Unlimited, markdown welcome. |
+| `tags` | Freeform, e.g. `['fintech','ic','python']`. |
+
+### The brain dump
+
+Unlimited free-form text about that job. Projects, metrics, technologies, stories,
+praise, org context, the thing that went badly. No structure required, no length limit,
+and deliberately no formatting rules.
+
+Length is a feature. This is the raw material every future resume is assembled from, and
+the difference between a thin one and a thorough one is the difference between a resume
+that names the number and one that says "responsible for".
+
+Write it the way you would tell it to someone:
+
+> Owned billing infra. The nightly reconciliation job took six hours and paged the
+> on-call every Tuesday — rewrote the pipeline in Go and it came down to twenty minutes.
+> Team of four, I was the only one who had touched the old Python version. Also did the
+> Stripe migration in Q3, which nobody wanted, and it shipped a week early.
+
+<Tip>
+  **Add, do not overwrite.** `append_role_brain_dump` puts new material on the end, with
+  an optional markdown heading to file it under. `update_role` with a `brainDump`
+  replaces the entire thing. The append tool exists specifically because the update one
+  was eating people's notes.
+</Tip>
+
+## Highlights
+
+A highlight is one polished, reusable achievement bullet — the distilled version of
+something in a brain dump, written in resume voice: strong verb, specific scope,
+quantified outcome.
+
+Each carries `text`, an optional `impact` if the number is not already inside the text,
+`tags` for retrieval, and `strength` from 1 to 5. They come back strongest first, and
+they are what a resume gets assembled from when there is no time to mine the raw dump
+again.
+
+You do not have to write them by hand. The [`mine_brain_dump`](/workflows#mine-a-brain-dump-into-highlights)
+workflow reads a role's raw dump, checks what highlights already exist so it does not
+duplicate them, and writes the rest in one call — flagging anywhere the dump hints at
+impact without giving a number, so you can fill it in.
+
+A highlight can be archived rather than deleted, which keeps it out of the way without
+losing it.
+
+## Notes and standing rules
+
+Notes are free-floating material that belongs to no single job: STAR stories, interview
+prep, references, compensation history, anything. They can be pinned and tagged, and they
+are found by searching.
+
+A note has a `kind`, and this is where it gets interesting.
+
+### Standing rules
+
+Set `kind: "GUARDRAIL"` and the note stops being something to find and becomes something
+that is always true. Guardrails are **prepended to the briefing every connected assistant
+receives**, so they constrain the work before a single tool is called.
+
+Use them for the things that must never be got wrong:
+
+- How you may and may not be described. *"I was a contributor to the migration, not its
+  lead. Do not describe me as having led it."*
+- Numbers that are unsettled and must not be cited. *"The 40% figure was never verified.
+  Never put it on a document."*
+- Credit that must not be overstated. *"Do not claim the patent — I am one of five
+  names on it."*
+
+Everything else is a `NOTE`, which is the default.
+
+<Note>
+  Guardrails are the mechanism for the failure that actually happens. Nobody's assistant
+  fabricates a job from nothing. It upgrades a credit into a hire because the posting
+  asked for one. A guardrail is how you make that specific upgrade impossible.
+</Note>
+
+## The supporting collections
+
+Four collections handled by the same three tools — `list_extras`, `create_extra`,
+`update_extra`, `delete_extra` — with `kind` selecting which one:
+
+<AccordionGroup>
+  <Accordion title="education" icon="graduation-cap">
+    `school`, `degree`, `field`, `gpa`, `details`, `location`, `startDate`, `endDate`.
+  </Accordion>
+  <Accordion title="projects" icon="code">
+    `name`, `role`, `url`, `description`, `brainDump`, `startDate`, `endDate`, `tags`.
+    Projects get their own long-form brain dump, exactly like roles do.
+  </Accordion>
+  <Accordion title="skills" icon="layer-group">
+    `name` is the group name; `skills` is the list inside it, e.g.
+    `['Python','Go','Rust']`. Passing `skills` to `update_extra` replaces the whole list.
+  </Accordion>
+  <Accordion title="certifications" icon="award">
+    `name`, `issuer`, `date`, `url`.
+  </Accordion>
+</AccordionGroup>
+
+## The profile
+
+One identity block per account: name, headline, email, phone, location, website,
+LinkedIn, GitHub, X, a career summary used as the default resume summary — and a personal
+brain dump of its own, for the things that are about you rather than about a job. Values,
+what you want next, compensation expectations, non-negotiables.
+
+### The photo
+
+One picture serves the whole app. It is your avatar in the interface *and* the headshot
+on every resume whose design has the photo switched on, so changing it once updates every
+document at once and there is never a second copy to keep in sync.
+
+Set it in **Settings → Account** — drop a file in and drag it around the circle — or ask
+for it: *"use the photo on my GitHub profile."* An assistant can pass an `https` URL for
+the server to fetch, or the bytes inline as a data URI. Anything over 400KB is refused,
+which is far more than a resume needs: it prints about an inch square.
+
+Whether a *given* resume shows it is a separate decision — `showPhoto` on that document,
+or **Design → Photo** in the editor. It is off by default, and the Harvard template never
+renders one whatever you set.
+
+<Warning>
+  `get_profile` and every tool that returns a profile report `hasPhoto` rather than the
+  picture. The bytes are hundreds of kilobytes of base64, and flooding an assistant's
+  context with an image it cannot look at helps nobody.
+</Warning>
+
+## Getting things out again
+
+Two tools, and the choice between them matters:
+
+<CardGroup cols={2}>
+  <Card title="search_brain" icon="magnifying-glass">
+    Ranked keyword search across brain dumps, highlights, notes, projects and the
+    profile. Returns excerpts with the id and kind of each hit, so you can fetch the
+    full record. **This is the first call when tailoring anything.**
+  </Card>
+  <Card title="get_brain_snapshot" icon="database">
+    Everything at once: profile, every role with its full dump, every highlight,
+    education, projects, skills, certifications and notes. Right for writing a resume
+    from scratch; large enough that targeted lookups should use search instead.
+  </Card>
+</CardGroup>
+
+Snapshot takes `include_brain_dumps: false` for a lighter payload when you only need the
+shape of a career rather than its contents.
+
+## In the app
+
+**Brain** lists every role with its date range and highlight count. Opening one gives you
+the brain dump in a full-width editor that autosaves, its highlights beside it, and the
+role's own fields. The supporting collections live on the same screen.
+
+Everything here is also reachable by conversation — see [the brain tools](/tools/brain).

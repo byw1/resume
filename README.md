@@ -37,7 +37,7 @@ just *talk* to it.
   Contacts attach to applications straight from the CRM rather than being retyped, and
   removing one from an application never deletes the person.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  73 tools any MCP client can call (100 if you're an admin). Claude, Claude Code, ChatGPT,
+  80 tools any MCP client can call (108 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -76,6 +76,10 @@ never content — and if you stop paying it's suspended, not deleted.
 
 **Self-host** — free, AGPL, yours forever. One command if you have Docker, or five
 clicks on Railway if you'd rather never open a terminal. Both below.
+
+The manual is at **[docs.hired.tools](https://docs.hired.tools)** — getting connected,
+filling the brain, tailoring a resume, running the search, every tool written out, and
+the deploy guides in longer form than they are here.
 
 ## Self-host with Docker
 
@@ -197,7 +201,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 73, or 100 if you're an admin.
+would, then tells you how many tools answered — 80, or 108 if you're an admin.
 
 #### One connection per client
 
@@ -309,11 +313,12 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-73 tools across the four areas. The seven workflows below are among them: they're published
-as tools as well as prompts, because prompt support is optional in MCP clients and tool
-support isn't. Call one and it hands back a step-by-step plan that it then follows.
-Admins get 27 more tools — and members never even see those in the tool list, so nobody is
-tempted by a permission they don't have.
+80 tools. Seventy-three of them are the data tools across the four areas and your account;
+the other seven are the workflows below, published as tools as well as prompts, because
+prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
+a step-by-step plan that it then follows. Admins get 28 more — 27 data tools and an eighth
+workflow — and members never even see those in the tool list, so nobody is tempted by a
+permission they don't have.
 
 | Workflow | What it does |
 | --- | --- |
@@ -342,6 +347,10 @@ also carries three Claude Skills you can install, which teach an assistant the r
 place before you have to. Each comes two ways: the raw `SKILL.md` to drop in
 `~/.claude/skills/`, and a zip for the upload box in Claude's apps, which wants a folder rather
 than a loose file.
+
+That page is about *your* deployment. [docs.hired.tools](https://docs.hired.tools) is the
+manual for the product: the same pages whoever you're hosting reads, whichever instance
+they're on.
 
 ### The four areas
 

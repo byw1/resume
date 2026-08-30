@@ -1,0 +1,212 @@
+---
+title: "The eight workflows"
+sidebarTitle: "Workflows"
+description: "Multi-step jobs that come with every connection. They arrive as slash commands where prompts are supported, and as ordinary tools everywhere else."
+icon: "list-ol"
+---
+
+A workflow is a considered plan for a job that takes several tools in the right order.
+Calling one returns a step-by-step instruction set that the assistant then follows,
+calling the tools it names.
+
+They are published **twice**: as MCP prompts, which show up as slash commands or prompt
+shortcuts in clients that render them, and as ordinary tools, which every client supports.
+The text lives in one place, so the two surfaces cannot drift. That matters because prompt
+support is optional in MCP and tool support is not — a workflow that only existed as a
+prompt would simply be unreachable in half the clients people use.
+
+Seven are available to everyone. One is admin-only.
+
+<Note>
+  You do not have to name them. "Tailor my resume to this posting" reaches the same place
+  as invoking `tailor_resume`. Naming one is just the shortest way to be unambiguous.
+</Note>
+
+---
+
+## Tailor a resume to a job
+
+`tailor_resume` · takes `job_description` (required), `company`
+
+Reads a posting, mines the brain for real evidence, drafts and saves a tailored resume,
+and finishes with a gap report.
+
+The plan it follows: get the document format, pull out the 8–12 requirements the posting
+actually cares about in priority order, search the brain for evidence of each one, get the
+profile and dates, draft, preview the text to check it lands near one page, save it as
+`"<Company> — <Role>"` with the target fields set, then say what was emphasised, what was
+cut, and which requirements could not be evidenced.
+
+Bullets are required to lead with a strong verb, name the specific scope, and end in a
+measurable outcome pulled from the brain dump. The closing instruction is explicit:
+*never paper over the third list — it is what the person needs to see.*
+
+[The craft behind it →](/guides/tailor-a-resume)
+
+---
+
+## Gap report
+
+`gap_report` · takes `job_description`
+
+The reading that decides what happens next. Checks a posting against the evidence that
+actually exists **before** anything is written or saved.
+
+Every requirement lands in exactly one of three lists:
+
+| List | Meaning |
+| --- | --- |
+| **BACKED** | Direct evidence exists. Quoted, with the role it came from. |
+| **THIN** | Something adjacent exists, but claiming the requirement outright would be a stretch. What exists and what the gap is, precisely. |
+| **MISSING** | The brain has nothing. Said plainly. |
+
+Then it says what the report means — roughly how much of the posting's core is covered,
+and whether tailoring is worth it or the fit is not there.
+
+The last step is the one that compounds: for every missing and thin item it asks one
+concrete question that would surface the evidence if it exists. People forget their own
+work constantly. Anything you answer gets appended to the brain, and it is backed for
+every future application rather than just this one.
+
+The rule stated in the plan itself: *never move an item to BACKED to be encouraging. A gap
+named now costs a rewrite; a gap discovered in an interview costs the interview.*
+
+Pass an application id instead of a posting and it reads the stored description.
+
+---
+
+## Mine a brain dump into highlights
+
+`mine_brain_dump` · takes `role_id` (omit to be asked)
+
+Turns raw, rambling material into polished reusable bullets.
+
+Reads the full brain dump, lists the highlights that already exist so it does not
+duplicate them, extracts every distinct accomplishment as one bullet — strong verb,
+specific scope, quantified outcome, keeping the real numbers from the dump — rates each
+1–5 for strength, tags them for retrieval, and saves them in a single call.
+
+Then it flags anywhere the dump hints at impact without giving a number, so you can fill
+those in while you still remember them.
+
+---
+
+## Weekly pipeline review
+
+`pipeline_review` · no arguments
+
+What is stalled, who needs chasing, what to do next — with the follow-up messages drafted.
+
+It calls `diagnose_search` **first**, deliberately, and builds the whole review around that
+answer rather than around the counts. Then the stats, follow-ups due within seven days,
+what has actually moved, open tasks, and the companies you are talking to.
+
+You get two lines on where the search stands, everything stalled (applied over ten days
+ago with no movement, or a follow-up date that has passed), a prioritised list for the week
+tied to specific companies, drafted follow-up messages that refer to what was actually
+said, and tasks created with due dates.
+
+The instruction it carries about tone: *be direct about the bad news; I would rather hear
+it than have it phrased kindly.* And if the diagnosis says the problem is the resume or the
+targeting, it is told not to hand you a list of follow-ups as though volume were the answer.
+
+[What to expect back →](/guides/weekly-review)
+
+---
+
+## Research a company into the CRM
+
+`research_company` · takes `company` (required), `focus`
+
+Gathers what is known, works out what is missing, and writes it back to the company record
+without flattening what was already there.
+
+The plan is explicit about the part that goes wrong: `update_company` replaces the notes
+field, so what gets written back is the old notes combined with the new — never only the
+new part. It also insists on setting `website` to the company's own domain rather than a
+Greenhouse, Lever or Ashby link, because that is what puts their logo on your pipeline.
+
+What it aims to record is what you will want the night before an interview: what they do
+and how they make money, the interview loop, who you know there, and the honest version of
+why you do or do not want this.
+
+`focus` narrows it — *"the interview loop"*, *"how they actually make money"*.
+
+It is told not to invent facts, to say when it is working from what you told it, and to
+mark anything unsure as unconfirmed rather than stating it flatly.
+
+---
+
+## Prepare for an interview
+
+`prep_for_interview` · takes `company` (required), `round`
+
+Pulls the application, the company research, the people involved and your own evidence into
+one prep sheet.
+
+It gathers before it writes: the application with its full posting **and its whole
+timeline** — what has already been said matters more than the posting does — the company
+record, the contacts there, and the brain evidence for the two or three themes the posting
+leans on hardest.
+
+Then: the three things they most obviously care about; your strongest true story for each
+with the specific numbers from your brain; the questions you are most likely to be asked
+and the weak spots in your own history for this role; five questions worth asking them
+drawn from the research; and anything in the timeline to follow up on.
+
+If a number is not on file it gives the story without one and tells you to check. If the
+research on file is thin, it says so and offers to run `research_company` first.
+
+---
+
+## Log what happened this week
+
+`log_my_week` · takes `update` (required)
+
+You ramble; it files everything where it belongs.
+
+| What you mention | Where it goes |
+| --- | --- |
+| Anything about a current or past job | Appended to that role's brain dump, numbers kept |
+| A clean accomplishment | Also a highlight, so it is resume-ready |
+| Anything about a company you are talking to | A timeline entry, and a stage move if it moved |
+| Anything you said you would do | A task, with a due date |
+| Anything that fits none of those | A note |
+
+Then it confirms what it filed and where, and asks about anything ambiguous.
+
+This is the one that keeps the whole system current. Ten minutes on a Friday.
+
+---
+
+## Invite and onboard someone
+
+`onboard_teammate` · takes `email` (required), `role` · **admin only**
+
+Invites a person to the instance and walks them through their first steps.
+
+Checks whether email is configured and says so plainly if it is not — the invite still
+works either way, you just send the link yourself. Creates the invitation, hands you the
+accept URL in full when no email went out, then writes a short message you can paste to
+them explaining what this is and that they connect their own assistant from the Settings
+page once they are in.
+
+---
+
+## Invoking one
+
+<CodeGroup>
+```text Just say it
+Tailor my resume to this posting: …
+```
+
+```text Name it
+Use the tailor_resume workflow with this posting: …
+```
+
+```text As a slash command
+/tailor_resume
+```
+</CodeGroup>
+
+The third only exists in clients that render MCP prompts. The first two work everywhere.

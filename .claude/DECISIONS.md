@@ -2266,3 +2266,40 @@ counting by hand. The count rule from the 2026-08-30 briefing entry stands:
 `src/components/pipeline/{board,application-detail,application-panel,new-application-dialog,sources-input}.tsx`,
 `src/components/crm/contact-detail.tsx`, `src/components/shell.tsx`,
 `src/app/(app)/crm/{companies,contacts}/page.tsx`, `README.md`.
+
+## 2026-08-30 — The manual moves to Mintlify at docs.hired.tools
+
+**The docs are now two things, deliberately.** `/docs` inside the app stays exactly
+what it was: generated from `toolsFor(user)`, so it shows *your* tool count, *your*
+skills, *your* connection URL, and it cannot drift. The written manual — first ten
+minutes, concepts, guides, workflows, the deploy paths, security — is 40 MDX pages
+served by Mintlify at docs.hired.tools. Neither copies the other; each links to it.
+A second rendering of the generated tool list would have been a second one to keep
+right, which is the same argument that stripped the catalogue out of Settings.
+
+**They live in `docs/` in this repo, not in a docs repo.** The Mintlify deployment
+pulls `shifulaboratories/hired` on `main`, and its `contentDirectory` was moved from
+`""` to `docs` so page paths are URLs (`docs/quickstart.mdx` → `/quickstart`) and the
+repo root stays clean. Before this the deployment was still serving the Mintlify
+starter kit, because there was no `docs.json` anywhere in the repo for it to build.
+
+**The tool reference is generated, not transcribed.** `docs/tools/*.mdx` carries every
+argument of all 100 data tools. Writing that by hand guarantees it is wrong within a
+week, so the tables were produced by evaluating each `inputSchema:` expression out of
+`tools.ts` against stubs of `object`/`str`/`num`/`bool`/`strArray` — real JSON Schema,
+no transcription. Regenerating is the same trick; do not hand-edit an argument table.
+
+**README tool counts were lying again, in all three places.** They read 73/100, which
+is the `tools` array alone — but `allTools` appends the eight workflows, so
+`tools/list` returns **80 for a member and 108 for an admin**, and that is what the
+Test button prints, because `testConnectionAction` counts the actual response. The
+claim that the workflows were "among" the 73 was the tell. Corrected to 80/108/28.
+The rule stands and has now failed twice: evaluate the array, never count by hand.
+
+**Verified with Mintlify's own tooling rather than by eye.** `docs.json` passes
+`validateDocsConfig` from `@mintlify/validation`, and all 40 pages compile under
+`@mdx-js/mdx`. The `mint` CLI's TUI cannot run headless here, so link and anchor
+checking is a script over the nav tree — worth rerunning after any page is added.
+
+**Applies to:** `docs/` (new), `README.md`, `site/index.html`, `src/lib/links.ts` (new),
+`src/app/(app)/settings/page.tsx`, `src/app/(app)/docs/page.tsx`.

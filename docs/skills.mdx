@@ -1,0 +1,103 @@
+---
+title: "Install the skills"
+description: "Three files that teach an assistant the rules of this place before you have to. Where each client wants them, and what each one carries."
+icon: "wand-magic-sparkles"
+---
+
+A skill is a markdown file an assistant reads *before* you ask it anything. Without one,
+every conversation starts by re-explaining that brain dumps are raw material, that
+`update_role` overwrites, and that nothing goes on a resume the brain cannot back. With
+one, that is already known.
+
+Three ship with every instance. Find them on the **Docs** page inside the app, where each
+comes two ways: the raw `SKILL.md` to drop into a folder, and a zip for the upload box in
+Claude's apps, which wants a folder rather than a loose file.
+
+<Card title="Open Docs in your instance" icon="book-open" href="https://app.hired.tools/docs" horizontal>
+  The download links are there, generated from your own deployment.
+</Card>
+
+## Where they go
+
+<AccordionGroup>
+  <Accordion title="Claude Code" icon="terminal">
+    `~/.claude/skills/<name>/SKILL.md` makes it available in every project.
+    `.claude/skills/<name>/SKILL.md` inside a repository scopes it to that one.
+  </Accordion>
+  <Accordion title="Claude apps — web, desktop, mobile" icon="cloud">
+    **Settings → Capabilities → Skills → upload the zip.** The upload wants a folder
+    rather than a loose file, which is exactly what the zip already is.
+  </Accordion>
+  <Accordion title="Anything else" icon="code">
+    Paste the contents in at the start of a conversation. Less tidy, same effect. Some
+    clients also support project-level instruction files — a skill's body works there
+    unchanged.
+  </Accordion>
+</AccordionGroup>
+
+## The three
+
+### `hired` — orientation
+
+The one to install if you install only one. It is what an assistant reads before its
+first tool call rather than after its first mistake.
+
+It carries:
+
+- **The four areas** and which tool is the fastest way into each.
+- **The rule that matters most** — never invent experience, employers, dates or metrics —
+  with the specific failure it exists to prevent, which is quiet upgrading during
+  tailoring rather than invention from nothing.
+- **The replace-versus-append table.** `update_role`, `update_resume`, `update_company`
+  and `update_contact` all replace what you send; `append_role_brain_dump` adds. Getting
+  this wrong silently deletes work, so it is written out as a table.
+- **The order of operations** before writing anything: search the brain, snapshot it for
+  profile and dates, read the company record, then draft.
+- **A reminder to check `list_notes` with `kind: "GUARDRAIL"`**, because your own standing
+  rules override anything an assistant would otherwise infer.
+- **Saying what you did.** You cannot see tool calls; a resume that changed without
+  explanation is one you have to re-read from scratch.
+
+### `tailor-a-resume` — the tailoring craft
+
+How to read a posting for what it actually rewards, and how to write a bullet that
+survives the follow-up question.
+
+- **A posting has three layers** and only one is worth optimising for: boilerplate,
+  stated requirements, and the actual problem they are hiring someone to fix. The last
+  one is usually in the first paragraph or in one oddly specific requirement.
+- **Mine the brain one requirement at a time**, searching for the concept rather than the
+  posting's phrasing — a brain dump says "cut the nightly job from 6h to 20m", not
+  "experience with performance optimisation".
+- **Three honest outcomes** per requirement: strong evidence, weak evidence used as what
+  it is, or nothing. All three are fine. Upgrading the second into the first is not.
+- **The shape of a bullet that holds up:** what changed, by how much, because of what you
+  did. The number goes in the bullet, not the summary. One idea per bullet. Never a
+  metric that is not in the brain.
+
+### `run-the-search` — the day to day
+
+Capturing a posting, logging what happened, researching a company, chasing follow-ups,
+and the weekly review.
+
+- **Paste the whole posting** into `jobDescription`. It is what a resume gets tailored
+  against later, and postings vanish from the web the moment a role is filled.
+- **Do not set `nextFollowUpAt` unless asked** — follow-up dates schedule themselves from
+  the stage.
+- **Write the timeline entry the way you said it.** "Recruiter said the team is six people
+  and they want someone to own billing end to end" is worth more in three months than
+  "had a call".
+- **Read before writing research.** `update_company` replaces the notes field. Losing
+  someone's research by writing over it is the worst outcome available in the tool.
+- **What not to do:** do not log the same thing twice, do not move a stage nobody told you
+  about, and do not create a company record just to have one.
+
+## Do you need them?
+
+No. Everything works without them — the server sends its own briefing on connect, and
+every tool description carries its own warnings. The skills are the difference between an
+assistant that is told the rules once per connection and one that has read the manual.
+
+If your client does not support skills at all, the
+[workflows](/workflows) cover the same ground from the other direction: they are
+step-by-step plans you invoke by name, and they arrive as ordinary tools in every client.

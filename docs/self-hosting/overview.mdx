@@ -1,0 +1,92 @@
+---
+title: "Deploy it"
+sidebarTitle: "Overview"
+description: "One required environment variable, migrations applied on boot, and an owner account the app creates for itself. Docker, Railway or a laptop."
+icon: "server"
+---
+
+Hired is free, AGPL, and designed so one person can deploy it in five minutes and never
+open a terminal again.
+
+**`DATABASE_URL` is the only thing it asks of its host.** You do not invent a password,
+run a migration, or configure anything before first boot — the app provisions its owner
+account and applies its own migrations when it starts.
+
+<CardGroup cols={3}>
+  <Card title="Docker" icon="cube" href="/self-hosting/docker">
+    One command on any machine with Docker. PDF export works out of the box, because the
+    image carries the browser and fonts the renderer needs.
+  </Card>
+  <Card title="Railway" icon="train" href="/self-hosting/railway">
+    Five clicks, no terminal at all. One variable to type, and it is a reference the
+    platform autocompletes.
+  </Card>
+  <Card title="Locally" icon="laptop-code" href="/self-hosting/local">
+    Node 20+ and a Postgres. Four commands.
+  </Card>
+</CardGroup>
+
+## What happens on first boot
+
+<Steps>
+  <Step title="Migrations apply themselves">
+    `npm start` runs `prisma migrate deploy` before the server. There is no migration step
+    for you to run, now or after any future update.
+  </Step>
+  <Step title="The owner account is created">
+    One account, role `SUPER_ADMIN`. It cannot be demoted or deleted, and there is exactly
+    one per instance.
+  </Step>
+  <Step title="A password is generated and printed once">
+    Read it from the logs, sign in, change your email and password from **Settings**.
+
+    ```
+    ╔══════════════════════════════════════════════════════════════╗
+    ║ Hired is ready — this is your owner account.                 ║
+    ║                                                              ║
+    ║   Sign in   https://your-instance.example.com                ║
+    ║   Email     owner@localhost                                  ║
+    ║   Password  quartz-meadow-falcon-7391                        ║
+    ║                                                              ║
+    ║   This password was generated for you and is shown ONCE.     ║
+    ╚══════════════════════════════════════════════════════════════╝
+    ```
+  </Step>
+  <Step title="You connect an assistant">
+    Open **Settings**. It opens on **Connections**, with one already waiting.
+    [Per-client steps →](/connect)
+  </Step>
+</Steps>
+
+## Every environment variable
+
+Only the first is required, and everything else has a working default.
+
+| Variable | What it does |
+| --- | --- |
+| `DATABASE_URL` | **Required.** A Postgres connection string. |
+| `ADMIN_EMAIL` | Address for the auto-created owner account. Defaults to `owner@localhost`. |
+| `APP_PASSWORD` | The owner's first password, instead of a generated one. |
+| `RESET_OWNER_PASSWORD` | Set to `1` and restart to generate a fresh owner password and print it again. Remove it afterwards. |
+| `PUBLIC_URL` | Where this instance is reachable, for invitation links and the sign-in URL. On Railway, `RAILWAY_PUBLIC_DOMAIN` is picked up automatically. |
+| `PDF_CHROMIUM_PATH` | Path to a Chromium for server-side PDF rendering. Only needed if it lives somewhere unusual. |
+| `PORT` | Docker Compose only — the host port. The container stays on 3000. |
+| `POSTGRES_PASSWORD` | Docker Compose only — the bundled database's password. |
+
+<Note>
+  This list is short on purpose. Everything else an instance can be configured with lives
+  in the database and is changed from **Admin → Variables** without a redeploy — including
+  the instance name, the public URL, email and billing.
+  [What is in there →](/self-hosting/configuration)
+</Note>
+
+## Upgrading and backups
+
+Both are one command with Docker, and automatic on a platform that redeploys from git.
+
+[Upgrading, backups and restores →](/self-hosting/upgrading)
+
+## Locked out
+
+Set `RESET_OWNER_PASSWORD=1` on the app and restart. A fresh owner password is printed to
+the logs. Remove the variable afterwards, or it resets on every boot.

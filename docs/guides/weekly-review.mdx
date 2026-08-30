@@ -1,0 +1,107 @@
+---
+title: "The weekly review"
+description: "Ten minutes that tell you which part of your search is broken, rather than how many applications you sent."
+icon: "gauge"
+---
+
+Counts are comforting and useless. "Twelve applications, three screens" does not tell you
+whether to send more, rewrite the resume, or stop applying to that kind of company.
+
+The review starts with the diagnosis and works outwards from it.
+
+> Run my weekly review.
+
+That is [`pipeline_review`](/workflows#weekly-pipeline-review). Here is what it does and why the
+order matters.
+
+## It starts with the diagnosis
+
+`diagnose_search` does not report numbers — it names the step of the funnel that is losing
+people:
+
+| What it sees | What that means |
+| --- | --- |
+| No responses at all | A resume or targeting problem. Volume will not fix it. |
+| Responses that die at the screen | A story problem. What you say in the first call. |
+| Interviews that do not convert | Something else again, and worth naming separately. |
+
+It also returns per-step conversion, median days spent in each stage, weekly volume for
+the last six weeks, applications that have gone quiet, and **the response rate of each
+resume** — which is how you find out that the one you have been sending for six weeks is
+not working.
+
+Progress is measured by the furthest stage an application ever reached, so a rejection
+after a final round counts as having got that far.
+
+<Note>
+  When there is not enough data yet, it says so plainly and the review stays short. A
+  trend invented from four applications is worse than no trend.
+</Note>
+
+## Then the rest of the picture
+
+The review reads the shape of the search, what is due within seven days, what has actually
+moved, the open tasks, and the companies you are talking to — noting any without a website
+on file, since that is what puts logos on the board.
+
+## What you should get back
+
+<Steps>
+  <Step title="Two lines on where the search stands">
+    Not a table. Two lines.
+  </Step>
+  <Step title="Anything stalled">
+    Applied more than ten days ago with no movement, or a follow-up date that has passed.
+    Named by company each time.
+  </Step>
+  <Step title="A prioritised list for the week">
+    Most important first, each tied to a specific company.
+  </Step>
+  <Step title="The follow-up messages, drafted">
+    Written from the timeline, so each one refers to what was actually said. A follow-up
+    that mentions the thing the recruiter told you is a follow-up that gets answered.
+  </Step>
+  <Step title="Tasks created, with due dates">
+    So the review produces work rather than a document about work.
+  </Step>
+</Steps>
+
+## Ask for the bad news plainly
+
+The review is instructed to lead with what the diagnosis found, and to be direct about it.
+If the problem is the resume or the targeting, a list of follow-ups is the wrong answer —
+it treats volume as the fix for something volume does not fix.
+
+> Four of your six applications have had no response in two weeks. That is a signal about
+> the resume or the targeting, not about you.
+
+is more useful than a tidy status table, and it is what you should expect back.
+
+## Closing things out
+
+The most common thing a review surfaces is applications that ended and were never marked
+as ended. Do it in one go:
+
+> Close out everything I never heard back from — they're all ghosted.
+
+Batch moves write a timeline entry and a follow-up reset for each one, exactly as if you
+had moved them individually, so the funnel history stays intact. Ids that no longer exist
+are skipped rather than failing the whole batch.
+
+<Warning>
+  Use `GHOSTED` for silence. Filing a non-response as a rejection tells `diagnose_search`
+  that people are deciding against you, which is a different problem with different advice.
+</Warning>
+
+## And file the week
+
+Once the review is done, the other half of Friday is getting the week back into the brain:
+
+> Here's what I did this week: …
+
+[`log_my_week`](/workflows#log-what-happened-this-week) sorts a ramble into the right places — role brain
+dumps, highlights, timeline entries, stage moves, tasks and notes — then tells you what it
+filed where and asks about anything ambiguous.
+
+Ten minutes. It is the difference between a career record that is current and one that
+describes the job you had two years ago.

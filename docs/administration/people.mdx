@@ -1,0 +1,105 @@
+---
+title: "People and invitations"
+sidebarTitle: "People"
+description: "Three roles, invitations that work before email does, and the hard line between managing accounts and reading content."
+icon: "users"
+---
+
+Admin lives under **Settings → Admin**: invitations, accounts, per-workspace usage, a
+password reset for whoever is locked out, and a log of every administrative change.
+
+## The three roles
+
+| Role | Can do |
+| --- | --- |
+| **Owner** (`SUPER_ADMIN`) | Everything. Created at setup. Cannot be demoted or deleted. One per instance. |
+| **Admin** (`ADMIN`) | Invite people, suspend and delete members, configure the instance. |
+| **Member** (`MEMBER`) | Their own workspace. Never sees the admin area. |
+
+Only the owner may create admins. An admin can only act on members — not on the owner, not
+on themselves, and not on another admin. That restriction is what stops the admin area
+being a route to taking over an instance.
+
+<Note>
+  **Admins manage accounts, not content.** There is no path — through the app or through
+  an assistant — from an admin to another person's brain, resumes or applications. Admin
+  tools return counts of what is in a workspace, never its contents.
+  [How that is enforced →](/reference/security)
+</Note>
+
+## Inviting someone
+
+**Admin → Invites** → type an email → **Send invite**. They get a link, pick a password,
+and land in their own empty workspace. Links stay valid for 14 days.
+
+Email is optional. Until Resend is configured, creating an invite gives you a link to send
+however you like — nothing is blocked on it.
+
+By conversation:
+
+> Invite priya@example.com and write me the message to send her.
+
+That is [`onboard_teammate`](/workflows#invite-and-onboard-someone): it checks whether
+email is configured and says so plainly if not, creates the invitation, hands you the
+accept URL in full when no email went out, and drafts the message to send.
+
+`admin_list_invites` shows what is outstanding with links and expiry.
+`admin_revoke_invite` cancels one so its link stops working.
+
+## When somebody cannot get in
+
+Start with `admin_user_detail`, or click their name in **Admin**. One page carries when
+they joined, who invited them, **whether that invitation email actually left**, when they
+last signed in, which assistants they have connected and when each last called, whether
+they are being billed, how much they have built, every administrative change made to their
+account, and anything the instance recorded against their address — a bounced invite, a
+tool call that threw.
+
+That one page tells you whether the problem is the account or the email, which decides
+what you do next. There is no route from it into their brain, resumes or applications.
+
+### Resetting a password
+
+`admin_reset_user_password` generates a new one and returns it **once**, so you can pass it
+on. Every session they had is ended, so an old browser stays logged out.
+
+It cannot be used on the owner, and an admin cannot reset another admin's password. The
+reset is written to the audit log; the password itself never is.
+
+### Suspending and deleting
+
+`admin_set_user_active` with `isActive: false` signs the person out everywhere and blocks
+both their login and their MCP connections immediately. **Their data is kept.** Setting it
+back to true restores everything.
+
+`admin_delete_user` is permanent and removes the account with everything it owns — brain,
+resumes, applications. Confirm before calling it.
+
+<Warning>
+  A suspension is reversible and a deletion is not. When somebody stops paying, or leaves,
+  or is disputed, suspend. Delete only when somebody asks you to.
+</Warning>
+
+## The audit log
+
+**Admin → Log**, or `admin_audit_log`. Newest first: invitations, role changes,
+suspensions, deletions, password resets, billing links, and changes to the instance's own
+configuration — each with who did it, to whom, and when.
+
+Rows survive the deletion of the account they describe, so "who suspended this person" is
+still answerable afterwards.
+
+Narrow it by `group` — `accounts`, `invites`, `passwords`, `billing`, `settings` — and by
+`search`, which matches **either side** of a row: the admin who acted, or the account acted
+on. Page with `offset`; default 100 entries, maximum 500.
+
+Nothing in it touches anyone's brain, resumes or applications, and a secret is recorded as
+having been set, never as its value.
+
+> Who changed the Resend key?
+
+## Per-workspace usage
+
+`admin_instance_stats` gives the shape of the instance: how many people, how many active,
+how many invitations outstanding, and how much material exists across all accounts.
+Aggregate counts only — never another person's content.

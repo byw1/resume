@@ -1,0 +1,325 @@
+---
+title: "Pipeline tools"
+sidebarTitle: "Pipeline"
+description: "Twenty-four tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+icon: "list-check"
+---
+
+The stage values, in order:
+
+`WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` ·
+`REJECTED` · `WITHDRAWN` · `GHOSTED`
+
+The activity types:
+
+`NOTE` · `STAGE_CHANGE` · `EMAIL_SENT` · `EMAIL_RECEIVED` · `CALL` · `INTERVIEW` ·
+`FOLLOW_UP` · `APPLIED` · `OFFER` · `REJECTION` · `REFERRAL` · `OUTREACH`
+
+<Note>
+  Use `GHOSTED` rather than `REJECTED` when nobody ever replied. The funnel counts a
+  rejection as a decision against the person and a ghosting as a non-response, and the
+  advice that falls out of those is different.
+</Note>
+
+Three tools answer "what is due", and the difference matters: `list_follow_ups` is what is
+already overdue, `list_schedule` is a whole window of dated work merged together, and
+`list_tasks` is to-dos regardless of date.
+
+[How the pipeline works →](/concepts/pipeline)
+
+### `pipeline_stats`
+
+_Pipeline stats_
+
+Counts by stage, active applications, applications sent this week, interviews, offers, open tasks, follow-ups due and response rate. Start here for any 'how is my search going' question.
+
+No arguments.
+
+### `list_applications`
+
+_List applications_
+
+List job applications. By default the closed ones (accepted, rejected, withdrawn, ghosted) are excluded. Every row carries daysInStage — how long it has sat where it is, measured from the last stage change rather than the last edit — which is the field to sort on when someone asks what has gone quiet or what needs chasing.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `stage` | enum | Only this stage  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
+| `includeClosed` | boolean | Include accepted / rejected / withdrawn |
+| `search` | string | Filter by company, role title or notes |
+
+### `get_application`
+
+_Get an application_
+
+Full detail for one application including the job description, the complete activity timeline, contacts and tasks.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Application id |
+
+### `capture_job_posting`
+
+_Capture a job posting from its URL_
+
+The FIRST tool to call when someone shares a link to a job posting. Fetches the page server-side, reads the structured posting data most job boards publish, and creates the application in one move: company matched or created (with its own website when the posting names one, which puts their logo on the pipeline), role title, full description, location, compensation and source all filled, starting on the wishlist. Returns captured true with the new application and its id. When the page doesn't state the employer or the role readably, returns captured false plus whatever WAS parsed and creates NOTHING — in that case show the person what was found, ask for the missing pieces, and use create_application. Never guess an employer's name from a URL. If they applied already, follow with move_application_stage.
+
+**Overwrites or deletes.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `url` | string | **required** — The posting's URL, e.g. a Greenhouse, Lever, Ashby, Workday or LinkedIn job link |
+
+### `list_application_sources`
+
+_List the source channels on file_
+
+The source labels this person already uses ('LinkedIn', 'Referral from Dana', …), most-used first, followed by the standard starters. Call it before writing sources on create_application or update_application so you reuse their exact spellings instead of minting near-duplicates — it covers every application including closed ones, which list_applications hides by default. Read-only.
+
+No arguments.
+
+### `create_application`
+
+_Create an application_
+
+Track a new job. Paste the full posting into jobDescription — it is what you will tailor the resume against later. The company is created automatically if it does not exist. Pass companyWebsite when you know it — it is what makes the company's logo appear in the pipeline, and it costs nothing to include. A job link and description are OPTIONAL: an application that started as a LinkedIn message with no listing is still an application — track it with just company and roleTitle, put 'Cold outreach' in sources, and attach the person messaged with create_contact.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `company` | string | **required** — Company name |
+| `companyWebsite` | string | The company's own site, e.g. stripe.com. Shows their logo in the pipeline. |
+| `roleTitle` | string | **required** — Job title |
+| `stage` | enum | Starting stage. Default WISHLIST.  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
+| `jobUrl` | string | Link to the posting |
+| `jobDescription` | string | The full job posting text |
+| `location` | string | Job location |
+| `workMode` | string | Remote \| Hybrid \| On-site |
+| `salaryRange` | string | Advertised or expected compensation |
+| `sources` | string[] | Where it came from, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Free strings; call list_application_sources first and reuse the person's existing spellings where they fit. |
+| `source` | string | Legacy single-source spelling. Prefer sources; ignored when sources is passed. |
+| `excitement` | number | 1-5 how much they want this |
+| `fit` | number | 1-5 how strong a fit they are |
+| `notes` | string | Any notes |
+| `appliedAt` | string | ISO date they applied |
+| `nextFollowUpAt` | string | ISO date to follow up. Auto-set from the stage if omitted. |
+| `resumeId` | string | Id of the resume used |
+
+### `update_application`
+
+_Update an application_
+
+Update fields on an application. Changing `stage` here also writes a timeline entry and resets the follow-up date. `sources` REPLACES the whole list — read the current one from get_application, add or remove, and pass the full list back.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Application id |
+| `company` | string | Company name |
+| `companyWebsite` | string | The company's own site, e.g. stripe.com. Shows their logo in the pipeline. |
+| `roleTitle` | string | Job title |
+| `stage` | enum | New stage  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
+| `jobUrl` | string | Posting link |
+| `jobDescription` | string | Job posting text |
+| `location` | string | Location |
+| `workMode` | string | Remote \| Hybrid \| On-site |
+| `salaryRange` | string | Compensation |
+| `sources` | string[] | The full list of where it came from — replaces what is there |
+| `source` | string | Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed. |
+| `excitement` | number | 1-5 |
+| `fit` | number | 1-5 |
+| `notes` | string | Notes |
+| `appliedAt` | string | ISO date applied |
+| `nextFollowUpAt` | string | ISO date of next follow-up, or empty string to clear |
+| `resumeId` | string | Attach this resume id, or empty string to detach |
+
+### `move_applications_stage`
+
+_Move several applications to one stage_
+
+Move a batch of applications to the same stage — the tool for 'close out everything I never heard back from' or 'mark these four as applied'. Each one gets its own timeline entry and follow-up date, exactly as if it had been moved on its own, so the funnel history stays intact. Ids that no longer exist are skipped rather than failing the batch; the result lists what moved and what was skipped. Read the ids from list_applications first, and for silence use GHOSTED rather than REJECTED.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `ids` | string[] | **required** — The application ids to move |
+| `stage` | enum | **required** — The stage they all move to  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
+
+### `move_application_stage`
+
+_Move an application to a new stage_
+
+Advance or close an application. Automatically logs the change to the timeline and schedules the next follow-up. On the four endings: REJECTED is for when they said no, WITHDRAWN for when the user pulled out, ACCEPTED for a signed offer, and GHOSTED for the far more common ending where nobody ever replied. Use GHOSTED rather than REJECTED when there was no answer — the funnel counts a rejection as a decision against the user and a ghosting as a non-response, and the advice that falls out of those is different.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Application id |
+| `stage` | enum | **required** — The new stage  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
+| `note` | string | Optional note for the timeline entry |
+
+### `delete_application`
+
+_Delete an application_
+
+Permanently delete an application and its timeline.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Application id |
+
+### `log_activity`
+
+_Log activity on an application or a contact_
+
+Append to a timeline. Pass applicationId for things that happened on an application — a recruiter call about the role, an interview, a note to self. Pass contactId for things that happened with a PERSON — a coffee, a call, a reply — and it becomes their history: the contact's page shows it and their 'last touched' date moves. Exactly one of the two, never both. When someone mentions talking to a person they know, this with contactId is how it gets remembered. Type OUTREACH is for messages the user sent first — a LinkedIn DM to a hiring manager, a cold email — which is how many applications actually start.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `applicationId` | string | Application id — for events on an application |
+| `contactId` | string | Contact id — for events with a person |
+| `type` | enum | Kind of activity. Default NOTE.  `NOTE` · `STAGE_CHANGE` · `EMAIL_SENT` · `EMAIL_RECEIVED` · `CALL` · `INTERVIEW` · `FOLLOW_UP` · `APPLIED` · `OFFER` · `REJECTION` · `REFERRAL` · `OUTREACH` |
+| `body` | string | **required** — What happened |
+| `occurredAt` | string | ISO datetime it happened. Defaults to now. |
+
+### `list_activities`
+
+_List recent activity_
+
+Recent timeline entries across the whole search, or for one application. Good for 'what happened this week'.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `applicationId` | string | Limit to one application |
+| `limit` | number | Max entries, default 40 |
+
+### `list_follow_ups`
+
+_List follow-ups that are due_
+
+The 'who do I need to chase today' tool. Returns two lists: applications whose follow-up date has arrived or passed, and contacts whose ping date has — the people you meant to get back in touch with. Both are due work; plan a day from the pair.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `withinDays` | number | Look ahead this many days. 0 = due now, 7 = due within a week. |
+
+### `diagnose_search`
+
+_Diagnose the job search_
+
+Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.
+
+No arguments.
+
+### `share_pipeline`
+
+_Get a read-only link to the pipeline_
+
+Mint a link that shows this person's pipeline to anyone holding it, without a login — for a friend, a coach or a former manager who is helping review the search. Returns publicUrl, which is the whole point: hand it straight to the user. Calling it twice returns the same link rather than a second one. What a viewer sees is deliberately narrow: company, role, stage, location, how long each has been sitting and when a follow-up is due. They do NOT see notes, job descriptions, salary, contacts or the activity timeline — say so if someone asks what will be visible, because a share link is consent to show a search, not to publish the people in it. Set include_closed to show finished applications too.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `include_closed` | boolean | Show accepted / rejected / withdrawn / ghosted applications too. Default false. |
+
+### `unshare_pipeline`
+
+_Revoke the pipeline link_
+
+Stop sharing the pipeline. This DESTROYS the address rather than pausing it — anyone holding the old link gets nothing, and sharing again later mints a completely different URL. That is deliberate: the reason to revoke is usually that a link reached someone it should not have, and a pause that can be undone does not fix that.
+
+**Overwrites or deletes.**
+
+No arguments.
+
+### `get_pipeline_share`
+
+_Check whether the pipeline is shared_
+
+Whether a read-only pipeline link currently exists, what it shows, and when it was last opened. Returns null when nothing is shared, and publicUrl when something is. Use it before minting a link so you can tell someone they already have one, and to answer 'has anyone actually looked at it'.
+
+No arguments.
+
+### `list_saved_views`
+
+_List saved pipeline views_
+
+The cuts of the pipeline this person has named and kept — 'Chasing', 'Dream jobs', 'Gone quiet'. Each one returns a name and a query string like "view=list&f=SCREEN,INTERVIEW&sort=waiting". Call this when someone refers to a view by name, then use the query to work out what they mean: f is a comma-separated list of stages, sort and dir order the table, q is a search. Reading a view tells you what they consider one job; it is a good place to look before asking what they want reviewed.
+
+No arguments.
+
+### `save_view`
+
+_Save a pipeline view under a name_
+
+Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `name` | string | **required** — What to call it, e.g. 'Chasing' |
+| `query` | string | **required** — The pipeline query string, without the leading '?' |
+
+### `delete_saved_view`
+
+_Delete a saved view_
+
+Remove a saved pipeline view. Only the view goes — nothing about the applications it was showing is touched. Get the id from list_saved_views.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Saved view id |
+
+### `list_schedule`
+
+_List everything dated in a window_
+
+Everything with a date attached between two dates, merged into one list sorted earliest first: follow-ups that come due, tasks with a due date, and activity already logged (calls, interviews, emails, stage changes). This is the tool for 'what does my week look like', 'what happened last month' or 'what is coming up' — anything where the question is about a period of time rather than about one application. Each entry says its kind (FOLLOW_UP, TASK or ACTIVITY), the date, a title, the company and the applicationId, so you can call get_application for the full picture. Reach for list_follow_ups instead when you only want what is already overdue, and list_tasks when the date does not matter. Read-only; it saves nothing.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `from` | string | **required** — Start of the window, ISO date (YYYY-MM-DD). Inclusive. |
+| `to` | string | **required** — End of the window, ISO date (YYYY-MM-DD). Inclusive. |
+
+### `list_tasks`
+
+_List tasks_
+
+To-dos, optionally attached to an application.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `done` | boolean | Filter by completion state. Omit for all. |
+
+### `create_task`
+
+_Create a task_
+
+Add a to-do, optionally attached to an application and with a due date.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `title` | string | **required** — What needs doing |
+| `detail` | string | Any extra detail |
+| `dueAt` | string | ISO date it is due |
+| `applicationId` | string | Attach to this application |
+
+### `complete_task`
+
+_Complete or reopen a task_
+
+Mark a task done, or reopen it with done: false.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Task id |
+| `done` | boolean | Default true |

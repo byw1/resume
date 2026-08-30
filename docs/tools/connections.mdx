@@ -1,0 +1,86 @@
+---
+title: "Account and connection tools"
+sidebarTitle: "Your account"
+description: "Six tools for finding out who a connection belongs to, and for managing the wiring itself without opening a browser."
+icon: "plug"
+---
+
+"Add this to my work laptop" and "kill the one I pasted in a chat by mistake" are things
+you can just say.
+
+<Warning>
+  `list_connections` deliberately never returns tokens. They are credentials, they would
+  sit in a transcript forever, and the only place anyone needs to see one is the client
+  they are pasting it into. `create_connection` and `rotate_connection` **do** return one,
+  because handing it over is the point of them — treat what comes back like a password.
+</Warning>
+
+Prefer `rotate_connection` over `delete_connection` when the client is still in use and
+only the URL has leaked: rotating keeps the row, its name and its place in the list, and
+kills the old address the moment it returns.
+
+[Connecting an assistant →](/connect)
+
+### `whoami`
+
+_Who am I connected as_
+
+The account this connection belongs to: name, email, role, and whether it can administer the instance. Every other tool acts as this person and can only see their data.
+
+No arguments.
+
+### `list_connections`
+
+_List AI connections_
+
+Every assistant wired to this workspace: what it is called, which client it was set up for, when it last called in and from what. Reach for it to answer 'which of these am I still using?' or before rotating something — the ids come back here. Tokens deliberately do not: they are credentials, they would sit in this transcript forever, and the only place a person needs to see one is the client they are pasting it into. `isThisOne` marks the connection you are calling through right now.
+
+No arguments.
+
+### `create_connection`
+
+_Connect another assistant_
+
+Mint a new connection URL so a second client — the laptop's editor, a phone app, a terminal — can reach this workspace too. Returns the URL and the exact steps for that client, so you can hand somebody a copy-paste answer to 'how do I add this to Cursor?'. Give every client its own rather than sharing one: that is what lets a single laptop be disconnected later without breaking everything else. The URL is a credential with full read and write over this person's brain, resumes and pipeline — say so when you hand it over, and never post it anywhere it will be stored.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `client` | string | Which client it is for: claude \| claude-code \| chatgpt \| cursor \| vscode \| windsurf \| generic-http \| stdio-bridge \| raw. Sets the setup steps returned. |
+| `name` | string | What to call it in the list, e.g. 'Cursor — work laptop'. Defaults to the client's name. |
+
+### `rename_connection`
+
+_Rename a connection_
+
+Change what a connection is called in the list. Names are for the person, not the machine — 'Cursor — old laptop' is what makes it obvious later which one to revoke. Get the id from list_connections.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Connection id |
+| `name` | string | **required** — The new name |
+
+### `rotate_connection`
+
+_Issue a new token for a connection_
+
+Kill a connection's URL and issue a fresh one on the same row, keeping its name and place in the list. This is the answer to 'I sold that laptop' or 'I pasted the URL in a chat by mistake' — the old address stops working the moment this returns, and nothing else is affected. It also means the client that was using it goes dark until somebody pastes the new URL in, so say that before doing it. Returns the new URL; treat it like the password it is.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Connection id, from list_connections |
+
+### `delete_connection`
+
+_Disconnect an assistant_
+
+Remove a connection for good. Its URL stops working immediately and cannot be brought back — a replacement is a new connection with a new URL. Prefer rotate_connection when the client is still in use and only the URL has leaked. Check list_connections first: deleting the one you are calling through ends this session mid-conversation.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Connection id, from list_connections |

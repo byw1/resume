@@ -1,0 +1,358 @@
+---
+title: "Admin tools"
+sidebarTitle: "Admin"
+description: "Twenty-seven tools for running an instance: accounts, invitations, the waitlist, email, billing, health and every stored setting."
+icon: "shield-halved"
+---
+
+These are hidden from a member's `tools/list` entirely rather than merely refused, so
+nobody sees a permission they do not have.
+
+<Note>
+  Every one of these acts on **accounts and instance settings**. None of them can read
+  another person's brain, resumes or applications — the counts come back, never the
+  contents. That is a property of the data layer rather than a policy these tools observe.
+</Note>
+
+Where to start:
+
+- **Something is reported broken** → `admin_health`, then `admin_recent_errors` for the
+  specifics behind an error count.
+- **Somebody cannot get in** → `admin_user_detail`, which tells you whether the problem is
+  the account or the email, before you reset anything.
+- **Where does this setting live?** → `admin_list_variables`. It is the whole of what a
+  self-hosted instance stores as configuration.
+
+Every administrative change is written to the audit log against the acting admin's name,
+values included — except secrets, which are recorded as having been set, never as their
+value.
+
+[Running an instance →](/administration/people)
+
+### `admin_instance_stats`
+
+_Instance overview_
+
+How many people are on this instance, how many are active, how many invites are outstanding, and how much material exists across all accounts. Aggregate counts only — never another person's content.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_set_company_logos`
+
+_Turn company logos on or off_
+
+Controls whether the pipeline shows a company's favicon next to its name. When on, each person's browser asks twenty-icons.com for the logo, which means that service can see which companies are in their pipeline — turn it off for an instance where that matters and everyone gets initials on a coloured tile instead. Nothing else changes; no data is stored or deleted either way. Call admin_instance_stats to read the current state.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `enabled` | boolean | **required** — On shows logos, off shows initials only |
+
+### `admin_list_users`
+
+_List members_
+
+Everyone on the instance with their role, whether they are active, when they last signed in, and how much they have built. Does not expose anyone's brain, resumes or applications.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_user_detail`
+
+_Look up one account_
+
+Everything known about a single account, for when someone asks for help: when they joined, who invited them, whether that invitation email actually went out, when they last signed in, which assistants they have connected and when each last called, whether they are being billed, how much they have built, every administrative change made to their account, and anything the instance recorded against their address — a bounced invite, a tool call that threw. Start here before admin_reset_user_password or admin_set_user_active, because it tells you whether the problem is the account or the email. Takes a user id from admin_list_users. Returns counts of what is in their workspace, never its contents: no brain, no resumes, no applications, and never a connection token. `manageable` says whether you are allowed to act on this account at all — it is false for the instance owner, for yourself, and for another admin when you are not the owner.
+
+**Admin only.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `user_id` | string | **required** — The user's id, from admin_list_users |
+
+### `admin_invite_user`
+
+_Invite someone_
+
+Create an invitation and email it through Resend. If email is not configured yet, the invite is still created and the reply includes a link you can send by hand — so this works before Resend is set up.
+
+**Admin only.** **Overwrites or deletes.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `email` | string | **required** — Who to invite |
+| `role` | enum | MEMBER by default. Only the super admin may create ADMINs.  `MEMBER` · `ADMIN` |
+
+### `admin_list_invites`
+
+_List outstanding invites_
+
+Invitations that have not been accepted yet, with their links and expiry.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_revoke_invite`
+
+_Revoke an invite_
+
+Cancel an outstanding invitation so its link stops working.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Invite id |
+
+### `admin_reset_user_password`
+
+_Reset a member's password_
+
+Generate a new password for a member who is locked out, and return it once so it can be passed on. Every session they had is ended, so an old browser stays logged out. Cannot be used on the instance owner, and an admin cannot reset another admin's password — that restriction is what stops this being a way to take over an instance. The reset is written to the audit log; the password itself never is.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `user_id` | string | **required** — The user's id, from admin_list_users |
+
+### `admin_audit_log`
+
+_Read the admin audit log_
+
+What admins have done on this instance, newest first: invitations, role changes, suspensions, deletions, password resets, billing links and changes to the instance's own configuration, each with who did it, to whom, and when. Rows survive the deletion of the account they describe. Use it to answer 'who suspended this person', 'who changed the Resend key', or to review what happened while you were away. Narrow with group (accounts, invites, passwords, billing, settings) and search, which matches either side of a row — the admin who acted or the account acted on — and page with offset. Nothing here touches anyone's brain, resumes or applications, and a secret is recorded as having been set, never as its value.
+
+**Admin only.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `limit` | number | How many entries, newest first. Default 100, max 500. |
+| `offset` | number | Skip this many before returning, for paging through a long log. |
+| `group` | enum | Only one kind of change. Omit for everything.  `accounts` · `invites` · `passwords` · `billing` · `settings` |
+| `search` | string | An email address, whole or partial. Matches the admin who acted or the account acted on. |
+
+### `admin_health`
+
+_Check whether the instance is working_
+
+This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_recent_errors`
+
+_Read what has failed recently_
+
+The instance's own event stream, newest first: failed emails, Stripe webhooks that did not verify or did not sync, tool calls that threw, and pages that errored. Use it after admin_health reports errors, or to answer 'did that invite actually send'. Each entry has a level (INFO, WARN or ERROR), a source, a one-line message, and the address of whoever's request hit it. Pass level ERROR for failures only — the default includes INFO entries such as successful webhook deliveries, which are what prove Stripe is still reaching this instance at all. Entries older than 30 days are removed automatically. This never contains anyone's content: the arguments that caused a failure are deliberately not recorded, only the failure.
+
+**Admin only.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `limit` | number | How many entries, newest first. Default 50, max 200. |
+| `level` | enum | Only entries at this level. Omit for everything.  `INFO` · `WARN` · `ERROR` |
+| `source` | enum | Only entries from this part of the app. Omit for everything.  `stripe.webhook` · `billing.sync` · `email.send` · `mcp.tool` · `app` |
+
+### `admin_list_waitlist`
+
+_See who asked for access_
+
+People who requested access from the marketing site and have not been invited yet. Start here when you're deciding who to let in next: each entry has the address, what they said they're looking for, which site they came from, and when they asked. Entries already turned into invites are included with an invitedAt date, so you can see the whole history — pass pendingOnly true for just the queue. Reading this does not tell anyone anything; use admin_invite_waitlist_signup to actually let someone in.
+
+**Admin only.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `pendingOnly` | boolean | Only the people still waiting. Defaults to false, which returns everyone who ever asked. |
+
+### `admin_invite_waitlist_signup`
+
+_Invite someone off the waitlist_
+
+Turn a waitlist request into a real invitation: creates the invite, emails it through Resend, and marks the request as invited so it leaves the queue. Takes the signup id from admin_list_waitlist, not an email address. If email is not configured the invite is still created and the reply carries a link you can send by hand. The request stays on the list afterwards, stamped with the date, so the list remains a record of who asked and when.
+
+**Admin only.** **Overwrites or deletes.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — The signup id from admin_list_waitlist |
+| `role` | enum | MEMBER by default. Only the super admin may create ADMINs.  `MEMBER` · `ADMIN` |
+
+### `admin_remove_waitlist_signup`
+
+_Remove a waitlist request_
+
+Delete a request from the waitlist for good — spam, a duplicate, or someone who asked to be taken off. This does not revoke an invitation that was already sent; use admin_revoke_invite for that. Irreversible, so read admin_list_waitlist first and remove by id.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — The signup id from admin_list_waitlist |
+
+### `admin_set_user_role`
+
+_Change someone's role_
+
+Promote a member to admin or demote an admin to member. The super admin cannot be changed, and admins can only act on members.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `userId` | string | **required** — User id |
+| `role` | enum | **required** — The new role  `MEMBER` · `ADMIN` |
+
+### `admin_set_user_active`
+
+_Activate or suspend someone_
+
+Suspending signs the person out everywhere and blocks their login and their MCP connection. Their data is kept.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `userId` | string | **required** — User id |
+| `isActive` | boolean | **required** — true to reactivate, false to suspend |
+
+### `admin_delete_user`
+
+_Delete someone_
+
+PERMANENT. Removes the account and everything it owns: brain, resumes, applications. Confirm with the person you are talking to before calling this.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `userId` | string | **required** — User id |
+
+### `admin_get_email_config`
+
+_Check email configuration_
+
+Whether Resend is wired up, and the from address invitations will come from. The API key is returned masked.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_set_email_config`
+
+_Configure email_
+
+Set the Resend API key and the address invitations are sent from. Only the fields you pass are changed. Follow with admin_send_test_email to prove it works. instanceName and publicUrl are instance-wide rather than email-only — they are what the sign-in page, invitation links and the Stripe webhook URL are built from — and they can also be set on their own with admin_set_variable.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `resendApiKey` | string | Resend API key, starts with re_ |
+| `resendFromEmail` | string | From address on a domain verified in Resend, e.g. hello@yourdomain.com |
+| `resendFromName` | string | Display name on outgoing mail |
+| `instanceName` | string | What this instance is called, used in invitation emails |
+| `publicUrl` | string | Public base URL, used to build invite links, e.g. https://you.up.railway.app |
+
+### `admin_send_test_email`
+
+_Send a test email_
+
+Proves the Resend configuration actually delivers. Returns the exact error if it does not.
+
+**Admin only.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `to` | string | Where to send it. Defaults to your own address. |
+
+### `admin_get_billing_config`
+
+_Check billing configuration_
+
+Whether Stripe billing is wired up for hosting other people on this instance for a fee, how many users currently pay, and the exact webhook URL to paste into the Stripe Dashboard. Keys come back masked. Billing only governs users who arrived through a Stripe checkout — the owner and free invitees are never touched by it.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_set_billing_config`
+
+_Configure billing_
+
+Set the Stripe API key, the webhook signing secret, and the public Payment Link for this instance. Only the fields you pass are changed. Prefer a RESTRICTED key (rk_...) with read-only Customers and Subscriptions over the full secret key — reading those two things is all this app ever does with Stripe, and a restricted key that leaks cannot move money or alter the Stripe account. Follow with admin_get_billing_config to see the webhook URL to register in Stripe.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `stripeSecretKey` | string | Stripe API key — a restricted rk_ key with read-only Customers and Subscriptions is enough and safer than the full sk_ key |
+| `stripeWebhookSecret` | string | Webhook signing secret, starts with whsec_ |
+| `stripePaymentLink` | string | The Stripe Payment Link people pay through, e.g. https://buy.stripe.com/... |
+
+### `admin_sync_billing`
+
+_Resync billing from Stripe_
+
+Asks Stripe for the current subscription state and reconciles this instance against it — the recovery path for a missed webhook. Pass an email to sync one billed user, or nothing to sync everyone with a Stripe customer attached. Reports what changed per person: activated, suspended, or unchanged. Safe to run any time.
+
+**Admin only.** **Overwrites or deletes.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `email` | string | One billed user's email. Omit to sync all billed users. |
+
+### `admin_link_billing`
+
+_Link or unlink a member and their Stripe customer_
+
+Attaches an EXISTING member to their Stripe customer so billing starts governing their access. This never happens automatically: a checkout email is whatever the payer typed, so the unattended webhook only ever invites strangers — connecting a current member to a subscription is a deliberate admin act, and this tool is that act. Pass their email; their Stripe customer is found by the same email in Stripe's records, or pass customerId when Stripe holds several. Pass unlink true to detach someone from billing entirely — the recovery hatch if a link was wrong; it also ends billing's authority over their account. The owner can never be linked.
+
+**Admin only.** **Overwrites or deletes.** **Reaches outside this instance.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `email` | string | **required** — The member's email on this instance |
+| `customerId` | string | A specific Stripe customer id (cus_...), when email alone is ambiguous |
+| `unlink` | boolean | True to detach this member from billing instead of linking |
+
+### `admin_list_variables`
+
+_List instance variables_
+
+Every configurable value on this instance in one list: its key, what it does, what it is set to now, and whether it is still on the built-in default. This is the whole of what a self-hosted instance stores as configuration, so start here when someone asks where a setting lives or why the app is behaving a certain way. Secrets come back masked — no tool ever returns a raw key. Variables an admin added by hand are marked known:false; they have no form in the app and are read by whatever feature asked for them.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_set_variable`
+
+_Set an instance variable_
+
+Changes one instance setting by key — the general way in, for anything without a tool of its own. Take the key from admin_list_variables and send the new value as a string; an on-off variable takes "1" or "0". Prefer admin_set_email_config or admin_set_billing_config where they apply, because they also report whether that area now works. Sending an empty value for a secret leaves it alone rather than clearing it — admin_delete_variable is how you clear one. A key nothing recognises creates a new variable, which is how a setting exists before it has a screen: lowercase letters, numbers and underscores. Every change is written to the audit log against your name, values included, so never put a secret in a key that is not declared as one.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `key` | string | **required** — The variable's key, e.g. instance_name — from admin_list_variables |
+| `value` | string | **required** — The new value as a string. "1" or "0" for an on-off variable. |
+
+### `admin_delete_variable`
+
+_Clear an instance variable_
+
+Removes a variable's stored value. A setting the app declares falls back to its built-in default — clearing the Resend key stops every invitation email, clearing company_logos turns logos back on — and a variable an admin added disappears entirely. Call admin_list_variables first to see what the default would be, because this is the one settings call with no undo. Recorded in the audit log.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `key` | string | **required** — The variable's key, from admin_list_variables |
