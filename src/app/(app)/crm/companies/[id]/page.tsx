@@ -41,7 +41,11 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             roleTitle: application.roleTitle,
             stage: application.stage,
             location: application.location,
+            workMode: application.workMode,
             salaryRange: application.salaryRange,
+            jobUrl: application.jobUrl,
+            sources: application.sources,
+            appliedAt: application.appliedAt?.toISOString() ?? null,
             nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
           }))}
           contacts={company.contacts.map((contact) => ({

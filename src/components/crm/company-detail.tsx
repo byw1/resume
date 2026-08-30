@@ -15,6 +15,7 @@ import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
+import { linkHref } from "@/lib/links";
 import { companyDomain } from "@/lib/company";
 import { createContactAction, deleteCompanyAction, saveCompanyAction } from "@/server/actions";
 import { relativeDay } from "@/lib/utils";
@@ -41,7 +42,12 @@ export function CompanyDetail({
     roleTitle: string;
     stage: Stage;
     location: string;
+    workMode: string;
     salaryRange: string;
+    /** The posting itself, when there is one. Plenty of roles have none. */
+    jobUrl: string;
+    sources: string[];
+    appliedAt: string | null;
     nextFollowUpAt: string | null;
   }[];
   contacts: { id: string; name: string; title: string; email: string; relationship: string }[];
@@ -167,10 +173,17 @@ export function CompanyDetail({
             </CardContent>
           </Card>
 
+          {/* Every role you have chased here, as listings rather than table
+              rows: what it is, where it got to, and a way through to the
+              posting itself — which was previously unreachable from the one
+              screen about this employer. */}
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <CardTitle className="text-[15px]">
-                Applications {applications.length > 0 && <span className="text-faint nums font-normal">{applications.length}</span>}
+                Job listings{" "}
+                {applications.length > 0 && (
+                  <span className="text-faint nums font-normal">{applications.length}</span>
+                )}
               </CardTitle>
               <Button asChild variant="ghost" size="xs">
                 <Link href={`/applications?new=1&company=${encodeURIComponent(values.name)}`}>
@@ -181,39 +194,13 @@ export function CompanyDetail({
             <CardContent>
               {applications.length === 0 ? (
                 <p className="text-faint py-4 text-center text-[13px]">
-                  Nothing tracked with them yet.
+                  No roles tracked here yet. Track one and it shows up as a listing, with or
+                  without a link to the posting.
                 </p>
               ) : (
-                <ul className="divide-y">
+                <ul className="space-y-1.5">
                   {applications.map((application) => (
-                    <li key={application.id}>
-                      <Link
-                        href={`/applications/${application.id}`}
-                        className="hover:bg-accent/50 -mx-2 flex items-center gap-3 rounded-control px-2 py-2 transition-colors duration-150"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <div className="truncate text-[13px] font-medium">
-                            {application.roleTitle}
-                          </div>
-                          <div className="text-faint truncate text-[12px]">
-                            {[application.location, application.salaryRange]
-                              .filter(Boolean)
-                              .join(" · ") || "No details yet"}
-                          </div>
-                        </div>
-                        <span
-                          className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11.5px] font-medium"
-                          style={{ ["--tone" as string]: STAGE_TONE[application.stage] }}
-                        >
-                          {STAGE_LABEL[application.stage]}
-                        </span>
-                        <span className="nums text-faint w-20 shrink-0 text-right text-[12px]">
-                          {application.nextFollowUpAt
-                            ? relativeDay(new Date(application.nextFollowUpAt))
-                            : "—"}
-                        </span>
-                      </Link>
-                    </li>
+                    <JobListing key={application.id} application={application} />
                   ))}
                 </ul>
               )}
@@ -329,6 +316,90 @@ export function CompanyDetail({
         </div>
       </div>
     </div>
+  );
+}
+
+/**
+ * One role at this employer.
+ *
+ * The stretched-link rule from the contacts table applies here too: the card
+ * is one link to the tracked application, and the posting's own URL is a
+ * second, separate destination that has to paint above it rather than nest
+ * inside it.
+ */
+function JobListing({
+  application,
+}: {
+  application: {
+    id: string;
+    roleTitle: string;
+    stage: Stage;
+    location: string;
+    workMode: string;
+    salaryRange: string;
+    jobUrl: string;
+    sources: string[];
+    appliedAt: string | null;
+    nextFollowUpAt: string | null;
+  };
+}) {
+  const posting = linkHref(application.jobUrl);
+  const where = [application.location, application.workMode].filter(Boolean).join(" · ");
+
+  return (
+    <li className="hover:bg-accent/40 relative rounded-control border p-2.5 transition-colors duration-150">
+      <div className="flex items-start gap-2">
+        <Link
+          href={`/applications/${application.id}`}
+          className="min-w-0 flex-1 text-[13px] font-medium before:absolute before:inset-0"
+        >
+          {application.roleTitle}
+        </Link>
+        <span
+          className="stage-chip shrink-0 rounded-chip px-1.5 py-0.5 text-[11.5px] font-medium"
+          style={{ ["--tone" as string]: STAGE_TONE[application.stage] }}
+        >
+          {STAGE_LABEL[application.stage]}
+        </span>
+      </div>
+
+      <div className="text-faint mt-1 flex flex-wrap items-center gap-x-2.5 gap-y-1 text-[12px]">
+        {where && <span className="truncate">{where}</span>}
+        {application.salaryRange && <span className="truncate">{application.salaryRange}</span>}
+        {application.nextFollowUpAt && (
+          <span className="nums">
+            Chase {relativeDay(new Date(application.nextFollowUpAt))}
+          </span>
+        )}
+        {!where && !application.salaryRange && !application.nextFollowUpAt && (
+          <span>No details yet</span>
+        )}
+        {posting && (
+          <a
+            href={posting}
+            target="_blank"
+            rel="noreferrer noopener"
+            className="hover:text-foreground relative ml-auto inline-flex items-center gap-1 transition-colors"
+            aria-label={`Open the ${application.roleTitle} posting`}
+          >
+            <ExternalLinkIcon className="size-3" /> Posting
+          </a>
+        )}
+      </div>
+
+      {application.sources.length > 0 && (
+        <div className="mt-1.5 flex flex-wrap gap-1">
+          {application.sources.map((source) => (
+            <span
+              key={source}
+              className="bg-inset text-muted-foreground rounded-chip px-1.5 py-0.5 text-[11px]"
+            >
+              {source}
+            </span>
+          ))}
+        </div>
+      )}
+    </li>
   );
 }
 

@@ -32,10 +32,13 @@ just *talk* to it.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
   their website, industry, size and whatever you have learned about them, alongside every
   application and every contact you have there. The website is what puts their logo on the
-  pipeline. The company list says when you last applied and what's still live, and both
+  pipeline. Their roles read as job listings, each one a click from the posting it came
+  from. The company list says when you last applied and what's still live, and both
   lists filter — to the companies where you know someone, to the people whose ping is due.
   Contacts attach to applications straight from the CRM rather than being retyped, and
-  removing one from an application never deletes the person.
+  removing one from an application never deletes the person. A person keeps every way you
+  can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
+  paste — because the address that matters is whichever one they actually answer on.
 - **AI connections** — every person gets their own URL that turns all of the above into
   73 tools any MCP client can call (100 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
@@ -366,7 +369,8 @@ step is losing people rather than handing you six numbers to interpret.
 
 **CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /
-`delete_contact` for the people at them. A company's `website` is what puts their logo on your
+`delete_contact` for the people at them, each carrying every way to reach them rather than
+just a LinkedIn URL. A company's `website` is what puts their logo on your
 pipeline. Deleting one refuses while applications still point at it.
 
 **Your account** — `whoami` says who this connection belongs to. `list_connections`,

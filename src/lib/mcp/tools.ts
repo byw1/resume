@@ -2085,7 +2085,7 @@ export const tools: McpTool[] = [
     name: "update_contact",
     title: "Update a contact",
     description:
-      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.",
+      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes or otherLinks rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.",
     inputSchema: object(
       {
         id: str("Contact id"),
@@ -2094,6 +2094,13 @@ export const tools: McpTool[] = [
         email: str("Email"),
         phone: str("Phone"),
         linkedin: str("LinkedIn URL"),
+        twitter: str("X / Twitter — a URL or an @handle"),
+        instagram: str("Instagram — a URL or an @handle"),
+        github: str("GitHub profile URL"),
+        website: str("Their own site, blog or portfolio"),
+        otherLinks: strArray(
+          "Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first.",
+        ),
         relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
         notes: str("Notes — replaces what is there"),
         company: str("Employer, or empty string to detach"),
@@ -2118,6 +2125,11 @@ export const tools: McpTool[] = [
           email: s(args, "email"),
           phone: s(args, "phone"),
           linkedin: s(args, "linkedin"),
+          twitter: s(args, "twitter"),
+          instagram: s(args, "instagram"),
+          github: s(args, "github"),
+          website: s(args, "website"),
+          otherLinks: a(args, "otherLinks"),
           relationship: s(args, "relationship"),
           notes: s(args, "notes"),
           company: s(args, "company"),
@@ -2142,7 +2154,8 @@ export const tools: McpTool[] = [
   {
     name: "create_contact",
     title: "Create a contact",
-    description: "Save a person: recruiter, hiring manager, referral, friend at the company.",
+    description:
+      "Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row.",
     inputSchema: object(
       {
         name: str("Their name"),
@@ -2150,6 +2163,13 @@ export const tools: McpTool[] = [
         email: str("Email"),
         phone: str("Phone"),
         linkedin: str("LinkedIn URL"),
+        twitter: str("X / Twitter — a URL or an @handle"),
+        instagram: str("Instagram — a URL or an @handle"),
+        github: str("GitHub profile URL"),
+        website: str("Their own site, blog or portfolio"),
+        otherLinks: strArray(
+          "Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first.",
+        ),
         relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
         notes: str("Notes"),
         company: str("Company they work at"),
@@ -2171,6 +2191,11 @@ export const tools: McpTool[] = [
           email: s(args, "email"),
           phone: s(args, "phone"),
           linkedin: s(args, "linkedin"),
+          twitter: s(args, "twitter"),
+          instagram: s(args, "instagram"),
+          github: s(args, "github"),
+          website: s(args, "website"),
+          otherLinks: a(args, "otherLinks"),
           relationship: s(args, "relationship"),
           notes: s(args, "notes"),
           company: s(args, "company"),

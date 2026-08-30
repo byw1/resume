@@ -1,17 +1,71 @@
 import Link from "next/link";
-import { LinkedinIcon, MailIcon, UsersIcon } from "lucide-react";
+import {
+  GithubIcon,
+  GlobeIcon,
+  InstagramIcon,
+  LinkIcon,
+  LinkedinIcon,
+  MailIcon,
+  TwitterIcon,
+  UsersIcon,
+} from "lucide-react";
 import { EmptyState, PageHeader, PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { CrmTabs } from "@/components/crm/tabs";
 import { SearchBox } from "@/components/crm/search-box";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
+import { CompanyChip } from "@/components/crm/company-chip";
 import { listContacts, type ContactFilter } from "@/lib/data/pipeline";
 import { requireUser } from "@/lib/auth";
-import { companyDomain } from "@/lib/company";
 import { getSettings } from "@/lib/settings";
+import {
+  NAMED_PLATFORMS,
+  PLATFORM_LABEL,
+  detectPlatform,
+  linkHref,
+  type PlatformKey,
+} from "@/lib/links";
 import { agoDay, cn, relativeDay } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
+
+const PLATFORM_ICON: Record<PlatformKey, typeof LinkIcon> = {
+  linkedin: LinkedinIcon,
+  twitter: TwitterIcon,
+  instagram: InstagramIcon,
+  github: GithubIcon,
+  website: GlobeIcon,
+  other: LinkIcon,
+};
+
+/**
+ * The one link worth a button in a table row.
+ *
+ * LinkedIn first because it usually is the answer, then whatever else they
+ * have — a row that shows nothing for the founder who only posts on X is the
+ * bug this replaces.
+ */
+function bestLink(contact: {
+  linkedin: string;
+  twitter: string;
+  instagram: string;
+  github: string;
+  website: string;
+  otherLinks: string[];
+}) {
+  for (const platform of NAMED_PLATFORMS) {
+    const href = linkHref(contact[platform]);
+    if (href) return { href, platform, Icon: PLATFORM_ICON[platform] };
+  }
+  for (const value of contact.otherLinks) {
+    const href = linkHref(value);
+    if (href) {
+      const platform = detectPlatform(value) ?? "other";
+      return { href, platform, Icon: PLATFORM_ICON[platform] };
+    }
+  }
+  return null;
+}
 
 /** Same rule as everywhere else: the URL is the state of this screen. */
 const FILTERS: { key: ContactFilter | undefined; label: string }[] = [
@@ -105,46 +159,49 @@ export default async function ContactsPage({
             {contacts.map((contact) => {
               const pingDue =
                 contact.nextFollowUpAt !== null && contact.nextFollowUpAt <= today;
+              // Not everyone is on LinkedIn. Show whichever address they
+              // actually have, with that platform's own icon.
+              const best = bestLink(contact);
               return (
-                <li key={contact.id} className="flex items-center">
+                <li
+                  key={contact.id}
+                  className="hover:bg-accent/50 relative flex items-center transition-colors duration-150"
+                >
+                  {/* One link, stretched over the row by a ::before overlay,
+                      rather than an anchor wrapping the lot. The company is
+                      its own destination and an anchor inside an anchor is
+                      invalid HTML — but a second anchor to the contact would
+                      make every row two tab stops reading the same name. The
+                      overlay keeps the whole row clickable; the chip and the
+                      buttons are positioned, so they paint above it and stay
+                      clickable in their own right. */}
                   <Link
                     href={`/crm/contacts/${contact.id}`}
-                    className="hover:bg-accent/50 flex min-w-0 flex-1 items-center gap-3 px-4 py-2.5 transition-colors duration-150"
+                    className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 pl-4 before:absolute before:inset-0"
                   >
-                    <div className="flex min-w-0 flex-1 items-center gap-2.5">
-                      <CompanyAvatar name={contact.name} domain={null} size={26} />
-                      <div className="min-w-0">
-                        <div className="truncate text-[13px] font-medium">{contact.name}</div>
-                        <div className="text-faint truncate text-[12px]">
-                          {contact.title || "No title on file"}
-                        </div>
+                    <CompanyAvatar name={contact.name} domain={null} size={26} />
+                    <div className="min-w-0">
+                      <div className="truncate text-[13px] font-medium">{contact.name}</div>
+                      <div className="text-faint truncate text-[12px]">
+                        {contact.title || "No title on file"}
                       </div>
                     </div>
+                  </Link>
 
-                    <div className="hidden w-44 shrink-0 items-center gap-2 md:flex">
-                      {contact.company ? (
-                        <>
-                          <CompanyAvatar
-                            name={contact.company.name}
-                            domain={
-                              companyLogos
-                                ? companyDomain({
-                                    name: contact.company.name,
-                                    website: contact.company.website,
-                                  })
-                                : null
-                            }
-                            size={18}
-                          />
-                          <span className="text-muted-foreground truncate text-[12px]">
-                            {contact.company.name}
-                          </span>
-                        </>
-                      ) : (
-                        <span className="text-faint text-[12px]">—</span>
-                      )}
-                    </div>
+                  <div className="relative hidden w-44 shrink-0 items-center px-3 md:flex">
+                    {contact.company ? (
+                      <CompanyChip
+                        company={contact.company}
+                        logos={companyLogos}
+                        size="sm"
+                        className="min-w-0"
+                      />
+                    ) : (
+                      <span className="text-faint text-[12px]">—</span>
+                    )}
+                  </div>
 
+                  <div className="flex shrink-0 items-center gap-3 py-2.5">
                     <div className="text-faint hidden w-32 shrink-0 truncate text-[12px] lg:block">
                       {contact.relationship || "—"}
                     </div>
@@ -159,11 +216,11 @@ export default async function ContactsPage({
                     <div className="nums text-faint w-24 shrink-0 text-right text-[12px]">
                       {contact.activities[0] ? agoDay(contact.activities[0].occurredAt) : "never"}
                     </div>
-                  </Link>
+                  </div>
 
-                  {/* Outside the row link — a nested anchor is invalid HTML and
+                  {/* Above the overlay — a nested anchor is invalid HTML and
                       would make the whole row navigate on a missed click. */}
-                  <div className="hidden w-[60px] shrink-0 items-center justify-end gap-0.5 pr-3 sm:flex">
+                  <div className="relative hidden w-[60px] shrink-0 items-center justify-end gap-0.5 pr-3 pl-3 sm:flex">
                     {contact.email && (
                       <Button asChild variant="ghost" size="icon-sm" className="text-faint hover:text-foreground">
                         <a href={`mailto:${contact.email}`} aria-label={`Email ${contact.name}`}>
@@ -171,19 +228,15 @@ export default async function ContactsPage({
                         </a>
                       </Button>
                     )}
-                    {contact.linkedin && (
+                    {best && (
                       <Button asChild variant="ghost" size="icon-sm" className="text-faint hover:text-foreground">
                         <a
-                          href={
-                            contact.linkedin.startsWith("http")
-                              ? contact.linkedin
-                              : `https://${contact.linkedin}`
-                          }
+                          href={best.href}
                           target="_blank"
                           rel="noreferrer noopener"
-                          aria-label={`Open ${contact.name} on LinkedIn`}
+                          aria-label={`Open ${contact.name} on ${PLATFORM_LABEL[best.platform]}`}
                         >
-                          <LinkedinIcon />
+                          <best.Icon />
                         </a>
                       </Button>
                     )}
