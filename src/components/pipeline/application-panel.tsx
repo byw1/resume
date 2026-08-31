@@ -35,12 +35,19 @@ export function useOpenApplication() {
 export function ApplicationPanelProvider({ children }: { children: React.ReactNode }) {
   const [id, setId] = useState<string | null>(null);
   const [data, setData] = useState<Payload | null>(null);
+  // Bumped to re-run the fetch below. router.refresh() cannot do it: the
+  // panel's contents come from a server ACTION held in this component's state,
+  // not from the route, so refreshing the page underneath leaves everything
+  // here on the snapshot taken when it opened.
+  const [nonce, setNonce] = useState(0);
   const router = useRouter();
 
   const open = useCallback((next: string) => {
     setId(next);
     setData(null);
   }, []);
+
+  const reload = useCallback(() => setNonce((value) => value + 1), []);
 
   useEffect(() => {
     if (!id) return;
@@ -57,7 +64,7 @@ export function ApplicationPanelProvider({ children }: { children: React.ReactNo
     return () => {
       live = false;
     };
-  }, [id]);
+  }, [id, nonce]);
 
   return (
     <OpenApplication.Provider value={open}>
@@ -103,6 +110,7 @@ export function ApplicationPanelProvider({ children }: { children: React.ReactNo
                 companies={data.companies}
                 resumePreview={data.resumePreview}
                 logos={data.logos}
+                onServerChange={reload}
               />
             </>
           ) : (

@@ -49,12 +49,15 @@ export function FilterMenu({
   view,
   sort,
   dir,
+  limited = false,
 }: {
   filters: PipelineFilters;
   facets: FilterFacets;
   view: string;
   sort?: string;
   dir?: string;
+  /** The current view can only honour stages and overdue. Say so. */
+  limited?: boolean;
 }) {
   const router = useRouter();
   const go = (next: PipelineFilters) =>
@@ -86,12 +89,19 @@ export function FilterMenu({
           <CommandInput placeholder="Source, company, resume…" className="h-9" />
           <CommandList className="max-h-[22rem]">
             <CommandEmpty>Nothing matches.</CommandEmpty>
+            {limited && (
+              <p className="text-muted-foreground border-b px-3 py-2 text-[12px]">
+                The calendar shows dates, so only the stage chips and Needs a nudge narrow
+                it. These apply on the board and the table.
+              </p>
+            )}
 
             {facets.sources.length > 0 && (
               <CommandGroup heading="Source">
                 {facets.sources.map((source) => (
                   <Row
                     key={source.id}
+                    id={`src-${source.id}`}
                     label={source.name}
                     count={source.count}
                     on={filters.sources.includes(source.id)}
@@ -109,6 +119,7 @@ export function FilterMenu({
                 {facets.companies.map((company) => (
                   <Row
                     key={company.id}
+                    id={`co-${company.id}`}
                     label={company.name}
                     count={company.count}
                     on={filters.companies.includes(company.id)}
@@ -125,6 +136,7 @@ export function FilterMenu({
                 {facets.resumes.map((resume) => (
                   <Row
                     key={resume.id}
+                    id={`cv-${resume.id}`}
                     label={resume.name}
                     count={resume.count}
                     on={filters.resumes.includes(resume.id)}
@@ -141,6 +153,7 @@ export function FilterMenu({
               {WAITING.map((days) => (
                 <Row
                   key={days}
+                  id={`w-${days}`}
                   label={`${days} days or more`}
                   on={filters.waiting === days}
                   onPick={() =>
@@ -154,6 +167,7 @@ export function FilterMenu({
               {EXCITEMENT.map((score) => (
                 <Row
                   key={score}
+                  id={`x-${score}`}
                   label={score === 5 ? "5 — the dream" : "4 or more"}
                   on={filters.excitement === score}
                   onPick={() =>
@@ -195,12 +209,20 @@ export function FilterMenu({
 }
 
 function Row({
+  id,
   label,
   count,
   on,
   dot,
   onPick,
 }: {
+  /**
+   * Unique across the whole list. cmdk keys selection on an item's `value`, so
+   * two rows sharing one — a source and a company both called "LinkedIn", which
+   * is the likely case here — would both highlight and Enter would fire
+   * whichever is first in the DOM.
+   */
+  id: string;
   label: string;
   count?: number;
   on: boolean;
@@ -208,7 +230,7 @@ function Row({
   onPick: () => void;
 }) {
   return (
-    <CommandItem value={label} onSelect={onPick} className="px-2 py-1.5">
+    <CommandItem value={`${label} ${id}`} onSelect={onPick} className="px-2 py-1.5">
       <span
         className={cn(
           "flex size-3.5 shrink-0 items-center justify-center rounded-[4px] border",

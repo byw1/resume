@@ -291,7 +291,7 @@ No arguments.
 
 _List saved pipeline views_
 
-The cuts of the pipeline this person has named and kept — 'Chasing', 'Dream jobs', 'Gone quiet'. Each one returns a name and a query string like "view=list&f=SCREEN,INTERVIEW&sort=waiting". Call this when someone refers to a view by name, then use the query to work out what they mean: f is a comma-separated list of stages, sort and dir order the table, q is a search. Reading a view tells you what they consider one job; it is a good place to look before asking what they want reviewed.
+The cuts of the pipeline this person has named and kept — 'Chasing', 'Dream jobs', 'Gone quiet'. Each one returns a name and a query string like "view=list&f=SCREEN,INTERVIEW&sort=waiting". Call this when someone refers to a view by name, then read the query to work out what they mean — save_view documents every parameter it can hold. Reading a view tells you what they consider one job; it is a good place to look before asking what they want reviewed.
 
 No arguments.
 
@@ -299,7 +299,7 @@ No arguments.
 
 _Save a pipeline view under a name_
 
-Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?': view (board | list | calendar), f (comma-separated stages, or 'overdue' / 'closed'), sort, dir, q (search), and month (YYYY-MM, which the calendar view uses). Example: name 'Gone quiet', query 'view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped.
+Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated source ids from list_application_sources); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); x (minimum excitement, 1-5); sort and dir; q (search across company, role, notes, location, work mode, the posting text and source names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&w=14&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.
 
 **Overwrites or deletes.**
 

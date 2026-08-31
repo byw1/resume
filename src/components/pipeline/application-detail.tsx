@@ -142,6 +142,7 @@ export function ApplicationDetail({
   companies,
   resumePreview,
   logos,
+  onServerChange,
 }: {
   application: Application;
   activities: Activity[];
@@ -157,6 +158,15 @@ export function ApplicationDetail({
   /** The attached resume, rendered. Null when none is attached. */
   resumePreview: ResumePreview | null;
   logos: boolean;
+  /**
+   * Re-fetch whatever server-derived props this host holds.
+   *
+   * On the page these come from the RSC render, so router.refresh() is enough.
+   * In the slide-over they come from a server action held in component state,
+   * which refresh() cannot re-run — without this the company chip, the resume
+   * thumbnail and the source list stay on the snapshot taken when it opened.
+   */
+  onServerChange?: () => void;
 }) {
   const [values, setValues] = useState({
     company: application.company,
@@ -176,6 +186,10 @@ export function ApplicationDetail({
   const [stage, setStage] = useState(application.stage);
   const [, startTransition] = useTransition();
   const router = useRouter();
+  const refresh = () => {
+    router.refresh();
+    onServerChange?.();
+  };
 
   // The company deliberately does NOT ride along with the autosave.
   //
@@ -197,27 +211,8 @@ export function ApplicationDetail({
     });
   });
 
-  const commitCompany = () => {
-    const name = values.company.trim();
-    // Empty means they cleared the box, not that they want a company with no
-    // name. Put the old one back rather than writing a blank.
-    if (!name) {
-      setValues((prev) => ({ ...prev, company: application.company }));
-      return;
-    }
-    if (name === application.company) return;
-    startTransition(async () => {
-      try {
-        await updateApplicationAction(application.id, { company: name });
-        router.refresh();
-      } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not change the company.");
-        setValues((prev) => ({ ...prev, company: application.company }));
-      }
-    });
-  };
-
-  // Read-only echo of the facts worth seeing without scrolling.
+  // Read-only echo of the facts worth seeing without scrolling. Keyed by index
+  // rather than by text: Location and Mode are both very often "Remote".
   const meta = [
     values.location,
     values.workMode,
@@ -263,7 +258,7 @@ export function ApplicationDetail({
               logos={logos}
               onChanged={(name) => {
                 setValues((prev) => ({ ...prev, company: name }));
-                router.refresh();
+                refresh();
               }}
             />
           </div>
@@ -281,7 +276,7 @@ export function ApplicationDetail({
           {meta.length > 0 && (
             <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px]">
               {meta.map((item, index) => (
-                <span key={item} className="flex items-center gap-2">
+                <span key={index} className="flex items-center gap-2">
                   {index > 0 && <span className="text-faint">·</span>}
                   {item}
                 </span>
@@ -414,7 +409,13 @@ export function ApplicationDetail({
                 <div className="flex gap-2">
                   <Select
                     value={values.resumeId || "none"}
-                    onValueChange={(value) => set({ resumeId: value === "none" ? "" : value })}
+                    onValueChange={(value) => {
+                      set({ resumeId: value === "none" ? "" : value });
+                      // The thumbnail is rendered from a server-derived prop,
+                      // so it has to be re-fetched, not just re-rendered. The
+                      // autosave writes it; this goes and reads it back.
+                      window.setTimeout(refresh, 900);
+                    }}
                   >
                     <SelectTrigger>
                       <SelectValue placeholder="None" />
@@ -470,6 +471,7 @@ export function ApplicationDetail({
                   value={values.sources}
                   options={sourceOptions}
                   onChange={(sources) => set({ sources })}
+                  onCatalogChange={refresh}
                 />
               </div>
 
@@ -573,7 +575,11 @@ function CompanyPicker({
             className="h-9"
           />
           <CommandList>
-            <CommandEmpty>Type a name to create it.</CommandEmpty>
+            {/* Only when there is nothing to create either — a force-mounted
+                item is never registered in cmdk's store, so it does not count
+                towards `filtered.count` and CommandEmpty would otherwise show
+                above the very "Create X" row that contradicts it. */}
+            {!typed && <CommandEmpty>No company matches.</CommandEmpty>}
             {companies.map((item) => (
               <CommandItem
                 key={item.id}

@@ -118,8 +118,11 @@ export default async function ApplicationsPage({
 
   const forStages = passing("stages");
   const counts = {
+    // Counted against what the chip's own link produces — it clears the stages
+    // and the overdue flag and keeps everything else, so relaxing every
+    // dimension here would advertise a number you cannot get to.
     all: everyApplication.filter((application) =>
-      matchesFilters(application, { ...EMPTY, search: filters.search }, now),
+      matchesFilters(application, { ...filters, stages: [], overdue: false }, now),
     ).length,
     overdue: passing("overdue").filter(
       (application) =>

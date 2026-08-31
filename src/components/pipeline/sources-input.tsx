@@ -39,17 +39,30 @@ export function SourcesInput({
   value,
   options,
   onChange,
+  onCatalogChange,
 }: {
   value: SourceValue[];
   /** Every category on file, with usage counts. */
   options: SourceOption[];
   onChange: (next: SourceValue[]) => void;
+  /**
+   * Called when the CATALOGUE changed — a category created, recoloured or
+   * deleted — as opposed to which ones this application wears. The host has to
+   * re-fetch `options`, and in the slide-over that is a server action rather
+   * than the route, so router.refresh() alone would leave the list stale.
+   */
+  onCatalogChange?: () => void;
 }) {
   const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [editing, setEditing] = useState<string | null>(null);
   const [pending, startTransition] = useTransition();
+
+  const notify = () => {
+    router.refresh();
+    onCatalogChange?.();
+  };
 
   const has = (id: string) => value.some((item) => item.id === id);
 
@@ -67,7 +80,7 @@ export function SourcesInput({
         const created = await createSourceAction({ name });
         onChange([...value, created]);
         setQuery("");
-        router.refresh();
+        notify();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not create that.");
       }
@@ -81,7 +94,7 @@ export function SourcesInput({
         // Whatever is attached here has to change colour too, or the chips
         // above disagree with the list below until a reload.
         onChange(value.map((item) => (item.id === source.id ? { ...item, color } : item)));
-        router.refresh();
+        notify();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not recolour that.");
       }
@@ -99,7 +112,7 @@ export function SourcesInput({
         await deleteSourceAction(source.id);
         onChange(value.filter((item) => item.id !== source.id));
         setEditing(null);
-        router.refresh();
+        notify();
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not delete that.");
       }
@@ -163,7 +176,7 @@ export function SourcesInput({
                       startTransition(async () => {
                         try {
                           await seedSourcesAction();
-                          router.refresh();
+                          notify();
                         } catch {
                           toast.error("Could not add those.");
                         }

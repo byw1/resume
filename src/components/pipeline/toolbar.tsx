@@ -76,9 +76,11 @@ export function PipelineToolbar({
   const href = (next: PipelineFilters, nextView: PipelineView = view) =>
     buildPipelineQuery({ view: nextView, filters: next, sort, dir });
 
-  const closedOn =
-    TERMINAL_STAGES.every((stage) => filters.stages.includes(stage)) &&
-    filters.stages.length === TERMINAL_STAGES.length;
+  // On whenever the four endings are all in the set — not only when they are
+  // the whole set. Requiring an exact length made the chip read "off" while
+  // closed rows were on screen, and its own href then rebuilt the set it
+  // already had, so clicking it did nothing at all.
+  const closedOn = TERMINAL_STAGES.every((stage) => filters.stages.includes(stage));
   const nothingOn = filters.stages.length === 0 && !filters.overdue;
   return (
     <div className="mb-4 space-y-2.5">
@@ -110,7 +112,18 @@ export function PipelineToolbar({
           className="w-full sm:w-64"
         />
 
-        <FilterMenu filters={filters} facets={facets} view={view} sort={sort} dir={dir} />
+        <FilterMenu
+          filters={filters}
+          facets={facets}
+          view={view}
+          sort={sort}
+          dir={dir}
+          // A calendar entry is a date, not an application: it carries a stage
+          // and a kind and nothing else, so the dimensions that live on the
+          // application cannot narrow it. The menu says so rather than
+          // appearing to work and quietly doing nothing.
+          limited={view === "calendar"}
+        />
 
         {views}
         {share}
@@ -157,8 +170,10 @@ export function PipelineToolbar({
         <Chip
           href={href({
             ...filters,
+            // Subtractive, so turning Closed off keeps the board stages you
+            // also had on rather than clearing the lot.
             stages: closedOn
-              ? []
+              ? filters.stages.filter((stage) => !TERMINAL_STAGES.includes(stage))
               : ([...new Set([...filters.stages, ...TERMINAL_STAGES])] as Stage[]),
           })}
           active={closedOn}

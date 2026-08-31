@@ -2632,3 +2632,63 @@ being silently ignored on one view.
 **Applies to:** `src/lib/pipeline-filters.ts`, `src/components/pipeline/filter-menu.tsx`,
 `src/components/pipeline/toolbar.tsx`, `src/app/(app)/applications/page.tsx`,
 `src/lib/data/views.ts`, `README.md`, `docs/concepts/pipeline.mdx`, `docs/app.mdx`.
+
+---
+
+## 2026-08-31 — What an adversarial pass over the CRM batch found
+
+Seventy-eight agents over the five commits above: fifteen findings survived two independent
+refutation attempts each, twenty-one did not. The ones that stood, and why they matter more
+than they look:
+
+**The Closed chip became a dead end the moment it was combined with a stage.** `closedOn`
+required the four terminal stages to be the ONLY stages on, but the chip's own href unioned
+them into whatever was already there. Click Screening, then Closed: the URL holds five
+stages, the chip reads "off" while closed rows are visibly on screen, and its href is now
+byte-identical to the current URL — so clicking it again does nothing, forever. The fix is
+two lines (drop the length clause; make the off-branch subtract rather than clear), and the
+lesson is that a control's "am I on" test and its "what happens when clicked" link are two
+statements about the same thing and have to be written to agree. Combining filters was the
+entire point of that commit and this was the one combination it broke.
+
+**Server-derived props in the slide-over cannot be refreshed with `router.refresh()`.** The
+panel's contents come from a server ACTION held in component state, not from the route, so
+refreshing the page underneath left the company chip, the resume thumbnail and the source
+list on the snapshot taken when the panel opened — three separate findings, one cause.
+`ApplicationPanelProvider` now exposes a nonce-driven `reload`, passed down as
+`onServerChange`. Anything added later that renders a server-derived prop in that component
+must call it; `router.refresh()` alone is a no-op there.
+
+**A count is a promise about what clicking will show you.** `counts.all` relaxed every
+dimension while the Everything chip only cleared stages and overdue — so it advertised a
+number you could not reach, which is precisely the class of lie the same commit fixed for
+the search box. Counted against the chip's own link now.
+
+**The calendar honours two of seven dimensions, and now says so.** An entry is a date, not
+an application: it has a stage and a kind, and no source, resume or excitement. Silently
+dropping five filters while the Filter button showed them as active was the dishonest half;
+the menu carries a line explaining it on that view.
+
+**cmdk keys selection on an item's `value` string.** Two rows sharing one both highlight and
+Enter fires whichever is first in the DOM — and a source named "LinkedIn" beside a company
+named "LinkedIn" is the likely case, not a contrived one. Facet rows are namespaced
+(`src-`, `co-`, `cv-`) now. Related: a `forceMount` item is never registered in cmdk's
+store, so it does not count towards `filtered.count`, and `CommandEmpty` was rendering
+"Type a name to create it" directly above the Create row that contradicted it.
+
+**Five hand-written tool counts in `docs/` were missed** when the README's three were
+bumped — `docs/tools/overview.mdx` (the table and two area cards), `docs/connect.mdx`,
+`docs/reference/troubleshooting.mdx`, `docs/index.mdx`. `gen-tool-docs.mjs --check` does not
+see them because they are prose. That is now four rounds where these numbers drifted; the
+generator covers the argument tables and nothing covers the prose.
+
+**`save_view`'s description was the parity gap for the whole filtering commit.** Five new
+URL dimensions were accepted by `normaliseQuery` and documented in the manual, while the one
+tool that can write a view still enumerated the old six and closed with "anything outside
+those parameters is dropped" — so an assistant asked for "everything from a referral that
+has sat a fortnight" would read that sentence and refuse, or save a view missing both
+conditions. A tool description that under-claims is as wrong as one that over-claims.
+
+**Applies to:** `src/components/pipeline/{toolbar,filter-menu,application-panel,application-detail,sources-input}.tsx`,
+`src/app/(app)/applications/page.tsx`, `src/lib/mcp/tools.ts`, `docs/tools/overview.mdx`,
+`docs/connect.mdx`, `docs/reference/troubleshooting.mdx`, `docs/index.mdx`.
