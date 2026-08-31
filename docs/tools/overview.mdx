@@ -10,11 +10,13 @@ This section is the full catalogue, generated from the same definitions the serv
 
 ## The counts
 
+{/* generated:counts */}
 | | Member | Admin |
 | --- | --- | --- |
-| Data tools | 73 | 100 |
+| Data tools | 73 | 102 |
 | Workflows, also published as tools | 7 | 8 |
-| **What `tools/list` returns** | **80** | **108** |
+| **What `tools/list` returns** | **80** | **110** |
+{/* /generated:counts */}
 
 Admin tools are **hidden** from a member's `tools/list` entirely, not merely refused — so
 nobody is tempted by a permission they do not have.
@@ -23,17 +25,16 @@ The **Test** button next to any connection in the app calls the endpoint the way
 would and reports the number that answered, which is the quickest way to confirm a
 connection is real.
 
+{/* generated:areas */}
 <CardGroup cols={3}>
   <Card title="Brain" icon="brain" href="/tools/brain">
-    22 tools · roles, brain dumps, highlights, notes, standing rules, and the four
-    supporting collections.
+    22 tools · roles, brain dumps, highlights, notes, standing rules, and the four supporting collections.
   </Card>
   <Card title="Resumes" icon="file-lines" href="/tools/resumes">
     11 tools · writing documents, previewing them, publishing, exporting.
   </Card>
   <Card title="Pipeline" icon="list-check" href="/tools/pipeline">
-    24 tools · applications, stages, timeline, tasks, follow-ups, views, sharing,
-    diagnosis.
+    24 tools · applications, stages, timeline, tasks, follow-ups, views, sharing, diagnosis.
   </Card>
   <Card title="CRM" icon="building" href="/tools/crm">
     10 tools · companies and the people at them.
@@ -42,13 +43,14 @@ connection is real.
     6 tools · who you are, and the wiring itself.
   </Card>
   <Card title="Admin" icon="shield-halved" href="/tools/admin">
-    27 tools · accounts, invitations, waitlist, email, billing, health, configuration.
+    29 tools · accounts, invitations, the waitlist, sign-in, email, billing, health, configuration.
   </Card>
 </CardGroup>
 
-That is 100. The remaining eight are the [workflows](/workflows), which are published as
-tools as well as prompts — so they appear in `tools/list` alongside everything above, and
-are documented on their own page rather than here.
+That is 102. The remaining 8 are the [workflows](/workflows), which are
+published as tools as well as prompts — so they appear in `tools/list` alongside everything
+above, and are documented on their own page rather than here.
+{/* /generated:areas */}
 
 <Card title="The eight workflows" icon="list-ol" href="/workflows" horizontal>
   Multi-step plans an assistant follows: tailoring, gap reports, mining a brain dump, the
@@ -137,7 +139,8 @@ failing the connection. Anything a tool throws is recorded in the instance's eve
 with the tool's name and the failure — never the arguments, which are your content and
 readable by every admin.
 
-<Card title="Your instance's own list" icon="book-open" href="https://app.hired.tools/docs" horizontal>
-  The Docs page inside the app renders the same catalogue from your own deployment, so it
-  shows exactly what your account can see.
+<Card title="Your own count, live" icon="plug" href="https://app.hired.tools/settings" horizontal>
+  **Settings → Connections** shows what your account actually has — the panel header counts
+  the tools, the workflows and the admin-only ones — and **Test** proves it by calling the
+  endpoint the way a client would.
 </Card>

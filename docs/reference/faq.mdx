@@ -58,18 +58,20 @@ icon: "circle-question"
     worth checking. Anything you ask about your career passes through their model.
   </Accordion>
 
-  <Accordion title="What is the difference between the app's Docs page and this manual?">
-    The **Docs page inside your instance** is generated from your own deployment: your tool
-    count, your skills, your connection URL, the descriptions your assistant actually
-    receives. It cannot drift, because it is the server describing itself.
+  <Accordion title="The app used to have its own Docs page — where did it go?">
+    Here. It listed every tool from the same array these pages are generated from, which
+    made it a second copy of one thing, and the second copy is the one that goes stale.
+    `/docs` on your instance now redirects to this site.
 
-    **This manual** is the written guide to the product, and it is the same for every
-    deployment.
+    Two things it carried did not move, because they could not. The **skill files** are
+    served by your instance — byte for byte the copies in the repository it is running —
+    so they live on **Settings → Connections** now. And your **live tool count** is in the
+    header of that same panel, where **Test** proves it by calling the endpoint.
   </Accordion>
 
   <Accordion title="Can I import my existing resume or LinkedIn export?">
-There is no import **tool** yet — that is the next thing being built. But there is no
-    need to wait for one, and your assistant already knows what to do.
+    There is no import **tool** yet — that is the next thing being built. But there is
+    no need to wait for one, and your assistant already knows what to do.
 
     On an empty workspace the briefing tells it to ask whether you have a resume or a
     LinkedIn export to paste, take whatever comes back, and file it itself: your profile,

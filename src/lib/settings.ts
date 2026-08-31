@@ -24,6 +24,7 @@ export const SETTING_KEYS = {
   resendFromEmail: "resend_from_email",
   resendFromName: "resend_from_name",
   publicUrl: "public_url",
+  landingUrl: "landing_url",
   companyLogos: "company_logos",
   googleClientId: "google_client_id",
   googleClientSecret: "google_client_secret",
@@ -40,6 +41,8 @@ export type InstanceSettings = {
   resendFromEmail: string;
   resendFromName: string;
   publicUrl: string;
+  /** The marketing site in front of this instance, if it has one. */
+  landingUrl: string;
   /** Off means no request ever leaves the browser for a logo. */
   companyLogos: boolean;
   /** Google sign-in. Empty client id means the button is not shown at all. */
@@ -100,6 +103,16 @@ export const VARIABLES: VariableDef[] = [
     kind: "url",
     group: "Instance",
     placeholder: "https://your-app.up.railway.app",
+    fallback: "",
+  },
+  {
+    key: SETTING_KEYS.landingUrl,
+    field: "landingUrl",
+    label: "Landing page",
+    help: "The marketing site in front of this instance, if it has one. When it shares a domain with the app — hired.tools and app.hired.tools — signing in leaves a flag on that shared domain, and somebody already signed in who lands on the marketing page is sent straight through to the app. Empty, or on an unrelated domain, and no flag is written.",
+    kind: "url",
+    group: "Instance",
+    placeholder: "https://hired.tools",
     fallback: "",
   },
   {
@@ -254,6 +267,7 @@ export async function getSettings(): Promise<InstanceSettings> {
     resendFromEmail: raw(SETTING_KEYS.resendFromEmail),
     resendFromName: raw(SETTING_KEYS.resendFromName),
     publicUrl: raw(SETTING_KEYS.publicUrl),
+    landingUrl: raw(SETTING_KEYS.landingUrl),
     companyLogos: raw(SETTING_KEYS.companyLogos) !== "0",
     googleClientId: raw(SETTING_KEYS.googleClientId),
     googleClientSecret: raw(SETTING_KEYS.googleClientSecret),

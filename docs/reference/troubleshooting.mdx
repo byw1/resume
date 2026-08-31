@@ -9,7 +9,8 @@ icon: "screwdriver-wrench"
 <AccordionGroup>
   <Accordion title="The client says it connected but no tools appear" icon="plug-circle-xmark">
     Press **Test** next to that connection in **Settings**. It calls the endpoint the way
-    a client would and reports how many tools answered — 80 for a member, 108 for an admin.
+    a client would and reports how many tools answered — compare it against
+    [the counts](/tools/overview#the-counts).
 
     If the test passes and the client still shows nothing, the client is usually caching a
     failed handshake: remove the server from its config, restart it, and add it again.

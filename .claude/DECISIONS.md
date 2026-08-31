@@ -2653,6 +2653,130 @@ the callback refusing a forged and a mismatched state.
 
 ---
 
+## 2026-08-31 — A flag on the domain above both, and a box that says how long
+
+Two things, and they turn out to be the same thing: what happens before you sign in, and
+what happens after.
+
+**hired.tools could not ask app.hired.tools anything, and should not have been able to.**
+The obvious implementation of "send a signed-in visitor to the app" is a `fetch` from the
+landing page to the app with credentials, and it does not work: the session cookie is
+`SameSite=Lax` and is simply not sent on a cross-site request. The fix people reach for is
+`SameSite=None`, and that is the wrong trade — it is a real defence against cross-site
+requests, spent on a convenience. The other option, a top-level bounce through the app on
+every visit, makes an anonymous visitor watch a redirect on the way to a marketing page.
+
+So: a cookie on the domain above both hosts. Signing in writes `hired_signed_in=1` to
+`hired.tools`, an inline script at the top of the landing page reads it, and that is the
+whole mechanism. It is script-readable on purpose and carries nothing — no identity, no
+token, no session — because the worst thing a forged one can do has to be "sends somebody
+to a sign-in page". This is what GitHub's `logged_in` cookie is, and for the same reason.
+
+**The cookie domain is a setting, not a guess.** `landing_url` in Admin → Configuration,
+and the domain written to is the longest run of labels the app host and that URL share.
+Deriving it from the request host alone would have needed no configuration and would have
+written a cookie on `mycompany.com` for anyone self-hosting at `hired.mycompany.com` —
+a flag visible to every unrelated site on that domain, that nobody asked for. Taking the
+common suffix of the two also means a forged `Host` header cannot widen it past what an
+admin wrote down: the answer is bounded by the landing page at both ends. `.co.uk` is the
+case this deliberately does not get clever about — the browser refuses a cookie on a public
+suffix and the landing page stays the landing page, which is the right failure.
+
+**The redirect replaces rather than pushes, and that is not a choice.** A navigation started
+from a head script replaces the history entry whatever you call it, so `location.replace`
+is the honest spelling. The escape hatch is a `sessionStorage` marker: ask for hired.tools a
+second time in the same tab and you get it. Without the marker, the page would be
+unreachable for as long as you stayed signed in. A deep link (`#pricing`, or any query, so
+ad clicks land where they were pointed) and arriving from the app also stay put.
+
+**A stale hint is cleared by the sign-in page.** The flag can outlive the session it
+describes — an expired session, a password change, an admin ending every device. Reaching
+`/login` means there is definitively no session here, since the page redirects into the app
+when there is one, so the form deletes the hint on mount. That is also the only place that
+can: nothing can write a cookie during a server render.
+
+**Keep me signed in, ticked, is what the app already did.** Thirty days, persistent cookie.
+Unticked is twelve hours and a cookie with no expiry, so it goes when the window does. The
+box is a native `<input type="checkbox">` rather than the shadcn one, which is the only
+interesting decision in it: this form posts to a server action and still works with
+scripting off, and Radix only grows the hidden input carrying its value once it has
+hydrated — so the Radix version would have quietly given every no-JS sign-in a twelve-hour
+session. The show/hide eye and `required` came along with it; `autocomplete` was already
+right.
+
+**Verified against a real browser rather than by reading it.** Postgres, a production
+build, and a TLS proxy serving `site/` at hired.tools and the app at app.hired.tools, so
+the cross-domain half was exercised as it actually ships: sign in, get bounced from the
+landing page, ask again and stay, sign out and watch the deletion in the response headers,
+and an instance with no `landing_url` writing no cookie at all.
+
+**Applies to:** `src/lib/auth.ts`, `src/lib/settings.ts`, `src/server/actions.ts`,
+`src/app/login/page.tsx`, `src/components/login-form.tsx`, `site/index.html`, `README.md`,
+`docs/reference/security.mdx`, `docs/self-hosting/configuration.mdx`.
+## 2026-08-31 — /docs folds into docs.hired.tools, and the skills stay behind
+
+**There is one Docs now and it is the manual.** The in-app `/docs` page listed every
+tool from the same array `tools/gen-tool-docs.mjs` generates `docs/tools/*.mdx` from,
+so it was a second rendering of one generated list — the exact thing the settings
+page comment warned about when it stripped the catalogue out of Settings. Worse, the
+profile menu had grown two entries that answer the same question. The page is gone;
+`next.config.ts` redirects `/docs` permanently to the manual, because people have it
+bookmarked and the README and marketing site both linked it.
+
+**Two things could not move, and both stayed in the app.** The **skill files** are
+served from the running instance's own `skills/` directory — byte for byte the copies
+in the repository it is running — and no static site can build somebody a zip out of a
+folder on someone else's server. They live on **Settings → Connections** now, which is
+where you wire up an assistant, and installing a skill is part of that rather than part
+of reading about one. The **live tool count** was already in that panel's header
+("108 tools · 8 workflows · 28 admin"), with **Test** to prove it by calling the
+endpoint, so the per-account number survives where it is actually useful.
+
+**The redirect is exact-match on purpose.** `source: "/docs"` does not catch
+`/docs/skills/<name>` or `.zip`, which is what keeps the downloads working. That was
+worth checking rather than assuming: signed in, the route still returns
+`text/markdown` with a `SKILL.md` disposition and a real `PK`-signature zip.
+Unauthenticated it 307s to `/login`, which is `requireUser` and correct — an early
+test that looked like a broken download was just a client with no session.
+
+**`next.config.ts` imports `src/lib/links.ts` by relative path**, not `@/lib/links` —
+the config is compiled outside the path aliases, so the alias silently would not
+resolve.
+
+**Applies to:** `next.config.ts`, `src/app/(app)/docs/page.tsx` (deleted),
+`src/app/(app)/docs/skills/[slug]/route.ts`, `src/app/(app)/settings/page.tsx`,
+`src/components/settings/{skills-panel,copy-block}.tsx`, `src/components/shell.tsx`,
+`README.md`, `docs/{app,skills}.mdx`, `docs/tools/overview.mdx`,
+`docs/reference/faq.mdx`.
+
+## 2026-08-31 — The generator owns the tool counts now
+
+Two admin tools landed with Google sign-in and every hand-written figure in the
+manual went stale: 100 became 102, 27 became 29, and `tools/list` for an admin
+became 110. That is the **fourth** time a count in this repository has been wrong
+— twice in the README, and now twice in `docs/`.
+
+So they are generated. `docs/tools/overview.mdx` carries two blocks between
+`{/* generated:counts */}` and `{/* generated:areas */}` markers, filled by
+`tools/gen-tool-docs.mjs` from the array itself, and `--check` fails when either
+is stale. The generator also reads the prompts array now, because the workflows
+are published as tools and the totals are wrong without them.
+
+**Every other page stopped repeating a number.** connect.mdx, troubleshooting.mdx
+and index.mdx used to state "80 for a member, 108 for an admin" and now link to
+the table; configuration.mdx said "All 27 admin tools" and now says "Every admin
+tool". One generated figure, cited from everywhere else — the same rule that
+killed the in-app /docs page, applied to the numbers rather than to the list.
+
+The per-area blurbs moved into `SECTIONS` in the generator, since it has to emit
+the cards to keep their counts right.
+
+**Applies to:** `tools/gen-tool-docs.mjs`, `docs/tools/overview.mdx`,
+`docs/connect.mdx`, `docs/index.mdx`, `docs/reference/troubleshooting.mdx`,
+`docs/self-hosting/configuration.mdx`, `docs/reference/security.mdx`, `CLAUDE.md`.
+
+---
+
 ## 2026-08-31 — Searching settings by name, and only then by description
 
 Configuration is one screen now, and Google sign-in added four more rows to it, so finding

@@ -63,8 +63,9 @@ just *talk* to it.
   turns everyone else away unless an admin has deliberately opened sign-up.
 - **Hard to guess at** — sign-in attempts are counted per account and per address, and an
   account stops answering after eight wrong passwords in fifteen minutes. Passwords are
-  scrypt hashes, sessions are httpOnly cookies, and admins cannot reset each other or the
-  owner — the code being public is not the same as the door being open.
+  scrypt hashes, sessions are httpOnly cookies you can decline to keep past the browser
+  window, and admins cannot reset each other or the owner — the code being public is not
+  the same as the door being open.
 
 > "Here's everything I did at Vertex last quarter — file it."
 > "Tailor my resume to this posting."
@@ -340,6 +341,14 @@ change is one line in **Admin → Log**, with your name on it, values included f
 that isn't a secret. Clearing a value resets it to the default the app ships with, and the
 button tells you what that is before you press it.
 
+One of those settings is worth calling out because it changes what somebody sees before they
+sign in. **Landing page** is the marketing site in front of your instance, if you run one.
+Point it at a site on the same domain as the app — hired.tools and app.hired.tools — and
+signing in leaves a flag on the domain above both, so anyone already signed in who lands on
+the marketing page is sent straight through to the app instead of reading the pitch again.
+The flag says a session exists and nothing else; it carries no identity and no token, and
+the session itself never leaves the app. Leave it empty and nothing is written.
+
 You can also add a setting of your own. That's the escape hatch for one that exists before
 it has a section — a feature can read a key, and you can set it today rather than waiting
 for a screen. Keys are lowercase letters, numbers and underscores.
@@ -378,16 +387,19 @@ still be asked before something gets destroyed. And when a tool's entire job is 
 link — a published resume, a rendered PDF, a shared pipeline — it comes back as a link you can
 click, not a field buried in a blob of JSON.
 
-The **Docs** page inside the app — it's in the profile menu, next to Settings — lists every tool
-and workflow, generated from the server itself rather than written out, so it can't drift. It
-also carries three Claude Skills you can install, which teach an assistant the rules of this
-place before you have to. Each comes two ways: the raw `SKILL.md` to drop in
-`~/.claude/skills/`, and a zip for the upload box in Claude's apps, which wants a folder rather
-than a loose file.
+[docs.hired.tools](https://docs.hired.tools) is the manual — it's **Docs** in the profile
+menu, and every tool is written out there with its arguments, generated from the same array
+the server sends so it can't drift. The app used to render its own copy of that list at
+`/docs`; one generated list rendered twice is one rendering that goes stale, so that page
+is gone and the address redirects.
 
-That page is about *your* deployment. [docs.hired.tools](https://docs.hired.tools) is the
-manual for the product: the same pages whoever you're hosting reads, whichever instance
-they're on.
+**Settings → Connections** keeps the parts only your own instance can answer: how many tools
+your account actually has, a **Test** that proves it by calling the endpoint, and the three
+Claude Skills, which teach an assistant the rules of this place before you have to. Each
+comes two ways — the raw `SKILL.md` to drop in `~/.claude/skills/`, and a zip for the upload
+box in Claude's apps, which wants a folder rather than a loose file. They're served from the
+`skills/` directory of the instance you're running, so what you install is byte-for-byte what
+it has.
 
 ### The four areas
 
