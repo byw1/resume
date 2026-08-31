@@ -4,6 +4,7 @@ import { useEffect, useRef, useState, useTransition } from "react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { FilterChip } from "@/components/filter-chip";
 import {
   AUDIT_ACTION_LABEL,
   AUDIT_GROUPS,
@@ -119,17 +120,17 @@ function FilterableLog({ initial }: { initial: AuditRow[] }) {
       <CardContent className="space-y-4">
         <div className="flex flex-wrap items-center gap-2">
           <div className="no-scrollbar -mx-1 flex items-center gap-1 overflow-x-auto px-1">
-            <Chip active={group === null} onClick={() => setGroup(null)}>
+            <FilterChip active={group === null} onClick={() => setGroup(null)}>
               Everything
-            </Chip>
+            </FilterChip>
             {GROUPS.map((key) => (
-              <Chip
+              <FilterChip
                 key={key}
                 active={group === key}
                 onClick={() => setGroup(group === key ? null : key)}
               >
                 {AUDIT_GROUP_LABEL[key]}
-              </Chip>
+              </FilterChip>
             ))}
           </div>
           <Input
@@ -161,32 +162,6 @@ function FilterableLog({ initial }: { initial: AuditRow[] }) {
         )}
       </CardContent>
     </Card>
-  );
-}
-
-function Chip({
-  active,
-  onClick,
-  children,
-}: {
-  active: boolean;
-  onClick: () => void;
-  children: React.ReactNode;
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      aria-pressed={active}
-      className={cn(
-        "touch-target flex h-11 shrink-0 items-center rounded-chip px-2.5 text-[12.5px] transition-colors duration-150 md:h-7",
-        active
-          ? "bg-accent text-foreground font-medium"
-          : "text-muted-foreground hover:bg-accent/60 hover:text-foreground",
-      )}
-    >
-      {children}
-    </button>
   );
 }
 
