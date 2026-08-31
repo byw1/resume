@@ -2575,3 +2575,60 @@ the verification loop, or `--check` dies with a ReferenceError rather than a use
 `src/components/pipeline/{source-chip,sources-input,new-application-dialog,application-detail}.tsx`,
 `src/components/crm/company-detail.tsx`, `tools/gen-tool-docs.mjs`, `README.md`,
 `docs/concepts/pipeline.mdx`.
+
+---
+
+## 2026-08-31 — The pipeline could only be asked three questions
+
+**What was actually wrong.** The board could be asked which stage, whether a follow-up date
+had passed, and whether text appeared in the company name, role title or notes. Everything
+else the schema records — sources, the resume sent, excitement, work mode, days in stage,
+the whole posting — was write-only. And `overdue` and `closed` could not be combined with a
+stage at all, because the toggle made them REPLACE the set: "screening interviews that are
+overdue" and "closed, but only the ghostings" were unaskable for no reason but that.
+
+**`overdue` is a flag that ANDs; `closed` expands to the four terminal stages.** Both
+spellings still parse out of `f`, so saved views and pasted links keep meaning what they
+meant, and `closed` being an alias deletes the special case from every downstream branch
+rather than adding a seventh.
+
+**The chip counts were lying.** They came from `pipelineStats(userId)`, which ignores `q`,
+so searching "stripe" left "Screening 12" above a board showing one card. Counts are
+computed from the rows the page already holds, faceted the standard way — each dimension
+counted against rows passing every OTHER dimension — so ticking one source does not collapse
+the source counts to that source. The page reads applications once and both filters and
+counts from that array.
+
+**Stages stay chips; the unbounded dimensions go behind one button.** Six stages are short,
+colour-coded and used constantly, and burying them would make the common case worse. A
+person has forty companies and a dozen sources: a chip each is a wall.
+
+**Search moved out of the Prisma `where` and widened.** "Which of these mentioned Rust" was
+unanswerable with the whole posting sitting in `jobDescription`, and a substring across a
+relation's names is not something Prisma's array operators can express at all. It now covers
+the company, role, notes, location, work mode, the posting and the source names.
+
+**`src/lib/pipeline-filters.ts` is pure and shared.** The page filters with it and the
+toolbar builds links with it, so there is one definition of what a filter means rather than
+a server copy and a client copy that drift. Its predicate was exercised against eighteen
+cases — every dimension, the two combining fixes, and a URL round-trip — because there is
+no test suite and this is the code that decides what somebody sees.
+
+**New parameters are APPENDED to `normaliseQuery`'s whitelist, never inserted.** A saved
+view is compared to the current URL as a raw string, so reordering that array rewrites every
+stored view's identity at once. A parameter this module understands and that file drops is a
+filter that vanishes the moment somebody saves the view.
+
+**`co` and `cv` hold ids, not names.** Ids survive a rename, which names do not; they do not
+survive `merge_companies`, and a saved view naming a merged-away company simply stops
+matching it. That is the acceptable failure — nothing breaks and clearing the filter fixes
+it — but it is the reason the manual says so out loud.
+
+**The calendar is narrowed only by what a calendar entry carries.** An entry is a date, not
+an application: it has a stage and a kind, and no source, resume or excitement. The other
+dimensions apply on the board and the table and are documented as doing so, rather than
+being silently ignored on one view.
+
+**Applies to:** `src/lib/pipeline-filters.ts`, `src/components/pipeline/filter-menu.tsx`,
+`src/components/pipeline/toolbar.tsx`, `src/app/(app)/applications/page.tsx`,
+`src/lib/data/views.ts`, `README.md`, `docs/concepts/pipeline.mdx`, `docs/app.mdx`.

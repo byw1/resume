@@ -301,10 +301,20 @@ function hashKey(value: string): number {
   return hash;
 }
 
-/** The join rows a caller never wants to see, flattened to what they meant. */
-function flattenSources<T extends { sources: { source: { id: string; name: string; color: string } }[] }>(
+/** A source as every caller wants it: the row, not the link to it. */
+export type SourceRef = { id: string; name: string; color: string };
+
+/**
+ * The join rows a caller never wants to see, flattened to what they meant.
+ *
+ * The return type is spelled out with Omit rather than left to inference: a
+ * spread over a generic keeps the original `sources` in the resulting type, so
+ * without this every caller still sees join rows through the compiler even
+ * though the value is right.
+ */
+function flattenSources<T extends { sources: { source: SourceRef }[] }>(
   row: T,
-) {
+): Omit<T, "sources"> & { sources: SourceRef[] } {
   return { ...row, sources: row.sources.map((link) => link.source) };
 }
 

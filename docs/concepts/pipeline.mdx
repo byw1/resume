@@ -198,7 +198,14 @@ says so plainly rather than inventing a trend.
 The pipeline toolbar picks the view — a drag-and-drop **board**, a sortable **table**, or
 a month **calendar** of everything with a date on it — plus the stage filter and a search.
 
-Stage filters combine, so "screening and interviewing" is one view rather than two trips.
+Filters combine — all of them, with each other. "Screening and interviewing" is one view
+rather than two trips, and so are "screening but only the overdue ones" and "closed, but
+only the ghostings". The stage chips are the fast lane; everything unbounded lives behind
+the **Filter** button beside the search: the source it came from, the company, which resume
+went out, how long it has sat still, and how much you want it. Every count you see is
+counted against the rows the other filters left, so a chip never claims twelve when the
+search has left one.
+
 The table edits in place: stage, follow-up, salary and location are the cells themselves,
 a **Waiting** column counts days since anything last moved, and selecting rows closes a
 batch out in one action.
@@ -213,14 +220,25 @@ view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc
 | Parameter | Values |
 | --- | --- |
 | `view` | `board`, `list`, `calendar` |
-| `f` | Comma-separated stages, or `overdue`, or `closed` |
+| `f` | Comma-separated stages, plus `overdue` as a flag. `closed` expands to the four endings. |
+| `src` | Comma-separated source ids |
+| `co` | Comma-separated company ids |
+| `cv` | Comma-separated resume ids, or `none` for the ones with no resume attached |
+| `w` | Minimum days sitting in the current stage |
+| `x` | Minimum excitement, 1-5 |
 | `sort`, `dir` | Column and direction |
-| `q` | Search text |
+| `q` | Search text — company, role, notes, location, work mode, the posting, and source names |
 | `month` | `YYYY-MM`, for the calendar view |
 
 Saving under a name that already exists replaces that view, which is how you edit one.
-Anything outside those six parameters is dropped, and they are always written in that
-order — so the same view saved twice is the same string.
+Anything outside those parameters is dropped, and they are always written in that order —
+so the same view saved twice is the same string.
+
+<Note>
+  `co` and `cv` hold ids, which survive a rename but not a delete. A saved view naming a
+  company you later merged away simply stops matching it; nothing breaks, and clearing that
+  filter fixes it.
+</Note>
 
 ## Sharing the board
 

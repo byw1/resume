@@ -1,8 +1,14 @@
 import Link from "next/link";
 import { CalendarDaysIcon, KanbanIcon, ListIcon } from "lucide-react";
 import type { Stage } from "@prisma/client";
-import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
+import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
 import { SearchBox } from "@/components/crm/search-box";
+import { FilterMenu, type FilterFacets } from "@/components/pipeline/filter-menu";
+import {
+  buildPipelineQuery,
+  toggleIn,
+  type PipelineFilters,
+} from "@/lib/pipeline-filters";
 import { cn } from "@/lib/utils";
 
 /**
@@ -25,31 +31,6 @@ export function parseView(value: string | undefined): PipelineView {
     : "board";
 }
 
-/** `all`, `overdue`, `closed`, or one stage. */
-export type PipelineFilter = "all" | "overdue" | "closed" | Stage;
-
-/**
- * The filter is a set, not a single choice.
- *
- * It reads from one comma-separated `f` param — "SCREEN,INTERVIEW" — because
- * the URL is the state here and a link you can paste to yourself is worth more
- * than a tidier query string. An empty or unrecognised value means everything,
- * so an old single-stage link still works exactly as it did.
- *
- * `overdue` and `closed` are cuts across stages rather than stages, so they do
- * not combine: picking one replaces the set.
- */
-export function parseFilters(value: string | undefined, stages: readonly Stage[]): PipelineFilter[] {
-  const parts = (value ?? "")
-    .split(",")
-    .map((part) => part.trim())
-    .filter(Boolean);
-  if (parts.includes("overdue")) return ["overdue"];
-  if (parts.includes("closed")) return ["closed"];
-  const picked = parts.filter((part) => (stages as readonly string[]).includes(part)) as Stage[];
-  return picked.length > 0 ? picked : ["all"];
-}
-
 export type ToolbarCounts = {
   all: number;
   overdue: number;
@@ -57,55 +38,48 @@ export type ToolbarCounts = {
   byStage: Record<Stage, number>;
 };
 
+/**
+ * Counts come from the rows the page is holding, not from pipelineStats.
+ *
+ * The chips used to be fed by a separate aggregate that ignored `q`, so
+ * searching "stripe" left "Screening 12" sitting above a board with one card
+ * on it. With five more dimensions that lie would compound.
+ */
+
 const VIEWS: { view: PipelineView; label: string; icon: typeof ListIcon }[] = [
   { view: "board", label: "Board", icon: KanbanIcon },
   { view: "list", label: "List", icon: ListIcon },
   { view: "calendar", label: "Calendar", icon: CalendarDaysIcon },
 ];
 
-function href(view: PipelineView, filters: PipelineFilter[], search: string) {
-  const params = new URLSearchParams();
-  if (view !== "board") params.set("view", view);
-  const set = filters.filter((f) => f !== "all");
-  if (set.length > 0) params.set("f", set.join(","));
-  if (search) params.set("q", search);
-  const query = params.toString();
-  return query ? `/applications?${query}` : "/applications";
-}
-
-/**
- * What clicking a chip does. A stage toggles in and out of the set; the two
- * cross-cutting chips replace it. Clicking the last active stage off leaves
- * "everything" rather than a filter that matches nothing.
- */
-function toggled(filters: PipelineFilter[], chip: PipelineFilter): PipelineFilter[] {
-  if (chip === "all") return ["all"];
-  if (chip === "overdue" || chip === "closed") {
-    return filters.includes(chip) ? ["all"] : [chip];
-  }
-  const stages = filters.filter((f) => f !== "all" && f !== "overdue" && f !== "closed");
-  const next = stages.includes(chip) ? stages.filter((f) => f !== chip) : [...stages, chip];
-  return next.length > 0 ? next : ["all"];
-}
-
 export function PipelineToolbar({
   view,
   filters,
-  search,
   counts,
+  facets,
+  sort,
+  dir,
   action,
   views,
   share,
 }: {
   view: PipelineView;
-  filters: PipelineFilter[];
-  search: string;
+  filters: PipelineFilters;
   counts: ToolbarCounts;
+  facets: FilterFacets;
+  sort?: string;
+  dir?: string;
   action: React.ReactNode;
   views: React.ReactNode;
   share: React.ReactNode;
 }) {
-  const on = (chip: PipelineFilter) => filters.includes(chip);
+  const href = (next: PipelineFilters, nextView: PipelineView = view) =>
+    buildPipelineQuery({ view: nextView, filters: next, sort, dir });
+
+  const closedOn =
+    TERMINAL_STAGES.every((stage) => filters.stages.includes(stage)) &&
+    filters.stages.length === TERMINAL_STAGES.length;
+  const nothingOn = filters.stages.length === 0 && !filters.overdue;
   return (
     <div className="mb-4 space-y-2.5">
       <div className="flex flex-wrap items-center gap-2">
@@ -115,7 +89,7 @@ export function PipelineToolbar({
             return (
               <Link
                 key={candidate}
-                href={href(candidate, filters, search)}
+                href={href(filters, candidate)}
                 aria-current={active ? "page" : undefined}
                 className={cn(
                   "touch-target flex h-11 items-center gap-1.5 rounded-chip px-2.5 text-[12.5px] font-medium transition-colors duration-150 md:h-7",
@@ -131,7 +105,12 @@ export function PipelineToolbar({
           })}
         </div>
 
-        <SearchBox placeholder="Search companies, roles, notes…" className="w-full sm:w-72" />
+        <SearchBox
+          placeholder="Company, role, notes, the posting itself…"
+          className="w-full sm:w-64"
+        />
+
+        <FilterMenu filters={filters} facets={facets} view={view} sort={sort} dir={dir} />
 
         {views}
         {share}
@@ -142,13 +121,16 @@ export function PipelineToolbar({
       {/* Stages combine — "Screening and Interviewing" is one question, not
           two views. Scrolls sideways on a narrow screen rather than wrapping
           into a wall of chips. */}
+      {/* Stages combine, and now they combine with everything else too:
+          "screening and overdue" and "closed, but only the ghostings" were
+          both unaskable when these two chips replaced the stage set. */}
       <div className="no-scrollbar -mx-1 flex items-center gap-1 overflow-x-auto px-1 pb-0.5">
-        <Chip href={href(view, ["all"], search)} active={on("all")} count={counts.all}>
+        <Chip href={href({ ...filters, stages: [], overdue: false })} active={nothingOn} count={counts.all}>
           Everything
         </Chip>
         <Chip
-          href={href(view, toggled(filters, "overdue"), search)}
-          active={on("overdue")}
+          href={href({ ...filters, overdue: !filters.overdue })}
+          active={filters.overdue}
           count={counts.overdue}
           tone={counts.overdue > 0 ? "var(--destructive)" : undefined}
           emphasis={counts.overdue > 0}
@@ -161,8 +143,8 @@ export function PipelineToolbar({
         {BOARD_STAGES.map((stage) => (
           <Chip
             key={stage}
-            href={href(view, toggled(filters, stage), search)}
-            active={on(stage)}
+            href={href({ ...filters, stages: toggleIn(filters.stages, stage) as Stage[] })}
+            active={filters.stages.includes(stage)}
             count={counts.byStage[stage]}
             tone={STAGE_TONE[stage]}
           >
@@ -172,7 +154,16 @@ export function PipelineToolbar({
 
         <span className="bg-border mx-1 h-4 w-px shrink-0" />
 
-        <Chip href={href(view, toggled(filters, "closed"), search)} active={on("closed")} count={counts.closed}>
+        <Chip
+          href={href({
+            ...filters,
+            stages: closedOn
+              ? []
+              : ([...new Set([...filters.stages, ...TERMINAL_STAGES])] as Stage[]),
+          })}
+          active={closedOn}
+          count={counts.closed}
+        >
           Closed
         </Chip>
       </div>

@@ -9,7 +9,6 @@ import {
   listApplications,
   listSchedule,
   listSources,
-  pipelineStats,
 } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
 import { PipelineBoard } from "@/components/pipeline/board";
@@ -23,11 +22,16 @@ import {
 } from "@/components/pipeline/calendar";
 import {
   PipelineToolbar,
-  parseFilters,
   parseView,
-  type PipelineFilter,
   type PipelineView,
 } from "@/components/pipeline/toolbar";
+import {
+  EMPTY_FILTERS as EMPTY,
+  hasAnyFilter,
+  matchesFilters,
+  parsePipelineFilters,
+  type PipelineFilters,
+} from "@/lib/pipeline-filters";
 import { ApplicationPanelProvider } from "@/components/pipeline/application-panel";
 import { SavedViews } from "@/components/pipeline/saved-views";
 import { SharePipeline } from "@/components/pipeline/share-pipeline";
@@ -46,11 +50,13 @@ const BLURB: Record<PipelineView, string> = {
   calendar: "Follow-ups, task deadlines and everything you have logged, by the day it lands.",
 };
 
-function filterLabel(filters: PipelineFilter[]) {
-  if (filters.includes("all")) return null;
-  if (filters.includes("overdue")) return "Needs a nudge";
-  if (filters.includes("closed")) return "Closed";
-  return filters.map((f) => STAGE_LABEL[f as Stage]).join(" · ");
+function filterLabel(filters: PipelineFilters) {
+  const parts = [
+    ...filters.stages.map((stage) => STAGE_LABEL[stage]),
+    ...(filters.overdue ? ["Needs a nudge"] : []),
+  ];
+  if (parts.length > 0) return parts.join(" · ");
+  return hasAnyFilter(filters) ? "Filtered" : null;
 }
 
 export default async function ApplicationsPage({
@@ -67,18 +73,19 @@ export default async function ApplicationsPage({
   const params = await searchParams;
   const one = (key: string) => (Array.isArray(params[key]) ? params[key][0] : params[key]);
   const view = parseView(one("view"));
-  const filters = parseFilters(one("f"), STAGES);
-  const search = one("q")?.trim() ?? "";
+  const filters = parsePipelineFilters(one, STAGES);
+  const search = filters.search;
 
   // Resolved once per request: with logos off, no domain reaches the browser
   // at all, so there is nothing for it to go and fetch.
-  const [{ companyLogos }, resumes, stats, savedViews, sourceOptions] = await Promise.all([
-    getSettings(),
-    listResumes(user.id),
-    pipelineStats(user.id),
-    listSavedViews(user.id),
-    listSources(user.id),
-  ]);
+  const [{ companyLogos }, resumes, savedViews, sourceOptions, everyApplication] =
+    await Promise.all([
+      getSettings(),
+      listResumes(user.id),
+      listSavedViews(user.id),
+      listSources(user.id),
+      listApplications(user.id, { includeClosed: true }),
+    ]);
   const share = await getPipelineShare(user.id);
   const shareBase = `${headerProto}://${headerHost}`;
 
@@ -96,11 +103,73 @@ export default async function ApplicationsPage({
       ? companyDomain({ name: application.company.name, website: application.company.website })
       : null;
 
+  const now = Date.now();
+
+  /**
+   * Facet counting: each dimension is counted against the rows that pass every
+   * OTHER dimension. So ticking one source does not collapse the source counts
+   * to that source, and the stage chips answer "how many more would I see" —
+   * which is the question a count on a filter is actually asked.
+   */
+  const passing = (except: keyof PipelineFilters) => {
+    const relaxed: PipelineFilters = { ...filters, [except]: EMPTY[except] };
+    return everyApplication.filter((application) => matchesFilters(application, relaxed, now));
+  };
+
+  const forStages = passing("stages");
   const counts = {
-    all: stats.total,
-    overdue: stats.followUpsDue,
-    closed: TERMINAL_STAGES.reduce((sum, stage) => sum + stats.counts[stage], 0),
-    byStage: stats.counts,
+    all: everyApplication.filter((application) =>
+      matchesFilters(application, { ...EMPTY, search: filters.search }, now),
+    ).length,
+    overdue: passing("overdue").filter(
+      (application) =>
+        !TERMINAL_STAGES.includes(application.stage) &&
+        application.nextFollowUpAt !== null &&
+        application.nextFollowUpAt.getTime() <= now,
+    ).length,
+    closed: forStages.filter((application) => TERMINAL_STAGES.includes(application.stage)).length,
+    byStage: Object.fromEntries(
+      STAGES.map((stage) => [stage, forStages.filter((a) => a.stage === stage).length]),
+    ) as Record<Stage, number>,
+  };
+
+  const tally = <T,>(rows: typeof everyApplication, key: (row: (typeof everyApplication)[number]) => T[]) => {
+    const out = new Map<T, number>();
+    for (const row of rows) for (const value of key(row)) out.set(value, (out.get(value) ?? 0) + 1);
+    return out;
+  };
+  const sourceTally = tally(passing("sources"), (row) => row.sources.map((s) => s.id));
+  const companyTally = tally(passing("companies"), (row) => [row.companyId]);
+  const resumeTally = tally(passing("resumes"), (row) => [row.resumeId ?? "none"]);
+
+  const facets = {
+    sources: sourceOptions
+      .map((source) => ({
+        id: source.id,
+        name: source.name,
+        color: source.color,
+        count: sourceTally.get(source.id) ?? 0,
+      }))
+      .filter((source) => source.count > 0 || filters.sources.includes(source.id)),
+    companies: [...companyTally.entries()]
+      .map(([id, count]) => ({
+        id,
+        name: everyApplication.find((a) => a.companyId === id)?.company.name ?? "—",
+        count,
+      }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name)),
+    resumes: [
+      ...resumes
+        .map((resume) => ({
+          id: resume.id,
+          name: resume.name,
+          count: resumeTally.get(resume.id) ?? 0,
+        }))
+        .filter((resume) => resume.count > 0 || filters.resumes.includes(resume.id)),
+      ...(resumeTally.get("none")
+        ? [{ id: "none", name: "No resume attached", count: resumeTally.get("none") ?? 0 }]
+        : []),
+    ],
   };
 
   const chrome = (content: React.ReactNode) => (
@@ -114,8 +183,10 @@ export default async function ApplicationsPage({
         <PipelineToolbar
           view={view}
           filters={filters}
-          search={search}
           counts={counts}
+          facets={facets}
+          sort={one("sort")}
+          dir={one("dir")}
           action={
             <NewApplicationDialog
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
@@ -154,11 +225,13 @@ export default async function ApplicationsPage({
       if (search && !`${entry.title} ${entry.detail}`.toLowerCase().includes(search.toLowerCase())) {
         return false;
       }
-      if (filters.includes("all")) return true;
+      // A calendar entry is a date, not an application, so only the dimensions
+      // an entry actually carries can narrow it: its stage, and whether it is
+      // the follow-up itself. The rest are applied on the other two views.
+      if (filters.overdue && entry.kind !== "FOLLOW_UP") return false;
+      if (filters.stages.length === 0) return true;
       if (!entry.stage) return false;
-      if (filters.includes("overdue")) return entry.kind === "FOLLOW_UP";
-      if (filters.includes("closed")) return TERMINAL_STAGES.includes(entry.stage);
-      return filters.includes(entry.stage);
+      return filters.stages.includes(entry.stage);
     });
     const entries: CalendarEntry[] = kept.map((entry) => ({
       kind: entry.kind,
@@ -179,24 +252,10 @@ export default async function ApplicationsPage({
     );
   }
 
-  const all = await listApplications(user.id, {
-    includeClosed: true,
-    ...(search ? { search } : {}),
-  });
-  const now = Date.now();
-  const matches = (application: (typeof all)[number]) => {
-    if (filters.includes("all")) return true;
-    if (filters.includes("overdue")) {
-      return (
-        !TERMINAL_STAGES.includes(application.stage) &&
-        application.nextFollowUpAt !== null &&
-        application.nextFollowUpAt.getTime() <= now
-      );
-    }
-    if (filters.includes("closed")) return TERMINAL_STAGES.includes(application.stage);
-    return filters.includes(application.stage);
-  };
-  const visible = all.filter(matches);
+  // Already fetched above for the facet counts — one read, one predicate.
+  const visible = everyApplication.filter((application) =>
+    matchesFilters(application, filters, now),
+  );
 
   if (view === "list") {
     const rows: ListRow[] = visible.map((application) => ({
@@ -218,7 +277,7 @@ export default async function ApplicationsPage({
     return chrome(<PipelineList rows={sortRows(rows, sort, desc)} sort={sort} desc={desc} />);
   }
 
-  const toCard = (application: (typeof all)[number]) => ({
+  const toCard = (application: (typeof everyApplication)[number]) => ({
     id: application.id,
     company: application.company.name,
     roleTitle: application.roleTitle,
@@ -235,10 +294,9 @@ export default async function ApplicationsPage({
   // Which columns the board draws. Filtering to one stage should show that one
   // column, not five empty ones beside it; filtering to Closed should show no
   // columns at all, because closed applications live under the board.
-  const picked = filters.filter(
-    (f): f is Stage => f !== "all" && f !== "overdue" && f !== "closed" && BOARD_STAGES.includes(f),
-  );
-  const columns = filters.includes("closed")
+  const picked = filters.stages.filter((stage) => BOARD_STAGES.includes(stage));
+  const onlyClosed = filters.stages.length > 0 && picked.length === 0;
+  const columns = onlyClosed
     ? []
     : picked.length > 0
       ? BOARD_STAGES.filter((stage) => picked.includes(stage))

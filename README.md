@@ -16,8 +16,10 @@ just *talk* to it.
 - **Pipeline** — stages, activity timeline, tasks, and follow-up dates that schedule
   themselves. A toolbar across the top picks the view — a drag-and-drop board, a sortable
   table, or a month calendar of everything that has a date on it — plus the cut and a search.
-  Stage filters combine, so "screening and interviewing" is one view rather than two trips,
-  and a cut worth keeping gets saved under a name. The table edits in place: stage,
+  Filters combine — all of them, with each other: "screening and interviewing", "screening
+  but only the overdue ones", "everything from a referral that has sat a fortnight". Stage
+  chips are the fast lane and the rest live behind one button, counted against what the
+  other filters left. A cut worth keeping gets saved under a name. The table edits in place: stage,
   follow-up, salary and location are the cells themselves, a Waiting column counts the days
   since anything last moved, and selecting rows closes a batch out in one action.
   Applications end as accepted, rejected, withdrawn or ghosted — silence is the most common
