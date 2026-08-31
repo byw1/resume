@@ -140,14 +140,44 @@ export function ApplicationDetail({
   });
   const [stage, setStage] = useState(application.stage);
   const [, startTransition] = useTransition();
+  const router = useRouter();
 
-  const { state, push } = useAutosave<typeof values>((next) =>
-    updateApplicationAction(application.id, {
-      ...next,
+  // The company deliberately does NOT ride along with the autosave.
+  //
+  // updateApplication resolves `company` through upsertCompanyByName, which
+  // creates the company when the name does not exist. Autosave flushes 700ms
+  // after a pause, so typing "Stripe" and hesitating after "Str" used to mint a
+  // company called "Str" and move the application onto it — the machine that
+  // manufactures the duplicate employers you then have to merge. It is
+  // committed on blur instead, when the name is a name.
+  const { state, push } = useAutosave<typeof values>((next) => {
+    const { company: _company, ...rest } = next;
+    return updateApplicationAction(application.id, {
+      ...rest,
       nextFollowUpAt: next.nextFollowUpAt || null,
       resumeId: next.resumeId || null,
-    }),
-  );
+    });
+  });
+
+  const commitCompany = () => {
+    const name = values.company.trim();
+    // Empty means they cleared the box, not that they want a company with no
+    // name. Put the old one back rather than writing a blank.
+    if (!name) {
+      setValues((prev) => ({ ...prev, company: application.company }));
+      return;
+    }
+    if (name === application.company) return;
+    startTransition(async () => {
+      try {
+        await updateApplicationAction(application.id, { company: name });
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not change the company.");
+        setValues((prev) => ({ ...prev, company: application.company }));
+      }
+    });
+  };
 
   const set = (patch: Partial<typeof values>) => {
     const next = { ...values, ...patch };
@@ -170,6 +200,8 @@ export function ApplicationDetail({
           <Input
             value={values.company}
             onChange={(event) => set({ company: event.target.value })}
+            onBlur={commitCompany}
+            aria-label="Company"
             className="h-auto border-0 bg-transparent px-0 text-[27px] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-[32px]"
           />
           <Input

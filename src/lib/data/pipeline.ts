@@ -234,9 +234,14 @@ export async function updateCompany(userId: string, id: string, patch: Partial<C
 }
 
 /**
- * Deleting a company leaves its applications and contacts standing — the
- * schema nulls the link rather than cascading. Losing an application because
- * you tidied up a company record would be a genuinely bad afternoon.
+ * Refuses while applications point here, and nulls contacts' employer.
+ *
+ * Note what the schema actually does: `Contact.company` is `onDelete: SetNull`,
+ * but `Application.company` is `onDelete: Cascade` — so deleting a company
+ * WOULD take its applications with it, history included. That is the genuinely
+ * bad afternoon this guard exists to prevent, and it is why the check below is
+ * load-bearing rather than a courtesy. To fold a duplicate employer away
+ * without losing anything, use mergeCompanies.
  */
 export async function deleteCompany(userId: string, id: string) {
   const company = await db.company.findFirst({
@@ -259,6 +264,10 @@ export async function upsertCompanyByName(
   extra?: Partial<{ website: string; industry: string; location: string; notes: string }>,
 ) {
   const clean = name.trim();
+  // The last line of defence against a half-typed name becoming a company.
+  // Callers reach here from an autosave, a tool argument and a posting parse,
+  // and a Company row named "" is unreachable, unnameable and permanent.
+  if (!clean) throw new Error("A company needs a name");
   return db.company.upsert({
     where: { userId_name: { userId, name: clean } },
     create: { userId, name: clean, ...extra },

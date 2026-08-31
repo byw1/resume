@@ -100,10 +100,18 @@ export function CompanyDetail({
   const domain = logos ? companyDomain({ name: values.name, website: values.website }) : null;
 
   const remove = () => {
-    const cost =
-      applications.length > 0
-        ? ` That deletes ${applications.length === 1 ? "the application" : `all ${applications.length} applications`} with them, history included.`
-        : "";
+    // deleteCompany REFUSES while applications point here — it does not take
+    // them with it. The old copy promised the opposite, so the warning was a
+    // threat followed by an error toast. Say what will actually happen.
+    if (applications.length > 0) {
+      toast.error(
+        `${company.name} still has ${applications.length === 1 ? "an application" : `${applications.length} applications`}. Move or delete ${applications.length === 1 ? "it" : "those"} first, or merge this company into another.`,
+      );
+      return;
+    }
+    const cost = contacts.length > 0
+      ? ` The ${contacts.length === 1 ? "person" : `${contacts.length} people`} on file here stay, and lose their employer.`
+      : "";
     if (!confirm(`Delete ${company.name}?${cost} This cannot be undone.`)) return;
     startTransition(async () => {
       try {
