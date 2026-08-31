@@ -74,8 +74,8 @@ company page has a **Merge** button, and it pre-selects the other company when t
 names reduce to the same key.
 
 Deleting a company refuses while applications still point at it — move or delete those
-first, so tidying up can never take an application with it. Contacts survive and simply
-lose their employer.
+first, so tidying up can never take an application with it. People survive and simply
+lose that one link; anywhere else they represent is untouched.
 
 ### Filters
 
@@ -95,12 +95,24 @@ and what is still live" is one call.
 ## Contacts
 
 Recruiters, hiring managers, referrals, the friend who works there. A contact holds
-`name`, `title`, `email`, `phone`, `relationship`, `notes`, an employer, optionally the
-application they belong to, and every way you can reach them.
+`name`, `title`, `email`, `phone`, `relationship`, `notes`, the companies they represent,
+optionally the application they belong to, and every way you can reach them.
 
-Attaching and detaching are the same field: pass `company` or `applicationId` to attach —
-the company is created if it does not exist — or an empty string to detach. Removing
-someone from an application never deletes the person.
+### Everywhere they represent
+
+`companies` is a list, because people are not one employer each: a founder who advises two
+of your targets is three links, and an ex-colleague who moves keeps the old company as
+history. Pass names and any that do not exist yet are created; pass `companyIds` when you
+already have them.
+
+<Note>
+  `companies` **replaces** the whole set, like every other array in the API. To add one,
+  read the current list with `get_contact`, append, and write it all back. An empty list
+  detaches them from every company.
+</Note>
+
+`applicationId` is still one thread at a time: pass an id to attach, an empty string to
+detach. Removing someone from an application never deletes the person.
 
 ### Where to find them
 
@@ -132,19 +144,24 @@ where it gets remembered, and "when did I last talk to them?" is answered from
 surface in `list_follow_ups` alongside due applications, and on the dashboard. The
 `ping-due` filter on `list_contacts` is the same question asked directly.
 
-Two other filters: `with-application` and `no-company`.
+Two other filters: `with-application` and `no-company` — `no-company` means nowhere on
+file, not "no main employer". `companyId` matches anyone linked to that company, whichever
+of their hats it is.
 
 ## In the app
 
 **CRM** splits into Companies and Contacts, each a filterable list, and both are named in
 the sidebar so neither needs finding. A company page holds its details, its research notes,
-every contact there, and its roles as job listings — each one a click from the posting it
-came from. A contact page holds their details, their links and their timeline.
+everyone who represents it, and its roles as job listings — each one a click from the
+posting it came from. A contact page holds their details, their links and their timeline.
 
 Wherever a company is named it is drawn as a chip carrying its own favicon, and clicking it
-opens that company. On a contact, the employer is that chip rather than a text field: the
-field only appears when there is nothing linked yet, because editing it renames the company
-for everyone else attached to it.
+opens that company. Under a contact's name those chips are the control: each one has an ×
+that unlinks it, and the button beside them adds another or creates a company that is not
+on file yet. There is no company text field, because typing into one renamed the company
+for everyone else attached to it and could only ever hold one.
+
+The contacts list shows the first company someone represents and a count of the rest.
 
 Contacts attach to applications straight from the CRM rather than being retyped.
 

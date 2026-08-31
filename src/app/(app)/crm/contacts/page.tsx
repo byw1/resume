@@ -188,14 +188,27 @@ export default async function ContactsPage({
                     </div>
                   </Link>
 
-                  <div className="relative hidden w-44 shrink-0 items-center px-3 md:flex">
-                    {contact.company ? (
-                      <CompanyChip
-                        company={contact.company}
-                        logos={companyLogos}
-                        size="sm"
-                        className="min-w-0"
-                      />
+                  {/* The first company they represent, plus a count of the
+                      rest. A row cannot hold four chips without becoming a
+                      paragraph, and the contact's own page has them all. */}
+                  <div className="relative hidden w-44 shrink-0 items-center gap-1.5 px-3 md:flex">
+                    {contact.companies.length > 0 ? (
+                      <>
+                        <CompanyChip
+                          company={contact.companies[0]}
+                          logos={companyLogos}
+                          size="sm"
+                          className="min-w-0"
+                        />
+                        {contact.companies.length > 1 && (
+                          <span
+                            className="text-faint shrink-0 text-[11.5px]"
+                            title={contact.companies.map((company) => company.name).join(", ")}
+                          >
+                            +{contact.companies.length - 1}
+                          </span>
+                        )}
+                      </>
                     ) : (
                       <span className="text-faint text-[12px]">—</span>
                     )}

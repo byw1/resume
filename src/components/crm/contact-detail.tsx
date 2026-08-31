@@ -18,7 +18,7 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
-import { CompanyChip } from "@/components/crm/company-chip";
+import { ContactCompanies, type CompanyRef } from "@/components/crm/contact-companies";
 import { ContactLinks } from "@/components/crm/contact-links";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
@@ -52,7 +52,6 @@ export type ContactFields = {
   otherLinks: string[];
   relationship: string;
   notes: string;
-  company: string;
   /** ISO date (yyyy-mm-dd) or empty — when to next get in touch. */
   nextFollowUpAt: string;
 };
@@ -77,14 +76,17 @@ export type ContactTouch = {
 
 export function ContactDetail({
   contact,
-  company,
+  companies,
+  companyOptions,
   application,
   touches,
   logos,
 }: {
   contact: ContactFields;
-  /** The employer's record, when they have one. Null means unattached. */
-  company: { id: string; name: string; website: string } | null;
+  /** Everywhere they represent. Empty means nobody has said yet. */
+  companies: CompanyRef[];
+  /** Every company on file, for the picker. */
+  companyOptions: CompanyRef[];
   application: LinkedApplication | null;
   touches: ContactTouch[];
   logos: boolean;
@@ -166,12 +168,19 @@ export function ContactDetail({
             onBlur={() => commit({ name: values.name })}
             className="h-auto border-0 bg-transparent px-0 text-[22px] font-semibold tracking-tight shadow-none focus-visible:ring-0"
           />
-          {/* The employer sits under the name as something you can open, not
-              as " at Stripe" in grey text — their research, their people and
-              the other roles there are one click from here. */}
+          {/* Who they are to you, under the name: the title, then everywhere
+              they represent as chips you can open, add to and take away. A
+              person is a founder at one place and an advisor at another, and
+              the research, the people and the roles at each are a click from
+              here. */}
           <div className="mt-0.5 flex flex-wrap items-center gap-x-2 gap-y-1">
             <span className="text-faint text-[12.5px]">{values.title || "No title set"}</span>
-            {company && <CompanyChip company={company} logos={logos} size="sm" />}
+            <ContactCompanies
+              contactId={contact.id}
+              companies={companies}
+              options={companyOptions}
+              logos={logos}
+            />
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -283,13 +292,9 @@ export function ContactDetail({
             </CardHeader>
             <CardContent className="space-y-3">
               <Field label="Title" value={values.title} placeholder="Engineering Manager" onChange={(title) => set({ title })} onCommit={() => commit({ title: values.title })} />
-              {/* Only asked for when there is nothing to link to. Once they
-                  have an employer the chip under their name IS the answer, and
-                  a second copy of it in a text box is a way to rename the
-                  company by accident. */}
-              {!company && (
-                <Field label="Company" value={values.company} placeholder="Stripe" onChange={(company) => set({ company })} onCommit={() => commit({ company: values.company })} hint="Creates the company if it does not exist yet." />
-              )}
+              {/* No Company box here. The chips under their name are the
+                  answer, and a second copy in a text field was a way to rename
+                  a company by accident — and could only ever hold one. */}
               <Field label="Relationship" value={values.relationship} placeholder="Recruiter" onChange={(relationship) => set({ relationship })} onCommit={() => commit({ relationship: values.relationship })} />
               <Field label="Email" value={values.email} placeholder="name@company.com" onChange={(email) => set({ email })} onCommit={() => commit({ email: values.email })} />
               <Field label="Phone" value={values.phone} placeholder="+1 555 0100" onChange={(phone) => set({ phone })} onCommit={() => commit({ phone: values.phone })} />
@@ -347,14 +352,13 @@ export function ContactDetail({
             </CardContent>
           </Card>
 
-          {(company || application) && (
+          {application && (
             <Card>
               <CardHeader>
-                <CardTitle className="text-[15px]">Linked to</CardTitle>
+                <CardTitle className="text-[15px]">Linked job</CardTitle>
               </CardHeader>
-              <CardContent className="space-y-2">
-                {company && <CompanyChip company={company} logos={logos} />}
-                {application && <LinkedJob application={application} />}
+              <CardContent>
+                <LinkedJob application={application} />
               </CardContent>
             </Card>
           )}

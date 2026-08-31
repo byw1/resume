@@ -563,7 +563,7 @@ model Company {
   updatedAt DateTime @default(now()) @updatedAt
 
   applications Application[]
-  contacts     Contact[]
+  contacts     ContactCompany[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -678,8 +678,11 @@ model Contact {
   notes         String       @default("")
   /// When to next get in touch — the date that keeps a relationship warm.
   nextFollowUpAt DateTime?
-  companyId     String?
-  company       Company?     @relation(fields: [companyId], references: [id], onDelete: SetNull)
+  /// Everywhere they represent. A person is a founder at one company, an
+  /// advisor at another and a friend who moved to a third, and pinning them to
+  /// a single employer meant picking which of those to lose. The data layer
+  /// flattens the join rows to { id, name, website } under the same name.
+  companies     ContactCompany[]
   applicationId String?
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   activities    Activity[]
@@ -688,6 +691,22 @@ model Contact {
 
   @@index([userId])
   @@index([userId, updatedAt])
+}
+
+/// The join, explicit for the same reason ApplicationSource is: the migration
+/// backfills these rows in raw SQL from the old Contact.companyId column, and
+/// an implicit table's name and its "A"/"B" columns are Prisma's convention
+/// rather than a contract. Cascades on both sides — deleting a company drops
+/// the link, not the person, which is what the old SET NULL did too.
+model ContactCompany {
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([contactId, companyId])
+  @@index([companyId])
 }
 
 model Activity {

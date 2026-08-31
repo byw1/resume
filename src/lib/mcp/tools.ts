@@ -2009,7 +2009,7 @@ export const tools: McpTool[] = [
     name: "get_company",
     title: "Get a company",
     description:
-      "Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every contact who works there. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.",
+      "Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every person on file who represents it — someone can represent more than one company, so a name here is not necessarily their day job. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.",
     inputSchema: object({ id: str("Company id") }, ["id"]),
     annotations: {
       readOnlyHint: true,
@@ -2156,10 +2156,10 @@ export const tools: McpTool[] = [
     name: "list_contacts",
     title: "List contacts",
     description:
-      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = no employer on file. Returns each person with their company and the application they are attached to.",
+      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.",
     inputSchema: object({
       applicationId: str("Limit to one application"),
-      companyId: str("Limit to people at one company"),
+      companyId: str("Limit to people linked to one company"),
       search: str("Match name, title, email, notes or company"),
       filter: {
         type: "string",
@@ -2187,7 +2187,7 @@ export const tools: McpTool[] = [
     name: "get_contact",
     title: "Get a contact",
     description:
-      "One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.",
+      "One person in full, with every company they represent (`companies`) and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
     annotations: {
       readOnlyHint: true,
@@ -2205,7 +2205,7 @@ export const tools: McpTool[] = [
     name: "update_contact",
     title: "Update a contact",
     description:
-      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes or otherLinks rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.",
+      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes, otherLinks or companies rather than replacing them. A person can represent several companies at once, so `companies` is a list and REPLACES the whole set: to add one, read the current list, append, and pass it all back. An empty list detaches them from every company. applicationId works the same way, with an empty string to detach.",
     inputSchema: object(
       {
         id: str("Contact id"),
@@ -2223,7 +2223,13 @@ export const tools: McpTool[] = [
         ),
         relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
         notes: str("Notes — replaces what is there"),
-        company: str("Employer, or empty string to detach"),
+        companyIds: strArray("Company ids. Exact; wins over companies. REPLACES the whole set."),
+        companies: strArray(
+          "Company names — everywhere this person represents. REPLACES the whole set; a name nothing matches is created.",
+        ),
+        company: str(
+          "Legacy single-company spelling. WARNING: this also REPLACES the whole set with just this one — read the current list from get_contact first, or use companies. Empty string detaches every company. Ignored when companies is passed.",
+        ),
         applicationId: str("Application to attach to, or empty string to detach"),
         nextFollowUpAt: str("ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard."),
       },
@@ -2252,6 +2258,8 @@ export const tools: McpTool[] = [
           otherLinks: a(args, "otherLinks"),
           relationship: s(args, "relationship"),
           notes: s(args, "notes"),
+          companyIds: a(args, "companyIds"),
+          companies: a(args, "companies"),
           company: s(args, "company"),
           applicationId: s(args, "applicationId"),
           nextFollowUpAt: s(args, "nextFollowUpAt"),
@@ -2261,7 +2269,8 @@ export const tools: McpTool[] = [
   {
     name: "delete_contact",
     title: "Delete a contact",
-    description: "Remove a person. Their company and any application they were attached to stay.",
+    description:
+      "Remove a person. The companies they represented and any application they were attached to stay.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -2275,7 +2284,7 @@ export const tools: McpTool[] = [
     name: "create_contact",
     title: "Create a contact",
     description:
-      "Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row.",
+      "Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row. Pass `companies` for everywhere they represent, not just their day job: an angel who also advises two of your targets is three links, and each one is created if it does not exist yet.",
     inputSchema: object(
       {
         name: str("Their name"),
@@ -2292,7 +2301,11 @@ export const tools: McpTool[] = [
         ),
         relationship: str("e.g. 'recruiter', 'hiring manager', 'referral'"),
         notes: str("Notes"),
-        company: str("Company they work at"),
+        companyIds: strArray("Company ids, when you already have them. Wins over companies."),
+        companies: strArray(
+          "Every company they represent, by name. Any that do not exist yet are created.",
+        ),
+        company: str("Legacy single-company spelling. Ignored when companies is passed."),
         applicationId: str("Attach to this application"),
       },
       ["name"],
@@ -2318,6 +2331,8 @@ export const tools: McpTool[] = [
           otherLinks: a(args, "otherLinks"),
           relationship: s(args, "relationship"),
           notes: s(args, "notes"),
+          companyIds: a(args, "companyIds"),
+          companies: a(args, "companies"),
           company: s(args, "company"),
           applicationId: s(args, "applicationId"),
         }),

@@ -832,7 +832,7 @@ export async function listContactsForAttachAction(applicationId: string) {
       id: contact.id,
       name: contact.name,
       title: contact.title,
-      company: contact.company?.name ?? "",
+      company: contact.companies.map((company) => company.name).join(", "),
       attachedTo: contact.application ? contact.application.roleTitle : null,
     }));
 }
@@ -927,7 +927,6 @@ export async function saveContactAction(
     otherLinks?: string[];
     relationship?: string;
     notes?: string;
-    company?: string;
     /** "yyyy-mm-dd" from a date input; empty string clears the date. */
     nextFollowUpAt?: string;
   },
@@ -940,6 +939,33 @@ export async function saveContactAction(
   });
   revalidatePath(`/crm/contacts/${id}`);
   revalidatePath("/crm/contacts");
+}
+
+/**
+ * Everywhere this person represents, as a set.
+ *
+ * Replaces rather than adds, because that is what the data layer does and one
+ * rule is easier to hold than two — the chips send the list they end up with.
+ * `create` is the picker's "Create X" row: a name gets a company before it can
+ * get an id, and doing it here keeps the client from needing a second call.
+ * Returns the new set so the chips can settle without a round trip.
+ */
+export async function setContactCompaniesAction(id: string, companyIds: string[], create?: string) {
+  const user = await requireUser();
+  const ids = [...companyIds];
+  if (create?.trim()) {
+    const company = await pipeline.upsertCompanyByName(user.id, create);
+    if (!ids.includes(company.id)) ids.push(company.id);
+  }
+  const contact = await pipeline.updateContact(user.id, id, { companyIds: ids });
+  revalidatePath(`/crm/contacts/${id}`);
+  revalidatePath("/crm/contacts");
+  revalidatePath("/crm/companies");
+  return contact.companies.map((company) => ({
+    id: company.id,
+    name: company.name,
+    website: company.website,
+  }));
 }
 
 export async function deleteCrmContactAction(id: string) {

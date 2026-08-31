@@ -75,7 +75,10 @@ export default async function DashboardPage() {
     ...contactPings.map((contact) => ({
       id: contact.id,
       company: contact.name,
-      roleTitle: [contact.title, contact.company?.name].filter(Boolean).join(" · ") || "Contact",
+      roleTitle:
+        [contact.title, ...contact.companies.map((company) => company.name)]
+          .filter(Boolean)
+          .join(" · ") || "Contact",
       stage: null,
       dueAt: contact.nextFollowUpAt,
       kind: "contact" as const,

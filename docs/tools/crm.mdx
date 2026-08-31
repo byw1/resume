@@ -42,7 +42,7 @@ Every company on file, with how many applications and contacts each one has, plu
 
 _Get a company_
 
-Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every contact who works there. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.
+Everything on file for one company: website, industry, size, location, your research notes, every application you have with them, and every person on file who represents it — someone can represent more than one company, so a name here is not necessarily their day job. This is the tool to call before writing anything about a company, so you add to what is known rather than replacing it.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -121,12 +121,12 @@ Fix the same employer being on file twice — 'Stripe', 'Stripe, Inc.' and 'stri
 
 _List contacts_
 
-Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = no employer on file. Returns each person with their company and the application they are attached to.
+Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `applicationId` | string | Limit to one application |
-| `companyId` | string | Limit to people at one company |
+| `companyId` | string | Limit to people linked to one company |
 | `search` | string | Match name, title, email, notes or company |
 | `filter` | enum | Cut the list: ping-due \| with-application \| no-company  `ping-due` · `with-application` · `no-company` |
 
@@ -134,7 +134,7 @@ Recruiters, hiring managers and referrals. Narrow by application, by company, by
 
 _Get a contact_
 
-One person in full, with their company and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.
+One person in full, with every company they represent (`companies`) and the application they belong to. Call this before update_contact so you know what you are about to overwrite. Also returns their timeline — every call, coffee and reply logged with log_activity, newest first — so 'when did I last talk to them' is answered from here.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -144,7 +144,7 @@ One person in full, with their company and the application they belong to. Call 
 
 _Update a contact_
 
-Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes or otherLinks rather than replacing them. Pass company to move them to a different employer (created if it does not exist), or an empty string to detach; same for applicationId.
+Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes, otherLinks or companies rather than replacing them. A person can represent several companies at once, so `companies` is a list and REPLACES the whole set: to add one, read the current list, append, and pass it all back. An empty list detaches them from every company. applicationId works the same way, with an empty string to detach.
 
 **Overwrites or deletes.**
 
@@ -163,7 +163,9 @@ Change a person's details. Only the fields you pass are touched, and each REPLAC
 | `otherLinks` | string[] | Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first. |
 | `relationship` | string | e.g. 'recruiter', 'hiring manager', 'referral' |
 | `notes` | string | Notes — replaces what is there |
-| `company` | string | Employer, or empty string to detach |
+| `companyIds` | string[] | Company ids. Exact; wins over companies. REPLACES the whole set. |
+| `companies` | string[] | Company names — everywhere this person represents. REPLACES the whole set; a name nothing matches is created. |
+| `company` | string | Legacy single-company spelling. WARNING: this also REPLACES the whole set with just this one — read the current list from get_contact first, or use companies. Empty string detaches every company. Ignored when companies is passed. |
 | `applicationId` | string | Application to attach to, or empty string to detach |
 | `nextFollowUpAt` | string | ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard. |
 
@@ -171,7 +173,7 @@ Change a person's details. Only the fields you pass are touched, and each REPLAC
 
 _Delete a contact_
 
-Remove a person. Their company and any application they were attached to stay.
+Remove a person. The companies they represented and any application they were attached to stay.
 
 **Overwrites or deletes.**
 
@@ -183,7 +185,7 @@ Remove a person. Their company and any application they were attached to stay.
 
 _Create a contact_
 
-Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row.
+Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row. Pass `companies` for everywhere they represent, not just their day job: an angel who also advises two of your targets is three links, and each one is created if it does not exist yet.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -199,5 +201,7 @@ Save a person: recruiter, hiring manager, referral, friend at the company. Recor
 | `otherLinks` | string[] | Anywhere else they are reachable that has no field of its own — Bluesky, Mastodon, a Substack. REPLACES the whole list, so read the current one from get_contact first. |
 | `relationship` | string | e.g. 'recruiter', 'hiring manager', 'referral' |
 | `notes` | string | Notes |
-| `company` | string | Company they work at |
+| `companyIds` | string[] | Company ids, when you already have them. Wins over companies. |
+| `companies` | string[] | Every company they represent, by name. Any that do not exist yet are created. |
+| `company` | string | Legacy single-company spelling. Ignored when companies is passed. |
 | `applicationId` | string | Attach to this application |

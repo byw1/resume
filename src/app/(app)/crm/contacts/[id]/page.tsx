@@ -5,7 +5,7 @@ import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
 import { ContactDetail } from "@/components/crm/contact-detail";
-import { getContact } from "@/lib/data/pipeline";
+import { getContact, listCompanies } from "@/lib/data/pipeline";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 
@@ -14,7 +14,11 @@ export const dynamic = "force-dynamic";
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [contact, { companyLogos }] = await Promise.all([getContact(user.id, id), getSettings()]);
+  const [contact, companies, { companyLogos }] = await Promise.all([
+    getContact(user.id, id),
+    listCompanies(user.id),
+    getSettings(),
+  ]);
   if (!contact) notFound();
 
   return (
@@ -41,7 +45,6 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             otherLinks: contact.otherLinks,
             relationship: contact.relationship,
             notes: contact.notes,
-            company: contact.company?.name ?? "",
             nextFollowUpAt: contact.nextFollowUpAt
               ? contact.nextFollowUpAt.toISOString().slice(0, 10)
               : "",
@@ -56,15 +59,16 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
               year: "numeric",
             }),
           }))}
-          company={
-            contact.company
-              ? {
-                  id: contact.company.id,
-                  name: contact.company.name,
-                  website: contact.company.website,
-                }
-              : null
-          }
+          companies={contact.companies.map((company) => ({
+            id: company.id,
+            name: company.name,
+            website: company.website,
+          }))}
+          companyOptions={companies.map((company) => ({
+            id: company.id,
+            name: company.name,
+            website: company.website,
+          }))}
           application={
             contact.application
               ? {

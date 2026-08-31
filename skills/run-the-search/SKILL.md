@@ -41,8 +41,9 @@ Moving a stage is `move_application_stage`, which writes its own timeline entry 
 resets the follow-up date. Do not do both.
 
 If they mention a person — a recruiter, a hiring manager, someone who referred them —
-that is a `create_contact` with `applicationId` and `company` set. Names disappear
-fast and they are the thing that matters most later.
+that is a `create_contact` with `applicationId` and `companies` set — a list, because
+someone can represent more than one company. Names disappear fast and they are the
+thing that matters most later.
 
 ## Researching a company
 

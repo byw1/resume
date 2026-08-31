@@ -427,13 +427,15 @@ export async function getCompany(userId: string, id: string) {
           updatedAt: true,
         },
       },
-      contacts: { orderBy: { createdAt: "asc" } },
+      contacts: { orderBy: { createdAt: "asc" }, include: { contact: true } },
     },
   });
   if (!company) return null;
   return {
     ...company,
     applications: company.applications.map(flattenSources),
+    // Callers want the people, not the rows that link them here.
+    contacts: company.contacts.map((link) => link.contact),
   };
 }
 
@@ -464,10 +466,11 @@ export async function updateCompany(userId: string, id: string, patch: Partial<C
 }
 
 /**
- * Refuses while applications point here, and nulls contacts' employer.
+ * Refuses while applications point here, and unlinks the people who represent it.
  *
- * Note what the schema actually does: `Contact.company` is `onDelete: SetNull`,
- * but `Application.company` is `onDelete: Cascade` — so deleting a company
+ * Note what the schema actually does: `ContactCompany` cascades — deleting a
+ * company drops the link and leaves the person standing — but
+ * `Application.company` is `onDelete: Cascade`, so deleting a company
  * WOULD take its applications with it, history included. That is the genuinely
  * bad afternoon this guard exists to prevent, and it is why the check below is
  * load-bearing rather than a courtesy. To fold a duplicate employer away
@@ -538,11 +541,17 @@ async function planCompanyMerge(userId: string, keepId: string, mergeId: string)
   const [keep, merge] = await Promise.all([
     db.company.findFirst({
       where: { id: keepId, userId },
-      include: { applications: { select: { roleTitle: true } }, contacts: { select: { id: true } } },
+      include: {
+        applications: { select: { roleTitle: true } },
+        contacts: { select: { contactId: true } },
+      },
     }),
     db.company.findFirst({
       where: { id: mergeId, userId },
-      include: { applications: { select: { roleTitle: true } }, contacts: { select: { id: true } } },
+      include: {
+        applications: { select: { roleTitle: true } },
+        contacts: { select: { contactId: true } },
+      },
     }),
   ]);
   if (!keep) throw new Error(`No company with id ${keepId}`);
@@ -557,11 +566,17 @@ async function planCompanyMerge(userId: string, keepId: string, mergeId: string)
   const loserNotes = merge.notes.trim();
   const notesAppended = Boolean(loserNotes) && !keep.notes.includes(loserNotes);
 
+  // Someone can already represent both, and that link is dropped rather than
+  // moved — the pair is the join's primary key — so it is not a person the
+  // survivor gains.
+  const alreadyKept = new Set(keep.contacts.map((link) => link.contactId));
+  const movingContacts = merge.contacts.filter((link) => !alreadyKept.has(link.contactId));
+
   const plan: CompanyMergePlan = {
     keep: { id: keep.id, name: keep.name },
     merge: { id: merge.id, name: merge.name },
     applications: merge.applications.length,
-    contacts: merge.contacts.length,
+    contacts: movingContacts.length,
     fills,
     notesAppended,
     movingRoles: merge.applications.map((application) => application.roleTitle),
@@ -595,8 +610,17 @@ export async function mergeCompanies(userId: string, keepId: string, mergeId: st
       where: { companyId: mergeId, userId },
       data: { companyId: keepId },
     });
-    await tx.contact.updateMany({
-      where: { companyId: mergeId, userId },
+    // Drop the duplicate's link for anyone already at the survivor, then move
+    // the rest: (contactId, companyId) is the primary key, so re-pointing both
+    // would collide.
+    await tx.contactCompany.deleteMany({
+      where: {
+        companyId: mergeId,
+        contact: { userId, companies: { some: { companyId: keepId } } },
+      },
+    });
+    await tx.contactCompany.updateMany({
+      where: { companyId: mergeId, contact: { userId } },
       data: { companyId: keepId },
     });
     await tx.company.update({
@@ -632,6 +656,63 @@ export async function upsertCompanyByName(
     create: { userId, name: clean, ...extra },
     update: extra ?? {},
   });
+}
+
+/** A company as a contact's callers want it: the row, not the link to it. */
+export type CompanyRef = { id: string; name: string; website: string };
+
+/**
+ * The join rows a caller never wants to see, flattened. Spelled out with Omit
+ * for the same reason flattenSources is: a spread over a generic keeps the
+ * original `companies` in the resulting type.
+ */
+function flattenCompanies<T extends { companies: { company: CompanyRef }[] }>(
+  row: T,
+): Omit<T, "companies"> & { companies: CompanyRef[] } {
+  return { ...row, companies: row.companies.map((link) => link.company) };
+}
+
+/**
+ * Names and ids in, ids out — the set a person represents, in the order given.
+ *
+ * Ids are re-checked against this user because the join table carries no
+ * userId of its own; names go through upsertCompanyByName, so "she also
+ * advises Vercel" links the Vercel already on file rather than a second one.
+ * Returns undefined when the caller said nothing about companies, which is how
+ * updateContact tells "leave them alone" from "detach every one".
+ */
+async function resolveCompanyIds(
+  userId: string,
+  input: { companyIds?: string[]; companies?: string[]; company?: string },
+): Promise<string[] | undefined> {
+  if (input.companyIds !== undefined) {
+    if (input.companyIds.length === 0) return [];
+    const owned = await db.company.findMany({
+      where: { id: { in: input.companyIds }, userId },
+      select: { id: true },
+    });
+    const found = new Set(owned.map((row) => row.id));
+    const missing = input.companyIds.filter((id) => !found.has(id));
+    if (missing.length > 0) throw new Error(`No company with id ${missing[0]}`);
+    return [...new Set(input.companyIds)];
+  }
+
+  const names =
+    input.companies !== undefined
+      ? input.companies
+      : input.company !== undefined
+        ? [input.company]
+        : undefined;
+  if (names === undefined) return undefined;
+
+  const ids: string[] = [];
+  for (const raw of names) {
+    const name = raw.trim();
+    if (!name) continue;
+    const company = await upsertCompanyByName(userId, name);
+    if (!ids.includes(company.id)) ids.push(company.id);
+  }
+  return ids;
 }
 
 // ---------------------------------------------------------------------------
@@ -1139,6 +1220,11 @@ export async function createContact(
     otherLinks?: string[];
     relationship?: string;
     notes?: string;
+    /** Company ids, when you already have them. Wins over `companies`. */
+    companyIds?: string[];
+    /** Company names — the ones that do not exist yet are created. */
+    companies?: string[];
+    /** Legacy single-company spelling. `companyIds` and `companies` both win over it. */
     company?: string;
     applicationId?: string | null;
   },
@@ -1149,8 +1235,8 @@ export async function createContact(
     });
     if (!application) throw new Error(`No application with id ${input.applicationId}`);
   }
-  const companyId = input.company ? (await upsertCompanyByName(userId, input.company)).id : undefined;
-  return db.contact.create({
+  const companyIds = (await resolveCompanyIds(userId, input)) ?? [];
+  const contact = await db.contact.create({
     data: {
       userId,
       name: input.name,
@@ -1165,14 +1251,18 @@ export async function createContact(
       otherLinks: cleanLinks(input.otherLinks ?? []),
       relationship: input.relationship ?? "",
       notes: input.notes ?? "",
-      companyId,
+      companies: { create: companyIds.map((companyId) => ({ companyId })) },
       applicationId: input.applicationId ?? null,
     },
+    include: contactInclude,
   });
+  return flattenCompanies(contact);
 }
 
 const contactInclude = {
-  company: true,
+  // Ordered by when the link was made, so the first chip is the one a compact
+  // list shows and it does not move about between renders.
+  companies: { include: { company: true }, orderBy: { createdAt: "asc" as const } },
   application: {
     select: {
       id: true,
@@ -1200,20 +1290,24 @@ export async function listContacts(
 ) {
   const where: Prisma.ContactWhereInput = { userId };
   if (options?.applicationId) where.applicationId = options.applicationId;
-  if (options?.companyId) where.companyId = options.companyId;
+  if (options?.companyId) where.companies = { some: { companyId: options.companyId } };
   if (options?.filter === "ping-due") where.nextFollowUpAt = { lte: new Date() };
   if (options?.filter === "with-application") where.applicationId = { not: null };
-  if (options?.filter === "no-company") where.companyId = null;
+  if (options?.filter === "no-company") where.companies = { none: {} };
   if (options?.search) {
     where.OR = [
       { name: { contains: options.search, mode: "insensitive" } },
       { title: { contains: options.search, mode: "insensitive" } },
       { email: { contains: options.search, mode: "insensitive" } },
       { notes: { contains: options.search, mode: "insensitive" } },
-      { company: { name: { contains: options.search, mode: "insensitive" } } },
+      {
+        companies: {
+          some: { company: { name: { contains: options.search, mode: "insensitive" } } },
+        },
+      },
     ];
   }
-  return db.contact.findMany({
+  const contacts = await db.contact.findMany({
     where,
     orderBy: { name: "asc" },
     include: {
@@ -1222,13 +1316,15 @@ export async function listContacts(
       activities: { select: { occurredAt: true }, orderBy: { occurredAt: "desc" as const }, take: 1 },
     },
   });
+  return contacts.map(flattenCompanies);
 }
 
 export async function getContact(userId: string, id: string) {
-  return db.contact.findFirst({
+  const contact = await db.contact.findFirst({
     where: { id, userId },
     include: { ...contactInclude, activities: { orderBy: { occurredAt: "desc" as const } } },
   });
+  return contact ? flattenCompanies(contact) : null;
 }
 
 export async function updateContact(
@@ -1247,6 +1343,11 @@ export async function updateContact(
     otherLinks: string[];
     relationship: string;
     notes: string;
+    /** Company ids. REPLACES the whole set. Wins over `companies`. */
+    companyIds: string[];
+    /** Company names. REPLACES the whole set; unknown names are created. */
+    companies: string[];
+    /** Legacy single-company spelling. Both of the above win over it. */
     company: string;
     applicationId: string | null;
     nextFollowUpAt: Date | string | null;
@@ -1260,12 +1361,13 @@ export async function updateContact(
   // An array is not a column pick: it replaces wholesale, and blank rows from a
   // half-filled form should never reach the database.
   if (patch.otherLinks !== undefined) data.otherLinks = cleanLinks(patch.otherLinks);
-  // Company and application are relations, so they are resolved by hand rather
-  // than picked — and both are re-checked against this user.
-  if (patch.company !== undefined) {
-    data.company = patch.company
-      ? { connect: { id: (await upsertCompanyByName(userId, patch.company)).id } }
-      : { disconnect: true };
+  // Companies and application are relations, so they are resolved by hand
+  // rather than picked — and both are re-checked against this user.
+  const companyIds = await resolveCompanyIds(userId, patch);
+  if (companyIds !== undefined) {
+    // Replace, like sources on an application: the caller sends the set they
+    // want, not a delta.
+    data.companies = { deleteMany: {}, create: companyIds.map((companyId) => ({ companyId })) };
   }
   if (patch.applicationId !== undefined) {
     if (patch.applicationId) {
@@ -1278,7 +1380,7 @@ export async function updateContact(
       data.application = { disconnect: true };
     }
   }
-  return db.contact.update({ where: { id }, data, include: contactInclude });
+  return flattenCompanies(await db.contact.update({ where: { id }, data, include: contactInclude }));
 }
 
 export async function deleteContact(userId: string, id: string) {
@@ -1312,11 +1414,12 @@ export async function contactFollowUpsDue(userId: string, withinDays = 0) {
   const cutoff = new Date();
   cutoff.setDate(cutoff.getDate() + withinDays);
   cutoff.setHours(23, 59, 59, 999);
-  return db.contact.findMany({
+  const contacts = await db.contact.findMany({
     where: { userId, nextFollowUpAt: { lte: cutoff } },
     orderBy: { nextFollowUpAt: "asc" },
-    include: { company: { select: { name: true, website: true } } },
+    include: { companies: { include: { company: true }, orderBy: { createdAt: "asc" } } },
   });
+  return contacts.map(flattenCompanies);
 }
 
 /**
@@ -1360,7 +1463,7 @@ export async function listSchedule(
     }),
     db.contact.findMany({
       where: { userId, nextFollowUpAt: range },
-      include: { company: { select: { name: true } } },
+      include: { companies: { include: { company: { select: { name: true } } } } },
     }),
     db.task.findMany({
       where: { userId, dueAt: range },
@@ -1394,8 +1497,10 @@ export async function listSchedule(
       id: contact.id,
       date: contact.nextFollowUpAt!,
       title: `Ping ${contact.name}`,
-      detail: [contact.title, contact.company?.name].filter(Boolean).join(" · "),
-      company: contact.company?.name ?? null,
+      detail: [contact.title, ...contact.companies.map((link) => link.company.name)]
+        .filter(Boolean)
+        .join(" · "),
+      company: contact.companies[0]?.company.name ?? null,
       applicationId: null,
       contactId: contact.id,
       stage: null,

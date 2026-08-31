@@ -3105,3 +3105,51 @@ conditions. A tool description that under-claims is as wrong as one that over-cl
 **Applies to:** `src/components/pipeline/{toolbar,filter-menu,application-panel,application-detail,sources-input}.tsx`,
 `src/app/(app)/applications/page.tsx`, `src/lib/mcp/tools.ts`, `docs/tools/overview.mdx`,
 `docs/connect.mdx`, `docs/reference/troubleshooting.mdx`, `docs/index.mdx`.
+
+---
+
+## 2026-08-31 — A contact represents companies, plural
+
+**`Contact.companyId` became a `ContactCompany` join.** A person is a founder at one place,
+an advisor at two more and a friend who has since moved, and a single nullable FK forced a
+choice about which of those to keep. Explicit join rather than Prisma's implicit m2m, for
+the same reason `ApplicationSource` is: the migration backfills the rows in raw SQL, and an
+implicit table's name and its `A`/`B` columns are a convention of Prisma's rather than a
+contract.
+
+**The backfill is lossless and the column goes in the same migration.** Everyone who had an
+employer gets exactly one join row carrying the contact's own `createdAt`, and the insert
+joins `Company` so a row orphaned by an older bug cannot fail a deploy. Verified on a
+throwaway Postgres seeded at the previous migration with two tenants: five contacts in,
+four join rows out, nobody's rows crossing a workspace.
+
+**Cascade replaces `SET NULL`, and means the same thing.** Deleting a company used to null
+the contact's employer; now it deletes the link row. The person survives either way — which
+is what `deleteCompany`'s comment claimed and now claims accurately.
+
+**`companies` REPLACES the set, like `sources` on an application.** One rule for every array
+in the API is easier to hold than a per-field mix of add and replace. `companyIds` wins over
+`companies`, which wins over the legacy `company` — and `company: ""` still detaches, so a
+client written against the old single field keeps working rather than half-working.
+
+**Merging companies had to learn the collision.** `(contactId, companyId)` is the primary
+key, so re-pointing every link at the survivor throws when someone is already at both. The
+duplicate's link is deleted first and the rest moved — and `previewCompanyMerge`'s contact
+count excludes those people, because they are not someone the survivor gains.
+
+**The picker keeps already-linked companies in the list, marked.** Filtering them out looked
+tidier and left typing a linked company's name showing nothing at all: no match, and no
+"Create" row either, since the name exists. A row that says `linked` answers the question the
+empty list did not.
+
+**The Company text field is gone rather than conditional.** It was already only rendered
+when nothing was linked; a field that can hold one value has no honest form now that the
+answer is a set, and the chips under the name are the control — each with an × and a button
+beside them to add another.
+
+**Applies to:** `prisma/schema.prisma`,
+`prisma/migrations/20250123000000_contact_companies/`, `src/lib/data/pipeline.ts`,
+`src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/crm/{contact-companies,contact-detail}.tsx`,
+`src/app/(app)/crm/contacts/`, `src/app/(app)/page.tsx`, `docs/concepts/crm.mdx`,
+`skills/run-the-search/SKILL.md`.
