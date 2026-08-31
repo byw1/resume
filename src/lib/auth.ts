@@ -7,6 +7,8 @@ import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
 import type { Prisma, User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
+import { getSettings } from "@/lib/settings";
+import { baseUrlFrom } from "@/lib/request-url";
 
 const SESSION_COOKIE = "hired_session";
 
@@ -25,6 +27,115 @@ async function sessionToken(jar: Awaited<ReturnType<typeof cookies>>) {
   return jar.get(SESSION_COOKIE)?.value ?? jar.get(LEGACY_SESSION_COOKIE)?.value;
 }
 const SESSION_DAYS = 30;
+
+/**
+ * How long a session lasts when the person did not tick "keep me signed in".
+ * Its cookie also loses its expiry, so closing the browser ends it — this is
+ * the backstop for the browser that is never closed.
+ */
+const UNREMEMBERED_HOURS = 12;
+
+// ---------------------------------------------------------------------------
+// The signed-in hint — how a landing page knows to send somebody to the app
+// ---------------------------------------------------------------------------
+
+/**
+ * A cookie that says "somebody is signed in on this instance", and nothing else.
+ *
+ * hired.tools is a static site on its own origin, so it cannot ask this app
+ * anything: the session cookie is SameSite=Lax and is simply not sent on a
+ * cross-site request, and relaxing it to None so that one would work trades a
+ * real defence against cross-site requests for a convenience. What two hosts
+ * under one domain can share is a cookie on the domain above them both, so
+ * signing in leaves a "1" up there and the landing page reads it in two lines
+ * of script.
+ *
+ * Readable by script on purpose, and it carries no authority — the session
+ * token stays httpOnly on the app's own host. The worst a forged one does is
+ * send somebody to a sign-in page.
+ */
+const SIGNED_IN_COOKIE = "hired_signed_in";
+
+/**
+ * The domain the app and its landing page have in common, or null when they
+ * have none worth writing to.
+ *
+ * It is the longest run of labels the two hosts share, which means it can never
+ * be wider than the landing page an admin wrote down, whatever Host header a
+ * request arrives with. Two labels is the floor. `.co.uk` is the case this
+ * deliberately does not get clever about — a browser refuses a cookie on a
+ * public suffix, so the hint is simply never stored and the landing page shows
+ * the landing page.
+ */
+export function sharedCookieDomain(appHost: string, landingUrl: string): string | null {
+  const app = appHost.split(":")[0].trim().toLowerCase();
+  let landing = "";
+  try {
+    const url = /^https?:\/\//i.test(landingUrl) ? landingUrl : `https://${landingUrl}`;
+    landing = new URL(url).hostname.toLowerCase();
+  } catch {
+    return null;
+  }
+  if (!app || !landing) return null;
+
+  const left = app.split(".");
+  const right = landing.split(".");
+  const shared: string[] = [];
+  while (left.length > 0 && right.length > 0 && left[left.length - 1] === right[right.length - 1]) {
+    shared.unshift(left.pop() as string);
+    right.pop();
+  }
+  return shared.length >= 2 ? shared.join(".") : null;
+}
+
+/**
+ * Where the hint goes on this instance, or null when it goes nowhere — which is
+ * every instance that has not configured a landing page, meaning almost every
+ * self-hosted one.
+ *
+ * The Public URL setting first and the request second, the same order the rest
+ * of the app resolves its own address in; `baseUrlFrom` is what knows about the
+ * forwarded headers every supported deployment sits behind.
+ */
+export async function signedInHintDomain(): Promise<string | null> {
+  const { landingUrl, publicUrl } = await getSettings();
+  if (!landingUrl.trim()) return null;
+
+  const hostOf = (url: string) => {
+    try {
+      return new URL(url).host;
+    } catch {
+      return "";
+    }
+  };
+  // A Public URL too malformed to parse should cost the redirect, not the login.
+  const host = (publicUrl.trim() && hostOf(publicUrl)) || hostOf(baseUrlFrom(await headers()));
+  return host ? sharedCookieDomain(host, landingUrl) : null;
+}
+
+type Jar = Awaited<ReturnType<typeof cookies>>;
+
+/** Leave the hint. No expiry means it dies with the browser, like the session. */
+async function writeSignedInHint(jar: Jar, expires?: Date) {
+  const domain = await signedInHintDomain();
+  if (!domain) return;
+  jar.set(SIGNED_IN_COOKIE, "1", {
+    // Not httpOnly: a script on the landing page is the only thing that reads it.
+    httpOnly: false,
+    sameSite: "lax",
+    secure: process.env.NODE_ENV === "production",
+    path: "/",
+    domain,
+    ...(expires ? { expires } : {}),
+  });
+}
+
+/** Take it away again. Deleting a cookie means naming the domain it was set on. */
+async function clearSignedInHint(jar: Jar) {
+  const domain = await signedInHintDomain();
+  if (!domain) return;
+  jar.set(SIGNED_IN_COOKIE, "", { path: "/", domain, maxAge: 0 });
+}
 
 // ---------------------------------------------------------------------------
 // Passwords — scrypt from the standard library, no native dependency.
@@ -158,9 +269,20 @@ export async function claimInstance(input: {
 // Sessions
 // ---------------------------------------------------------------------------
 
-export async function startSession(userId: string) {
+/**
+ * Sign this browser in. `remember` is the sign-in page's "keep me signed in":
+ * on, a session lasts a month and survives the browser closing; off, it is a
+ * few hours and dies with the window, which is what somebody on a borrowed
+ * machine is asking for. Everything else that starts a session — setup,
+ * accepting an invitation, changing your own password — is already a
+ * deliberate act on a machine you own, so it takes the default.
+ */
+export async function startSession(userId: string, options: { remember?: boolean } = {}) {
+  const remember = options.remember !== false;
   const token = generateSessionToken();
-  const expiresAt = new Date(Date.now() + SESSION_DAYS * 86400_000);
+  const expiresAt = new Date(
+    Date.now() + (remember ? SESSION_DAYS * 86400_000 : UNREMEMBERED_HOURS * 3600_000),
+  );
   const headerList = await headers();
 
   await db.session.create({
@@ -179,8 +301,11 @@ export async function startSession(userId: string) {
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
     path: "/",
-    expires: expiresAt,
+    // No expiry when they did not ask to be remembered: the cookie goes when
+    // the browser does, and the row above expires on its own soon after.
+    ...(remember ? { expires: expiresAt } : {}),
   });
+  await writeSignedInHint(jar, remember ? expiresAt : undefined);
 }
 
 /**
@@ -215,6 +340,7 @@ export async function endSession() {
   if (token) await db.session.deleteMany({ where: { token } });
   jar.delete(SESSION_COOKIE);
   jar.delete(LEGACY_SESSION_COOKIE);
+  await clearSignedInHint(jar);
 }
 
 /** Sign every device out — used when a password changes. */
@@ -337,4 +463,4 @@ export async function ensureDefaultConnection(userId: string) {
   });
 }
 
-export { SESSION_COOKIE };
+export { SESSION_COOKIE, SIGNED_IN_COOKIE };

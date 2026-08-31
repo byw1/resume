@@ -89,7 +89,9 @@ export async function loginAction(_prev: { error?: string } | undefined, formDat
   }
 
   await clearLoginFailures(email, ip);
-  await startSession(user.id);
+  // Absent means the box was unticked: a few hours, and gone when the browser
+  // closes. The checkbox ships ticked, so the default stays a month.
+  await startSession(user.id, { remember: formData.get("remember") !== null });
   // Cheap, and it keeps the tables from growing on a busy instance. Deliberately
   // not awaited-and-blocking on failure: a failed sweep must not fail a login.
   void sweepThrottles().catch(() => {});
