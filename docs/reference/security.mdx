@@ -78,6 +78,19 @@ generate one for them the same way they can for anyone.
 Sessions are `httpOnly` cookies with `sameSite: lax`, and `secure` in production. Signing
 out and every password reset end existing sessions, so an old browser stays logged out.
 
+**Keep me signed in** on the sign-in page decides how long one lasts. Ticked, which is how
+it arrives, the session runs for 30 days and survives the browser closing. Unticked, the
+cookie has no expiry — it goes when the window does — and the row behind it expires after
+12 hours regardless, which is what somebody on a borrowed machine is asking for.
+
+One cookie is deliberately readable by scripts, and it is worth knowing what it is. When
+**Landing page** is configured in **Admin → Configuration** and sits on the same domain as
+the app, signing in also writes `hired_signed_in=1` to that shared domain, so a static
+marketing page can send somebody who is already signed in straight through to the app
+instead of showing them the pitch. It is a flag and nothing more: no identity, no token, no
+way back to a session. Forging one gets you a sign-in page. Leave the setting empty — the
+default — and it is never written.
+
 Sign-in attempts are counted two ways: **8 failures per account** and **30 per address**,
 both in a rolling fifteen-minute window, with a fifteen-minute lockout. The code being
 public is not the same as the door being open.

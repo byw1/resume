@@ -35,6 +35,35 @@
   svg:not([width]) { width: 1em; height: 1em; }
 </style>
 <script>
+  /* Somebody already signed in at app.hired.tools does not need the pitch.
+     Signing in leaves a flag on hired.tools — the domain both hosts sit under —
+     which says that a session exists and nothing else; the session itself never
+     leaves the app, and this cannot read it. Blocking and first in the head, so
+     nobody watches the landing page paint on its way past.
+
+     Three ways to stay here anyway: arrive from the app, arrive on a deep link
+     (#pricing, or anything with a query), or have been sent once already in
+     this tab. That last one is the escape hatch — ask for hired.tools a second
+     time and you get it — and it is needed because a navigation started this
+     early replaces the history entry rather than adding one, so Back leads
+     wherever you were before, not to a landing page you never saw. A replace is
+     what a browser would do here whatever we called it; saying so is honest,
+     and it leaves nothing in history that would bounce forward again. */
+  (function () {
+    var APP = "https://app.hired.tools/";
+    try {
+      if (!/(?:^|;\s*)hired_signed_in=1(?:;|$)/.test(document.cookie)) return;
+      if (location.hash || location.search) return;
+      if (document.referrer.slice(0, APP.length) === APP) return;
+      if (sessionStorage.getItem("hired:sent")) return;
+      sessionStorage.setItem("hired:sent", "1");
+      location.replace(APP);
+    } catch (e) {
+      /* Cookies or storage refused. Staying is the right failure. */
+    }
+  })();
+</script>
+<script>
   /* Opts the page into being animated. Without this — scripting off, or the
      stylesheet arriving before motion.js — nothing is hidden and the page is
      simply finished. */
