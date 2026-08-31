@@ -99,6 +99,10 @@ export function ApplicationPanelProvider({ children }: { children: React.ReactNo
                 tasks={data.tasks}
                 resumes={data.resumes}
                 sourceOptions={data.sourceOptions}
+                company={data.company}
+                companies={data.companies}
+                resumePreview={data.resumePreview}
+                logos={data.logos}
               />
             </>
           ) : (

@@ -926,12 +926,19 @@ export async function deleteCrmContactAction(id: string) {
  */
 export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
-  const [application, resumeList, sourceOptions] = await Promise.all([
+  const [application, resumeList, sourceOptions, companies, settings] = await Promise.all([
     pipeline.getApplication(user.id, id),
     resumes.listResumes(user.id),
     pipeline.listSourceOptions(user.id),
+    pipeline.listCompanies(user.id),
+    getSettings(),
   ]);
   if (!application) throw new Error("That application is gone.");
+  // Only when one is attached — the document carries the owner's photo as a
+  // data URI, and the panel is opened far more often than a resume is read.
+  const attached = application.resumeId
+    ? await resumes.getResume(user.id, application.resumeId)
+    : null;
   return {
     application: {
       id: application.id,
@@ -974,6 +981,33 @@ export async function getApplicationForPanelAction(id: string) {
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
     sourceOptions,
+    company: {
+      id: application.companyId,
+      name: application.company.name,
+      website: application.company.website,
+    },
+    companies: companies.map((item) => ({
+      id: item.id,
+      name: item.name,
+      website: item.website,
+    })),
+    resumePreview: attached
+      ? {
+          id: attached.id,
+          name: attached.name,
+          doc: attached.doc,
+          settings: {
+            template: attached.template,
+            accent: attached.accent,
+            fontFamily: attached.fontFamily,
+            fontSize: attached.fontSize,
+            lineHeight: attached.lineHeight,
+            pageMargin: attached.pageMargin,
+            photo: attached.showPhoto ? attached.photo : "",
+          },
+        }
+      : null,
+    logos: settings.companyLogos,
   };
 }
 

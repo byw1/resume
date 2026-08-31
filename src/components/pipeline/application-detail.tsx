@@ -5,7 +5,8 @@ import { useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { AnimatePresence, motion } from "framer-motion";
 import {
-  Building2Icon,
+  ChevronDownIcon,
+  ChevronRightIcon,
   ExternalLinkIcon,
   FileTextIcon,
   LoaderCircleIcon,
@@ -46,9 +47,16 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SaveIndicator } from "@/components/save-indicator";
 import { RatingInput } from "@/components/pipeline/rating-input";
 import { SourcesInput } from "@/components/pipeline/sources-input";
+import { CompanyChip } from "@/components/crm/company-chip";
+import { CompanyAvatar } from "@/components/pipeline/company-avatar";
+import { PaperThumb } from "@/components/resume/paper-thumb";
+import { ResumePaper, type PaperSettings } from "@/components/resume/resume-paper";
+import type { ResumeDoc } from "@/lib/resume-schema";
+import { companyDomain } from "@/lib/company";
 import { useAutosave } from "@/hooks/use-autosave";
 import { ACTIVITY_LABEL, STAGES, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import { cn, relativeDay } from "@/lib/utils";
@@ -85,6 +93,21 @@ type Application = {
   resumeId: string | null;
 };
 
+/**
+ * Everything needed to draw the attached resume here.
+ *
+ * ResumePaper is a pure component — no "use client", no server-only imports —
+ * so the document can be rendered inside this client component from plain
+ * JSON, and the page and the slide-over can show the same thing without one
+ * of them rendering it on the server and passing a node.
+ */
+export type ResumePreview = {
+  id: string;
+  name: string;
+  doc: ResumeDoc;
+  settings: PaperSettings;
+};
+
 type Activity = { id: string; type: ActivityType; body: string; occurredAt: string };
 type Contact = {
   id: string;
@@ -114,6 +137,10 @@ export function ApplicationDetail({
   tasks,
   resumes,
   sourceOptions,
+  company,
+  companies,
+  resumePreview,
+  logos,
 }: {
   application: Application;
   activities: Activity[];
@@ -122,6 +149,13 @@ export function ApplicationDetail({
   resumes: { id: string; name: string }[];
   /** Choices for the sources picker: their own channels, then the starters. */
   sourceOptions: string[];
+  /** The employer's record, for the chip. Null only if the row is mid-repair. */
+  company: { id: string; name: string; website: string } | null;
+  /** Every company on file, so changing employer picks one rather than typing. */
+  companies: { id: string; name: string; website: string }[];
+  /** The attached resume, rendered. Null when none is attached. */
+  resumePreview: ResumePreview | null;
+  logos: boolean;
 }) {
   const [values, setValues] = useState({
     company: application.company,
@@ -179,6 +213,17 @@ export function ApplicationDetail({
     });
   };
 
+  // Read-only echo of the facts worth seeing without scrolling.
+  const meta = [
+    values.location,
+    values.workMode,
+    values.salaryRange,
+    application.appliedAt
+      ? `Applied ${new Date(application.appliedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}`
+      : "",
+    values.nextFollowUpAt ? `Chase ${relativeDay(new Date(values.nextFollowUpAt))}` : "",
+  ].filter(Boolean);
+
   const set = (patch: Partial<typeof values>) => {
     const next = { ...values, ...patch };
     setValues(next);
@@ -197,26 +242,47 @@ export function ApplicationDetail({
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-4">
         <div className="min-w-0 flex-1">
-          <Input
-            value={values.company}
-            onChange={(event) => set({ company: event.target.value })}
-            onBlur={commitCompany}
-            aria-label="Company"
-            className="h-auto border-0 bg-transparent px-0 text-[27px] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-[32px]"
-          />
+          {/* The employer is a chip you can open, not a text field you can
+              rename by accident. Changing which company this job belongs to is
+              still possible, but it is a deliberate act now, through a picker
+              that offers the companies you already have before inventing one. */}
+          <div className="mb-1.5 flex flex-wrap items-center gap-1.5">
+            {company ? (
+              <CompanyChip company={company} logos={logos} />
+            ) : (
+              <span className="text-muted-foreground text-[13px]">{values.company}</span>
+            )}
+            <CompanyPicker
+              applicationId={application.id}
+              current={values.company}
+              companies={companies}
+              logos={logos}
+              onChanged={(name) => {
+                setValues((prev) => ({ ...prev, company: name }));
+                router.refresh();
+              }}
+            />
+          </div>
+
           <Input
             value={values.roleTitle}
             onChange={(event) => set({ roleTitle: event.target.value })}
-            className="h-auto border-0 bg-transparent px-0 text-base font-medium shadow-none focus-visible:ring-0"
+            aria-label="Role title"
+            className="h-auto border-0 bg-transparent px-0 text-[27px] font-semibold tracking-tight shadow-none focus-visible:ring-0 md:text-[32px]"
           />
-          {application.companyId && (
-            <Link
-              href={`/crm/companies/${application.companyId}`}
-              className="text-muted-foreground hover:text-foreground mt-1 inline-flex items-center gap-1.5 text-[12px] transition-colors"
-            >
-              <Building2Icon className="size-3" />
-              Everything with {values.company || "this company"} — notes, people, other roles
-            </Link>
+
+          {/* The facts you check on open. Read-only here and editable in
+              Details — in the slide-over the rail is below the fold, so
+              without this the compensation is a scroll away from itself. */}
+          {meta.length > 0 && (
+            <div className="text-muted-foreground mt-0.5 flex flex-wrap items-center gap-x-2 text-[12.5px]">
+              {meta.map((item, index) => (
+                <span key={item} className="flex items-center gap-2">
+                  {index > 0 && <span className="text-faint">·</span>}
+                  {item}
+                </span>
+              ))}
+            </div>
           )}
         </div>
 
@@ -279,26 +345,30 @@ export function ApplicationDetail({
         </div>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_21rem]">
+      {/* Container query, not a viewport one. This component renders in two
+          very different boxes: the page, whose content is ~720px at a 1024px
+          viewport once the 15rem rail is taken out, and the slide-over, which
+          is ~688px at any viewport. `lg:` measured the window, so the panel
+          was being given two columns on every desktop and cramming a 21rem
+          rail into 688px. 44rem is above the panel and below the page. */}
+      <div className="@container">
+        <div className="grid gap-6 @min-[44rem]:grid-cols-[minmax(0,1fr)_21rem]">
         <div className="space-y-6">
+          {/* People first. They are the reason the application moves, and they
+              were previously last in the right rail — in the panel, two
+              scrolls below the fold. */}
+          <ContactsCard applicationId={application.id} company={values.company} contacts={contacts} />
+
+          {resumePreview && (
+            <ResumeCard preview={resumePreview} />
+          )}
+
           <Timeline applicationId={application.id} activities={activities} />
 
-          <Card>
-            <CardHeader>
-              <CardTitle className="text-[15px]">Job description</CardTitle>
-              <p className="text-muted-foreground text-sm">
-                Paste the full posting — this is what Claude tailors against.
-              </p>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                value={values.jobDescription}
-                onChange={(event) => set({ jobDescription: event.target.value })}
-                placeholder="Paste the posting here."
-                className="min-h-56 font-mono text-[13px] leading-relaxed"
-              />
-            </CardContent>
-          </Card>
+          <JobDescriptionCard
+            value={values.jobDescription}
+            onChange={(jobDescription) => set({ jobDescription })}
+          />
 
           <Card>
             <CardHeader>
@@ -420,7 +490,7 @@ export function ApplicationDetail({
           </Card>
 
           <TasksCard applicationId={application.id} tasks={tasks} />
-          <ContactsCard applicationId={application.id} company={values.company} contacts={contacts} />
+        </div>
         </div>
       </div>
     </div>
@@ -428,6 +498,196 @@ export function ApplicationDetail({
 }
 
 // ---------------------------------------------------------------------------
+
+/**
+ * Moving an application to a different employer.
+ *
+ * Deliberately a picker over the companies already on file rather than a text
+ * box: typing a name that does not exist creates one, which is how a workspace
+ * ends up with "Stripe", "Stripe, Inc." and "Str". Creating is still possible —
+ * it is the last row, and it says that it is creating.
+ */
+function CompanyPicker({
+  applicationId,
+  current,
+  companies,
+  logos,
+  onChanged,
+}: {
+  applicationId: string;
+  current: string;
+  companies: { id: string; name: string; website: string }[];
+  logos: boolean;
+  onChanged: (name: string) => void;
+}) {
+  const [open, setOpen] = useState(false);
+  const [query, setQuery] = useState("");
+  const [pending, startTransition] = useTransition();
+
+  const move = (name: string) => {
+    const clean = name.trim();
+    if (!clean || clean === current) {
+      setOpen(false);
+      return;
+    }
+    startTransition(async () => {
+      try {
+        await updateApplicationAction(applicationId, { company: clean });
+        toast.success(`Moved to ${clean}`);
+        setOpen(false);
+        setQuery("");
+        onChanged(clean);
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not change the company.");
+      }
+    });
+  };
+
+  const typed = query.trim();
+  const exists = companies.some((item) => item.name.toLowerCase() === typed.toLowerCase());
+
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          aria-label="Change company"
+          title="Change company"
+          className="text-faint hover:text-foreground"
+          disabled={pending}
+        >
+          <ChevronDownIcon />
+        </Button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-72 p-0">
+        <Command loop>
+          <CommandInput
+            value={query}
+            onValueChange={setQuery}
+            placeholder="Move to which company?"
+            className="h-9"
+          />
+          <CommandList>
+            <CommandEmpty>Type a name to create it.</CommandEmpty>
+            {companies.map((item) => (
+              <CommandItem
+                key={item.id}
+                value={`${item.name} ${item.id}`}
+                onSelect={() => move(item.name)}
+                className="flex items-center gap-2 px-2 py-1.5 text-[13px]"
+              >
+                <CompanyAvatar
+                  name={item.name}
+                  domain={logos ? companyDomain({ name: item.name, website: item.website }) : null}
+                  size={18}
+                />
+                <span className="min-w-0 flex-1 truncate">{item.name}</span>
+                {item.name === current && <span className="text-faint text-[11px]">current</span>}
+              </CommandItem>
+            ))}
+            {typed && !exists && (
+              <CommandItem
+                forceMount
+                value="±new±"
+                onSelect={() => move(typed)}
+                className="flex items-center gap-2 px-2 py-1.5 text-[13px]"
+              >
+                <PlusIcon className="size-3.5" />
+                Create “{typed}”
+              </CommandItem>
+            )}
+          </CommandList>
+        </Command>
+      </PopoverContent>
+    </Popover>
+  );
+}
+
+/**
+ * The posting, folded away.
+ *
+ * It is the longest thing on the page and the thing you look at least — you
+ * pasted it once and Claude reads it from then on. Collapsed when there is one
+ * to collapse, open when there is not, because an empty card that hides its
+ * own paste target is a dead end.
+ */
+function JobDescriptionCard({
+  value,
+  onChange,
+}: {
+  value: string;
+  onChange: (value: string) => void;
+}) {
+  const [open, setOpen] = useState(!value.trim());
+  const words = value.trim() ? value.trim().split(/\s+/).length : 0;
+
+  return (
+    <Card>
+      <CardHeader className="flex-row items-center justify-between gap-2">
+        <button
+          type="button"
+          onClick={() => setOpen((previous) => !previous)}
+          aria-expanded={open}
+          className="flex min-w-0 flex-1 items-center gap-1.5 text-left"
+        >
+          {open ? (
+            <ChevronDownIcon className="text-muted-foreground size-4 shrink-0" />
+          ) : (
+            <ChevronRightIcon className="text-muted-foreground size-4 shrink-0" />
+          )}
+          <CardTitle className="text-[15px]">Job description</CardTitle>
+          {!open && words > 0 && (
+            <span className="text-faint nums text-[12px]">{words} words</span>
+          )}
+          {!open && words === 0 && <span className="text-faint text-[12px]">empty</span>}
+        </button>
+      </CardHeader>
+      {open && (
+        <CardContent className="space-y-2">
+          <p className="text-muted-foreground text-sm">
+            Paste the full posting — this is what Claude tailors against.
+          </p>
+          <Textarea
+            value={value}
+            onChange={(event) => onChange(event.target.value)}
+            placeholder="Paste the posting here."
+            className="min-h-56 font-mono text-[13px] leading-relaxed"
+          />
+        </CardContent>
+      )}
+    </Card>
+  );
+}
+
+/**
+ * The resume that actually went out, as the page it is.
+ *
+ * A name in a Select told you which document was attached and nothing about
+ * what is on it. This is the same live thumbnail the resumes screen draws,
+ * from the same components, so "what did I send them" is answered by looking.
+ */
+function ResumeCard({ preview }: { preview: ResumePreview }) {
+  return (
+    <Card className="overflow-hidden p-0">
+      <div className="relative border-b">
+        <PaperThumb>
+          <ResumePaper doc={preview.doc} settings={preview.settings} />
+        </PaperThumb>
+        {/* The page is cropped, so fade the cut rather than ending it on a
+            hard line mid-sentence — same treatment as the resumes grid. */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
+      </div>
+      <CardContent className="flex items-center gap-2 py-3">
+        <FileTextIcon className="text-muted-foreground size-3.5 shrink-0" />
+        <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{preview.name}</span>
+        <Button asChild variant="outline" size="xs">
+          <Link href={`/resumes/${preview.id}`}>Open</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
 
 function Timeline({
   applicationId,

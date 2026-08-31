@@ -4,9 +4,10 @@ import { ArrowLeftIcon } from "lucide-react";
 import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
-import { getApplication, listSourceOptions } from "@/lib/data/pipeline";
-import { listResumes } from "@/lib/data/resumes";
+import { getApplication, listCompanies, listSourceOptions } from "@/lib/data/pipeline";
+import { getResume, listResumes } from "@/lib/data/resumes";
 import { requireUser } from "@/lib/auth";
+import { getSettings } from "@/lib/settings";
 import { ApplicationDetail } from "@/components/pipeline/application-detail";
 
 export const dynamic = "force-dynamic";
@@ -14,12 +15,18 @@ export const dynamic = "force-dynamic";
 export default async function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [application, resumes, sourceOptions] = await Promise.all([
+  const [application, resumes, sourceOptions, companies, { companyLogos }] = await Promise.all([
     getApplication(user.id, id),
     listResumes(user.id),
     listSourceOptions(user.id),
+    listCompanies(user.id),
+    getSettings(),
   ]);
   if (!application) notFound();
+
+  // Fetched only when one is attached: the document carries the owner's photo
+  // as a data URI, which is not something to ship for a card nobody asked for.
+  const attached = application.resumeId ? await getResume(user.id, application.resumeId) : null;
 
   return (
     <PageShell>
@@ -72,6 +79,35 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
           }))}
           resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
           sourceOptions={sourceOptions}
+          company={{
+            id: application.companyId,
+            name: application.company.name,
+            website: application.company.website,
+          }}
+          companies={companies.map((item) => ({
+            id: item.id,
+            name: item.name,
+            website: item.website,
+          }))}
+          resumePreview={
+            attached
+              ? {
+                  id: attached.id,
+                  name: attached.name,
+                  doc: attached.doc,
+                  settings: {
+                    template: attached.template,
+                    accent: attached.accent,
+                    fontFamily: attached.fontFamily,
+                    fontSize: attached.fontSize,
+                    lineHeight: attached.lineHeight,
+                    pageMargin: attached.pageMargin,
+                    photo: attached.showPhoto ? attached.photo : "",
+                  },
+                }
+              : null
+          }
+          logos={companyLogos}
         />
       </FadeIn>
     </PageShell>

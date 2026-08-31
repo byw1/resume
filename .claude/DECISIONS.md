@@ -2464,3 +2464,46 @@ true of contacts, false of applications, and exactly backwards about the risk.
 `src/components/crm/merge-companies-dialog.tsx`, `src/components/crm/company-detail.tsx`,
 `src/components/pipeline/application-detail.tsx`, `src/app/(app)/crm/companies/[id]/page.tsx`,
 `README.md`, `docs/concepts/crm.mdx`, `docs/tools/crm.mdx` (generated).
+
+---
+
+## 2026-08-31 — The application page stops being a form
+
+**People first, then the resume, then the timeline; the posting folded away.** The old order
+was an accident of construction — the timeline led because it was built first, and the
+people you are actually talking to were last in the right rail, which in the slide-over is
+two scrolls below the fold. The new order is look-at things before adjust-things: People,
+Resume, Timeline, Job description, Notes, with Details and Tasks in the rail.
+
+**The job description is collapsed when there is one and open when there is not.** Empty vs
+filled is the only signal worth branching on: a filled description is a wall of text you
+pasted once and Claude reads from then on, and an empty one needs its paste target visible
+or the card is a dead end. The state is per-mount and deliberately not persisted — it is a
+glance, not a preference.
+
+**The resume is rendered, not named.** `ResumePaper` is a pure component (no `"use client"`,
+no server-only imports) and takes a plain JSON document, so the same live thumbnail the
+resumes grid draws can render inside this client component from data the page or the panel
+action already fetched. A name in a Select told you which document was attached and nothing
+about what was on it. The document is fetched **only when one is attached**, because it
+carries the owner's photo as a data URI and the panel is opened far more often than a
+resume is read.
+
+**The company is a chip, and changing it is a picker.** The header's editable company field
+was the bug in the previous entry; replacing it with free text that commits on blur would
+have kept the same trap open, just narrower. The picker offers the companies already on
+file and only creates when you pick the row that says it is creating — which is the same
+argument as `merge_companies`, at the other end of the problem.
+
+**`lg:` was measuring the wrong box.** One component renders in two: the page, whose content
+is about 720px at a 1024px viewport once the 15rem rail is subtracted, and the slide-over,
+which is about 688px at any viewport. A viewport breakpoint therefore gave the *panel* two
+columns on every desktop and crammed a 21rem rail into 688px. It is a container query now —
+`@container` on the root and `@min-[44rem]` on the grid — chosen above the panel and below
+the page. Do not "simplify" it back to `lg:`, and if the rail width or the sheet width
+changes, re-measure: the usable window is narrow.
+
+**Applies to:** `src/components/pipeline/application-detail.tsx`,
+`src/components/pipeline/application-panel.tsx`,
+`src/app/(app)/applications/[id]/page.tsx`, `getApplicationForPanelAction` in
+`src/server/actions.ts`, `docs/app.mdx`.
