@@ -57,10 +57,12 @@ type Variable = {
  */
 export function ConfigurationPanel({
   variables,
+  google,
   email,
   billing,
 }: {
   variables: Variable[];
+  google: { configured: boolean; redirectUri: string };
   email: { configured: boolean; fromEmail: string; ownEmail: string };
   billing: { configured: boolean; billedUsers: number; webhookUrl: string };
 }) {
@@ -145,6 +147,14 @@ export function ConfigurationPanel({
           <CardHeader>
             <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-2">
               <CardTitle className="text-[15px]">{group.name}</CardTitle>
+              {group.name === "Sign-in" && (
+                <StatusBadge
+                  ok={google.configured}
+                  okLabel="Google is on"
+                  notLabel="Password only"
+                  neutral
+                />
+              )}
               {group.name === "Email" && (
                 <StatusBadge
                   ok={email.configured}
@@ -164,6 +174,7 @@ export function ConfigurationPanel({
           </CardHeader>
 
           <CardContent className="pt-0">
+            {group.name === "Sign-in" && <GoogleSetup redirectUri={google.redirectUri} />}
             {group.name === "Email" && !email.configured && <ResendSteps />}
             {group.name === "Billing" && <WebhookUrl url={billing.webhookUrl} />}
 
@@ -277,17 +288,97 @@ export function ConfigurationPanel({
 /** What each section is for, in one line, above its fields. */
 const GROUP_BLURB: Record<string, string> = {
   Instance: "What this instance is called and where it lives. Every invitation link, published resume and webhook URL is built from the public URL.",
+  "Sign-in": "Everyone can always sign in with an email and password. Adding a Google client turns on a Continue with Google button as well — existing members and anyone holding an invitation can use it straight away.",
   Email: "Invitations go out through Resend. Everything works without it — creating an invite just gives you a link to send yourself.",
   Billing: "Optional, for hosting other people here for a fee. Someone who pays through your Stripe payment link is invited automatically; a lapsed subscription suspends them, data kept, and paying again turns them back on.",
   Custom: "Variables added by hand. Nothing in the app reads these unless something was written to look for them.",
 };
 
-function StatusBadge({ ok, okLabel, notLabel }: { ok: boolean; okLabel: string; notLabel: string }) {
+/**
+ * `neutral` is for a section where "off" is a perfectly good answer. Email
+ * unconfigured is a warning because invitations quietly stop arriving; Google
+ * unconfigured just means passwords, which is how most instances will run.
+ */
+function StatusBadge({
+  ok,
+  okLabel,
+  notLabel,
+  neutral = false,
+}: {
+  ok: boolean;
+  okLabel: string;
+  notLabel: string;
+  neutral?: boolean;
+}) {
+  if (!ok && neutral) {
+    return (
+      <Badge variant="outline" className="text-[11px]">
+        {notLabel}
+      </Badge>
+    );
+  }
   return (
     <Badge variant={ok ? "success" : "warning"} className="gap-1">
       {ok ? <CheckCircle2Icon className="size-3" /> : <TriangleAlertIcon className="size-3" />}
       {ok ? okLabel : notLabel}
     </Badge>
+  );
+}
+
+function GoogleSetup({ redirectUri }: { redirectUri: string }) {
+  return (
+    <div className="mb-5 space-y-3">
+      <ol className="space-y-2">
+        {[
+          <>
+            In the{" "}
+            <a
+              href="https://console.cloud.google.com/apis/credentials"
+              target="_blank"
+              rel="noreferrer"
+              className="text-primary inline-flex items-center gap-0.5 underline underline-offset-2"
+            >
+              Google Cloud console <ExternalLinkIcon className="size-3" />
+            </a>
+            , create an OAuth client ID of type <strong>Web application</strong>.
+          </>,
+          <>Add the redirect URI below under Authorised redirect URIs, exactly as shown.</>,
+          <>Paste the client ID and secret in, and save.</>,
+        ].map((step, index) => (
+          <li key={index} className="flex gap-3 text-sm">
+            <span className="bg-muted text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums">
+              {index + 1}
+            </span>
+            <span className="text-muted-foreground pt-0.5">{step}</span>
+          </li>
+        ))}
+      </ol>
+
+      <div className="space-y-1.5">
+        <Label>Authorised redirect URI</Label>
+        <div className="flex items-center gap-2">
+          <code className="bg-muted/70 min-w-0 flex-1 truncate rounded-lg border px-3 py-2 font-mono text-[12px]">
+            {redirectUri}
+          </code>
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              navigator.clipboard.writeText(redirectUri);
+              toast.success("Copied.");
+            }}
+            aria-label="Copy the redirect URI"
+          >
+            <CopyIcon />
+          </Button>
+        </div>
+        <p className="text-faint text-[12px]">
+          Character for character, or Google answers every sign-in with
+          redirect_uri_mismatch. It is built from the public URL above, so fix that first if
+          it looks wrong.
+        </p>
+      </div>
+    </div>
   );
 }
 

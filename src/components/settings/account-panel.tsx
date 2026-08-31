@@ -13,6 +13,7 @@ import { PhotoField } from "@/components/settings/photo-field";
 import {
   changeOwnPasswordAction,
   logoutAction,
+  unlinkGoogleAction,
   updateOwnAccountAction,
 } from "@/server/actions";
 
@@ -24,8 +25,18 @@ const ROLE_LABEL: Record<string, string> = {
 
 export function AccountPanel({
   user,
+  googleReady,
 }: {
-  user: { name: string; email: string; role: string; photo: string };
+  user: {
+    name: string;
+    email: string;
+    role: string;
+    photo: string;
+    googleLinked: boolean;
+    hasPassword: boolean;
+  };
+  /** Whether this instance has Google sign-in configured at all. */
+  googleReady: boolean;
 }) {
   const [values, setValues] = useState({ name: user.name, email: user.email });
   const [pending, startTransition] = useTransition();
@@ -124,6 +135,13 @@ export function AccountPanel({
           </Button>
         </form>
 
+        {googleReady && (
+          <>
+            <Separator />
+            <GoogleLink linked={user.googleLinked} hasPassword={user.hasPassword} />
+          </>
+        )}
+
         <Separator />
 
         <form action={logoutAction}>
@@ -133,5 +151,56 @@ export function AccountPanel({
         </form>
       </CardContent>
     </Card>
+  );
+}
+
+/**
+ * Connect or disconnect Google for your own account.
+ *
+ * Connecting is a link out to the sign-in flow rather than an action, because
+ * it is a round trip through Google — and doing it while signed in is the
+ * safe direction: you have already proved you hold this account, so the
+ * instance can trust the pairing. A Google sign-in on its own will not adopt
+ * an account whose address nobody has vouched for, which is exactly the case
+ * this control exists to resolve.
+ */
+function GoogleLink({ linked, hasPassword }: { linked: boolean; hasPassword: boolean }) {
+  const [pending, startTransition] = useTransition();
+
+  return (
+    <div className="flex flex-wrap items-center justify-between gap-3">
+      <div className="min-w-0">
+        <p className="text-[13px] font-medium">Google</p>
+        <p className="text-muted-foreground mt-0.5 text-xs">
+          {linked
+            ? hasPassword
+              ? "Connected. You can sign in with Google or with your password."
+              : "Connected. This is currently the only way you can sign in."
+            : "Connect it and you can sign in with one press next time."}
+        </p>
+      </div>
+
+      {linked ? (
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending || !hasPassword}
+          title={hasPassword ? undefined : "Set a password first, or you'd have no way to sign in."}
+          onClick={() =>
+            startTransition(async () => {
+              const result = await unlinkGoogleAction();
+              if (result.ok) toast.success("Google disconnected");
+              else toast.error(result.error);
+            })
+          }
+        >
+          Disconnect
+        </Button>
+      ) : (
+        <Button asChild variant="outline" size="sm">
+          <a href="/api/auth/google?link=1">Connect Google</a>
+        </Button>
+      )}
+    </div>
   );
 }

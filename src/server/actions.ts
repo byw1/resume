@@ -23,6 +23,7 @@ import {
   startSession,
 } from "@/lib/auth";
 import { deleteVariable, getSettings, setVariables } from "@/lib/settings";
+import { unlinkGoogleFromUser } from "@/lib/google";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
 import { loadPosting } from "@/lib/posting";
@@ -377,6 +378,17 @@ export async function deleteUserAction(userId: string) {
  * shape it needs — and an unknown key is created, which is how a setting
  * exists before it has a section of its own.
  */
+/**
+ * Detach Google from your own account. Linking is a redirect through Google
+ * (see /api/auth/google?link=1), so only the undo needs an action.
+ */
+export async function unlinkGoogleAction() {
+  const user = await requireUser();
+  const result = await unlinkGoogleFromUser(user.id);
+  revalidatePath("/settings");
+  return result;
+}
+
 export async function saveVariablesAction(patch: Record<string, string>) {
   const actor = await requireAdmin();
   try {

@@ -22,6 +22,7 @@ import { getProfile } from "@/lib/data/brain";
 import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
 import { MANUAL_URL } from "@/lib/links";
+import { getSettings, googleIsConfigured } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -57,9 +58,10 @@ export default async function SettingsPage({
 
   // Nobody should ever land here with nothing to copy.
   await ensureDefaultConnection(user.id);
-  const [connections, profile] = await Promise.all([
+  const [connections, profile, settings] = await Promise.all([
     listConnections(user.id),
     getProfile(user.id),
+    getSettings(),
   ]);
 
   const visibleTools = toolsFor(user);
@@ -173,7 +175,10 @@ export default async function SettingsPage({
                 email: user.email,
                 role: user.role,
                 photo: profile.photo,
+                googleLinked: Boolean(user.googleId),
+                hasPassword: Boolean(user.passwordHash),
               }}
+              googleReady={googleIsConfigured(settings)}
             />
           </FadeIn>
         </TabsContent>

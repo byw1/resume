@@ -14,6 +14,7 @@ import {
   updateSettings,
   emailIsConfigured,
   billingIsConfigured,
+  googleIsConfigured,
   maskSecret,
   listVariables,
   setVariables,
@@ -2818,6 +2819,69 @@ export const tools: McpTool[] = [
       return result.ok
         ? { ok: true, to, id: result.id }
         : { ok: false, to, error: result.error };
+    },
+  },
+  {
+    name: "admin_get_google_config",
+    title: "Check Google sign-in",
+    description:
+      "Whether people can sign in with Google, who is allowed to, and the exact redirect URI to register in the Google Cloud console — the value that causes redirect_uri_mismatch when it does not match exactly. The client secret comes back masked. `allowSignup` false means Google only signs in people who already have an account or an outstanding invitation, which is the default and keeps the instance invite-only.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    adminOnly: true,
+    handler: async (_args, ctx) => {
+      const settings = await getSettings();
+      return {
+        configured: googleIsConfigured(settings),
+        clientId: settings.googleClientId,
+        clientSecret: maskSecret(settings.googleClientSecret),
+        allowSignup: settings.googleAllowSignup,
+        allowedDomains: settings.googleAllowedDomains,
+        redirectUri: `${ctx.baseUrl}/api/auth/google/callback`,
+        help: "In the Google Cloud console: APIs & Services → Credentials → Create credentials → OAuth client ID → Web application. Add redirectUri under Authorised redirect URIs exactly as given, then paste the client ID and secret here with admin_set_google_config. An existing member or an invited person can sign in with Google as soon as it is configured; allowSignup only governs people nobody invited.",
+      };
+    },
+  },
+  {
+    name: "admin_set_google_config",
+    title: "Configure Google sign-in",
+    description:
+      "Set the Google OAuth client id and secret, and decide who may sign up. Only the fields you pass are changed. Setting a client id and secret puts a Continue with Google button on the sign-in page; clearing the client id takes it away and changes nothing else, so it is a safe thing to undo. `allowSignup` is the one with consequences: true lets ANYONE with a Google account create an account on this instance, so pair it with allowedDomains unless you really mean the whole internet. False — the default — still lets existing members and anyone holding an unexpired invitation sign in with Google; it only turns away strangers. Follow with admin_get_google_config for the redirect URI to register.",
+    inputSchema: object({
+      clientId: str("OAuth client ID, ends in .apps.googleusercontent.com"),
+      clientSecret: str("OAuth client secret, usually starts GOCSPX-"),
+      allowSignup: bool("True lets a Google account nobody invited create an account here"),
+      allowedDomains: str("Comma-separated email domains new sign-ups must be on, e.g. 'acme.com'. Empty means any domain. Only consulted when allowSignup is true."),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    adminOnly: true,
+    handler: async (args, ctx) => {
+      await updateSettings(
+        ctx.user,
+        defined({
+          googleClientId: s(args, "clientId"),
+          googleClientSecret: s(args, "clientSecret"),
+          googleAllowSignup: b(args, "allowSignup"),
+          googleAllowedDomains: s(args, "allowedDomains"),
+        }),
+      );
+      const settings = await getSettings();
+      return {
+        configured: googleIsConfigured(settings),
+        allowSignup: settings.googleAllowSignup,
+        allowedDomains: settings.googleAllowedDomains,
+        redirectUri: `${ctx.baseUrl}/api/auth/google/callback`,
+      };
     },
   },
   {

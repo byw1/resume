@@ -40,7 +40,7 @@ just *talk* to it.
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
   paste — because the address that matters is whichever one they actually answer on.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  80 tools any MCP client can call (108 if you're an admin). Claude, Claude Code, ChatGPT,
+  80 tools any MCP client can call (110 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -57,6 +57,10 @@ just *talk* to it.
   every migration finished, whether the last invite email actually left, and whether Stripe
   is still calling the webhook, then lists what has failed in the last thirty days. Ask an
   assistant for `admin_health` and you get the same answer without opening a browser.
+- **Sign in how you like** — email and password always work, and an instance that adds a
+  Google OAuth client gets a Continue with Google button as well. Google never bypasses an
+  invitation: it signs in people who already have an account or an unexpired invite, and
+  turns everyone else away unless an admin has deliberately opened sign-up.
 - **Hard to guess at** — sign-in attempts are counted per account and per address, and an
   account stops answering after eight wrong passwords in fifteen minutes. Passwords are
   scrypt hashes, sessions are httpOnly cookies, and admins cannot reset each other or the
@@ -204,7 +208,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 80, or 108 if you're an admin.
+would, then tells you how many tools answered — 80, or 110 if you're an admin.
 
 #### One connection per client
 
@@ -293,6 +297,37 @@ won't let a caller omit.
 You can do all of this by talking to Claude instead: *"is email set up? configure Resend with
 this key and send a test."*
 
+### Signing in with Google (optional)
+
+Passwords always work. Add a Google OAuth client from **Admin → Configuration → Sign-in**
+and a **Continue with Google** button appears on the sign-in page too; clear the client ID
+and it goes away again. The screen shows the exact redirect URI to register in the
+[Google Cloud console](https://console.cloud.google.com/apis/credentials), with a button to
+copy it — pasting it character for character is the whole of avoiding
+`redirect_uri_mismatch`.
+
+The button is not a way around invitations. Someone coming back from Google is matched in
+this order: an account that has used Google here before, then an account with the same
+email address *if the instance has a reason to vouch for that address* (the two get linked,
+and they keep their password), then an unexpired invitation (accepted on the spot, with no
+password ever chosen). Only if none of those match does the **sign-up** setting decide, and
+it is off by default — so an invitation you already sent starts working with the Google
+button the moment it's configured, and nobody else gets in.
+
+That vouching matters: anyone can change their own email here to any unused address, so
+matching on the address alone would let a member set theirs to a colleague's and capture
+that colleague's first Google sign-in. An address counts when an admin addressed an
+invitation to it, the owner claimed the instance with it, or Google handed it over
+verified. Retyping it in Settings clears that, and the way back is to sign in with a
+password and press **Connect Google** under Settings → Account.
+
+Turning sign-up on is a real change: anyone who can sign in to Google gets an account. Pair
+it with an allowed-domains list unless you mean the whole internet. A Google sign-up is
+always a member, never an admin, and an unverified Google email is refused outright —
+accounts here are matched by address, so that check is what the whole thing rests on.
+
+By conversation: `admin_get_google_config`, `admin_set_google_config`.
+
 ### Everything else you can change
 
 `DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in the
@@ -318,7 +353,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 80 tools. Seventy-three of them are the data tools across the four areas and your account;
 the other seven are the workflows below, published as tools as well as prompts, because
 prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
-a step-by-step plan that it then follows. Admins get 28 more — 27 data tools and an eighth
+a step-by-step plan that it then follows. Admins get 30 more — 29 data tools and an eighth
 workflow — and members never even see those in the tool list, so nobody is tempted by a
 permission they don't have.
 

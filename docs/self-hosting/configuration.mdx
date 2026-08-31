@@ -18,6 +18,10 @@ Change one and it takes effect on the next request. There is nothing to redeploy
 | `instance_name` | Instance | What this instance is called. Shown on the sign-in page and in every email it sends. | `Hired` |
 | `public_url` | Instance | Where this instance is reachable from outside. Invitation links and the Stripe webhook URL are built from it. Left empty, the app guesses from the incoming request — right until something sits in front of it. | *(empty)* |
 | `company_logos` | Instance | Shows each company's favicon in the pipeline. | On |
+| `google_client_id` | Sign-in | OAuth client ID from the Google Cloud console. Setting it puts a Continue with Google button on the sign-in page. | *(empty)* |
+| `google_client_secret` | Sign-in | The secret for that OAuth client. | *(empty)* |
+| `google_allow_signup` | Sign-in | Whether a Google account nobody invited may create an account here. | Off |
+| `google_allowed_domains` | Sign-in | Comma-separated domains a new Google sign-up must be on. Only consulted when sign-up is on. | *(empty)* |
 | `resend_api_key` | Email | Starts with `re_`. Stored on your server and never shown again. | *(empty)* |
 | `resend_from_email` | Email | The address invitations are sent from, on a domain verified in Resend. | *(empty)* |
 | `resend_from_name` | Email | Display name on outgoing mail. | `Hired` |
