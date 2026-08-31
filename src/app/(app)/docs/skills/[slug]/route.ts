@@ -13,6 +13,11 @@ import { zip } from "@/lib/zip";
  * Claude Code wants on disk. `/docs/skills/hired.zip` is the same file inside a
  * folder named after the skill, which is what Claude's apps want at the upload
  * box — the folder is the part people get wrong when they zip it themselves.
+ *
+ * The page these were linked from is gone; the links live on Settings →
+ * Connections now. The path stays as it is because it is what people have
+ * bookmarked, and because /docs redirects to the manual rather than 404ing,
+ * which would otherwise have swallowed these.
  */
 export async function GET(_request: Request, { params }: { params: Promise<{ slug: string }> }) {
   await requireUser();

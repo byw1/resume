@@ -12,7 +12,6 @@ import {
   FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
-  LibraryBigIcon,
   LogOutIcon,
   MenuIcon,
   PanelLeftCloseIcon,
@@ -425,12 +424,12 @@ function MobileNav({
   branchOpen: (href: string) => boolean;
   onToggleBranch: (href: string) => void;
 }) {
-  // Docs is this instance describing itself; the manual is the written guide to
-  // the product and lives on another origin, so it opens in its own tab and says
-  // so with an arrow rather than looking like one more screen of the app.
+  // One Docs, and it is the manual. The in-app page that used to sit beside it
+  // said the same things from the same tools array, and the menu should not ask
+  // anybody to pick between two answers to one question. It lives on another
+  // origin, so it opens in its own tab and the arrow says so.
   const secondary = [
-    { href: "/docs", label: "Docs", icon: BookOpenIcon, external: false },
-    { href: MANUAL_URL, label: "Manual", icon: LibraryBigIcon, external: true },
+    { href: MANUAL_URL, label: "Docs", icon: BookOpenIcon, external: true },
     { href: "/settings", label: "Settings", icon: SettingsIcon, external: false },
     ...(canAdmin
       ? [{ href: "/settings/admin", label: "Admin", icon: ShieldIcon, external: false }]
@@ -595,17 +594,12 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
 
         <DropdownMenuSeparator />
 
-        <DropdownMenuItem asChild>
-          <Link href="/docs">
-            <BookOpenIcon /> Docs
-          </Link>
-        </DropdownMenuItem>
-        {/* Two places to read. Docs is generated from this instance; the manual
-            is the written guide to the product, the same for every deployment
-            of it, and it is on another origin — hence the arrow and the tab. */}
+        {/* Docs is docs.hired.tools. It is on another origin, hence the arrow
+            and the tab; the skills it used to carry are on Settings, because
+            those files are served by this instance and nothing else can. */}
         <DropdownMenuItem asChild>
           <a href={MANUAL_URL} target="_blank" rel="noreferrer">
-            <LibraryBigIcon /> Manual
+            <BookOpenIcon /> Docs
             <ArrowUpRightIcon className="text-muted-foreground ml-auto size-3.5" />
           </a>
         </DropdownMenuItem>

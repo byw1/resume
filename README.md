@@ -343,16 +343,19 @@ still be asked before something gets destroyed. And when a tool's entire job is 
 link — a published resume, a rendered PDF, a shared pipeline — it comes back as a link you can
 click, not a field buried in a blob of JSON.
 
-The **Docs** page inside the app — it's in the profile menu, next to Settings — lists every tool
-and workflow, generated from the server itself rather than written out, so it can't drift. It
-also carries three Claude Skills you can install, which teach an assistant the rules of this
-place before you have to. Each comes two ways: the raw `SKILL.md` to drop in
-`~/.claude/skills/`, and a zip for the upload box in Claude's apps, which wants a folder rather
-than a loose file.
+[docs.hired.tools](https://docs.hired.tools) is the manual — it's **Docs** in the profile
+menu, and every tool is written out there with its arguments, generated from the same array
+the server sends so it can't drift. The app used to render its own copy of that list at
+`/docs`; one generated list rendered twice is one rendering that goes stale, so that page
+is gone and the address redirects.
 
-That page is about *your* deployment. [docs.hired.tools](https://docs.hired.tools) is the
-manual for the product: the same pages whoever you're hosting reads, whichever instance
-they're on.
+**Settings → Connections** keeps the parts only your own instance can answer: how many tools
+your account actually has, a **Test** that proves it by calling the endpoint, and the three
+Claude Skills, which teach an assistant the rules of this place before you have to. Each
+comes two ways — the raw `SKILL.md` to drop in `~/.claude/skills/`, and a zip for the upload
+box in Claude's apps, which wants a folder rather than a loose file. They're served from the
+`skills/` directory of the instance you're running, so what you install is byte-for-byte what
+it has.
 
 ### The four areas
 

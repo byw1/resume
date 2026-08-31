@@ -2510,3 +2510,39 @@ rail arguing with the page. The stored value is a preference, not a lock.
 window of the same account never disagree about whether the branch is open.
 
 **Applies to:** `src/components/shell.tsx` (`NAV`, `branchOpen`, `toggleBranch`, `MobileNav`).
+
+## 2026-08-31 — /docs folds into docs.hired.tools, and the skills stay behind
+
+**There is one Docs now and it is the manual.** The in-app `/docs` page listed every
+tool from the same array `tools/gen-tool-docs.mjs` generates `docs/tools/*.mdx` from,
+so it was a second rendering of one generated list — the exact thing the settings
+page comment warned about when it stripped the catalogue out of Settings. Worse, the
+profile menu had grown two entries that answer the same question. The page is gone;
+`next.config.ts` redirects `/docs` permanently to the manual, because people have it
+bookmarked and the README and marketing site both linked it.
+
+**Two things could not move, and both stayed in the app.** The **skill files** are
+served from the running instance's own `skills/` directory — byte for byte the copies
+in the repository it is running — and no static site can build somebody a zip out of a
+folder on someone else's server. They live on **Settings → Connections** now, which is
+where you wire up an assistant, and installing a skill is part of that rather than part
+of reading about one. The **live tool count** was already in that panel's header
+("108 tools · 8 workflows · 28 admin"), with **Test** to prove it by calling the
+endpoint, so the per-account number survives where it is actually useful.
+
+**The redirect is exact-match on purpose.** `source: "/docs"` does not catch
+`/docs/skills/<name>` or `.zip`, which is what keeps the downloads working. That was
+worth checking rather than assuming: signed in, the route still returns
+`text/markdown` with a `SKILL.md` disposition and a real `PK`-signature zip.
+Unauthenticated it 307s to `/login`, which is `requireUser` and correct — an early
+test that looked like a broken download was just a client with no session.
+
+**`next.config.ts` imports `src/lib/links.ts` by relative path**, not `@/lib/links` —
+the config is compiled outside the path aliases, so the alias silently would not
+resolve.
+
+**Applies to:** `next.config.ts`, `src/app/(app)/docs/page.tsx` (deleted),
+`src/app/(app)/docs/skills/[slug]/route.ts`, `src/app/(app)/settings/page.tsx`,
+`src/components/settings/{skills-panel,copy-block}.tsx`, `src/components/shell.tsx`,
+`README.md`, `docs/{app,skills}.mdx`, `docs/tools/overview.mdx`,
+`docs/reference/faq.mdx`.
