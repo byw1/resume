@@ -132,7 +132,10 @@ docs/                         The manual, published by Mintlify at docs.hired.to
                               main. Prose is hand-written; the argument tables under
                               docs/tools/ are generated — see below.
 tools/gen-tool-docs.mjs       Rewrites docs/tools/*.mdx from the tools array by evaluating
-                              each inputSchema expression. Run it after changing a tool;
+                              each inputSchema expression, and owns every tool count the
+                              manual states — the table and the area cards on
+                              docs/tools/overview.mdx sit between generated: markers, and
+                              no other page repeats a figure. Run it after changing a tool;
                               --check fails when a page is stale. Everything above the
                               first "### `" heading on each page is yours to write.
 ```

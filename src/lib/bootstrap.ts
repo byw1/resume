@@ -1,7 +1,7 @@
 import { randomInt } from "node:crypto";
 import { db } from "@/lib/db";
 import { generatePassphrase } from "@/lib/passphrase";
-import { ensureDefaultConnection, hashPassword } from "@/lib/auth";
+import { CLAIMED, ensureDefaultConnection, hashPassword } from "@/lib/auth";
 
 /**
  * First-boot provisioning.
@@ -45,7 +45,7 @@ async function ownerEmail() {
  * single-user install changes hands instead of being orphaned.
  */
 export async function ensureOwner() {
-  const claimed = await db.user.count({ where: { passwordHash: { not: "" } } });
+  const claimed = await db.user.count({ where: CLAIMED });
   if (claimed > 0) {
     await maybeResetOwnerPassword();
     return;
@@ -56,13 +56,14 @@ export async function ensureOwner() {
   const provided = process.env.APP_PASSWORD?.trim();
   const password = provided || generatePassphrase();
 
-  const placeholder = await db.user.findFirst({ where: { passwordHash: "" } });
+  const placeholder = await db.user.findFirst({ where: { passwordHash: "", googleId: null } });
   const data = {
     email,
     name: "",
     passwordHash: hashPassword(password),
     role: "SUPER_ADMIN" as const,
     isActive: true,
+    emailProvenAt: new Date(),
   };
 
   const owner = placeholder
@@ -97,7 +98,7 @@ async function maybeResetOwnerPassword() {
   if (!flag || flag === "0" || flag === "false") return;
 
   const owner = await db.user.findFirst({
-    where: { role: "SUPER_ADMIN", passwordHash: { not: "" } },
+    where: { role: "SUPER_ADMIN", ...CLAIMED },
     orderBy: { createdAt: "asc" },
   });
   if (!owner) return;

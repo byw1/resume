@@ -9,7 +9,13 @@ import { instanceStats, listInvites, listUsers } from "@/lib/data/users";
 import { listWaitlist, waitlistStats } from "@/lib/data/waitlist";
 import { listAudit } from "@/lib/data/audit";
 import { instanceHealth, listSystemEvents } from "@/lib/data/system";
-import { billingIsConfigured, emailIsConfigured, getSettings, listVariables } from "@/lib/settings";
+import {
+  billingIsConfigured,
+  emailIsConfigured,
+  getSettings,
+  googleIsConfigured,
+  listVariables,
+} from "@/lib/settings";
 import { billedUserCount } from "@/lib/billing";
 import { UsersPanel } from "@/components/admin/users-panel";
 import { InvitesPanel } from "@/components/admin/invites-panel";
@@ -196,6 +202,10 @@ export default async function AdminPage() {
           <FadeIn>
             <ConfigurationPanel
               variables={variables}
+              google={{
+                configured: googleIsConfigured(settings),
+                redirectUri: `${settings.publicUrl || `${proto}://${host}`}/api/auth/google/callback`,
+              }}
               email={{
                 configured: emailReady,
                 fromEmail: settings.resendFromEmail,

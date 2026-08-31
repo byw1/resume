@@ -2511,6 +2511,145 @@ window of the same account never disagree about whether the branch is open.
 
 **Applies to:** `src/components/shell.tsx` (`NAV`, `branchOpen`, `toggleBranch`, `MobileNav`).
 
+---
+
+## 2026-08-31 — Sign in with Google, without becoming a way around invitations
+
+**The hard part was not OAuth.** It was that `passwordHash != ""` was the test for "is this
+account real", written out in **sixteen places** — the session guard, the MCP token guard,
+`instanceNeedsSetup`, three counts in `instanceStats`, `listUsers`, both invite guards. A
+person who has only ever signed in with Google has no password and is entirely real, so
+every one of those was a lockout waiting to happen: sessions rejected, MCP token refused,
+missing from the admin list, uncounted in the stats. Finding all sixteen before writing any
+OAuth code was most of the work.
+
+The rule now has a name and one implementation in `auth.ts`: `CLAIMED` (a
+`Prisma.UserWhereInput` for queries) and `isClaimed()` (a predicate for a row in hand).
+The unclaimed placeholder from the single-user migration is now "no password **and** no
+Google id", which is what it always meant. `authenticate()` deliberately still tests
+`passwordHash` on its own — a Google-only account has no password, so there is nothing
+there to match, and saying so is the point.
+
+**`googleId` is nullable and unique, against the grain of this schema.** Everything else
+optional here is `String @default("")`. An identity is different: Postgres permits many
+NULLs under a unique index but only one empty string, so `@default("")` would have made the
+column unusable as a constraint. The database is the only place that can actually stop two
+accounts claiming one Google identity, and that is worth an inconsistency.
+
+**The policy is an ordered list, and the order is the whole security model.** Known Google
+id → matching email (link, and they keep their password) → unexpired invitation (accept it,
+no password ever chosen) → sign-up, if an admin turned it on → refused. The first three need
+no new setting: **an invitation you already sent starts working with the Google button the
+moment it is configured**, which is why "let people sign in with Google" did not have to
+mean "let strangers in".
+
+**Sign-up is off by default and that is not a hedge.** Every other door on this instance is
+invite-only, and a switch that silently opened it on upgrade would be a security change
+nobody asked for. Turning it on is one toggle, with a domain allowlist beside it. A Google
+sign-up is always a MEMBER — no sign-in method should be able to hand out a role.
+
+**`email_verified` is the single check everything rests on**, and it is worth being blunt
+about why: accounts here are matched by address, so an unverified Google email would let
+anyone who can create a Google account walk into the matching account. Refused outright.
+
+**The ID token's signature is not verified, on purpose.** It arrives in the body of a direct
+TLS POST this server makes to Google's token endpoint, authenticated with the client secret
+— not through the browser. Google's own guidance is that a token collected that way needs no
+signature check, because TLS already proved who sent it. Issuer, audience, expiry and nonce
+*are* checked, because those catch misconfiguration rather than forgery. Writing a JWKS
+fetch, an RS256 verify and a key-rotation cache would have been more code, a cache to get
+wrong, and no more secure. Revisit only if the token ever stops arriving over that channel.
+
+**The half-finished sign-in is a signed cookie, not a row.** State and nonce go into one
+HMAC-signed httpOnly cookie keyed on the client secret — the one instance-wide secret both
+ends already share. Nothing about an abandoned sign-in is worth persisting, and it means a
+login survives a restart, a replica or a redeploy, for the same reason the MCP transport
+holds no session state. Every exit from the callback clears it, failures included, so one
+authorization code can never be replayed against a second attempt.
+
+**`safeNext` exists because a login callback is exactly where an open redirect lives.**
+Anything not starting with a single `/` becomes `/`.
+
+**Not built, deliberately:** no "sign in with Google" on the first-run setup screen. Setup
+is a deliberate act with the owner's own password and happens before any of this is
+configured; the callback refuses outright on an unclaimed instance.
+
+---
+
+### What the tenant audit found, and what it changed
+
+The first cut of this shipped an **account takeover**, and the shape of it is worth keeping
+because the same trap is waiting for the next person who joins accounts on an email
+address.
+
+**Matching by email meant trusting a field the account holder types.** `updateOwnAccount`
+accepts any address nobody else holds, with no verification of any kind — it always has,
+and before Google that bought an attacker nothing but a squat an admin would notice. With
+Google sign-in, rule 2 turned it into capture: a member sets their email to a colleague's
+address, the colleague presses Continue with Google, and lands in the member's workspace —
+brain, resumes, pipeline — while the member keeps their password and can read everything
+filed there afterwards. Worse, rule 2 runs before the invitation branch, so an outstanding
+invitation for that address was silently ignored in favour of the squatted row.
+
+The fix is `User.emailProvenAt`: **when this instance last had a reason to believe the
+address belongs to the account.** An admin addressed an invitation to it, the owner claimed
+the instance with it, or Google handed it over verified. Typing it into Settings clears it.
+Rule 2 requires it. Existing rows are backfilled to `createdAt` in the migration, and the
+reasoning is written there: every address on an upgrading instance was set in a world with
+no Google sign-in, so none of them could have been squatted *for this*.
+
+That left people whose address is unproven with no way in, so **Settings → Account gained
+Connect Google** — the same flow with `link=1` carried in the *signed state cookie* rather
+than a query parameter, so the callback cannot be talked into linking by a crafted URL.
+This is the safe direction of the same join: you proved you hold the account by being in
+it, Google proved you hold the address. Disconnect refuses when Google is your only way
+back in.
+
+**Second finding, same root: `touch()` rebound `googleId` unconditionally.** A *different*
+Google subject presenting the same address took the row and overwrote the previous link,
+silently, because the unique index never fired — `byGoogle` was null for the new subject.
+Google Workspace admins reassign addresses when somebody leaves, so this was one routine
+HR action away from handing a new hire the departed employee's entire history. Rule 2 now
+refuses when the account is already bound to a different identity.
+
+**Third: `safeNext` missed backslashes.** `/\evil.com` starts with one slash, is not `//`,
+and resolves to `https://evil.com/` — WHATWG treats `\` as `/` for http(s). A credential
+phishing primitive handed to a visitor in the second after they watched a real sign-in
+succeed. Control characters are excluded for the same reason.
+
+**Fourth: the callback echoed free text onto its own sign-in page.** `?error=<sentence>`
+rendered in a styled warning box above the real password form, on the real domain. Refusals
+now travel as a fixed set of codes and the sentence is looked up locally; the one
+interpolated value, the domain list, is read from settings rather than the URL. Google's
+own words still reach the admin, in **Health**, where they are useful and not weaponisable.
+
+**Not treated as a finding:** an admin can generate a password for a Google-only account
+and sign in as them. That is the pre-existing `adminResetPassword`, audited like every
+other use of it, and it is equally true of password accounts — Google did not widen it.
+
+The lesson worth carrying: **an email address is a routing label, not an identity**, and
+the moment two authentication systems are joined on one, the question is not "do the
+strings match" but "who last asserted this string, and what did they prove".
+
+**`src/lib/request-url.ts` is new and half-applied.** The two-line "work out the base URL
+from forwarded headers" idiom is inlined in about ten older call sites; route handlers get a
+plain `Headers` rather than `next/headers`, so the helper had to exist. Folding the other
+ten in belongs in a commit that is not also adding an authentication method.
+
+**Verified against a real Postgres, every branch:** unverified email refused, existing
+member linked with their password intact, Google id winning over a changed email, stranger
+refused with sign-up off, invited person let in with sign-up still off and the invitation
+consumed, domain allowlist enforced both ways, suspension holding with the billing-aware
+message, and a Google-only account passing the session guard, the MCP token guard,
+`listUsers` and `instanceStats`. Plus the claim checks against a stubbed token endpoint, and
+the callback refusing a forged and a mismatched state.
+
+**Applies to:** `src/lib/google.ts`, `src/lib/auth.ts`, `src/lib/request-url.ts`,
+`src/components/settings/account-panel.tsx`,
+`src/app/api/auth/google/`, `src/lib/settings.ts`, `src/lib/mcp/tools.ts`,
+`src/lib/data/users.ts`, `src/lib/bootstrap.ts`, `src/components/login-form.tsx`,
+`src/components/accept-invite-form.tsx`, `src/components/admin/configuration-panel.tsx`,
+`prisma/schema.prisma`, `docs/self-hosting/google.mdx`.
 ## 2026-08-31 — /docs folds into docs.hired.tools, and the skills stay behind
 
 **There is one Docs now and it is the manual.** The in-app `/docs` page listed every
@@ -2546,3 +2685,29 @@ resolve.
 `src/components/settings/{skills-panel,copy-block}.tsx`, `src/components/shell.tsx`,
 `README.md`, `docs/{app,skills}.mdx`, `docs/tools/overview.mdx`,
 `docs/reference/faq.mdx`.
+
+## 2026-08-31 — The generator owns the tool counts now
+
+Two admin tools landed with Google sign-in and every hand-written figure in the
+manual went stale: 100 became 102, 27 became 29, and `tools/list` for an admin
+became 110. That is the **fourth** time a count in this repository has been wrong
+— twice in the README, and now twice in `docs/`.
+
+So they are generated. `docs/tools/overview.mdx` carries two blocks between
+`{/* generated:counts */}` and `{/* generated:areas */}` markers, filled by
+`tools/gen-tool-docs.mjs` from the array itself, and `--check` fails when either
+is stale. The generator also reads the prompts array now, because the workflows
+are published as tools and the totals are wrong without them.
+
+**Every other page stopped repeating a number.** connect.mdx, troubleshooting.mdx
+and index.mdx used to state "80 for a member, 108 for an admin" and now link to
+the table; configuration.mdx said "All 27 admin tools" and now says "Every admin
+tool". One generated figure, cited from everywhere else — the same rule that
+killed the in-app /docs page, applied to the numbers rather than to the list.
+
+The per-area blurbs moved into `SECTIONS` in the generator, since it has to emit
+the cards to keep their counts right.
+
+**Applies to:** `tools/gen-tool-docs.mjs`, `docs/tools/overview.mdx`,
+`docs/connect.mdx`, `docs/index.mdx`, `docs/reference/troubleshooting.mdx`,
+`docs/self-hosting/configuration.mdx`, `docs/reference/security.mdx`, `CLAUDE.md`.

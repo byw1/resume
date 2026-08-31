@@ -1,0 +1,108 @@
+---
+title: "Google sign-in"
+description: "A Continue with Google button on the sign-in page, who it lets in, and the one setting that decides whether strangers can create accounts."
+icon: "google"
+---
+
+Passwords always work. Adding a Google OAuth client puts a **Continue with Google** button
+on the sign-in page as well, and clearing the client ID takes it away again — nothing else
+changes either way, so it is a safe thing to try.
+
+## Setting it up
+
+<Steps>
+  <Step title="Create an OAuth client">
+    In the [Google Cloud console](https://console.cloud.google.com/apis/credentials),
+    **APIs & Services → Credentials → Create credentials → OAuth client ID**, of type
+    **Web application**.
+  </Step>
+  <Step title="Register the redirect URI">
+    **Admin → Configuration → Sign-in** shows the exact URI, with a button to copy it. It
+    is `https://your-instance/api/auth/google/callback`. Paste it under **Authorised
+    redirect URIs** character for character — a trailing slash or `http` where it should
+    be `https` is the whole of `redirect_uri_mismatch`.
+
+    It is built from **Public URL**, so if the URI shown looks wrong, fix that setting
+    first rather than editing anything in Google.
+  </Step>
+  <Step title="Paste the client ID and secret in">
+    Same screen, then **Save**. The button appears on the sign-in page immediately.
+  </Step>
+</Steps>
+
+## Who it lets in
+
+The button is not a way around invitations. When somebody comes back from Google, they are
+matched in this order:
+
+| | What happens |
+| --- | --- |
+| They have signed in with Google here before | Straight in, even if their Google email has changed since. |
+| Their Google email matches an account whose address this instance vouches for | The two are linked, and they keep their password as well. |
+| They hold an invitation that has not expired | It is accepted. No password is ever chosen. |
+| Nobody invited them | Refused, unless **sign-up** is on. |
+
+The first three need no setting and no extra work from an admin: an invitation you already
+sent works with the Google button the moment Google is configured.
+
+### "Vouches for" is doing real work
+
+Matching on the address alone would mean trusting a field the account holder types. Anyone
+here can change their own email to any address nobody is using — so if that were enough,
+a member could set theirs to a colleague's address and the colleague's first Google
+sign-in would drop them into the member's workspace.
+
+So an address counts only when the instance had a reason to believe it: an admin addressed
+an invitation to it, the owner claimed the instance with it, or Google itself handed it
+over verified. Typing a new address into **Settings → Account** clears that, and the
+person is asked to sign in with their password and press **Connect Google** there instead
+— which is the same link, made safe by the fact that they are already in the account.
+
+An account already linked to one Google account is never silently re-pointed at another,
+even for the same address. Workspace admins reassign addresses when somebody leaves, and
+the new holder of `alex@corp.com` should not inherit the previous Alex's workspace.
+
+<Warning>
+  **Sign-up is off by default, and turning it on is a real change.** With it on, anyone who
+  can sign in to Google gets an account on your instance. Pair it with **Allowed email
+  domains** unless you mean the whole internet. Existing members are never affected by
+  either setting — an invited person on any domain always signs in.
+</Warning>
+
+A Google sign-up is always a **member**, never an admin. Roles are something an admin
+grants on purpose, and no sign-in method hands one out.
+
+## What it does not change
+
+- **Passwords still work.** Someone who links Google keeps the password they had. Someone
+  who has only ever used Google has no password, which is fine — an admin can generate one
+  for them from their account page if they ever need it. (That is the same
+  password-reset an admin has always been able to run on any member, and it is recorded in
+  the audit log like every other one.)
+- **You can disconnect it.** **Settings → Account → Google → Disconnect**, which refuses
+  if Google is currently your only way to sign in.
+- **Suspension still holds.** A suspended account is refused at the Google button exactly
+  as it is at the password form, and a lapsed subscription says so.
+- **Billing is untouched.** A Google sign-up arrives with no Stripe customer attached, so
+  billing never suspends them. If you charge for your instance, leave sign-up off and let
+  the payment link do the inviting.
+
+## Security notes
+
+- **An unverified Google email is refused.** Accounts here are matched by address, so an
+  unverified one would let anyone who can create a Google account walk into the matching
+  account. This is the single check the whole flow rests on.
+- **The identity token is collected server-side**, over a direct TLS request to Google
+  authenticated with your client secret, never through the browser. Its issuer, audience,
+  expiry and nonce are all checked.
+- **The half-finished sign-in is a signed cookie**, not a row in the database, so a
+  sign-in survives a restart or a redeploy and there is nothing to clean up.
+- **Refusals are recorded** in **Admin → Health** with the reason, so "it says I can't
+  sign in" is answerable. The visitor only ever sees one of a fixed set of sentences —
+  nothing Google or a query string says is echoed onto the sign-in page, because a page
+  that will print a stranger's sentence in a warning box is a phishing page with extra
+  steps.
+- **The post-sign-in redirect only accepts a path on this instance.** Including the
+  backslash forms, which resolve to another origin despite looking relative.
+
+By conversation: `admin_get_google_config`, `admin_set_google_config`.

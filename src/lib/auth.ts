@@ -5,7 +5,7 @@ import {
 } from "node:crypto";
 import { cookies, headers } from "next/headers";
 import { redirect } from "next/navigation";
-import type { User, UserRole } from "@prisma/client";
+import type { Prisma, User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
 
 const SESSION_COOKIE = "hired_session";
@@ -82,13 +82,30 @@ export function generateInviteToken() {
 // ---------------------------------------------------------------------------
 
 /**
- * The instance is unclaimed until somebody with a real password exists. The
- * migration leaves behind a placeholder row owning any pre-multi-user data;
- * it has an empty passwordHash and cannot be logged into.
+ * What makes an account real.
+ *
+ * The migration to multi-user left behind a placeholder row owning any
+ * single-user-era data: no password, and nothing may sign in as it. For a long
+ * time "has a password" and "is a real account" were the same sentence, so the
+ * check was spelled `passwordHash != ""` in sixteen places.
+ *
+ * Google sign-in breaks that: someone who has only ever used Google has no
+ * password and is entirely real. So the rule gets a name and one
+ * implementation — a Prisma fragment for queries and a predicate for rows in
+ * hand — because sixteen copies of a rule is sixteen chances for the next
+ * sign-in method to lock somebody out of one screen and not the others.
  */
+export const CLAIMED: Prisma.UserWhereInput = {
+  OR: [{ passwordHash: { not: "" } }, { googleId: { not: null } }],
+};
+
+export function isClaimed(user: { passwordHash: string; googleId: string | null }) {
+  return Boolean(user.passwordHash || user.googleId);
+}
+
+/** The instance is unclaimed until somebody who can sign in exists. */
 export async function instanceNeedsSetup() {
-  const claimed = await db.user.count({ where: { passwordHash: { not: "" } } });
-  return claimed === 0;
+  return (await db.user.count({ where: CLAIMED })) === 0;
 }
 
 export function setupKeyIsRequired() {
@@ -118,7 +135,7 @@ export async function claimInstance(input: {
   }
 
   const email = input.email.trim().toLowerCase();
-  const placeholder = await db.user.findFirst({ where: { passwordHash: "" } });
+  const placeholder = await db.user.findFirst({ where: { passwordHash: "", googleId: null } });
 
   const data = {
     email,
@@ -126,6 +143,7 @@ export async function claimInstance(input: {
     passwordHash: hashPassword(input.password),
     role: "SUPER_ADMIN" as const,
     isActive: true,
+    emailProvenAt: new Date(),
   };
 
   const user = placeholder
@@ -215,10 +233,15 @@ export async function getCurrentUser(): Promise<User | null> {
     await db.session.delete({ where: { id: session.id } }).catch(() => {});
     return null;
   }
-  if (!session.user.isActive || !session.user.passwordHash) return null;
+  if (!session.user.isActive || !isClaimed(session.user)) return null;
   return session.user;
 }
 
+/**
+ * Sign in with a password. Deliberately still tests `passwordHash` rather than
+ * `isClaimed`: a Google-only account has no password, so there is nothing here
+ * for it to match, and saying so is the point.
+ */
 export async function authenticate(email: string, password: string): Promise<User | null> {
   const user = await db.user.findUnique({ where: { email: email.trim().toLowerCase() } });
   // Spend the same work whether or not the account exists.
@@ -284,7 +307,7 @@ export async function userByMcpToken(
   if (!connection) return null;
 
   const { user } = connection;
-  if (!user.isActive || !user.passwordHash) return null;
+  if (!user.isActive || !isClaimed(user)) return null;
 
   const now = Date.now();
   const stale =

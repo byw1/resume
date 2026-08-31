@@ -25,6 +25,10 @@ export const SETTING_KEYS = {
   resendFromName: "resend_from_name",
   publicUrl: "public_url",
   companyLogos: "company_logos",
+  googleClientId: "google_client_id",
+  googleClientSecret: "google_client_secret",
+  googleAllowSignup: "google_allow_signup",
+  googleAllowedDomains: "google_allowed_domains",
   stripeSecretKey: "stripe_secret_key",
   stripeWebhookSecret: "stripe_webhook_secret",
   stripePaymentLink: "stripe_payment_link",
@@ -38,6 +42,13 @@ export type InstanceSettings = {
   publicUrl: string;
   /** Off means no request ever leaves the browser for a logo. */
   companyLogos: boolean;
+  /** Google sign-in. Empty client id means the button is not shown at all. */
+  googleClientId: string;
+  googleClientSecret: string;
+  /** Whether a Google account nobody invited may create an account here. */
+  googleAllowSignup: boolean;
+  /** Comma-separated domains a new Google account must be on. Empty is any. */
+  googleAllowedDomains: string;
   /** Stripe, for the instance owner who hosts other people for a fee. */
   stripeSecretKey: string;
   stripeWebhookSecret: string;
@@ -52,7 +63,7 @@ export type InstanceSettings = {
  */
 export type VariableKind = "text" | "url" | "secret" | "toggle";
 
-export type VariableGroup = "Instance" | "Email" | "Billing";
+export type VariableGroup = "Instance" | "Sign-in" | "Email" | "Billing";
 
 export type VariableDef = {
   key: string;
@@ -103,6 +114,49 @@ export const VARIABLES: VariableDef[] = [
     group: "Instance",
     placeholder: "",
     fallback: "1",
+  },
+  {
+    key: SETTING_KEYS.googleClientId,
+    field: "googleClientId",
+    label: "Google client ID",
+    help: "From a Web application OAuth client in the Google Cloud console. Setting this is what puts the Continue with Google button on the sign-in page; clearing it takes the button away.",
+    kind: "text",
+    group: "Sign-in",
+    placeholder: "1234567890-abc.apps.googleusercontent.com",
+    fallback: "",
+  },
+  {
+    key: SETTING_KEYS.googleClientSecret,
+    field: "googleClientSecret",
+    label: "Google client secret",
+    help: "From the same OAuth client. Stored on your server and never shown again.",
+    kind: "secret",
+    group: "Sign-in",
+    placeholder: "GOCSPX-...",
+    fallback: "",
+  },
+  {
+    key: SETTING_KEYS.googleAllowSignup,
+    field: "googleAllowSignup",
+    // Off by default, and it has to be: this instance is invite-only
+    // everywhere else, and a switch that silently opened the door on upgrade
+    // would be a security change nobody asked for.
+    help: "Off, Google only signs in people who already have an account or an outstanding invitation — everyone else is sent to the waitlist. On, anyone who can sign in to Google gets an account, so pair it with a domain list unless you mean the whole internet.",
+    label: "Let new people sign up with Google",
+    kind: "toggle",
+    group: "Sign-in",
+    placeholder: "",
+    fallback: "0",
+  },
+  {
+    key: SETTING_KEYS.googleAllowedDomains,
+    field: "googleAllowedDomains",
+    label: "Allowed email domains",
+    help: "Comma-separated, e.g. acme.com, acme.co.uk. Only checked when sign-up is on, and only for people who are new — an existing member on any domain always signs in. Empty means any domain.",
+    kind: "text",
+    group: "Sign-in",
+    placeholder: "acme.com, acme.co.uk",
+    fallback: "",
   },
   {
     key: SETTING_KEYS.resendApiKey,
@@ -201,6 +255,10 @@ export async function getSettings(): Promise<InstanceSettings> {
     resendFromName: raw(SETTING_KEYS.resendFromName),
     publicUrl: raw(SETTING_KEYS.publicUrl),
     companyLogos: raw(SETTING_KEYS.companyLogos) !== "0",
+    googleClientId: raw(SETTING_KEYS.googleClientId),
+    googleClientSecret: raw(SETTING_KEYS.googleClientSecret),
+    googleAllowSignup: raw(SETTING_KEYS.googleAllowSignup) === "1",
+    googleAllowedDomains: raw(SETTING_KEYS.googleAllowedDomains),
     stripeSecretKey: raw(SETTING_KEYS.stripeSecretKey),
     stripeWebhookSecret: raw(SETTING_KEYS.stripeWebhookSecret),
     stripePaymentLink: raw(SETTING_KEYS.stripePaymentLink),
@@ -400,6 +458,14 @@ export async function deleteVariable(actor: Actor, key: string) {
 
 export function emailIsConfigured(settings: InstanceSettings) {
   return Boolean(settings.resendApiKey && settings.resendFromEmail);
+}
+
+/**
+ * Both halves or nothing. A client id with no secret would show the button and
+ * fail at the callback, which is a worse failure than no button.
+ */
+export function googleIsConfigured(settings: InstanceSettings) {
+  return Boolean(settings.googleClientId && settings.googleClientSecret);
 }
 
 export function billingIsConfigured(settings: InstanceSettings) {
