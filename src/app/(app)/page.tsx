@@ -2,6 +2,7 @@ import Link from "next/link";
 import {
   ArrowRightIcon,
   BrainIcon,
+  CircleUserRoundIcon,
   CalendarClockIcon,
   CheckCircle2Icon,
   FileTextIcon,
@@ -133,8 +134,8 @@ export default async function DashboardPage() {
               hint={stats.offers > 0 ? `${stats.offers} offer${stats.offers > 1 ? "s" : ""} on the table` : "Keep the streak"}
             />
             <StatCard
-              icon={BrainIcon}
-              label="Brain"
+              icon={CircleUserRoundIcon}
+              label="Me"
               value={highlightCount}
               hint={`${roleCount} role${roleCount === 1 ? "" : "s"} · ${resumeCount} resume${resumeCount === 1 ? "" : "s"}`}
             />

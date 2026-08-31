@@ -43,7 +43,7 @@ const AREAS = [
     blurb:
       "Everything you know about your own career. Roles hold an unlimited raw brain dump plus polished reusable bullets; there are also notes, projects, education, skills and certifications.",
     match: (name: string) =>
-      /^(search_brain|get_brain_snapshot|list_roles|get_role|create_role|update_role|delete_role|append_role_brain_dump|list_highlights|create_highlights|update_highlight|delete_highlight|list_notes|create_note|update_note|list_extras|create_extra|update_extra|delete_extra|get_profile|update_profile|mine_brain_dump)$/.test(
+      /^(search_brain|get_brain_snapshot|list_roles|get_role|create_role|update_role|delete_role|append_role_brain_dump|list_highlights|create_highlights|update_highlight|delete_highlight|list_notes|create_note|update_note|list_extras|create_extra|update_extra|delete_extra|get_profile|update_profile|set_profile_photo|mine_brain_dump)$/.test(
         name,
       ),
   },
@@ -73,6 +73,14 @@ const AREAS = [
     blurb:
       "Companies and the people at them, as records in their own right — website, industry, size and whatever research has accumulated.",
     match: (name: string) => /compan|contact/.test(name) && !name.startsWith("admin_"),
+  },
+  {
+    key: "account",
+    label: "Your account",
+    icon: PlugZapIcon,
+    blurb:
+      "Who this connection belongs to, and the connections themselves — adding one for another client, renaming it, rotating a URL that has leaked, or disconnecting it for good.",
+    match: (name: string) => name === "whoami" || name.endsWith("_connection") || name === "list_connections",
   },
   {
     key: "admin",
