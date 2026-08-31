@@ -2449,3 +2449,66 @@ kind of change to get right and the most expensive to leave wrong.
 `instance-panel.tsx`, `email-panel.tsx` and `billing-panel.tsx`, all deleted),
 `src/components/page-header.tsx`, `src/components/admin/{invites,waitlist}-panel.tsx`,
 `src/server/actions.ts`, `src/lib/settings.ts`.
+
+---
+
+## 2026-08-31 — A flag on the domain above both, and a box that says how long
+
+Two things, and they turn out to be the same thing: what happens before you sign in, and
+what happens after.
+
+**hired.tools could not ask app.hired.tools anything, and should not have been able to.**
+The obvious implementation of "send a signed-in visitor to the app" is a `fetch` from the
+landing page to the app with credentials, and it does not work: the session cookie is
+`SameSite=Lax` and is simply not sent on a cross-site request. The fix people reach for is
+`SameSite=None`, and that is the wrong trade — it is a real defence against cross-site
+requests, spent on a convenience. The other option, a top-level bounce through the app on
+every visit, makes an anonymous visitor watch a redirect on the way to a marketing page.
+
+So: a cookie on the domain above both hosts. Signing in writes `hired_signed_in=1` to
+`hired.tools`, an inline script at the top of the landing page reads it, and that is the
+whole mechanism. It is script-readable on purpose and carries nothing — no identity, no
+token, no session — because the worst thing a forged one can do has to be "sends somebody
+to a sign-in page". This is what GitHub's `logged_in` cookie is, and for the same reason.
+
+**The cookie domain is a setting, not a guess.** `landing_url` in Admin → Configuration,
+and the domain written to is the longest run of labels the app host and that URL share.
+Deriving it from the request host alone would have needed no configuration and would have
+written a cookie on `mycompany.com` for anyone self-hosting at `hired.mycompany.com` —
+a flag visible to every unrelated site on that domain, that nobody asked for. Taking the
+common suffix of the two also means a forged `Host` header cannot widen it past what an
+admin wrote down: the answer is bounded by the landing page at both ends. `.co.uk` is the
+case this deliberately does not get clever about — the browser refuses a cookie on a public
+suffix and the landing page stays the landing page, which is the right failure.
+
+**The redirect replaces rather than pushes, and that is not a choice.** A navigation started
+from a head script replaces the history entry whatever you call it, so `location.replace`
+is the honest spelling. The escape hatch is a `sessionStorage` marker: ask for hired.tools a
+second time in the same tab and you get it. Without the marker, the page would be
+unreachable for as long as you stayed signed in. A deep link (`#pricing`, or any query, so
+ad clicks land where they were pointed) and arriving from the app also stay put.
+
+**A stale hint is cleared by the sign-in page.** The flag can outlive the session it
+describes — an expired session, a password change, an admin ending every device. Reaching
+`/login` means there is definitively no session here, since the page redirects into the app
+when there is one, so the form deletes the hint on mount. That is also the only place that
+can: nothing can write a cookie during a server render.
+
+**Keep me signed in, ticked, is what the app already did.** Thirty days, persistent cookie.
+Unticked is twelve hours and a cookie with no expiry, so it goes when the window does. The
+box is a native `<input type="checkbox">` rather than the shadcn one, which is the only
+interesting decision in it: this form posts to a server action and still works with
+scripting off, and Radix only grows the hidden input carrying its value once it has
+hydrated — so the Radix version would have quietly given every no-JS sign-in a twelve-hour
+session. The show/hide eye and `required` came along with it; `autocomplete` was already
+right.
+
+**Verified against a real browser rather than by reading it.** Postgres, a production
+build, and a TLS proxy serving `site/` at hired.tools and the app at app.hired.tools, so
+the cross-domain half was exercised as it actually ships: sign in, get bounced from the
+landing page, ask again and stay, sign out and watch the deletion in the response headers,
+and an instance with no `landing_url` writing no cookie at all.
+
+**Applies to:** `src/lib/auth.ts`, `src/lib/settings.ts`, `src/server/actions.ts`,
+`src/app/login/page.tsx`, `src/components/login-form.tsx`, `site/index.html`, `README.md`,
+`docs/reference/security.mdx`, `docs/self-hosting/configuration.mdx`.

@@ -59,8 +59,9 @@ just *talk* to it.
   assistant for `admin_health` and you get the same answer without opening a browser.
 - **Hard to guess at** — sign-in attempts are counted per account and per address, and an
   account stops answering after eight wrong passwords in fifteen minutes. Passwords are
-  scrypt hashes, sessions are httpOnly cookies, and admins cannot reset each other or the
-  owner — the code being public is not the same as the door being open.
+  scrypt hashes, sessions are httpOnly cookies you can decline to keep past the browser
+  window, and admins cannot reset each other or the owner — the code being public is not
+  the same as the door being open.
 
 > "Here's everything I did at Vertex last quarter — file it."
 > "Tailor my resume to this posting."
@@ -304,6 +305,14 @@ Secrets show masked and can only be replaced or cleared, never read back. Anythi
 change is one line in **Admin → Log**, with your name on it, values included for everything
 that isn't a secret. Clearing a value resets it to the default the app ships with, and the
 button tells you what that is before you press it.
+
+One of those settings is worth calling out because it changes what somebody sees before they
+sign in. **Landing page** is the marketing site in front of your instance, if you run one.
+Point it at a site on the same domain as the app — hired.tools and app.hired.tools — and
+signing in leaves a flag on the domain above both, so anyone already signed in who lands on
+the marketing page is sent straight through to the app instead of reading the pitch again.
+The flag says a session exists and nothing else; it carries no identity and no token, and
+the session itself never leaves the app. Leave it empty and nothing is written.
 
 You can also add a setting of your own. That's the escape hatch for one that exists before
 it has a section — a feature can read a key, and you can set it today rather than waiting

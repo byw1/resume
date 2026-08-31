@@ -17,6 +17,7 @@ Change one and it takes effect on the next request. There is nothing to redeploy
 | --- | --- | --- | --- |
 | `instance_name` | Instance | What this instance is called. Shown on the sign-in page and in every email it sends. | `Hired` |
 | `public_url` | Instance | Where this instance is reachable from outside. Invitation links and the Stripe webhook URL are built from it. Left empty, the app guesses from the incoming request — right until something sits in front of it. | *(empty)* |
+| `landing_url` | Instance | The marketing site in front of this instance, if it has one. On a domain shared with the app, signing in leaves a flag there so somebody already signed in who lands on the marketing page is sent through to the app. | *(empty)* |
 | `company_logos` | Instance | Shows each company's favicon in the pipeline. | On |
 | `resend_api_key` | Email | Starts with `re_`. Stored on your server and never shown again. | *(empty)* |
 | `resend_from_email` | Email | The address invitations are sent from, on a domain verified in Resend. | *(empty)* |
