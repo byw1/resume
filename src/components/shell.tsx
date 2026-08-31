@@ -6,7 +6,7 @@ import { motion } from "framer-motion";
 import {
   ArrowUpRightIcon,
   BookOpenIcon,
-  BrainIcon,
+  CircleUserRoundIcon,
   Building2Icon,
   ChevronDownIcon,
   FileTextIcon,
@@ -44,9 +44,11 @@ import { MANUAL_URL } from "@/lib/links";
 //
 // CRM is the one entry with children: it is two peer screens (companies and
 // people), and reaching the second one used to require landing on the first
-// and finding the tabs. The rail names both. In the collapsed rail the
-// children fold into the icon's tooltip-covered single link, which lands on
-// companies — the tabs on the page take it from there.
+// and finding the tabs. The rail names both — but folded away until asked for,
+// because a permanently open branch makes a five-item rail read as seven and
+// buries Pipeline. The parent is still a link to /crm; the chevron beside it is
+// what opens the branch. In the collapsed rail the children fold into the
+// icon's tooltip-covered single link, and the tabs on the page take over.
 type NavItem = {
   href: string;
   label: string;
@@ -56,7 +58,7 @@ type NavItem = {
 
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
-  { href: "/brain", label: "Brain", icon: BrainIcon },
+  { href: "/brain", label: "Me", icon: CircleUserRoundIcon },
   { href: "/resumes", label: "Resumes", icon: FileTextIcon },
   {
     href: "/crm",
@@ -73,6 +75,9 @@ const NAV: NavItem[] = [
 // The rail remembers whether you collapsed it. Read after mount so the server
 // and the first client render agree.
 const COLLAPSE_KEY = "hired:sidebar-collapsed";
+
+/** Which nav branches are open. Same reasoning as the rail's own collapse. */
+const BRANCH_KEY = "hired:nav-open-branches";
 
 export type ShellUser = { name: string; email: string; role: string; photo: string };
 
@@ -92,6 +97,7 @@ export function Shell({
   const [paletteOpen, setPaletteOpen] = useState(false);
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
+  const [openBranches, setOpenBranches] = useState<string[]>([]);
 
   // Navigating is the reason the drawer was opened, so arriving closes it.
   useEffect(() => {
@@ -100,7 +106,31 @@ export function Shell({
 
   useEffect(() => {
     setCollapsed(window.localStorage.getItem(COLLAPSE_KEY) === "1");
+    try {
+      const stored = JSON.parse(window.localStorage.getItem(BRANCH_KEY) ?? "[]");
+      if (Array.isArray(stored)) setOpenBranches(stored.filter((v) => typeof v === "string"));
+    } catch {
+      // A corrupt value is not worth a broken sidebar; start closed.
+    }
   }, []);
+
+  const toggleBranch = (href: string) => {
+    setOpenBranches((current) => {
+      const next = current.includes(href)
+        ? current.filter((value) => value !== href)
+        : [...current, href];
+      window.localStorage.setItem(BRANCH_KEY, JSON.stringify(next));
+      return next;
+    });
+  };
+
+  /**
+   * Being inside a branch opens it, whatever was stored. Landing on
+   * /crm/contacts from a link and finding the rail insisting Contacts is
+   * hidden would be the rail arguing with the page.
+   */
+  const branchOpen = (href: string) =>
+    openBranches.includes(href) || pathname.startsWith(href);
 
   const toggleCollapsed = () => {
     setCollapsed((value) => {
@@ -258,29 +288,56 @@ export function Shell({
             }
 
             if (!item.children) return <div key={item.href}>{link}</div>;
+
+            const open = branchOpen(item.href);
+            const branchId = `nav-branch-${item.href.replace(/\W/g, "")}`;
             return (
               <div key={item.href} className="flex flex-col gap-0.5">
-                {link}
-                {item.children.map((child) => {
-                  const childActive = pathname.startsWith(child.href);
-                  return (
-                    <Link
-                      key={child.href}
-                      href={child.href}
-                      aria-current={childActive ? "page" : undefined}
+                {/* The chevron sits over the link rather than inside it: a
+                    button nested in an anchor is invalid, and the parent has to
+                    stay a real link — clicking CRM should go to CRM, not just
+                    unfold it. */}
+                <div className="relative">
+                  {link}
+                  <button
+                    type="button"
+                    onClick={() => toggleBranch(item.href)}
+                    aria-expanded={open}
+                    aria-controls={branchId}
+                    aria-label={`${open ? "Hide" : "Show"} ${item.label} sections`}
+                    className="text-faint hover:bg-accent hover:text-foreground absolute inset-y-1 right-1 flex w-7 items-center justify-center rounded-md transition-colors"
+                  >
+                    <ChevronDownIcon
                       className={cn(
-                        // Indented to sit under the parent's label, not its icon,
-                        // so the hierarchy reads at a glance.
-                        "ml-[2.4rem] flex items-center rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
-                        childActive
-                          ? "bg-accent/70 text-foreground"
-                          : "text-muted-foreground hover:text-foreground",
+                        "size-3.5 transition-transform duration-200",
+                        open && "rotate-180",
                       )}
-                    >
-                      {child.label}
-                    </Link>
-                  );
-                })}
+                    />
+                  </button>
+                </div>
+
+                <div id={branchId} hidden={!open} className="flex flex-col gap-0.5">
+                  {item.children.map((child) => {
+                    const childActive = pathname.startsWith(child.href);
+                    return (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        aria-current={childActive ? "page" : undefined}
+                        className={cn(
+                          // Indented to sit under the parent's label, not its icon,
+                          // so the hierarchy reads at a glance.
+                          "ml-[2.4rem] flex items-center rounded-lg px-3 py-1.5 text-[13px] font-medium transition-colors",
+                          childActive
+                            ? "bg-accent/70 text-foreground"
+                            : "text-muted-foreground hover:text-foreground",
+                        )}
+                      >
+                        {child.label}
+                      </Link>
+                    );
+                  })}
+                </div>
               </div>
             );
           })}
@@ -327,6 +384,8 @@ export function Shell({
           isActive={isActive}
           followUpCount={followUpCount}
           canAdmin={canAdmin}
+          branchOpen={branchOpen}
+          onToggleBranch={toggleBranch}
           onSearch={() => {
             setDrawerOpen(false);
             setPaletteOpen(true);
@@ -353,6 +412,8 @@ function MobileNav({
   followUpCount,
   canAdmin,
   onSearch,
+  branchOpen,
+  onToggleBranch,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -360,6 +421,9 @@ function MobileNav({
   followUpCount: number;
   canAdmin: boolean;
   onSearch: () => void;
+  /** Shared with the rail so the drawer and the sidebar never disagree. */
+  branchOpen: (href: string) => boolean;
+  onToggleBranch: (href: string) => void;
 }) {
   // Docs is this instance describing itself; the manual is the written guide to
   // the product and lives on another origin, so it opens in its own tab and says
@@ -401,32 +465,59 @@ function MobileNav({
         <nav className="flex flex-col gap-0.5 px-3">
           {NAV.map((item) => {
             const active = isActive(item.href);
+            const open = item.children ? branchOpen(item.href) : false;
+            const branchId = `drawer-branch-${item.href.replace(/\W/g, "")}`;
             return (
               <div key={item.href} className="flex flex-col gap-0.5">
-                <Link
-                  href={item.href}
-                  className={cn(
-                    "flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors",
-                    active ? "bg-accent text-foreground" : "text-muted-foreground",
-                  )}
-                >
-                  <item.icon className={cn("size-4 shrink-0", active && "text-primary")} />
-                  <span>{item.label}</span>
-                  {item.href === "/applications" && followUpCount > 0 && (
-                    <span className="bg-muted text-muted-foreground ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-                      {followUpCount}
-                    </span>
-                  )}
-                </Link>
-                {item.children?.map((child) => (
+                <div className="relative">
                   <Link
-                    key={child.href}
-                    href={child.href}
-                    className="text-muted-foreground ml-10 flex h-9 items-center rounded-lg px-3 text-[13px] font-medium transition-colors"
+                    href={item.href}
+                    className={cn(
+                      "flex h-11 items-center gap-3 rounded-lg px-3 text-[14px] font-medium transition-colors",
+                      active ? "bg-accent text-foreground" : "text-muted-foreground",
+                      item.children && "pr-12",
+                    )}
                   >
-                    {child.label}
+                    <item.icon className={cn("size-4 shrink-0", active && "text-primary")} />
+                    <span>{item.label}</span>
+                    {item.href === "/applications" && followUpCount > 0 && (
+                      <span className="bg-muted text-muted-foreground ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
+                        {followUpCount}
+                      </span>
+                    )}
                   </Link>
-                ))}
+                  {item.children && (
+                    <button
+                      type="button"
+                      onClick={() => onToggleBranch(item.href)}
+                      aria-expanded={open}
+                      aria-controls={branchId}
+                      aria-label={`${open ? "Hide" : "Show"} ${item.label} sections`}
+                      className="text-faint hover:text-foreground absolute inset-y-0 right-0 flex w-11 items-center justify-center rounded-lg transition-colors"
+                    >
+                      <ChevronDownIcon
+                        className={cn(
+                          "size-4 transition-transform duration-200",
+                          open && "rotate-180",
+                        )}
+                      />
+                    </button>
+                  )}
+                </div>
+
+                {item.children && (
+                  <div id={branchId} hidden={!open} className="flex flex-col gap-0.5">
+                    {item.children.map((child) => (
+                      <Link
+                        key={child.href}
+                        href={child.href}
+                        className="text-muted-foreground ml-10 flex h-9 items-center rounded-lg px-3 text-[13px] font-medium transition-colors"
+                      >
+                        {child.label}
+                      </Link>
+                    ))}
+                  </div>
+                )}
               </div>
             );
           })}

@@ -35,7 +35,7 @@ export default async function BrainPage() {
   return (
     <PageShell>
       <PageHeader
-        eyebrow="Knowledge base"
+        eyebrow="Me"
         title="Your brain"
         description="Everything you know about your own career. Dump it here raw and unfiltered — length is a feature. Claude reads all of it when it writes."
         actions={<NewRoleDialog />}

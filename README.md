@@ -7,7 +7,7 @@ decides what happens next. This one keeps the record on them — a career brain,
 builder and a job-search CRM in one app you host yourself, wired into Claude so you can
 just *talk* to it.
 
-- **Brain** — dump everything you know about every job you've had. No length limit, no
+- **Me** — dump everything you know about every job you've had. No length limit, no
   structure required. Numbers, projects, stories, praise, screw-ups. This is the raw
   material every resume gets built from.
 - **Resumes** — tailored documents assembled from that material. Defaults to the Harvard
