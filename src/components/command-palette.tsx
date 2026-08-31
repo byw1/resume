@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import {
   BrainIcon,
+  CircleUserRoundIcon,
   BuildingIcon,
   FileTextIcon,
   KanbanIcon,
@@ -54,7 +55,7 @@ export function CommandPalette({
             <LayoutDashboardIcon /> Dashboard
           </CommandItem>
           <CommandItem onSelect={() => go("/brain")}>
-            <BrainIcon /> Brain
+            <CircleUserRoundIcon /> Me
           </CommandItem>
           <CommandItem onSelect={() => go("/resumes")}>
             <FileTextIcon /> Resumes

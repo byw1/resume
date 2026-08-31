@@ -35,6 +35,7 @@ export type SystemEventSource =
   | "stripe.webhook"
   | "billing.sync"
   | "email.send"
+  | "google.signin"
   | "mcp.tool"
   | "app";
 

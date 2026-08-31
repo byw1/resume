@@ -159,6 +159,7 @@
             "pages": [
               "self-hosting/configuration",
               "self-hosting/email",
+              "self-hosting/google",
               "self-hosting/pdf",
               "self-hosting/billing",
               "self-hosting/upgrading"

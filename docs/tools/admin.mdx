@@ -1,7 +1,7 @@
 ---
 title: "Admin tools"
 sidebarTitle: "Admin"
-description: "Twenty-seven tools for running an instance: accounts, invitations, the waitlist, email, billing, health and every stored setting."
+description: "Twenty-nine tools for running an instance: accounts, invitations, the waitlist, sign-in, email, billing, health and every stored setting."
 icon: "shield-halved"
 ---
 
@@ -277,6 +277,31 @@ Proves the Resend configuration actually delivers. Returns the exact error if it
 | Argument | Type | |
 | --- | --- | --- |
 | `to` | string | Where to send it. Defaults to your own address. |
+
+### `admin_get_google_config`
+
+_Check Google sign-in_
+
+Whether people can sign in with Google, who is allowed to, and the exact redirect URI to register in the Google Cloud console — the value that causes redirect_uri_mismatch when it does not match exactly. The client secret comes back masked. `allowSignup` false means Google only signs in people who already have an account or an outstanding invitation, which is the default and keeps the instance invite-only.
+
+**Admin only.**
+
+No arguments.
+
+### `admin_set_google_config`
+
+_Configure Google sign-in_
+
+Set the Google OAuth client id and secret, and decide who may sign up. Only the fields you pass are changed. Setting a client id and secret puts a Continue with Google button on the sign-in page; clearing the client id takes it away and changes nothing else, so it is a safe thing to undo. `allowSignup` is the one with consequences: true lets ANYONE with a Google account create an account on this instance, so pair it with allowedDomains unless you really mean the whole internet. False — the default — still lets existing members and anyone holding an unexpired invitation sign in with Google; it only turns away strangers. Follow with admin_get_google_config for the redirect URI to register.
+
+**Admin only.** **Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `clientId` | string | OAuth client ID, ends in .apps.googleusercontent.com |
+| `clientSecret` | string | OAuth client secret, usually starts GOCSPX- |
+| `allowSignup` | boolean | True lets a Google account nobody invited create an account here |
+| `allowedDomains` | string | Comma-separated email domains new sign-ups must be on, e.g. 'acme.com'. Empty means any domain. Only consulted when allowSignup is true. |
 
 ### `admin_get_billing_config`
 

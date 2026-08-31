@@ -35,6 +35,35 @@
   svg:not([width]) { width: 1em; height: 1em; }
 </style>
 <script>
+  /* Somebody already signed in at app.hired.tools does not need the pitch.
+     Signing in leaves a flag on hired.tools — the domain both hosts sit under —
+     which says that a session exists and nothing else; the session itself never
+     leaves the app, and this cannot read it. Blocking and first in the head, so
+     nobody watches the landing page paint on its way past.
+
+     Three ways to stay here anyway: arrive from the app, arrive on a deep link
+     (#pricing, or anything with a query), or have been sent once already in
+     this tab. That last one is the escape hatch — ask for hired.tools a second
+     time and you get it — and it is needed because a navigation started this
+     early replaces the history entry rather than adding one, so Back leads
+     wherever you were before, not to a landing page you never saw. A replace is
+     what a browser would do here whatever we called it; saying so is honest,
+     and it leaves nothing in history that would bounce forward again. */
+  (function () {
+    var APP = "https://app.hired.tools/";
+    try {
+      if (!/(?:^|;\s*)hired_signed_in=1(?:;|$)/.test(document.cookie)) return;
+      if (location.hash || location.search) return;
+      if (document.referrer.slice(0, APP.length) === APP) return;
+      if (sessionStorage.getItem("hired:sent")) return;
+      sessionStorage.setItem("hired:sent", "1");
+      location.replace(APP);
+    } catch (e) {
+      /* Cookies or storage refused. Staying is the right failure. */
+    }
+  })();
+</script>
+<script>
   /* Opts the page into being animated. Without this — scripting off, or the
      stylesheet arriving before motion.js — nothing is hidden and the page is
      simply finished. */
@@ -51,6 +80,7 @@
 <svg width="0" height="0" style="position:absolute" aria-hidden="true" focusable="false">
   <defs>
     <g id="i-dash" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></g>
+    <g id="i-me" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M18 20a6 6 0 0 0-12 0"/><circle cx="12" cy="10" r="4"/><circle cx="12" cy="12" r="10"/></g>
     <g id="i-brain" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5a3 3 0 1 0-5.997.125 4 4 0 0 0-2.526 5.77 4 4 0 0 0 .556 6.588A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.997.125 4 4 0 0 1 2.526 5.77 4 4 0 0 1-.556 6.588A4 4 0 1 1 12 18Z"/></g>
     <g id="i-file" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/></g>
     <g id="i-building" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M6 22V4a2 2 0 0 1 2-2h8a2 2 0 0 1 2 2v18Z"/><path d="M6 12H4a2 2 0 0 0-2 2v6a2 2 0 0 0 2 2h2"/><path d="M18 9h2a2 2 0 0 1 2 2v9a2 2 0 0 1-2 2h-2"/><path d="M10 6h4M10 10h4M10 14h4M10 18h4"/></g>
@@ -438,7 +468,7 @@
           <div class="rail-tagline">Your career, on the record</div>
           <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
           <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-          <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+          <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-me"/></svg>Me</div>
           <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
           <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
           <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
@@ -473,7 +503,7 @@
               <div class="stat-hint">Keep the streak</div>
             </div>
             <div class="app-card stat">
-              <div class="stat-label"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-brain"/></svg>Brain</div>
+              <div class="stat-label"><svg width="12" height="12" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-me"/></svg>Me</div>
               <div class="stat-value">214</div>
               <div class="stat-hint">7 roles · 3 resumes</div>
             </div>
@@ -558,7 +588,7 @@
     <div class="tour">
       <div class="chapters" role="tablist" aria-label="Product tour">
         <button class="chapter on" data-chapter="brain" style="--tone:var(--stage-applied)" role="tab">
-          <span class="ct">Brain</span>
+          <span class="ct">Me</span>
           <p>Everything you know about every job you've had</p>
         </button>
         <button class="chapter" data-chapter="resumes" style="--tone:var(--stage-screen)" role="tab">
@@ -581,7 +611,7 @@
              BRAIN
              --------------------------------------------------------------- -->
         <article class="scene" data-scene="brain" id="brain">
-          <p class="eyebrow" data-reveal>01 · Brain</p>
+          <p class="eyebrow" data-reveal>01 · Me</p>
           <h3 class="h-section" style="margin:10px 0 12px; font-size:clamp(22px,2.6vw,29px); --i:1" data-reveal>
             Dump it raw. Length is a feature.
           </h3>
@@ -607,7 +637,7 @@
                 <div class="rail-tagline">Your career, on the record</div>
                 <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-                <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+                <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-me"/></svg>Me</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
@@ -615,7 +645,7 @@
               <div class="pane">
                 <div class="pane-head">
                   <div>
-                    <p class="eyebrow">Knowledge base</p>
+                    <p class="eyebrow">Me</p>
                     <div class="pane-title">Senior Platform Engineer</div>
                     <p style="font-size:12.5px;color:var(--muted);margin-top:2px; display:flex; align-items:center; gap:9px">
                       Vertex Systems · Mar 2023 – Present
@@ -880,7 +910,7 @@
                 <div class="rail-tagline">Your career, on the record</div>
                 <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-me"/></svg>Me</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
                 <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
@@ -1061,7 +1091,7 @@
                 <div class="rail-tagline">Your career, on the record</div>
                 <div class="rail-search"><svg width="13" height="13" viewBox="0 0 24 24"><use href="#i-search"/></svg>Search…<span class="k">⌘K</span></div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-dash"/></svg>Dashboard</div>
-                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-brain"/></svg>Brain</div>
+                <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-me"/></svg>Me</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-file"/></svg>Resumes</div>
                 <div class="rail-item on"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-building"/></svg>CRM</div>
                 <div class="rail-item"><svg width="14" height="14" viewBox="0 0 24 24"><use href="#i-kanban"/></svg>Pipeline</div>
@@ -1469,26 +1499,26 @@
     <details class="under" data-reveal>
       <summary>
         <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
-        Under the hood: all 73 things it can do
+        Under the hood: all 80 things it can do
       </summary>
       <div class="inner">
         <p class="lede" style="margin-bottom:26px">
           Every one of those sentences is the assistant calling named tools against your
-          workspace. There are 73 of them, and they are the whole surface — the screens and
+          workspace. There are 80 of them, and they are the whole surface — the screens and
           the assistant call the same data layer, so there is nothing the app can do that a
-          conversation can't. Twenty more exist for whoever runs the instance, hidden from
+          conversation can't. Twenty-eight more exist for whoever runs the instance, hidden from
           everybody else entirely rather than merely refused.
         </p>
 
     <div data-catalogue>
       <div class="tools-bar">
-        <button class="filter on" data-group="all">All <span class="meta">73</span></button>
-        <button class="filter" data-group="brain" style="--tone:var(--stage-applied)">Brain <span class="meta">21</span></button>
+        <button class="filter on" data-group="all">All <span class="meta">80</span></button>
+        <button class="filter" data-group="brain" style="--tone:var(--stage-applied)">Brain <span class="meta">22</span></button>
         <button class="filter" data-group="resumes" style="--tone:var(--stage-screen)">Resumes <span class="meta">11</span></button>
-        <button class="filter" data-group="pipeline" style="--tone:var(--stage-interview)">Pipeline <span class="meta">23</span></button>
+        <button class="filter" data-group="pipeline" style="--tone:var(--stage-interview)">Pipeline <span class="meta">24</span></button>
         <button class="filter" data-group="crm" style="--tone:var(--stage-final)">CRM <span class="meta">10</span></button>
         <button class="filter" data-group="workflows" style="--tone:var(--stage-offer)">Workflows <span class="meta">7</span></button>
-        <button class="filter" data-group="account" style="--tone:var(--stage-wishlist)">Account <span class="meta">1</span></button>
+        <button class="filter" data-group="account" style="--tone:var(--stage-wishlist)">Account <span class="meta">6</span></button>
         <label class="search">
           <svg width="13" height="13" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-search"/></svg>
           <input type="search" placeholder="filter by name or word…" aria-label="Filter tools">
@@ -1608,6 +1638,10 @@
           <h3 class="n"><i aria-hidden="true"></i>delete_extra</h3>
           <p class="d">Remove an item from one of the supporting collections.</p>
         </article>
+        <article class="tool" data-group="brain" data-find="set_profile_photo give the user a headshot, or remove the one they have. one picture serves the whole app: it is their avatar in the interface, and… brain" style="--tone:var(--stage-applied)">
+          <h3 class="n"><i aria-hidden="true"></i>set_profile_photo</h3>
+          <p class="d">Give the user a headshot, or remove the one they have. One picture serves the whole app: it is their avatar in the interface, and…</p>
+        </article>
         <article class="tool" data-group="resumes" data-find="get_resume_format returns the exact json shape of a resume document plus the available templates, fonts and writing guidance. resumes" style="--tone:var(--stage-screen)">
           <h3 class="n"><i aria-hidden="true"></i>get_resume_format</h3>
           <p class="d">Returns the exact JSON shape of a resume document plus the available templates, fonts and writing guidance.</p>
@@ -1659,6 +1693,10 @@
         <article class="tool" data-group="pipeline" data-find="list_applications list job applications. by default closed applications (accepted/rejected/withdrawn) are excluded. pipeline" style="--tone:var(--stage-interview)">
           <h3 class="n"><i aria-hidden="true"></i>list_applications</h3>
           <p class="d">List job applications. By default closed applications (accepted/rejected/withdrawn) are excluded.</p>
+        </article>
+        <article class="tool" data-group="pipeline" data-find="list_application_sources the source labels this person already uses (&#x27;linkedin&#x27;, &#x27;referral from dana&#x27;, …), most-used first, followed by the standard starters. pipeline" style="--tone:var(--stage-interview)">
+          <h3 class="n"><i aria-hidden="true"></i>list_application_sources</h3>
+          <p class="d">The source labels this person already uses (&#x27;LinkedIn&#x27;, &#x27;Referral from Dana&#x27;, …), most-used first, followed by the standard starters.</p>
         </article>
         <article class="tool" data-group="pipeline" data-find="get_application full detail for one application including the job description, the complete activity timeline, contacts and tasks. pipeline" style="--tone:var(--stage-interview)">
           <h3 class="n"><i aria-hidden="true"></i>get_application</h3>
@@ -1787,6 +1825,26 @@
         <article class="tool" data-group="account" data-find="whoami the account this connection belongs to: name, email, role, and whether it can administer the instance. account" style="--tone:var(--stage-wishlist)">
           <h3 class="n"><i aria-hidden="true"></i>whoami</h3>
           <p class="d">The account this connection belongs to: name, email, role, and whether it can administer the instance.</p>
+        </article>
+        <article class="tool" data-group="account" data-find="list_connections every assistant wired to this workspace: what it is called, which client it was set up for, when it last called in and from what… account" style="--tone:var(--stage-wishlist)">
+          <h3 class="n"><i aria-hidden="true"></i>list_connections</h3>
+          <p class="d">Every assistant wired to this workspace: what it is called, which client it was set up for, when it last called in and from what…</p>
+        </article>
+        <article class="tool" data-group="account" data-find="create_connection mint a new connection url so a second client can reach this workspace too. returns the url and the exact steps for that client. account" style="--tone:var(--stage-wishlist)">
+          <h3 class="n"><i aria-hidden="true"></i>create_connection</h3>
+          <p class="d">Mint a new connection URL so a second client can reach this workspace too. Returns the URL and the exact steps for that client.</p>
+        </article>
+        <article class="tool" data-group="account" data-find="rename_connection change what a connection is called in the list. names are for the person, not the machine. account" style="--tone:var(--stage-wishlist)">
+          <h3 class="n"><i aria-hidden="true"></i>rename_connection</h3>
+          <p class="d">Change what a connection is called in the list. Names are for the person, not the machine.</p>
+        </article>
+        <article class="tool" data-group="account" data-find="rotate_connection kill a connection&#x27;s url and issue a fresh one on the same row, keeping its name and place in the list. account" style="--tone:var(--stage-wishlist)">
+          <h3 class="n"><i aria-hidden="true"></i>rotate_connection</h3>
+          <p class="d">Kill a connection&#x27;s URL and issue a fresh one on the same row, keeping its name and place in the list.</p>
+        </article>
+        <article class="tool" data-group="account" data-find="delete_connection remove a connection for good. its url stops working immediately and cannot be brought back. account" style="--tone:var(--stage-wishlist)">
+          <h3 class="n"><i aria-hidden="true"></i>delete_connection</h3>
+          <p class="d">Remove a connection for good. Its URL stops working immediately and cannot be brought back.</p>
         </article>
       </div>
 

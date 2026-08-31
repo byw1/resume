@@ -2,7 +2,6 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import {
   ArrowUpRightIcon,
-  BookOpenIcon,
   LibraryBigIcon,
   PaletteIcon,
   PlugZapIcon,
@@ -17,11 +16,14 @@ import { requireUser, isAdmin, ensureDefaultConnection } from "@/lib/auth";
 import { ConnectionsPanel } from "@/components/settings/connections-panel";
 import { AccountPanel } from "@/components/settings/account-panel";
 import { AppearancePanel } from "@/components/settings/appearance-panel";
+import { SkillsPanel } from "@/components/settings/skills-panel";
 import { listConnections } from "@/lib/data/connections";
 import { getProfile } from "@/lib/data/brain";
+import { listSkills } from "@/lib/skills";
 import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
 import { MANUAL_URL } from "@/lib/links";
+import { getSettings, googleIsConfigured } from "@/lib/settings";
 
 export const dynamic = "force-dynamic";
 
@@ -32,10 +34,11 @@ const TABS = ["connections", "account", "appearance"] as const;
  *
  * The page used to open on roughly twelve hundred pixels of connection
  * reference material, with the account you came to edit below all of it. Every
- * tab is now one subject, and the reference — the workflow catalogue, the
- * example sentences — is gone rather than folded, because /docs generates the
- * same list from the same array with more in it, and two renderings of one
- * generated list is one rendering that goes stale.
+ * tab is now one subject, and the reference — the tool catalogue, the workflow
+ * list, the example sentences — lives at docs.hired.tools, generated from the
+ * same tools array, because two renderings of one generated list is one
+ * rendering that goes stale. What stays here is what only this instance can
+ * answer: which assistants are wired up, and the skill files it serves.
  *
  * Connections is the default. A new user's first ten minutes are the point of
  * this product, and they are spent pasting a URL into an assistant — not
@@ -57,9 +60,11 @@ export default async function SettingsPage({
 
   // Nobody should ever land here with nothing to copy.
   await ensureDefaultConnection(user.id);
-  const [connections, profile] = await Promise.all([
+  const [connections, profile, skills, settings] = await Promise.all([
     listConnections(user.id),
     getProfile(user.id),
+    listSkills(),
+    getSettings(),
   ]);
 
   const visibleTools = toolsFor(user);
@@ -126,41 +131,31 @@ export default async function SettingsPage({
               />
             </FadeIn>
 
-            {/* Two places to read, and they are not the same place. /docs is
-                generated from this instance — your tool count, your skills,
-                your connection URL. The manual is the written guide to the
-                product and lives outside any one deployment. A copy of either
-                inside the other would be a second one to keep right. */}
+            {/* The skills are here rather than on a page of their own because
+                this instance has to serve them: they are the files in its own
+                skills/ directory, and a static manual cannot hand you a zip
+                built from a folder on someone else's server. Everything else
+                /docs used to carry is written out at docs.hired.tools. */}
             <FadeIn delay={0.06}>
-              <div className="grid gap-2.5 sm:grid-cols-2">
-                <Link
-                  href="/docs"
-                  className="text-muted-foreground hover:border-border hover:text-foreground flex items-start gap-2.5 rounded-xl border border-dashed px-4 py-3 text-[13px] transition-colors"
-                >
-                  <BookOpenIcon className="mt-0.5 size-4 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="text-foreground block font-medium">Your tools</span>
-                    {visibleTools.length} tools and {visiblePrompts.length} ready-made workflows come
-                    with every connection. Listed as your assistant sees them.
-                  </span>
-                  <ArrowUpRightIcon className="mt-0.5 size-3.5 shrink-0" />
-                </Link>
+              <SkillsPanel skills={skills} />
+            </FadeIn>
 
-                <a
-                  href={MANUAL_URL}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="text-muted-foreground hover:border-border hover:text-foreground flex items-start gap-2.5 rounded-xl border border-dashed px-4 py-3 text-[13px] transition-colors"
-                >
-                  <LibraryBigIcon className="mt-0.5 size-4 shrink-0" />
-                  <span className="min-w-0 flex-1">
-                    <span className="text-foreground block font-medium">The manual</span>
-                    Getting connected, filling the brain, tailoring a resume and running the search —
-                    written out at docs.hired.tools.
-                  </span>
-                  <ArrowUpRightIcon className="mt-0.5 size-3.5 shrink-0" />
-                </a>
-              </div>
+            <FadeIn delay={0.12}>
+              <a
+                href={MANUAL_URL}
+                target="_blank"
+                rel="noreferrer"
+                className="text-muted-foreground hover:border-border hover:text-foreground flex items-start gap-2.5 rounded-xl border border-dashed px-4 py-3 text-[13px] transition-colors"
+              >
+                <LibraryBigIcon className="mt-0.5 size-4 shrink-0" />
+                <span className="min-w-0 flex-1">
+                  <span className="text-foreground block font-medium">The docs</span>
+                  Every one of those {visibleTools.length} tools written out with its arguments, plus
+                  getting connected, filling the brain, tailoring a resume and running the search —
+                  at docs.hired.tools.
+                </span>
+                <ArrowUpRightIcon className="mt-0.5 size-3.5 shrink-0" />
+              </a>
             </FadeIn>
           </div>
         </TabsContent>
@@ -173,7 +168,10 @@ export default async function SettingsPage({
                 email: user.email,
                 role: user.role,
                 photo: profile.photo,
+                googleLinked: Boolean(user.googleId),
+                hasPassword: Boolean(user.passwordHash),
               }}
+              googleReady={googleIsConfigured(settings)}
             />
           </FadeIn>
         </TabsContent>

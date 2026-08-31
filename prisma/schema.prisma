@@ -29,8 +29,22 @@ model User {
   id           String    @id @default(cuid())
   email        String    @unique
   name         String    @default("")
-  /// scrypt, stored as "scrypt:N:r:p:salt:hash"
+  /// scrypt, stored as "scrypt:N:r:p:salt:hash". Empty for someone who has
+  /// only ever signed in with Google, so it is no longer on its own the test
+  /// for whether an account is real — see isClaimed() in src/lib/auth.ts.
   passwordHash String
+  /// Google's stable subject id for this person, set the first time they sign
+  /// in with Google. Nullable rather than "" so the database itself refuses to
+  /// let two accounts claim one Google identity; a default of "" would collide
+  /// across every password-only user.
+  googleId     String?   @unique
+  /// When this instance last had a REASON to believe this address belongs to
+  /// this person: an admin addressed an invitation to it, they claimed the
+  /// instance with it, or Google handed it over verified. Null means the
+  /// account simply typed it into Settings, which proves nothing — and is why
+  /// a Google sign-in will not silently adopt such an account. See
+  /// resolveGoogleAccount in src/lib/google.ts.
+  emailProvenAt DateTime?
   role         UserRole  @default(MEMBER)
   isActive     Boolean   @default(true)
   /// Set when this person pays for the hosted instance through Stripe. Empty

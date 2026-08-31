@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { getInviteByToken } from "@/lib/data/users";
-import { getSettings } from "@/lib/settings";
+import { getSettings, googleIsConfigured } from "@/lib/settings";
 import { AuthCard } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
 import { AcceptInviteForm } from "@/components/accept-invite-form";
@@ -41,6 +41,7 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           email={invite.email}
           inviter={inviter}
           instanceName={settings.instanceName}
+          googleReady={googleIsConfigured(settings)}
         />
       </main>
   );

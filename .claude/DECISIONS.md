@@ -2267,6 +2267,9 @@ counting by hand. The count rule from the 2026-08-30 briefing entry stands:
 `src/components/crm/contact-detail.tsx`, `src/components/shell.tsx`,
 `src/app/(app)/crm/{companies,contacts}/page.tsx`, `README.md`.
 
+
+---
+
 ## 2026-08-30 — The manual moves to Mintlify at docs.hired.tools
 
 **The docs are now two things, deliberately.** `/docs` inside the app stays exactly
@@ -2406,6 +2409,371 @@ it, and the newcomer took the name that says what it actually holds.
 `src/app/(app)/crm/contacts/page.tsx`, `src/app/(app)/crm/contacts/[id]/page.tsx`,
 `src/app/(app)/crm/companies/[id]/page.tsx`, `src/lib/data/pipeline.ts`,
 `src/lib/mcp/tools.ts`, `src/server/actions.ts`, `README.md`.
+
+---
+
+## 2026-08-30 — Four questions, not seven tables
+
+Admin had seven tabs. Two rounds of consolidation later it has four, and the rule that got
+it there is worth keeping: **a tab should be a question, not a table.** Who is here, how is
+this set up, is it working, what changed.
+
+**People, Invites and Waitlist were one funnel split across three clicks.** Somebody asks,
+you invite them, they become a member — and the answer to "has this person got in yet?"
+always lived in whichever tab you were not on. They are three `Section`s on one screen now,
+read downwards in that order, with the counts still in the tab label and a warning dot when
+anyone is waiting. `Section` and `SectionEmpty` are new in `page-header.tsx`: a heading with
+a count, and a one-line empty state, because `EmptyState`'s dashed box is a whole screen's
+worth of nothing and a section only needs a sentence.
+
+**Configuration and Variables became one screen, which is a correction.** The previous entry
+shipped them as two tabs and called the duplication "deliberate and one-directional" — the
+guided forms for email and billing, and a flat table of the same nine rows underneath. That
+was wrong, and it was wrong in a way worth naming: two screens editing the same values pose
+a question ("which one is authoritative?") that has no good answer, and the answer a user
+invents is usually the wrong one. What actually earned its place was not the *forms* but the
+*guidance* — Resend's four setup steps, the webhook URL to paste into Stripe, the test send,
+the resync. So the guidance moved into the section it belongs to and the forms went away.
+Every field on the page is now the same editable row, and one sticky save covers all of
+them, so you can fix a from address and a payment link in the same pass.
+
+**Deleting `saveConfigAction` and `keepExistingSecrets` was the tell that this was right.**
+They existed to serve typed forms. With the forms gone they had no callers, and the rule
+they carried — a blank secret field means keep what is stored — already lives in
+`setVariables`, on the path that survived. A helper that only one dead caller needs is not
+a helper.
+
+**What did not change:** the data layer, the three `admin_*_variable` tools, and the tool
+counts. This was entirely a question of where things sit on a screen, which is the cheapest
+kind of change to get right and the most expensive to leave wrong.
+
+**Applies to:** `src/app/(app)/settings/admin/page.tsx`,
+`src/components/admin/configuration-panel.tsx` (was `variables-panel.tsx`, and absorbs
+`instance-panel.tsx`, `email-panel.tsx` and `billing-panel.tsx`, all deleted),
+`src/components/page-header.tsx`, `src/components/admin/{invites,waitlist}-panel.tsx`,
+`src/server/actions.ts`, `src/lib/settings.ts`.
+
+---
+
+## 2026-08-30 — The screen is called Me; the concept is still the brain
+
+**Decision (William's ask):** the rail item reads **Me** and wears an avatar
+(`CircleUserRoundIcon`) rather than a brain. The route stays `/brain`, the MCP tools keep
+their names — `search_brain`, `get_brain_snapshot`, `append_role_brain_dump`,
+`mine_brain_dump` — and "brain dump" survives as the name for the raw free-form text on a
+role.
+
+**Why the line is drawn there.** Two different things were both called Brain: a place in the
+navigation, and a body of knowledge. Only the first was doing badly. "Brain" as a nav item
+asks somebody to learn a metaphor before they know what the app is; "Me" is what the screen
+actually holds and needs no explaining. The concept is fine as it stands, and renaming it
+would have cost far more than it bought: every connected client's saved prompts name the
+tools, every skill in `skills/` names them, and the URL is in people's history. A rename
+that breaks a working assistant to improve a label is a bad trade.
+
+**So the rule for the future is:** where the word names a destination, it is Me — the rail,
+the command palette's "Go to", the role page's back link, the dashboard's stat card, the
+`/brain` page's eyebrow, the four rail mockups and the chapter tab on hired.tools. Where it
+names the material, it is still the brain — the page's own title ("Your brain"), the feature
+card on the landing page, "Brain dump" as an action, and the docs tool group, which is
+labelled after tools that are literally called `*_brain`.
+
+**Applies to:** `src/components/shell.tsx`, `src/components/command-palette.tsx`,
+`src/app/(app)/page.tsx`, `src/app/(app)/brain/page.tsx`, `src/app/(app)/brain/[roleId]/page.tsx`,
+`site/index.html`, `README.md`.
+
+---
+
+## 2026-08-30 — A nav branch you can open, and still click
+
+**Decision:** CRM's children are folded away by default. The parent stays a real link to
+`/crm`; a chevron beside it opens the branch, and the choice is remembered in
+`hired:nav-open-branches`.
+
+**Why:** a permanently open branch made a five-item rail read as seven and pushed Pipeline —
+the screen used most days — to the bottom. The previous note in this file argued the rail
+should name both children because reaching Contacts otherwise meant landing on Companies and
+finding the tabs. That is still true; it just does not require them to be visible always.
+Open once and it stays open.
+
+**The chevron is a sibling of the link, positioned over it, not inside it.** A `<button>`
+nested in an `<a>` is invalid HTML and the browser's behaviour for it is not something to
+rely on. Clicking the row navigates to CRM; clicking the chevron unfolds. Both are real
+controls with real names — `aria-expanded`, `aria-controls`, and a label that says which it
+is.
+
+**Being inside the branch opens it regardless of what was stored.** Arriving at
+`/crm/contacts` from a link and finding the rail insisting Contacts is hidden would be the
+rail arguing with the page. The stored value is a preference, not a lock.
+
+**The drawer shares the rail's state** rather than keeping its own, so a phone and a desktop
+window of the same account never disagree about whether the branch is open.
+
+**Applies to:** `src/components/shell.tsx` (`NAV`, `branchOpen`, `toggleBranch`, `MobileNav`).
+
+---
+
+## 2026-08-31 — Sign in with Google, without becoming a way around invitations
+
+**The hard part was not OAuth.** It was that `passwordHash != ""` was the test for "is this
+account real", written out in **sixteen places** — the session guard, the MCP token guard,
+`instanceNeedsSetup`, three counts in `instanceStats`, `listUsers`, both invite guards. A
+person who has only ever signed in with Google has no password and is entirely real, so
+every one of those was a lockout waiting to happen: sessions rejected, MCP token refused,
+missing from the admin list, uncounted in the stats. Finding all sixteen before writing any
+OAuth code was most of the work.
+
+The rule now has a name and one implementation in `auth.ts`: `CLAIMED` (a
+`Prisma.UserWhereInput` for queries) and `isClaimed()` (a predicate for a row in hand).
+The unclaimed placeholder from the single-user migration is now "no password **and** no
+Google id", which is what it always meant. `authenticate()` deliberately still tests
+`passwordHash` on its own — a Google-only account has no password, so there is nothing
+there to match, and saying so is the point.
+
+**`googleId` is nullable and unique, against the grain of this schema.** Everything else
+optional here is `String @default("")`. An identity is different: Postgres permits many
+NULLs under a unique index but only one empty string, so `@default("")` would have made the
+column unusable as a constraint. The database is the only place that can actually stop two
+accounts claiming one Google identity, and that is worth an inconsistency.
+
+**The policy is an ordered list, and the order is the whole security model.** Known Google
+id → matching email (link, and they keep their password) → unexpired invitation (accept it,
+no password ever chosen) → sign-up, if an admin turned it on → refused. The first three need
+no new setting: **an invitation you already sent starts working with the Google button the
+moment it is configured**, which is why "let people sign in with Google" did not have to
+mean "let strangers in".
+
+**Sign-up is off by default and that is not a hedge.** Every other door on this instance is
+invite-only, and a switch that silently opened it on upgrade would be a security change
+nobody asked for. Turning it on is one toggle, with a domain allowlist beside it. A Google
+sign-up is always a MEMBER — no sign-in method should be able to hand out a role.
+
+**`email_verified` is the single check everything rests on**, and it is worth being blunt
+about why: accounts here are matched by address, so an unverified Google email would let
+anyone who can create a Google account walk into the matching account. Refused outright.
+
+**The ID token's signature is not verified, on purpose.** It arrives in the body of a direct
+TLS POST this server makes to Google's token endpoint, authenticated with the client secret
+— not through the browser. Google's own guidance is that a token collected that way needs no
+signature check, because TLS already proved who sent it. Issuer, audience, expiry and nonce
+*are* checked, because those catch misconfiguration rather than forgery. Writing a JWKS
+fetch, an RS256 verify and a key-rotation cache would have been more code, a cache to get
+wrong, and no more secure. Revisit only if the token ever stops arriving over that channel.
+
+**The half-finished sign-in is a signed cookie, not a row.** State and nonce go into one
+HMAC-signed httpOnly cookie keyed on the client secret — the one instance-wide secret both
+ends already share. Nothing about an abandoned sign-in is worth persisting, and it means a
+login survives a restart, a replica or a redeploy, for the same reason the MCP transport
+holds no session state. Every exit from the callback clears it, failures included, so one
+authorization code can never be replayed against a second attempt.
+
+**`safeNext` exists because a login callback is exactly where an open redirect lives.**
+Anything not starting with a single `/` becomes `/`.
+
+**Not built, deliberately:** no "sign in with Google" on the first-run setup screen. Setup
+is a deliberate act with the owner's own password and happens before any of this is
+configured; the callback refuses outright on an unclaimed instance.
+
+---
+
+### What the tenant audit found, and what it changed
+
+The first cut of this shipped an **account takeover**, and the shape of it is worth keeping
+because the same trap is waiting for the next person who joins accounts on an email
+address.
+
+**Matching by email meant trusting a field the account holder types.** `updateOwnAccount`
+accepts any address nobody else holds, with no verification of any kind — it always has,
+and before Google that bought an attacker nothing but a squat an admin would notice. With
+Google sign-in, rule 2 turned it into capture: a member sets their email to a colleague's
+address, the colleague presses Continue with Google, and lands in the member's workspace —
+brain, resumes, pipeline — while the member keeps their password and can read everything
+filed there afterwards. Worse, rule 2 runs before the invitation branch, so an outstanding
+invitation for that address was silently ignored in favour of the squatted row.
+
+The fix is `User.emailProvenAt`: **when this instance last had a reason to believe the
+address belongs to the account.** An admin addressed an invitation to it, the owner claimed
+the instance with it, or Google handed it over verified. Typing it into Settings clears it.
+Rule 2 requires it. Existing rows are backfilled to `createdAt` in the migration, and the
+reasoning is written there: every address on an upgrading instance was set in a world with
+no Google sign-in, so none of them could have been squatted *for this*.
+
+That left people whose address is unproven with no way in, so **Settings → Account gained
+Connect Google** — the same flow with `link=1` carried in the *signed state cookie* rather
+than a query parameter, so the callback cannot be talked into linking by a crafted URL.
+This is the safe direction of the same join: you proved you hold the account by being in
+it, Google proved you hold the address. Disconnect refuses when Google is your only way
+back in.
+
+**Second finding, same root: `touch()` rebound `googleId` unconditionally.** A *different*
+Google subject presenting the same address took the row and overwrote the previous link,
+silently, because the unique index never fired — `byGoogle` was null for the new subject.
+Google Workspace admins reassign addresses when somebody leaves, so this was one routine
+HR action away from handing a new hire the departed employee's entire history. Rule 2 now
+refuses when the account is already bound to a different identity.
+
+**Third: `safeNext` missed backslashes.** `/\evil.com` starts with one slash, is not `//`,
+and resolves to `https://evil.com/` — WHATWG treats `\` as `/` for http(s). A credential
+phishing primitive handed to a visitor in the second after they watched a real sign-in
+succeed. Control characters are excluded for the same reason.
+
+**Fourth: the callback echoed free text onto its own sign-in page.** `?error=<sentence>`
+rendered in a styled warning box above the real password form, on the real domain. Refusals
+now travel as a fixed set of codes and the sentence is looked up locally; the one
+interpolated value, the domain list, is read from settings rather than the URL. Google's
+own words still reach the admin, in **Health**, where they are useful and not weaponisable.
+
+**Not treated as a finding:** an admin can generate a password for a Google-only account
+and sign in as them. That is the pre-existing `adminResetPassword`, audited like every
+other use of it, and it is equally true of password accounts — Google did not widen it.
+
+The lesson worth carrying: **an email address is a routing label, not an identity**, and
+the moment two authentication systems are joined on one, the question is not "do the
+strings match" but "who last asserted this string, and what did they prove".
+
+**`src/lib/request-url.ts` is new and half-applied.** The two-line "work out the base URL
+from forwarded headers" idiom is inlined in about ten older call sites; route handlers get a
+plain `Headers` rather than `next/headers`, so the helper had to exist. Folding the other
+ten in belongs in a commit that is not also adding an authentication method.
+
+**Verified against a real Postgres, every branch:** unverified email refused, existing
+member linked with their password intact, Google id winning over a changed email, stranger
+refused with sign-up off, invited person let in with sign-up still off and the invitation
+consumed, domain allowlist enforced both ways, suspension holding with the billing-aware
+message, and a Google-only account passing the session guard, the MCP token guard,
+`listUsers` and `instanceStats`. Plus the claim checks against a stubbed token endpoint, and
+the callback refusing a forged and a mismatched state.
+
+**Applies to:** `src/lib/google.ts`, `src/lib/auth.ts`, `src/lib/request-url.ts`,
+`src/components/settings/account-panel.tsx`,
+`src/app/api/auth/google/`, `src/lib/settings.ts`, `src/lib/mcp/tools.ts`,
+`src/lib/data/users.ts`, `src/lib/bootstrap.ts`, `src/components/login-form.tsx`,
+`src/components/accept-invite-form.tsx`, `src/components/admin/configuration-panel.tsx`,
+`prisma/schema.prisma`, `docs/self-hosting/google.mdx`.
+
+---
+
+## 2026-08-31 — A flag on the domain above both, and a box that says how long
+
+Two things, and they turn out to be the same thing: what happens before you sign in, and
+what happens after.
+
+**hired.tools could not ask app.hired.tools anything, and should not have been able to.**
+The obvious implementation of "send a signed-in visitor to the app" is a `fetch` from the
+landing page to the app with credentials, and it does not work: the session cookie is
+`SameSite=Lax` and is simply not sent on a cross-site request. The fix people reach for is
+`SameSite=None`, and that is the wrong trade — it is a real defence against cross-site
+requests, spent on a convenience. The other option, a top-level bounce through the app on
+every visit, makes an anonymous visitor watch a redirect on the way to a marketing page.
+
+So: a cookie on the domain above both hosts. Signing in writes `hired_signed_in=1` to
+`hired.tools`, an inline script at the top of the landing page reads it, and that is the
+whole mechanism. It is script-readable on purpose and carries nothing — no identity, no
+token, no session — because the worst thing a forged one can do has to be "sends somebody
+to a sign-in page". This is what GitHub's `logged_in` cookie is, and for the same reason.
+
+**The cookie domain is a setting, not a guess.** `landing_url` in Admin → Configuration,
+and the domain written to is the longest run of labels the app host and that URL share.
+Deriving it from the request host alone would have needed no configuration and would have
+written a cookie on `mycompany.com` for anyone self-hosting at `hired.mycompany.com` —
+a flag visible to every unrelated site on that domain, that nobody asked for. Taking the
+common suffix of the two also means a forged `Host` header cannot widen it past what an
+admin wrote down: the answer is bounded by the landing page at both ends. `.co.uk` is the
+case this deliberately does not get clever about — the browser refuses a cookie on a public
+suffix and the landing page stays the landing page, which is the right failure.
+
+**The redirect replaces rather than pushes, and that is not a choice.** A navigation started
+from a head script replaces the history entry whatever you call it, so `location.replace`
+is the honest spelling. The escape hatch is a `sessionStorage` marker: ask for hired.tools a
+second time in the same tab and you get it. Without the marker, the page would be
+unreachable for as long as you stayed signed in. A deep link (`#pricing`, or any query, so
+ad clicks land where they were pointed) and arriving from the app also stay put.
+
+**A stale hint is cleared by the sign-in page.** The flag can outlive the session it
+describes — an expired session, a password change, an admin ending every device. Reaching
+`/login` means there is definitively no session here, since the page redirects into the app
+when there is one, so the form deletes the hint on mount. That is also the only place that
+can: nothing can write a cookie during a server render.
+
+**Keep me signed in, ticked, is what the app already did.** Thirty days, persistent cookie.
+Unticked is twelve hours and a cookie with no expiry, so it goes when the window does. The
+box is a native `<input type="checkbox">` rather than the shadcn one, which is the only
+interesting decision in it: this form posts to a server action and still works with
+scripting off, and Radix only grows the hidden input carrying its value once it has
+hydrated — so the Radix version would have quietly given every no-JS sign-in a twelve-hour
+session. The show/hide eye and `required` came along with it; `autocomplete` was already
+right.
+
+**Verified against a real browser rather than by reading it.** Postgres, a production
+build, and a TLS proxy serving `site/` at hired.tools and the app at app.hired.tools, so
+the cross-domain half was exercised as it actually ships: sign in, get bounced from the
+landing page, ask again and stay, sign out and watch the deletion in the response headers,
+and an instance with no `landing_url` writing no cookie at all.
+
+**Applies to:** `src/lib/auth.ts`, `src/lib/settings.ts`, `src/server/actions.ts`,
+`src/app/login/page.tsx`, `src/components/login-form.tsx`, `site/index.html`, `README.md`,
+`docs/reference/security.mdx`, `docs/self-hosting/configuration.mdx`.
+## 2026-08-31 — /docs folds into docs.hired.tools, and the skills stay behind
+
+**There is one Docs now and it is the manual.** The in-app `/docs` page listed every
+tool from the same array `tools/gen-tool-docs.mjs` generates `docs/tools/*.mdx` from,
+so it was a second rendering of one generated list — the exact thing the settings
+page comment warned about when it stripped the catalogue out of Settings. Worse, the
+profile menu had grown two entries that answer the same question. The page is gone;
+`next.config.ts` redirects `/docs` permanently to the manual, because people have it
+bookmarked and the README and marketing site both linked it.
+
+**Two things could not move, and both stayed in the app.** The **skill files** are
+served from the running instance's own `skills/` directory — byte for byte the copies
+in the repository it is running — and no static site can build somebody a zip out of a
+folder on someone else's server. They live on **Settings → Connections** now, which is
+where you wire up an assistant, and installing a skill is part of that rather than part
+of reading about one. The **live tool count** was already in that panel's header
+("108 tools · 8 workflows · 28 admin"), with **Test** to prove it by calling the
+endpoint, so the per-account number survives where it is actually useful.
+
+**The redirect is exact-match on purpose.** `source: "/docs"` does not catch
+`/docs/skills/<name>` or `.zip`, which is what keeps the downloads working. That was
+worth checking rather than assuming: signed in, the route still returns
+`text/markdown` with a `SKILL.md` disposition and a real `PK`-signature zip.
+Unauthenticated it 307s to `/login`, which is `requireUser` and correct — an early
+test that looked like a broken download was just a client with no session.
+
+**`next.config.ts` imports `src/lib/links.ts` by relative path**, not `@/lib/links` —
+the config is compiled outside the path aliases, so the alias silently would not
+resolve.
+
+**Applies to:** `next.config.ts`, `src/app/(app)/docs/page.tsx` (deleted),
+`src/app/(app)/docs/skills/[slug]/route.ts`, `src/app/(app)/settings/page.tsx`,
+`src/components/settings/{skills-panel,copy-block}.tsx`, `src/components/shell.tsx`,
+`README.md`, `docs/{app,skills}.mdx`, `docs/tools/overview.mdx`,
+`docs/reference/faq.mdx`.
+
+## 2026-08-31 — The generator owns the tool counts now
+
+Two admin tools landed with Google sign-in and every hand-written figure in the
+manual went stale: 100 became 102, 27 became 29, and `tools/list` for an admin
+became 110. That is the **fourth** time a count in this repository has been wrong
+— twice in the README, and now twice in `docs/`.
+
+So they are generated. `docs/tools/overview.mdx` carries two blocks between
+`{/* generated:counts */}` and `{/* generated:areas */}` markers, filled by
+`tools/gen-tool-docs.mjs` from the array itself, and `--check` fails when either
+is stale. The generator also reads the prompts array now, because the workflows
+are published as tools and the totals are wrong without them.
+
+**Every other page stopped repeating a number.** connect.mdx, troubleshooting.mdx
+and index.mdx used to state "80 for a member, 108 for an admin" and now link to
+the table; configuration.mdx said "All 27 admin tools" and now says "Every admin
+tool". One generated figure, cited from everywhere else — the same rule that
+killed the in-app /docs page, applied to the numbers rather than to the list.
+
+The per-area blurbs moved into `SECTIONS` in the generator, since it has to emit
+the cards to keep their counts right.
+
+**Applies to:** `tools/gen-tool-docs.mjs`, `docs/tools/overview.mdx`,
+`docs/connect.mdx`, `docs/index.mdx`, `docs/reference/troubleshooting.mdx`,
+`docs/self-hosting/configuration.mdx`, `docs/reference/security.mdx`, `CLAUDE.md`.
 
 ---
 
@@ -2570,7 +2938,7 @@ hand-built scope: a new enum constant must be added to BOTH the duplicated const
 the verification loop, or `--check` dies with a ReferenceError rather than a useful message.
 
 **Applies to:** `prisma/schema.prisma`,
-`prisma/migrations/20250120000000_source_categories/`, `src/app/globals.css`,
+`prisma/migrations/20250122000000_source_categories/`, `src/app/globals.css`,
 `src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
 `src/components/pipeline/{source-chip,sources-input,new-application-dialog,application-detail}.tsx`,
 `src/components/crm/company-detail.tsx`, `tools/gen-tool-docs.mjs`, `README.md`,

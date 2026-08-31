@@ -42,13 +42,36 @@ const CHECK = process.argv.includes("--check");
  * the manual.
  */
 const SECTIONS = [
-  { file: "brain.mdx", first: "search_brain", last: "delete_extra" },
-  { file: "resumes.mdx", first: "get_resume_format", last: "preview_resume_text" },
-  { file: "pipeline.mdx", first: "pipeline_stats", last: "complete_task" },
-  { file: "crm.mdx", first: "list_companies", last: "create_contact" },
-  { file: "connections.mdx", first: "whoami", last: "delete_connection" },
-  { file: "admin.mdx", first: "admin_instance_stats", last: "admin_delete_variable" },
+  { file: "brain.mdx", first: "search_brain", last: "delete_extra",
+    title: "Brain", icon: "brain",
+    blurb: "roles, brain dumps, highlights, notes, standing rules, and the four supporting collections." },
+  { file: "resumes.mdx", first: "get_resume_format", last: "preview_resume_text",
+    title: "Resumes", icon: "file-lines",
+    blurb: "writing documents, previewing them, publishing, exporting." },
+  { file: "pipeline.mdx", first: "pipeline_stats", last: "complete_task",
+    title: "Pipeline", icon: "list-check",
+    blurb: "applications, stages, timeline, tasks, follow-ups, views, sharing, diagnosis." },
+  { file: "crm.mdx", first: "list_companies", last: "create_contact",
+    title: "CRM", icon: "building",
+    blurb: "companies and the people at them." },
+  { file: "connections.mdx", first: "whoami", last: "delete_connection",
+    title: "Your account", icon: "plug",
+    blurb: "who you are, and the wiring itself." },
+  { file: "admin.mdx", first: "admin_instance_stats", last: "admin_delete_variable",
+    title: "Admin", icon: "shield-halved",
+    blurb: "accounts, invitations, the waitlist, sign-in, email, billing, health, configuration." },
 ];
+
+/**
+ * The overview page states the numbers, and it is the only page that does.
+ *
+ * They have now gone stale four separate times — in the README, twice, and in
+ * these pages — because a count written by hand is a count nobody remembers to
+ * bump. So the blocks between these markers are generated too, and everywhere
+ * else points here rather than repeating a figure.
+ */
+const OVERVIEW = "overview.mdx";
+const MARK = (name) => [`{/* generated:${name} */}`, `{/* /generated:${name} */}`];
 
 // ---------------------------------------------------------------------------
 // Reading the array
@@ -66,6 +89,7 @@ function slice(from, to) {
 }
 
 const body = slice("export const tools: McpTool[] = [", "export const prompts: McpPrompt[] = [");
+const promptBody = src.slice(src.indexOf("export const prompts: McpPrompt[] = ["));
 
 /** Every top-level entry of the array, as its raw source, minus the handler. */
 function entries(text) {
@@ -220,6 +244,7 @@ for (const section of SECTIONS) {
   if (end < 0) throw new Error(`${section.last} is no longer in tools.ts, so ${section.file} has no end`);
 
   const owned = tools.slice(cursor, end + 1);
+  section.count = owned.length;
   cursor = end + 1;
 
   const path = join(DOCS, section.file);
@@ -245,8 +270,72 @@ if (cursor !== tools.length) {
   throw new Error(`${tools.length - cursor} tools after ${SECTIONS.at(-1).last} have no page: ${tools.slice(cursor).map((t) => t.name).join(", ")}`);
 }
 
-const members = tools.filter((tool) => !tool.adminOnly).length;
-console.log(`\n${tools.length} tools — ${members} visible to a member, ${tools.length} to an admin, before the workflows are added.`);
+// ---------------------------------------------------------------------------
+// The numbers
+// ---------------------------------------------------------------------------
+
+const prompts = [...promptBody.matchAll(/^ {4}name: "([a-z_]+)",$/gm)].map((m) => m[1]);
+const promptAdmin = (promptBody.match(/^ {4}adminOnly: true,$/gm) ?? []).length;
+if (prompts.length === 0) throw new Error("No prompts found in tools.ts — the workflow counts would be wrong");
+
+const counts = {
+  dataMember: tools.filter((tool) => !tool.adminOnly).length,
+  dataAdmin: tools.length,
+  flowMember: prompts.length - promptAdmin,
+  flowAdmin: prompts.length,
+};
+counts.listMember = counts.dataMember + counts.flowMember;
+counts.listAdmin = counts.dataAdmin + counts.flowAdmin;
+
+const blocks = {
+  counts: [
+    "| | Member | Admin |",
+    "| --- | --- | --- |",
+    `| Data tools | ${counts.dataMember} | ${counts.dataAdmin} |`,
+    `| Workflows, also published as tools | ${counts.flowMember} | ${counts.flowAdmin} |`,
+    `| **What \`tools/list\` returns** | **${counts.listMember}** | **${counts.listAdmin}** |`,
+  ].join("\n"),
+
+  areas: [
+    "<CardGroup cols={3}>",
+    ...SECTIONS.map((section) => [
+      `  <Card title="${section.title}" icon="${section.icon}" href="/tools/${section.file.replace(/\.mdx$/, "")}">`,
+      `    ${section.count} tools · ${section.blurb}`,
+      "  </Card>",
+    ].join("\n")),
+    "</CardGroup>",
+    "",
+    `That is ${counts.dataAdmin}. The remaining ${counts.flowAdmin} are the [workflows](/workflows), which are`,
+    "published as tools as well as prompts — so they appear in `tools/list` alongside everything",
+    "above, and are documented on their own page rather than here.",
+  ].join("\n"),
+};
+
+{
+  const path = join(DOCS, OVERVIEW);
+  let page = readFileSync(path, "utf8");
+  for (const [name, body] of Object.entries(blocks)) {
+    const [open, close] = MARK(name);
+    const from = page.indexOf(open);
+    const to = page.indexOf(close);
+    if (from < 0 || to < 0) throw new Error(`${OVERVIEW} has no ${open} … ${close} block to fill`);
+    page = page.slice(0, from + open.length) + "\n" + body + "\n" + page.slice(to);
+  }
+  const current = readFileSync(path, "utf8");
+  if (page !== current) {
+    stale += 1;
+    if (CHECK) console.error(`  ${relative(ROOT, path)}  COUNTS OUT OF DATE`);
+    else {
+      writeFileSync(path, page);
+      console.log(`  ${relative(ROOT, path)}  counts rewritten`);
+    }
+  }
+}
+
+console.log(
+  `\n${counts.dataAdmin} tools and ${counts.flowAdmin} workflows — tools/list returns ` +
+    `${counts.listMember} for a member, ${counts.listAdmin} for an admin.`,
+);
 
 if (CHECK && stale) {
   console.error("\nRun `node tools/gen-tool-docs.mjs` and commit the result.");

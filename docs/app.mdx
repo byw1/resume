@@ -8,10 +8,10 @@ Everything in Hired is reachable from a conversation. The web app is where you g
 *look* at the result, adjust it by hand, and do the two jobs a conversation is bad at:
 direct manipulation and rendering.
 
-The left rail holds Dashboard, Brain, Resumes, CRM and Pipeline — the content. Docs,
-Settings and — for admins — Admin are account actions, so they live in the profile menu at
-the top right instead. `⌘K` / `Ctrl+K` opens a search palette: somewhere to go, something
-to create, and every role, resume and application by name.
+The left rail holds Dashboard, Me, Resumes, CRM and Pipeline — the content. Docs, this
+manual, Settings and — for admins — Admin are account actions, so they live in the profile
+menu at the top right instead. `⌘K` / `Ctrl+K` opens a search palette: somewhere to go,
+something to create, and every role, resume and application by name.
 
 **Your work autosaves.** The brain, the resume editor, the pipeline and the CRM have no
 save button anywhere; a small indicator tells you when a change has landed. The settings
@@ -32,7 +32,7 @@ then follow-ups due, recent activity and open tasks.
 It is the screen to open on a Monday, and it answers the same question `list_follow_ups`
 does, laid out rather than listed.
 
-## Brain
+## Me
 
 `/brain` and `/brain/<roleId>`
 
@@ -122,17 +122,6 @@ and every contact who works there. A contact page carries their details and thei
 timeline. Contacts attach to applications straight from here rather than being retyped,
 and removing one from an application never deletes the person.
 
-## Docs
-
-`/docs`
-
-Your instance's own reference, generated from the server rather than written out — so it
-cannot drift. Every tool and workflow your account can see, grouped by area, with the
-descriptions your assistant actually receives. It also carries the three
-[skills](/skills), each as a raw `SKILL.md` and as a zip.
-
-That page is about *your deployment*. This manual is about the product.
-
 ## Settings
 
 `/settings`
@@ -143,7 +132,8 @@ pasting a URL into an assistant, not changing a password.
 <CardGroup cols={3}>
   <Card title="Connections" icon="plug">
     Every assistant wired to your workspace, when each last called in and from what.
-    Set up, test, rename, rotate, disconnect.
+    Set up, test, rename, rotate, disconnect — and the three
+    [skills](/skills), each as a raw `SKILL.md` and as a zip.
   </Card>
   <Card title="Account" icon="user">
     Name, email, password, and the profile photo that every document shares.
@@ -155,6 +145,15 @@ pasting a URL into an assistant, not changing a password.
 
 Admins get a link through to **Settings → Admin** from here.
 [What lives there →](/administration/people)
+
+<Note>
+  The app used to carry its own `/docs` page listing every tool. It is gone: these pages
+  say the same things, and the tool tables here are generated from the same array the
+  server sends, so there is no second copy to keep right. `/docs` on your instance
+  redirects here. The skill files stayed behind on **Settings → Connections**, because
+  they are served by your instance — byte for byte the copies in the repository it is
+  running — and a static site cannot build you a zip out of them.
+</Note>
 
 ## The pages without a login
 

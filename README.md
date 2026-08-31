@@ -7,7 +7,7 @@ decides what happens next. This one keeps the record on them — a career brain,
 builder and a job-search CRM in one app you host yourself, wired into Claude so you can
 just *talk* to it.
 
-- **Brain** — dump everything you know about every job you've had. No length limit, no
+- **Me** — dump everything you know about every job you've had. No length limit, no
   structure required. Numbers, projects, stories, praise, screw-ups. This is the raw
   material every resume gets built from.
 - **Resumes** — tailored documents assembled from that material. Defaults to the Harvard
@@ -42,7 +42,7 @@ just *talk* to it.
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
   paste — because the address that matters is whichever one they actually answer on.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  85 tools any MCP client can call (113 if you're an admin). Claude, Claude Code, ChatGPT,
+  80 tools any MCP client can call (110 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -59,10 +59,15 @@ just *talk* to it.
   every migration finished, whether the last invite email actually left, and whether Stripe
   is still calling the webhook, then lists what has failed in the last thirty days. Ask an
   assistant for `admin_health` and you get the same answer without opening a browser.
+- **Sign in how you like** — email and password always work, and an instance that adds a
+  Google OAuth client gets a Continue with Google button as well. Google never bypasses an
+  invitation: it signs in people who already have an account or an unexpired invite, and
+  turns everyone else away unless an admin has deliberately opened sign-up.
 - **Hard to guess at** — sign-in attempts are counted per account and per address, and an
   account stops answering after eight wrong passwords in fifteen minutes. Passwords are
-  scrypt hashes, sessions are httpOnly cookies, and admins cannot reset each other or the
-  owner — the code being public is not the same as the door being open.
+  scrypt hashes, sessions are httpOnly cookies you can decline to keep past the browser
+  window, and admins cannot reset each other or the owner — the code being public is not
+  the same as the door being open.
 
 > "Here's everything I did at Vertex last quarter — file it."
 > "Tailor my resume to this posting."
@@ -206,7 +211,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 85, or 113 if you're an admin.
+would, then tells you how many tools answered — 80, or 110 if you're an admin.
 
 #### One connection per client
 
@@ -225,7 +230,7 @@ would, then tells you how many tools answered — 85, or 113 if you're an admin.
 
 ## Inviting other people
 
-**Admin → Invites** → type an email → **Send invite**. They get a link, pick a password, and
+**Admin → People → Invitations** → type an email → **Send invite**. They get a link, pick a password, and
 land in their own empty workspace.
 
 Email is optional. Until you set up Resend, creating an invite gives you a link to send
@@ -235,7 +240,7 @@ however you like — it stays valid for 14 days. Nothing is blocked on email bei
 
 If you run a landing page in front of your instance, point its sign-up form at
 `POST /api/waitlist` with a JSON body of `{"email": "...", "name": "...", "context": "..."}`.
-Only `email` is required. Requests land in **Admin → Waitlist**, and you get an email the
+Only `email` is required. Requests land in **Admin → People → Waiting for access**, and you get an email the
 moment one arrives — no polling an empty screen.
 
 Nothing on that list has access to anything. A request becomes an invite when you press
@@ -284,7 +289,7 @@ won't let a caller omit.
 
 ### Setting up email (Resend)
 
-**Admin → Configuration → Resend**:
+**Admin → Configuration → Email**:
 
 1. Make a free account at [resend.com](https://resend.com).
 2. Add and verify the domain you want to send from.
@@ -295,22 +300,60 @@ won't let a caller omit.
 You can do all of this by talking to Claude instead: *"is email set up? configure Resend with
 this key and send a test."*
 
+### Signing in with Google (optional)
+
+Passwords always work. Add a Google OAuth client from **Admin → Configuration → Sign-in**
+and a **Continue with Google** button appears on the sign-in page too; clear the client ID
+and it goes away again. The screen shows the exact redirect URI to register in the
+[Google Cloud console](https://console.cloud.google.com/apis/credentials), with a button to
+copy it — pasting it character for character is the whole of avoiding
+`redirect_uri_mismatch`.
+
+The button is not a way around invitations. Someone coming back from Google is matched in
+this order: an account that has used Google here before, then an account with the same
+email address *if the instance has a reason to vouch for that address* (the two get linked,
+and they keep their password), then an unexpired invitation (accepted on the spot, with no
+password ever chosen). Only if none of those match does the **sign-up** setting decide, and
+it is off by default — so an invitation you already sent starts working with the Google
+button the moment it's configured, and nobody else gets in.
+
+That vouching matters: anyone can change their own email here to any unused address, so
+matching on the address alone would let a member set theirs to a colleague's and capture
+that colleague's first Google sign-in. An address counts when an admin addressed an
+invitation to it, the owner claimed the instance with it, or Google handed it over
+verified. Retyping it in Settings clears that, and the way back is to sign in with a
+password and press **Connect Google** under Settings → Account.
+
+Turning sign-up on is a real change: anyone who can sign in to Google gets an account. Pair
+it with an allowed-domains list unless you mean the whole internet. A Google sign-up is
+always a member, never an admin, and an unverified Google email is refused outright —
+accounts here are matched by address, so that check is what the whole thing rests on.
+
+By conversation: `admin_get_google_config`, `admin_set_google_config`.
+
 ### Everything else you can change
 
 `DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in the
-database, which is what makes **Admin → Variables** possible: one table of everything the
-instance stores as configuration — what it's called, its public URL, whether the pipeline
-fetches company logos, the Resend and Stripe values — with what each one does written next
-to it. Change one and it takes effect on the next request; there is nothing to redeploy.
+database, so **Admin → Configuration** is all of it on one screen — instance, email, billing
+and anything you add — with what each setting does written next to the box you type it in.
+Change one and it takes effect on the next request; there is nothing to redeploy.
 
 Secrets show masked and can only be replaced or cleared, never read back. Anything you
 change is one line in **Admin → Log**, with your name on it, values included for everything
 that isn't a secret. Clearing a value resets it to the default the app ships with, and the
 button tells you what that is before you press it.
 
-You can also add a variable of your own. That's the escape hatch for a setting that exists
-before it has a form — a feature can read a key, and you can set it today rather than
-waiting for a screen. Keys are lowercase letters, numbers and underscores.
+One of those settings is worth calling out because it changes what somebody sees before they
+sign in. **Landing page** is the marketing site in front of your instance, if you run one.
+Point it at a site on the same domain as the app — hired.tools and app.hired.tools — and
+signing in leaves a flag on the domain above both, so anyone already signed in who lands on
+the marketing page is sent straight through to the app instead of reading the pitch again.
+The flag says a session exists and nothing else; it carries no identity and no token, and
+the session itself never leaves the app. Leave it empty and nothing is written.
+
+You can also add a setting of your own. That's the escape hatch for one that exists before
+it has a section — a feature can read a key, and you can set it today rather than waiting
+for a screen. Keys are lowercase letters, numbers and underscores.
 
 By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_variable`.
 
@@ -321,7 +364,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 85 tools. Seventy-eight of them are the data tools across the four areas and your account;
 the other seven are the workflows below, published as tools as well as prompts, because
 prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
-a step-by-step plan that it then follows. Admins get 28 more — 27 data tools and an eighth
+a step-by-step plan that it then follows. Admins get 30 more — 29 data tools and an eighth
 workflow — and members never even see those in the tool list, so nobody is tempted by a
 permission they don't have.
 
@@ -346,16 +389,19 @@ still be asked before something gets destroyed. And when a tool's entire job is 
 link — a published resume, a rendered PDF, a shared pipeline — it comes back as a link you can
 click, not a field buried in a blob of JSON.
 
-The **Docs** page inside the app — it's in the profile menu, next to Settings — lists every tool
-and workflow, generated from the server itself rather than written out, so it can't drift. It
-also carries three Claude Skills you can install, which teach an assistant the rules of this
-place before you have to. Each comes two ways: the raw `SKILL.md` to drop in
-`~/.claude/skills/`, and a zip for the upload box in Claude's apps, which wants a folder rather
-than a loose file.
+[docs.hired.tools](https://docs.hired.tools) is the manual — it's **Docs** in the profile
+menu, and every tool is written out there with its arguments, generated from the same array
+the server sends so it can't drift. The app used to render its own copy of that list at
+`/docs`; one generated list rendered twice is one rendering that goes stale, so that page
+is gone and the address redirects.
 
-That page is about *your* deployment. [docs.hired.tools](https://docs.hired.tools) is the
-manual for the product: the same pages whoever you're hosting reads, whichever instance
-they're on.
+**Settings → Connections** keeps the parts only your own instance can answer: how many tools
+your account actually has, a **Test** that proves it by calling the endpoint, and the three
+Claude Skills, which teach an assistant the rules of this place before you have to. Each
+comes two ways — the raw `SKILL.md` to drop in `~/.claude/skills/`, and a zip for the upload
+box in Claude's apps, which wants a folder rather than a loose file. They're served from the
+`skills/` directory of the instance you're running, so what you install is byte-for-byte what
+it has.
 
 ### The four areas
 

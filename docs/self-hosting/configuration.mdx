@@ -5,8 +5,9 @@ icon: "sliders"
 ---
 
 `DATABASE_URL` is the only thing this app asks of its host. Every other setting lives in
-the database, which is what makes **Admin → Variables** possible: one table of everything
-the instance stores as configuration, with what each one does written next to it.
+the database, which is what makes **Admin → Configuration** possible: every setting the
+instance stores, grouped into Instance, Email and Billing, with what each one does written
+next to the box you type it in.
 
 Change one and it takes effect on the next request. There is nothing to redeploy.
 
@@ -16,7 +17,12 @@ Change one and it takes effect on the next request. There is nothing to redeploy
 | --- | --- | --- | --- |
 | `instance_name` | Instance | What this instance is called. Shown on the sign-in page and in every email it sends. | `Hired` |
 | `public_url` | Instance | Where this instance is reachable from outside. Invitation links and the Stripe webhook URL are built from it. Left empty, the app guesses from the incoming request — right until something sits in front of it. | *(empty)* |
+| `landing_url` | Instance | The marketing site in front of this instance, if it has one. On a domain shared with the app, signing in leaves a flag there so somebody already signed in who lands on the marketing page is sent through to the app. | *(empty)* |
 | `company_logos` | Instance | Shows each company's favicon in the pipeline. | On |
+| `google_client_id` | Sign-in | OAuth client ID from the Google Cloud console. Setting it puts a Continue with Google button on the sign-in page. | *(empty)* |
+| `google_client_secret` | Sign-in | The secret for that OAuth client. | *(empty)* |
+| `google_allow_signup` | Sign-in | Whether a Google account nobody invited may create an account here. | Off |
+| `google_allowed_domains` | Sign-in | Comma-separated domains a new Google sign-up must be on. Only consulted when sign-up is on. | *(empty)* |
 | `resend_api_key` | Email | Starts with `re_`. Stored on your server and never shown again. | *(empty)* |
 | `resend_from_email` | Email | The address invitations are sent from, on a domain verified in Resend. | *(empty)* |
 | `resend_from_name` | Email | Display name on outgoing mail. | `Hired` |
@@ -84,4 +90,4 @@ change and clear one.
 Prefer `admin_set_email_config` and `admin_set_billing_config` where they apply — they set
 the same values and also report whether that area now works.
 
-[All 27 admin tools →](/tools/admin)
+[Every admin tool →](/tools/admin)

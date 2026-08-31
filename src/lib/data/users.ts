@@ -1,6 +1,12 @@
 import type { User, UserRole } from "@prisma/client";
 import { db } from "@/lib/db";
-import { ensureDefaultConnection, generateInviteToken, hashPassword } from "@/lib/auth";
+import {
+  CLAIMED,
+  ensureDefaultConnection,
+  generateInviteToken,
+  hashPassword,
+  isClaimed,
+} from "@/lib/auth";
 import { generatePassphrase } from "@/lib/passphrase";
 import { recordAudit } from "@/lib/data/audit";
 import { getSettings } from "@/lib/settings";
@@ -14,7 +20,7 @@ const INVITE_DAYS = 14;
 
 export async function listUsers() {
   const users = await db.user.findMany({
-    where: { passwordHash: { not: "" } },
+    where: CLAIMED,
     orderBy: [{ role: "asc" }, { createdAt: "asc" }],
     select: {
       id: true,
@@ -87,7 +93,7 @@ export async function adminResetPassword(actor: User, userId: string) {
 }
 
 export async function countUsers() {
-  return db.user.count({ where: { passwordHash: { not: "" } } });
+  return db.user.count({ where: CLAIMED });
 }
 
 /**
@@ -230,13 +236,17 @@ export async function changePassword(userId: string, password: string) {
 }
 
 export async function updateOwnAccount(userId: string, patch: { name?: string; email?: string }) {
-  const data: { name?: string; email?: string } = {};
+  const data: { name?: string; email?: string; emailProvenAt?: Date | null } = {};
   if (patch.name !== undefined) data.name = patch.name.trim();
   if (patch.email !== undefined) {
     const email = patch.email.trim().toLowerCase();
     const clash = await db.user.findFirst({ where: { email, id: { not: userId } } });
     if (clash) throw new Error("That email is already in use.");
     data.email = email;
+    // Nothing here proves the person owns the address they just typed, so the
+    // instance stops vouching for it. Google sign-in reads this: without it,
+    // changing your email to somebody else's would capture their sign-in.
+    data.emailProvenAt = null;
   }
   return db.user.update({ where: { id: userId }, data });
 }
@@ -279,7 +289,7 @@ export async function createInvite(input: {
   }
 
   const existing = await db.user.findUnique({ where: { email } });
-  if (existing && existing.passwordHash) throw new Error("Someone with that email is already a member.");
+  if (existing && isClaimed(existing)) throw new Error("Someone with that email is already a member.");
 
   // Re-inviting the same address replaces the outstanding invite.
   await db.invite.deleteMany({ where: { email, acceptedAt: null } });
@@ -366,7 +376,7 @@ export async function acceptInvite(input: { token: string; name: string; passwor
   const invite = result.invite;
 
   const clash = await db.user.findUnique({ where: { email: invite.email } });
-  if (clash && clash.passwordHash) throw new Error("An account with that email already exists.");
+  if (clash && isClaimed(clash)) throw new Error("An account with that email already exists.");
 
   const user = await db.$transaction(async (tx) => {
     const created = clash
@@ -377,6 +387,7 @@ export async function acceptInvite(input: { token: string; name: string; passwor
             passwordHash: hashPassword(input.password),
             role: invite.role,
             isActive: true,
+            emailProvenAt: new Date(),
             invitedById: invite.invitedById,
             // A checkout-created invite carries the payer's Stripe customer
             // id; landing it here is what lets billing find them later.
@@ -389,6 +400,7 @@ export async function acceptInvite(input: { token: string; name: string; passwor
             name: input.name.trim(),
             passwordHash: hashPassword(input.password),
             role: invite.role,
+            emailProvenAt: new Date(),
             invitedById: invite.invitedById,
             ...(invite.stripeCustomerId ? { stripeCustomerId: invite.stripeCustomerId } : {}),
           },
@@ -407,9 +419,9 @@ export async function acceptInvite(input: { token: string; name: string; passwor
 
 export async function instanceStats() {
   const [users, active, admins, pendingInvites, roles, resumes, applications] = await Promise.all([
-    db.user.count({ where: { passwordHash: { not: "" } } }),
-    db.user.count({ where: { passwordHash: { not: "" }, isActive: true } }),
-    db.user.count({ where: { passwordHash: { not: "" }, role: { in: ["ADMIN", "SUPER_ADMIN"] } } }),
+    db.user.count({ where: CLAIMED }),
+    db.user.count({ where: { ...CLAIMED, isActive: true } }),
+    db.user.count({ where: { ...CLAIMED, role: { in: ["ADMIN", "SUPER_ADMIN"] } } }),
     db.invite.count({ where: { acceptedAt: null, expiresAt: { gt: new Date() } } }),
     db.role.count(),
     db.resume.count(),
