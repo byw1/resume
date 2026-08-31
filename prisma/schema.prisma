@@ -63,6 +63,7 @@ model User {
   activities     Activity[]
   tasks          Task[]
   savedViews     SavedView[]
+  sources        Source[]
   pipelineShare  PipelineShare?
 
   @@index([role])
@@ -568,11 +569,11 @@ model Application {
   location       String    @default("")
   workMode       String    @default("")
   salaryRange    String    @default("")
-  /// Where this one came from — and it is a list because real applications
-  /// arrive from more than one direction at once: a job board posting AND a
-  /// referral AND a DM to the hiring manager. Free strings, not an enum, so
-  /// people can name their own channels.
-  sources        String[]  @default([])
+  /// Where this one came from. Rows the person owns rather than free strings,
+  /// so a channel can be renamed, recoloured and — the point — deleted. The
+  /// field name stays `sources`: the data layer flattens the join rows back to
+  /// { id, name, color } before anything else sees them.
+  sources        ApplicationSource[]
   /// 1-5 how much you want this
   excitement     Int       @default(3)
   /// 1-5 how strong a fit you are
@@ -593,6 +594,49 @@ model Application {
 
   @@index([userId, stage])
   @@index([userId, nextFollowUpAt])
+}
+
+/// A channel an application came from, as something the person owns.
+///
+/// It was a free string in an array, which meant every spelling anyone ever
+/// typed became a permanent option nobody could remove — and the starter list
+/// was appended to everyone's picker forever by construction. A row can be
+/// renamed, recoloured and deleted; deleting takes it off the applications
+/// that carried it and leaves them otherwise untouched, because a label that
+/// refuses to die is the bug this replaces.
+model Source {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name   String
+  /// lower(trim(name)). Case-insensitive uniqueness is the whole point —
+  /// "LinkedIn" and "linkedin" are one channel — and Prisma cannot express a
+  /// functional index, so the normalised form is a column.
+  key    String
+  /// A palette token name, not a hex: see --tag-* in globals.css. A stored hex
+  /// is right in exactly one theme.
+  color  String @default("slate")
+
+  applications ApplicationSource[]
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @default(now()) @updatedAt
+
+  @@unique([userId, key])
+  @@index([userId, name])
+}
+
+/// The join. Explicit rather than Prisma's implicit m2m because the migration
+/// has to write these rows in raw SQL, and an implicit table's name and its
+/// "A"/"B" columns are a convention of Prisma's rather than a contract.
+model ApplicationSource {
+  applicationId String
+  application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  sourceId      String
+  source        Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  createdAt     DateTime    @default(now())
+
+  @@id([applicationId, sourceId])
+  @@index([sourceId])
 }
 
 model Contact {

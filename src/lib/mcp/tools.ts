@@ -190,6 +190,7 @@ function enumArg<T extends string>(args: Json, key: string, allowed: readonly T[
   throw new Error(`Unknown ${key} "${value}". Use one of: ${allowed.join(", ")}.`);
 }
 
+const SOURCE_COLOR_VALUES = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"] as const;
 const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"] as const;
 const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"] as const;
 
@@ -1429,9 +1430,9 @@ export const tools: McpTool[] = [
   },
   {
     name: "list_application_sources",
-    title: "List the source channels on file",
+    title: "List the source categories on file",
     description:
-      "The source labels this person already uses ('LinkedIn', 'Referral from Dana', …), most-used first, followed by the standard starters. Call it before writing sources on create_application or update_application so you reuse their exact spellings instead of minting near-duplicates — it covers every application including closed ones, which list_applications hides by default. Read-only.",
+      "The channels this person has, as records they own: id, name, colour and how many applications carry each. Call it before writing sources on create_application or update_application — passing an existing id is exact, and passing a name that already exists matches it case-insensitively rather than creating a twin. Read-only.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
@@ -1439,7 +1440,79 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => pipeline.listSourceOptions(ctx.userId),
+    handler: async (_args, ctx) => pipeline.listSources(ctx.userId),
+  },
+  {
+    name: "create_source",
+    title: "Create a source category",
+    description:
+      "Add a channel applications can be filed under — 'LinkedIn', 'Referral', 'Cold outreach', or whatever this person actually uses. Names are unique per person and case-insensitive, so creating one that exists in any casing is an error rather than a silent duplicate. You rarely need this: passing a new name to create_application or update_application creates it. Reach for it when someone is setting their categories up deliberately, or wants one in a particular colour.",
+    inputSchema: object(
+      {
+        name: str("What to call it, e.g. 'Referral'"),
+        color: {
+          type: "string",
+          enum: SOURCE_COLOR_VALUES,
+          description: "Swatch for its chip. Defaults to slate.",
+        },
+      },
+      ["name"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.createSource(ctx.userId, {
+        name: required(args, "name"),
+        ...defined({ color: s(args, "color") }),
+      }),
+  },
+  {
+    name: "update_source",
+    title: "Rename or recolour a source",
+    description:
+      "Change a source category's name or colour. Renaming updates it everywhere at once, because applications carry the row rather than a copy of its text — which is the point of these being records. A name that collides with another source, in any casing, is refused.",
+    inputSchema: object(
+      {
+        id: str("Source id"),
+        name: str("New name"),
+        color: {
+          type: "string",
+          enum: SOURCE_COLOR_VALUES,
+          description: "New swatch",
+        },
+      },
+      ["id"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.updateSource(
+        ctx.userId,
+        required(args, "id"),
+        defined({ name: s(args, "name"), color: s(args, "color") }),
+      ),
+  },
+  {
+    name: "delete_source",
+    title: "Delete a source category",
+    description:
+      "Remove a channel. Unlike delete_company this never refuses: it comes off every application carrying it and those applications are otherwise untouched — a label you cannot remove is worse than one you delete by mistake, and re-adding it is one call. Returns detachedFrom, how many applications stopped wearing it, so you can say what happened.",
+    inputSchema: object({ id: str("Source id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => pipeline.deleteSource(ctx.userId, required(args, "id")),
   },
   {
     name: "create_application",
@@ -1457,8 +1530,9 @@ export const tools: McpTool[] = [
         location: str("Job location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Advertised or expected compensation"),
+        sourceIds: strArray("Source ids from list_application_sources. Exact; wins over sources."),
         sources: strArray(
-          "Where it came from, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Free strings; call list_application_sources first and reuse the person's existing spellings where they fit.",
+          "Where it came from by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the categories that exist and created only when nothing matches, so call list_application_sources first.",
         ),
         source: str("Legacy single-source spelling. Prefer sources; ignored when sources is passed."),
         excitement: num("1-5 how much they want this"),
@@ -1488,6 +1562,7 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
+          sourceIds: a(args, "sourceIds"),
           sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
@@ -1516,7 +1591,8 @@ export const tools: McpTool[] = [
         location: str("Location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Compensation"),
-        sources: strArray("The full list of where it came from — replaces what is there"),
+        sourceIds: strArray("Source ids. Exact; wins over sources. REPLACES the whole set."),
+        sources: strArray("Source names — REPLACES the whole set, matched or created as above"),
         source: str(
           "Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed.",
         ),
@@ -1547,6 +1623,7 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
+          sourceIds: a(args, "sourceIds"),
           sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),

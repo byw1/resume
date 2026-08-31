@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Twenty-four tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Twenty-seven tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -77,11 +77,46 @@ The FIRST tool to call when someone shares a link to a job posting. Fetches the 
 
 ### `list_application_sources`
 
-_List the source channels on file_
+_List the source categories on file_
 
-The source labels this person already uses ('LinkedIn', 'Referral from Dana', …), most-used first, followed by the standard starters. Call it before writing sources on create_application or update_application so you reuse their exact spellings instead of minting near-duplicates — it covers every application including closed ones, which list_applications hides by default. Read-only.
+The channels this person has, as records they own: id, name, colour and how many applications carry each. Call it before writing sources on create_application or update_application — passing an existing id is exact, and passing a name that already exists matches it case-insensitively rather than creating a twin. Read-only.
 
 No arguments.
+
+### `create_source`
+
+_Create a source category_
+
+Add a channel applications can be filed under — 'LinkedIn', 'Referral', 'Cold outreach', or whatever this person actually uses. Names are unique per person and case-insensitive, so creating one that exists in any casing is an error rather than a silent duplicate. You rarely need this: passing a new name to create_application or update_application creates it. Reach for it when someone is setting their categories up deliberately, or wants one in a particular colour.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `name` | string | **required** — What to call it, e.g. 'Referral' |
+| `color` | enum | Swatch for its chip. Defaults to slate.  `slate` · `blue` · `teal` · `green` · `amber` · `red` · `violet` · `pink` |
+
+### `update_source`
+
+_Rename or recolour a source_
+
+Change a source category's name or colour. Renaming updates it everywhere at once, because applications carry the row rather than a copy of its text — which is the point of these being records. A name that collides with another source, in any casing, is refused.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Source id |
+| `name` | string | New name |
+| `color` | enum | New swatch  `slate` · `blue` · `teal` · `green` · `amber` · `red` · `violet` · `pink` |
+
+### `delete_source`
+
+_Delete a source category_
+
+Remove a channel. Unlike delete_company this never refuses: it comes off every application carrying it and those applications are otherwise untouched — a label you cannot remove is worse than one you delete by mistake, and re-adding it is one call. Returns detachedFrom, how many applications stopped wearing it, so you can say what happened.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Source id |
 
 ### `create_application`
 
@@ -102,7 +137,8 @@ Track a new job. Paste the full posting into jobDescription — it is what you w
 | `location` | string | Job location |
 | `workMode` | string | Remote \| Hybrid \| On-site |
 | `salaryRange` | string | Advertised or expected compensation |
-| `sources` | string[] | Where it came from, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Free strings; call list_application_sources first and reuse the person's existing spellings where they fit. |
+| `sourceIds` | string[] | Source ids from list_application_sources. Exact; wins over sources. |
+| `sources` | string[] | Where it came from by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the categories that exist and created only when nothing matches, so call list_application_sources first. |
 | `source` | string | Legacy single-source spelling. Prefer sources; ignored when sources is passed. |
 | `excitement` | number | 1-5 how much they want this |
 | `fit` | number | 1-5 how strong a fit they are |
@@ -131,7 +167,8 @@ Update fields on an application. Changing `stage` here also writes a timeline en
 | `location` | string | Location |
 | `workMode` | string | Remote \| Hybrid \| On-site |
 | `salaryRange` | string | Compensation |
-| `sources` | string[] | The full list of where it came from — replaces what is there |
+| `sourceIds` | string[] | Source ids. Exact; wins over sources. REPLACES the whole set. |
+| `sources` | string[] | Source names — REPLACES the whole set, matched or created as above |
 | `source` | string | Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed. |
 | `excitement` | number | 1-5 |
 | `fit` | number | 1-5 |

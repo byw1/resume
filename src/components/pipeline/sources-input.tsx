@@ -1,7 +1,9 @@
 "use client";
 
-import { useState } from "react";
-import { CheckIcon, PlusIcon, XIcon } from "lucide-react";
+import { useState, useTransition } from "react";
+import { useRouter } from "next/navigation";
+import { CheckIcon, PlusIcon, Trash2Icon, XIcon } from "lucide-react";
+import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
@@ -11,77 +13,117 @@ import {
   CommandItem,
   CommandList,
 } from "@/components/ui/command";
+import { SourceChip, type SourceValue } from "@/components/pipeline/source-chip";
+import { SOURCE_COLORS, sourceTone } from "@/lib/data/pipeline";
 import { cn } from "@/lib/utils";
+import {
+  createSourceAction,
+  deleteSourceAction,
+  seedSourcesAction,
+  updateSourceAction,
+} from "@/server/actions";
+
+export type SourceOption = SourceValue & { applications: number };
 
 /**
- * Where an application came from, as chips plus a picker.
+ * Where an application came from, as categories the person owns.
  *
- * A select would force one answer and an enum would force our answers; real
- * applications come from several directions at once ("LinkedIn" AND "Referral")
- * and from channels nobody predicted. So: multi-select over suggestions — the
- * person's own past sources first, then the starters — with a typed value one
- * keystroke away from becoming a new option.
+ * The old version offered every string anyone had ever typed plus six starters
+ * hardcoded into the list, and there was no way to remove any of it — which is
+ * precisely the complaint this replaces. Now the list is rows: tick to attach,
+ * recolour from the swatch row, rename, and delete outright. Deleting takes the
+ * category off every application that carried it and says how many, because
+ * that is the thing you want to know before you do it, not after.
  */
 export function SourcesInput({
   value,
   options,
   onChange,
-  disabled = false,
 }: {
-  value: string[];
-  /** Offered choices. The person's own past sources, then the starter set. */
-  options: string[];
-  onChange: (next: string[]) => void;
-  disabled?: boolean;
+  value: SourceValue[];
+  /** Every category on file, with usage counts. */
+  options: SourceOption[];
+  onChange: (next: SourceValue[]) => void;
 }) {
+  const router = useRouter();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
+  const [editing, setEditing] = useState<string | null>(null);
+  const [pending, startTransition] = useTransition();
 
-  const has = (candidate: string) =>
-    value.some((item) => item.toLowerCase() === candidate.toLowerCase());
+  const has = (id: string) => value.some((item) => item.id === id);
 
-  const toggle = (candidate: string) => {
-    const clean = candidate.trim();
-    if (!clean) return;
+  const toggle = (source: SourceValue) => {
     onChange(
-      has(clean)
-        ? value.filter((item) => item.toLowerCase() !== clean.toLowerCase())
-        : [...value, clean],
+      has(source.id) ? value.filter((item) => item.id !== source.id) : [...value, source],
     );
-    setQuery("");
   };
 
-  // Selected values that came from nowhere (an assistant wrote them, an old
-  // record) still need to be listed, or they could never be unticked.
-  const listed = [
-    ...options,
-    ...value.filter((item) => !options.some((option) => option.toLowerCase() === item.toLowerCase())),
-  ];
-  const trimmedQuery = query.trim();
-  const queryIsNew =
-    trimmedQuery.length > 0 &&
-    !listed.some((option) => option.toLowerCase() === trimmedQuery.toLowerCase());
+  const create = () => {
+    const name = query.trim();
+    if (!name) return;
+    startTransition(async () => {
+      try {
+        const created = await createSourceAction({ name });
+        onChange([...value, created]);
+        setQuery("");
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not create that.");
+      }
+    });
+  };
+
+  const recolour = (source: SourceOption, color: string) => {
+    startTransition(async () => {
+      try {
+        await updateSourceAction(source.id, { color });
+        // Whatever is attached here has to change colour too, or the chips
+        // above disagree with the list below until a reload.
+        onChange(value.map((item) => (item.id === source.id ? { ...item, color } : item)));
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not recolour that.");
+      }
+    });
+  };
+
+  const remove = (source: SourceOption) => {
+    const warning =
+      source.applications > 0
+        ? `Delete "${source.name}"? It comes off ${source.applications} application${source.applications === 1 ? "" : "s"}, which are otherwise untouched.`
+        : `Delete "${source.name}"?`;
+    if (!confirm(warning)) return;
+    startTransition(async () => {
+      try {
+        await deleteSourceAction(source.id);
+        onChange(value.filter((item) => item.id !== source.id));
+        setEditing(null);
+        router.refresh();
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not delete that.");
+      }
+    });
+  };
+
+  const typed = query.trim();
+  const exists = options.some((option) => option.name.toLowerCase() === typed.toLowerCase());
 
   return (
     <div className="space-y-1.5">
       {value.length > 0 && (
         <div className="flex flex-wrap gap-1">
           {value.map((source) => (
-            <span
-              key={source}
-              className="bg-inset text-foreground flex items-center gap-1 rounded-chip py-0.5 pr-1 pl-2 text-[12px] font-medium"
-            >
-              {source}
-              {!disabled && (
-                <button
-                  type="button"
-                  onClick={() => toggle(source)}
-                  aria-label={`Remove ${source}`}
-                  className="text-muted-foreground hover:text-foreground rounded p-0.5 transition-colors"
-                >
-                  <XIcon className="size-3" />
-                </button>
-              )}
+            <span key={source.id} className="inline-flex items-center">
+              <SourceChip source={source} className="pr-0.5" />
+              <button
+                type="button"
+                onClick={() => toggle(source)}
+                aria-label={`Take ${source.name} off this application`}
+                className="text-muted-foreground hover:text-foreground -ml-1 rounded p-0.5 transition-colors"
+              >
+                <XIcon className="size-3" />
+              </button>
             </span>
           ))}
         </div>
@@ -93,50 +135,113 @@ export function SourcesInput({
             type="button"
             variant="outline"
             size="sm"
-            disabled={disabled}
             className="text-muted-foreground w-full justify-start font-normal"
           >
             <PlusIcon className="size-3.5" />
             {value.length === 0 ? "Where did this come from?" : "Add a source"}
           </Button>
         </PopoverTrigger>
-        <PopoverContent align="start" className="w-64 p-0">
+        <PopoverContent align="start" className="w-72 p-0">
           <Command loop>
             <CommandInput
               value={query}
               onValueChange={setQuery}
-              placeholder="Pick or type your own…"
+              placeholder="Pick or name a new one…"
               className="h-9"
             />
             <CommandList>
-              <CommandGroup>
-                {listed.map((option) => (
-                  <CommandItem
-                    key={option}
-                    value={option}
-                    onSelect={() => toggle(option)}
-                    className="px-2 py-1.5"
+              {options.length === 0 && (
+                <div className="space-y-2 p-3 text-center">
+                  <p className="text-muted-foreground text-[13px]">
+                    No categories yet. Name one above, or start with the usual set.
+                  </p>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={pending}
+                    onClick={() => {
+                      startTransition(async () => {
+                        try {
+                          await seedSourcesAction();
+                          router.refresh();
+                        } catch {
+                          toast.error("Could not add those.");
+                        }
+                      });
+                    }}
                   >
-                    <CheckIcon
-                      className={cn("size-3.5", has(option) ? "opacity-100" : "opacity-0")}
-                    />
-                    {option}
-                  </CommandItem>
+                    Add the usual six
+                  </Button>
+                </div>
+              )}
+              <CommandGroup>
+                {options.map((option) => (
+                  <div key={option.id}>
+                    <CommandItem
+                      value={option.name}
+                      onSelect={() => toggle(option)}
+                      className="px-2 py-1.5"
+                    >
+                      <CheckIcon
+                        className={cn("size-3.5", has(option.id) ? "opacity-100" : "opacity-0")}
+                      />
+                      <span
+                        className="size-2 shrink-0 rounded-full"
+                        style={{ background: sourceTone(option.color) }}
+                      />
+                      <span className="min-w-0 flex-1 truncate">{option.name}</span>
+                      <button
+                        type="button"
+                        aria-label={`Edit ${option.name}`}
+                        onClick={(event) => {
+                          event.stopPropagation();
+                          setEditing(editing === option.id ? null : option.id);
+                        }}
+                        className="text-faint hover:text-foreground shrink-0 text-[11px]"
+                      >
+                        {option.applications || 0}
+                      </button>
+                    </CommandItem>
+
+                    {editing === option.id && (
+                      <div className="flex items-center gap-1 px-2 pb-2 pl-8">
+                        {SOURCE_COLORS.map((colour) => (
+                          <button
+                            key={colour}
+                            type="button"
+                            aria-label={`Colour ${option.name} ${colour}`}
+                            disabled={pending}
+                            onClick={() => recolour(option, colour)}
+                            className={cn(
+                              "size-4 rounded-full transition-transform hover:scale-110",
+                              option.color === colour && "ring-foreground ring-2 ring-offset-1",
+                            )}
+                            style={{ background: sourceTone(colour) }}
+                          />
+                        ))}
+                        <button
+                          type="button"
+                          aria-label={`Delete ${option.name}`}
+                          disabled={pending}
+                          onClick={() => remove(option)}
+                          className="text-muted-foreground hover:text-destructive ml-auto p-1 transition-colors"
+                        >
+                          <Trash2Icon className="size-3.5" />
+                        </button>
+                      </div>
+                    )}
+                  </div>
                 ))}
-                {queryIsNew && (
+
+                {typed && !exists && (
                   <CommandItem
-                    // forceMount with a value the query won't score against,
-                    // so this row sorts BELOW every real match: Enter on
-                    // "linked" picks LinkedIn rather than minting a
-                    // near-duplicate "linked". With no matches at all it is
-                    // the only row, and Enter creates.
                     forceMount
-                    value="±add±"
-                    onSelect={() => toggle(trimmedQuery)}
+                    value="±new±"
+                    onSelect={create}
                     className="px-2 py-1.5"
                   >
                     <PlusIcon className="size-3.5" />
-                    Add “{trimmedQuery}”
+                    Create “{typed}”
                   </CommandItem>
                 )}
               </CommandGroup>

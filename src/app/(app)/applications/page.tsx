@@ -8,7 +8,7 @@ import {
   TERMINAL_STAGES,
   listApplications,
   listSchedule,
-  listSourceOptions,
+  listSources,
   pipelineStats,
 } from "@/lib/data/pipeline";
 import { listResumes } from "@/lib/data/resumes";
@@ -77,7 +77,7 @@ export default async function ApplicationsPage({
     listResumes(user.id),
     pipelineStats(user.id),
     listSavedViews(user.id),
-    listSourceOptions(user.id),
+    listSources(user.id),
   ]);
   const share = await getPipelineShare(user.id);
   const shareBase = `${headerProto}://${headerHost}`;
@@ -119,7 +119,7 @@ export default async function ApplicationsPage({
           action={
             <NewApplicationDialog
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
-              sourceOptions={sourceOptions}
+              sourceOptions={sourceOptions.map((source) => ({ id: source.id, name: source.name, color: source.color, applications: source._count.applications }))}
             />
           }
           share={

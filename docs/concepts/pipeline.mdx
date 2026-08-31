@@ -91,13 +91,27 @@ and attach the person you messaged as a contact.
 ### Where it came from
 
 `sources` is a list, because a job board posting, a referral and a LinkedIn message are
-often the same job. They are free strings underneath, so nothing stops
-`met the CTO at a wedding`.
+often the same job.
 
-The starters are LinkedIn, Job board, Company site, Referral, Recruiter reached out and
-Cold outreach. Your own list is those plus everything you have already used — call
-`list_application_sources` before writing one so you reuse your existing spellings
-instead of minting near-duplicates.
+Sources are categories you own, not free text: each one is a record with a name and a
+colour, and `create_source`, `update_source` and `delete_source` manage them. Deleting one
+takes it off every application that carried it and leaves those applications otherwise
+untouched — unlike `delete_company`, which refuses. A label you cannot remove is worse than
+one you delete by mistake.
+
+Write them by `sourceIds` when you have them, or by name in `sources`. Names are matched
+case-insensitively against what exists — `linkedin` lands on your existing `LinkedIn` — and
+a category is created only when nothing matches. Call `list_application_sources` first
+either way.
+
+<Note>
+  Both `sourceIds` and `sources` REPLACE the whole set on an application, like every other
+  array in this API. Read the current one with `get_application` before writing it back.
+</Note>
+
+A new workspace is offered LinkedIn, Job board, Company site, Referral, Recruiter reached
+out and Cold outreach as a one-click start. They are a seed, not a fixture: accept them and
+they are your rows, to rename, recolour or throw away.
 
 ## The timeline
 

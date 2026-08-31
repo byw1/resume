@@ -132,6 +132,24 @@
   /* How much of the ink shows through the wash behind a chip. */
   --stage-wash: 12%;
 
+  /* --- Tags ---------------------------------------------------------------
+     Colours a person picks for their own source categories.
+
+     Deliberately not the stage hues, and deliberately not used the same way: a
+     stage chip is coloured ink on a wash of itself, a tag is one coloured dot
+     on a neutral chip. Ten stages already own colour-as-progress in this
+     product, and a user-chosen violet sitting beside a violet SCREEN chip
+     would read as a stage. Changing the FORM keeps the two apart however
+     somebody colours their tags. */
+  --tag-slate: oklch(0.58 0.02 265);
+  --tag-blue: oklch(0.56 0.13 245);
+  --tag-teal: oklch(0.56 0.1 195);
+  --tag-green: oklch(0.56 0.13 152);
+  --tag-amber: oklch(0.62 0.13 75);
+  --tag-red: oklch(0.57 0.18 25);
+  --tag-violet: oklch(0.55 0.16 295);
+  --tag-pink: oklch(0.58 0.16 350);
+
   /* --- Brand --------------------------------------------------------------
      The mark has no colour of its own. It is cut out of the foreground ink, so
      it inverts with the theme like everything else — which is the whole reason
@@ -228,6 +246,16 @@
   --stage-ghosted: oklch(0.66 0.04 75);
 
   --stage-wash: 20%;
+
+  /* Lifted for dark, same hues — a tag dot at L≈0.56 disappears on a dark card. */
+  --tag-slate: oklch(0.72 0.02 265);
+  --tag-blue: oklch(0.72 0.12 245);
+  --tag-teal: oklch(0.73 0.1 195);
+  --tag-green: oklch(0.74 0.12 152);
+  --tag-amber: oklch(0.79 0.12 75);
+  --tag-red: oklch(0.71 0.16 25);
+  --tag-violet: oklch(0.72 0.14 295);
+  --tag-pink: oklch(0.74 0.14 350);
 }
 
 @theme inline {
@@ -516,6 +544,28 @@
   .stage-chip {
     color: var(--tone);
     background-color: color-mix(in oklch, var(--tone) var(--stage-wash), transparent);
+  }
+
+  /* A source category. Neutral chip, coloured dot — see the --tag-* block for
+     why this is not .stage-chip wearing a different variable.
+
+        <span className="tag-chip" style={{ "--tone": SOURCE_TONE[color] }}>
+
+     The dot is drawn by ::before so the markup stays one element. */
+  .tag-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    background-color: var(--inset);
+    color: var(--muted-foreground);
+  }
+  .tag-chip::before {
+    content: "";
+    width: 0.5rem;
+    height: 0.5rem;
+    flex-shrink: 0;
+    border-radius: 9999px;
+    background-color: var(--tone);
   }
 
   /* The same colour as a whisper, for banding a row you are not trying to

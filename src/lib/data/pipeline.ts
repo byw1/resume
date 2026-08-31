@@ -80,9 +80,10 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
 };
 
 /**
- * Starter options for an application's sources. A person's own list is these
- * plus everything they have already used (listApplicationSources) — the field
- * stays a free string underneath, so nothing stops "met the CTO at a wedding".
+ * What a brand-new workspace is offered as a one-click seed. NOT appended to
+ * anybody's list forever — that was the old behaviour and the reason the picker
+ * filled with options nobody could remove. Accepting these creates real rows
+ * the person owns and can rename, recolour or delete.
  */
 export const SOURCE_SUGGESTIONS = [
   "LinkedIn",
@@ -92,6 +93,220 @@ export const SOURCE_SUGGESTIONS = [
   "Recruiter reached out",
   "Cold outreach",
 ] as const;
+
+/** The swatches a source can wear. Token names, resolved through SOURCE_TONE. */
+export const SOURCE_COLORS = [
+  "slate",
+  "blue",
+  "teal",
+  "green",
+  "amber",
+  "red",
+  "violet",
+  "pink",
+] as const;
+
+export type SourceColor = (typeof SOURCE_COLORS)[number];
+
+/**
+ * Same argument as STAGE_TONE: a CSS variable follows the theme and a stored
+ * hex is right in exactly one of them. See --tag-* in globals.css for why a
+ * source wears its colour as a dot rather than as ink and wash.
+ */
+export const SOURCE_TONE: Record<SourceColor, string> = {
+  slate: "var(--tag-slate)",
+  blue: "var(--tag-blue)",
+  teal: "var(--tag-teal)",
+  green: "var(--tag-green)",
+  amber: "var(--tag-amber)",
+  red: "var(--tag-red)",
+  violet: "var(--tag-violet)",
+  pink: "var(--tag-pink)",
+};
+
+/** Anything unrecognised renders slate rather than throwing at paint time. */
+export function sourceTone(color: string): string {
+  return SOURCE_TONE[color as SourceColor] ?? SOURCE_TONE.slate;
+}
+
+function sourceKey(name: string): string {
+  return name.trim().toLowerCase();
+}
+
+function assertColor(color: string): SourceColor {
+  if (!(SOURCE_COLORS as readonly string[]).includes(color)) {
+    throw new Error(`Unknown colour "${color}". Use one of: ${SOURCE_COLORS.join(", ")}.`);
+  }
+  return color as SourceColor;
+}
+
+// ---------------------------------------------------------------------------
+// Sources — the channels an application came from
+// ---------------------------------------------------------------------------
+
+const sourceCounts = { _count: { select: { applications: true } } } as const;
+
+export async function listSources(userId: string) {
+  return db.source.findMany({
+    where: { userId },
+    orderBy: { name: "asc" },
+    include: sourceCounts,
+  });
+}
+
+/**
+ * The starter set, offered rather than imposed.
+ *
+ * These used to be appended to everyone's picker in code, which made them
+ * permanent and un-deletable — half of the reason the list "filled with random
+ * source forms". Accepting them creates real rows the person owns. Skips any
+ * name they already have, so pressing it twice is harmless.
+ */
+export async function seedSources(userId: string) {
+  const existing = await db.source.findMany({ where: { userId }, select: { key: true } });
+  const have = new Set(existing.map((row) => row.key));
+  const wanted = SOURCE_SUGGESTIONS.filter((name) => !have.has(sourceKey(name)));
+  await db.source.createMany({
+    data: wanted.map((name, index) => ({
+      userId,
+      name,
+      key: sourceKey(name),
+      color: SOURCE_COLORS[index % SOURCE_COLORS.length],
+    })),
+  });
+  return listSources(userId);
+}
+
+export async function createSource(
+  userId: string,
+  input: { name: string; color?: string },
+) {
+  const name = input.name.trim();
+  if (!name) throw new Error("A source needs a name");
+  const key = sourceKey(name);
+  const existing = await db.source.findFirst({ where: { userId, key } });
+  if (existing) throw new Error(`You already have a source called "${existing.name}"`);
+  return db.source.create({
+    data: { userId, name, key, color: input.color ? assertColor(input.color) : "slate" },
+    include: sourceCounts,
+  });
+}
+
+export async function updateSource(
+  userId: string,
+  id: string,
+  patch: { name?: string; color?: string },
+) {
+  const data: Prisma.SourceUpdateInput = {};
+  if (patch.color !== undefined) data.color = assertColor(patch.color);
+  if (patch.name !== undefined) {
+    const name = patch.name.trim();
+    if (!name) throw new Error("A source needs a name");
+    // `key` is derived, so it is assigned here rather than picked off the
+    // patch — otherwise a rename leaves the old key and the case-insensitive
+    // uniqueness quietly stops meaning anything.
+    const key = sourceKey(name);
+    const clash = await db.source.findFirst({ where: { userId, key, id: { not: id } } });
+    if (clash) throw new Error(`You already have a source called "${clash.name}"`);
+    data.name = name;
+    data.key = key;
+  }
+  const { count } = await db.source.updateMany({ where: { id, userId }, data: data as Prisma.SourceUpdateManyMutationInput });
+  if (count === 0) throw new Error(`No source with id ${id}`);
+  return db.source.findFirstOrThrow({ where: { id, userId }, include: sourceCounts });
+}
+
+/**
+ * Deleting a source takes it off every application and succeeds.
+ *
+ * Deliberately unlike deleteCompany, which refuses while applications point at
+ * it. A company is a record with its own history and losing it loses work; a
+ * source is a label, and the applications are untouched apart from no longer
+ * wearing it. A label you cannot remove IS the bug this replaced.
+ */
+export async function deleteSource(userId: string, id: string) {
+  const source = await db.source.findFirst({
+    where: { id, userId },
+    include: sourceCounts,
+  });
+  if (!source) throw new Error(`No source with id ${id}`);
+  await db.source.delete({ where: { id } });
+  return { id, name: source.name, detachedFrom: source._count.applications };
+}
+
+/**
+ * Names and ids in, ids out — creating a source only for a name nothing
+ * matches. Matching is on the case-folded key, so "linkedin" lands on the
+ * existing "LinkedIn" rather than minting a twin.
+ */
+async function resolveSourceIds(
+  userId: string,
+  input: { sourceIds?: string[]; sources?: string[]; source?: string },
+): Promise<string[] | undefined> {
+  if (input.sourceIds !== undefined) {
+    if (input.sourceIds.length === 0) return [];
+    // Every id is re-checked against this user: the join table carries no
+    // userId of its own, so this is the only thing standing between a
+    // client-supplied id and a cross-workspace link.
+    const owned = await db.source.findMany({
+      where: { id: { in: input.sourceIds }, userId },
+      select: { id: true },
+    });
+    const found = new Set(owned.map((row) => row.id));
+    const missing = input.sourceIds.filter((id) => !found.has(id));
+    if (missing.length > 0) throw new Error(`No source with id ${missing[0]}`);
+    return [...found];
+  }
+
+  const names =
+    input.sources !== undefined
+      ? input.sources
+      : input.source !== undefined
+        ? [input.source]
+        : undefined;
+  if (names === undefined) return undefined;
+
+  const wanted = new Map<string, string>();
+  for (const raw of names) {
+    const name = raw.trim();
+    if (name) wanted.set(sourceKey(name), name);
+  }
+  if (wanted.size === 0) return [];
+
+  const existing = await db.source.findMany({
+    where: { userId, key: { in: [...wanted.keys()] } },
+  });
+  const ids = existing.map((row) => row.id);
+  const have = new Set(existing.map((row) => row.key));
+  for (const [key, name] of wanted) {
+    if (have.has(key)) continue;
+    const created = await db.source.create({
+      data: {
+        userId,
+        name,
+        key,
+        // Spread the palette rather than making every new source slate.
+        color: SOURCE_COLORS[Math.abs(hashKey(key)) % SOURCE_COLORS.length],
+      },
+    });
+    ids.push(created.id);
+  }
+  return ids;
+}
+
+/** Small stable hash, only ever used to pick a default swatch. */
+function hashKey(value: string): number {
+  let hash = 0;
+  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) | 0;
+  return hash;
+}
+
+/** The join rows a caller never wants to see, flattened to what they meant. */
+function flattenSources<T extends { sources: { source: { id: string; name: string; color: string } }[] }>(
+  row: T,
+) {
+  return { ...row, sources: row.sources.map((link) => link.source) };
+}
 
 export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN", "GHOSTED"];
 
@@ -183,7 +398,7 @@ export async function listCompanies(
 }
 
 export async function getCompany(userId: string, id: string) {
-  return db.company.findFirst({
+  const company = await db.company.findFirst({
     where: { id, userId },
     include: {
       applications: {
@@ -196,7 +411,7 @@ export async function getCompany(userId: string, id: string) {
           workMode: true,
           salaryRange: true,
           jobUrl: true,
-          sources: true,
+          sources: { include: { source: true }, orderBy: { source: { name: "asc" as const } } },
           appliedAt: true,
           nextFollowUpAt: true,
           updatedAt: true,
@@ -205,6 +420,11 @@ export async function getCompany(userId: string, id: string) {
       contacts: { orderBy: { createdAt: "asc" } },
     },
   });
+  if (!company) return null;
+  return {
+    ...company,
+    applications: company.applications.map(flattenSources),
+  };
 }
 
 export async function createCompany(userId: string, input: CompanyInput) {
@@ -419,12 +639,11 @@ export type ApplicationInput = {
   location?: string;
   workMode?: string;
   salaryRange?: string;
-  /** Where it came from — several at once is normal: a board AND a referral. */
+  /** Source ids, when you already have them. Wins over `sources`. */
+  sourceIds?: string[];
+  /** Source names — resolved against what exists, created only when nothing matches. */
   sources?: string[];
-  /**
-   * Legacy single-source spelling, kept so an assistant (or an old client)
-   * passing `source` still lands the value. `sources` wins when both arrive.
-   */
+  /** Legacy single-source spelling. `sourceIds` and `sources` both win over it. */
   source?: string;
   excitement?: number;
   fit?: number;
@@ -434,8 +653,13 @@ export type ApplicationInput = {
   resumeId?: string | null;
 };
 
+const applicationSourceInclude = {
+  sources: { include: { source: true }, orderBy: { source: { name: "asc" as const } } },
+} satisfies Prisma.ApplicationInclude;
+
 const applicationInclude = {
   company: true,
+  ...applicationSourceInclude,
   resume: { select: { id: true, name: true } },
   _count: { select: { activities: true, tasks: true, contacts: true } },
   // The moment this application last changed stage, for "how long has it been
@@ -475,7 +699,7 @@ export async function listApplications(
   return rows.map(({ activities, ...application }) => {
     const since = activities[0]?.occurredAt ?? application.createdAt;
     return {
-      ...application,
+      ...flattenSources(application),
       stageSince: since,
       daysInStage: Math.floor((now - since.getTime()) / 86_400_000),
     };
@@ -483,16 +707,18 @@ export async function listApplications(
 }
 
 export async function getApplication(userId: string, id: string) {
-  return db.application.findFirst({
+  const application = await db.application.findFirst({
     where: { id, userId },
     include: {
       company: true,
+      ...applicationSourceInclude,
       resume: { select: { id: true, name: true } },
       activities: { orderBy: { occurredAt: "desc" } },
       contacts: { orderBy: { createdAt: "asc" } },
       tasks: { orderBy: [{ done: "asc" }, { dueAt: "asc" }] },
     },
   });
+  return application ? flattenSources(application) : null;
 }
 
 /**
@@ -513,57 +739,6 @@ function cleanLinks(values: string[]): string[] {
   return out;
 }
 
-/**
- * Trim, drop empties, dedupe case-insensitively (first spelling wins). The
- * column is free strings on purpose; this only stops "LinkedIn, linkedin".
- */
-function cleanSources(values: string[]): string[] {
-  const seen = new Set<string>();
-  const out: string[] = [];
-  for (const value of values) {
-    const clean = value.trim();
-    const key = clean.toLowerCase();
-    if (!clean || seen.has(key)) continue;
-    seen.add(key);
-    out.push(clean);
-  }
-  return out;
-}
-
-/** `sources` when given, else the legacy `source` as a one-element list. */
-function resolveSources(input: {
-  sources?: string[];
-  source?: string;
-}): string[] | undefined {
-  if (input.sources !== undefined) return cleanSources(input.sources);
-  if (input.source !== undefined) return cleanSources([input.source]);
-  return undefined;
-}
-
-/**
- * Every source this person has ever recorded, deduped, most-used first — what
- * the source picker offers alongside SOURCE_SUGGESTIONS.
- */
-export async function listApplicationSources(userId: string): Promise<string[]> {
-  const rows = await db.application.findMany({ where: { userId }, select: { sources: true } });
-  const counts = new Map<string, { label: string; count: number }>();
-  for (const row of rows) {
-    for (const value of row.sources) {
-      const key = value.toLowerCase();
-      const entry = counts.get(key);
-      if (entry) entry.count += 1;
-      else counts.set(key, { label: value, count: 1 });
-    }
-  }
-  return [...counts.values()].sort((a, b) => b.count - a.count).map((entry) => entry.label);
-}
-
-/** What the source picker offers: their own channels first, then the starters. */
-export async function listSourceOptions(userId: string): Promise<string[]> {
-  const used = await listApplicationSources(userId);
-  const have = new Set(used.map((value) => value.toLowerCase()));
-  return [...used, ...SOURCE_SUGGESTIONS.filter((value) => !have.has(value.toLowerCase()))];
-}
 
 function toDate(value: Date | string | null | undefined): Date | null | undefined {
   if (value === undefined) return undefined;
@@ -599,7 +774,7 @@ export async function createApplication(userId: string, input: ApplicationInput)
       location: input.location ?? "",
       workMode: input.workMode ?? "",
       salaryRange: input.salaryRange ?? "",
-      sources: resolveSources(input) ?? [],
+      sources: { create: (await resolveSourceIds(userId, input) ?? []).map((sourceId) => ({ sourceId })) },
       excitement: clamp(input.excitement ?? 3, 1, 5),
       fit: clamp(input.fit ?? 3, 1, 5),
       notes: input.notes ?? "",
@@ -619,7 +794,7 @@ export async function createApplication(userId: string, input: ApplicationInput)
     },
   });
 
-  return application;
+  return flattenSources(application);
 }
 
 export type CaptureResult =
@@ -663,6 +838,9 @@ export async function captureJobPosting(userId: string, url: string): Promise<Ca
     location: parsed.location,
     workMode: parsed.workMode,
     salaryRange: parsed.salaryRange,
+    // The parser's spelling resolves against what exists before creating, so
+    // a capture cannot mint "LinkedIn Jobs" beside an existing "LinkedIn"
+    // unless the parser genuinely says something new.
     sources: parsed.source ? [parsed.source] : [],
   });
   return { captured: true, application, parsed };
@@ -683,8 +861,11 @@ export async function updateApplication(
   if (patch.location !== undefined) data.location = patch.location;
   if (patch.workMode !== undefined) data.workMode = patch.workMode;
   if (patch.salaryRange !== undefined) data.salaryRange = patch.salaryRange;
-  const sources = resolveSources(patch);
-  if (sources !== undefined) data.sources = sources;
+  // Replaces the whole set, like every other array in this layer.
+  const sourceIds = await resolveSourceIds(userId, patch);
+  if (sourceIds !== undefined) {
+    data.sources = { deleteMany: {}, create: sourceIds.map((sourceId) => ({ sourceId })) };
+  }
   if (patch.notes !== undefined) data.notes = patch.notes;
   if (patch.excitement !== undefined) data.excitement = clamp(patch.excitement, 1, 5);
   if (patch.fit !== undefined) data.fit = clamp(patch.fit, 1, 5);
@@ -718,7 +899,9 @@ export async function updateApplication(
     await db.application.update({ where: { id }, data });
     return moveApplicationStage(userId, id, patch.stage);
   }
-  return db.application.update({ where: { id }, data, include: applicationInclude });
+  return flattenSources(
+    await db.application.update({ where: { id }, data, include: applicationInclude }),
+  );
 }
 
 /** Days after entering a stage that a nudge should fire. */
@@ -758,7 +941,9 @@ export async function moveApplicationStage(
     data.nextFollowUpAt = defaultFollowUp(stage);
   }
 
-  const updated = await db.application.update({ where: { id }, data, include: applicationInclude });
+  const updated = flattenSources(
+    await db.application.update({ where: { id }, data, include: applicationInclude }),
+  );
 
   if (current.stage !== stage) {
     await db.activity.create({

@@ -50,7 +50,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SaveIndicator } from "@/components/save-indicator";
 import { RatingInput } from "@/components/pipeline/rating-input";
-import { SourcesInput } from "@/components/pipeline/sources-input";
+import { SourcesInput, type SourceOption } from "@/components/pipeline/sources-input";
+import type { SourceValue } from "@/components/pipeline/source-chip";
 import { CompanyChip } from "@/components/crm/company-chip";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { PaperThumb } from "@/components/resume/paper-thumb";
@@ -84,7 +85,7 @@ type Application = {
   location: string;
   workMode: string;
   salaryRange: string;
-  sources: string[];
+  sources: SourceValue[];
   excitement: number;
   fit: number;
   notes: string;
@@ -147,8 +148,8 @@ export function ApplicationDetail({
   contacts: Contact[];
   tasks: Task[];
   resumes: { id: string; name: string }[];
-  /** Choices for the sources picker: their own channels, then the starters. */
-  sourceOptions: string[];
+  /** Every source category on file, with usage counts. */
+  sourceOptions: SourceOption[];
   /** The employer's record, for the chip. Null only if the row is mid-repair. */
   company: { id: string; name: string; website: string } | null;
   /** Every company on file, so changing employer picks one rather than typing. */
@@ -185,9 +186,12 @@ export function ApplicationDetail({
   // manufactures the duplicate employers you then have to merge. It is
   // committed on blur instead, when the name is a name.
   const { state, push } = useAutosave<typeof values>((next) => {
-    const { company: _company, ...rest } = next;
+    const { company: _company, sources, ...rest } = next;
     return updateApplicationAction(application.id, {
       ...rest,
+      // Categories are rows now, so what travels is ids — and it replaces the
+      // whole set, which is what ticking one off in the picker means.
+      sourceIds: sources.map((source) => source.id),
       nextFollowUpAt: next.nextFollowUpAt || null,
       resumeId: next.resumeId || null,
     });

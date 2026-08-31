@@ -2507,3 +2507,71 @@ changes, re-measure: the usable window is narrow.
 `src/components/pipeline/application-panel.tsx`,
 `src/app/(app)/applications/[id]/page.tsx`, `getApplicationForPanelAction` in
 `src/server/actions.ts`, `docs/app.mdx`.
+
+---
+
+## 2026-08-31 — Sources become rows the person owns
+
+**The complaint was that the list only ever grew.** `Application.sources` was a `String[]`,
+and the picker offered every spelling anyone had ever typed *plus* six starters appended in
+code — so the starters were un-deletable by construction and a typo was permanent. They are
+`Source` rows now: named, coloured, renameable and, the point, deletable.
+
+**Deleting a source detaches and succeeds. It never refuses.** Deliberately unlike
+`deleteCompany`, which throws while applications point at it. A company is a record with
+its own history and losing it loses work; a source is a label, and the applications are
+untouched apart from no longer wearing it. A label that refuses to die IS the bug.
+`deleteSource` returns `detachedFrom` so both the dialog and an assistant can say how many
+applications it came off.
+
+**Colour is a token name, never a hex.** `Source.color = "violet"` resolves through
+`SOURCE_TONE` to `var(--tag-violet)`, the same way `STAGE_TONE` resolves stages — and for
+the same reason recorded there: a hex is right in exactly one theme. `--tag-*` is defined
+twice in globals.css, at L≈0.56 for light and L≈0.72 for dark.
+
+**A source chip is a coloured dot on a neutral chip, not coloured ink on a wash.** Ten
+stages already own colour-as-progress in this product, and globals.css says outright that a
+new hue beside them "would either be mistaken for a stage or shout over one". Since the
+colour here is chosen by a person and cannot be constrained, the *form* is what keeps them
+apart. Do not "unify" `.tag-chip` with `.stage-chip`.
+
+**An explicit `ApplicationSource` join, not Prisma's implicit m2m.** The migration writes
+the links in raw SQL, and an implicit table's name and its `A`/`B` columns are a convention
+of Prisma's rather than a contract. The explicit table also gets an index for the usage
+count the picker and `delete_source` both show.
+
+**`key` is a column holding `lower(trim(name))`.** Case-insensitive uniqueness is the whole
+point — "LinkedIn" and "linkedin" are one channel — and Prisma cannot express a functional
+index, so a raw one would read as permanent drift. It is derived, so `updateSource` assigns
+it explicitly rather than picking it off the patch: a rename that left the old key would
+quietly stop the uniqueness meaning anything, which is the exact bug the column exists to
+prevent.
+
+**Names still work on the write path, and resolve before they create.** `capture_job_posting`
+and every assistant that has ever used this server pass strings. `resolveSourceIds` matches
+on the folded key first and creates only when nothing matches, so `linkedin` lands on the
+existing `LinkedIn`. `sourceIds` was added alongside for precision and wins when both come.
+
+**The join table carries no `userId`, which is a real dent in invariant 1.** Nothing in
+`src/lib/data/` can filter `ApplicationSource` by owner. `resolveSourceIds` re-reads every
+supplied id against the caller before it links, and that check is the only thing standing
+between a client-supplied id and a cross-workspace link. Verified against a live database
+along with the rest; do not remove it.
+
+**The starters survive as an offer, not a fixture.** `seedSources` creates them as real
+rows when someone presses "Add the usual six" in the empty picker, so a new workspace is
+not a blank box and nothing is imposed.
+
+**Two things worth knowing for next time.** The write paths return `include:
+applicationInclude`, and every one of them needed `flattenSources` — a test against a real
+database caught `create_application` handing back raw join rows where an assistant expected
+`{ id, name, color }`. And `tools/gen-tool-docs.mjs` evaluates each `inputSchema` in a
+hand-built scope: a new enum constant must be added to BOTH the duplicated constants and
+the verification loop, or `--check` dies with a ReferenceError rather than a useful message.
+
+**Applies to:** `prisma/schema.prisma`,
+`prisma/migrations/20250120000000_source_categories/`, `src/app/globals.css`,
+`src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/pipeline/{source-chip,sources-input,new-application-dialog,application-detail}.tsx`,
+`src/components/crm/company-detail.tsx`, `tools/gen-tool-docs.mjs`, `README.md`,
+`docs/concepts/pipeline.mdx`.

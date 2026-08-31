@@ -4,7 +4,7 @@ import { ArrowLeftIcon } from "lucide-react";
 import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
-import { getApplication, listCompanies, listSourceOptions } from "@/lib/data/pipeline";
+import { getApplication, listCompanies, listSources } from "@/lib/data/pipeline";
 import { getResume, listResumes } from "@/lib/data/resumes";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
@@ -18,7 +18,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   const [application, resumes, sourceOptions, companies, { companyLogos }] = await Promise.all([
     getApplication(user.id, id),
     listResumes(user.id),
-    listSourceOptions(user.id),
+    listSources(user.id),
     listCompanies(user.id),
     getSettings(),
   ]);
@@ -78,7 +78,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             dueAt: task.dueAt?.toISOString() ?? null,
           }))}
           resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
-          sourceOptions={sourceOptions}
+          sourceOptions={sourceOptions.map((source) => ({ id: source.id, name: source.name, color: source.color, applications: source._count.applications }))}
           company={{
             id: application.companyId,
             name: application.company.name,

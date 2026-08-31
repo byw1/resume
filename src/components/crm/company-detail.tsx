@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { MergeCompaniesDialog, type MergeCandidate } from "@/components/crm/merge-companies-dialog";
+import { SourceChip } from "@/components/pipeline/source-chip";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
@@ -49,7 +50,7 @@ export function CompanyDetail({
     salaryRange: string;
     /** The posting itself, when there is one. Plenty of roles have none. */
     jobUrl: string;
-    sources: string[];
+    sources: { id: string; name: string; color: string }[];
     appliedAt: string | null;
     nextFollowUpAt: string | null;
   }[];
@@ -359,7 +360,7 @@ function JobListing({
     workMode: string;
     salaryRange: string;
     jobUrl: string;
-    sources: string[];
+    sources: { id: string; name: string; color: string }[];
     appliedAt: string | null;
     nextFollowUpAt: string | null;
   };
@@ -411,12 +412,7 @@ function JobListing({
       {application.sources.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
           {application.sources.map((source) => (
-            <span
-              key={source}
-              className="bg-inset text-muted-foreground rounded-chip px-1.5 py-0.5 text-[11px]"
-            >
-              {source}
-            </span>
+            <SourceChip key={source.id} source={source} />
           ))}
         </div>
       )}

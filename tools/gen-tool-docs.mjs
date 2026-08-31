@@ -111,11 +111,13 @@ const ACTIVITY_VALUES = [
 ];
 const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"];
 const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"];
+const SOURCE_COLOR_VALUES = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"];
 
 for (const [name, values] of [
   ["ACTIVITY_VALUES", ACTIVITY_VALUES],
   ["COMPANY_FILTERS", COMPANY_FILTERS],
   ["CONTACT_FILTERS", CONTACT_FILTERS],
+  ["SOURCE_COLOR_VALUES", SOURCE_COLOR_VALUES],
 ]) {
   const declared = new RegExp(`${name}[^=]*=\\s*\\[([\\s\\S]*?)\\]`).exec(src);
   if (!declared) throw new Error(`tools.ts no longer declares ${name}`);
@@ -134,7 +136,10 @@ for (const [name, values] of [
   }
 }
 
-const scope = { str, num, bool, strArray, object, STAGE_VALUES, ACTIVITY_VALUES, COMPANY_FILTERS, CONTACT_FILTERS };
+const scope = {
+  str, num, bool, strArray, object,
+  STAGE_VALUES, ACTIVITY_VALUES, COMPANY_FILTERS, CONTACT_FILTERS, SOURCE_COLOR_VALUES,
+};
 const scopeKeys = Object.keys(scope);
 const scopeValues = Object.values(scope);
 

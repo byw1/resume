@@ -672,6 +672,42 @@ export async function duplicateResumeAction(id: string, name?: string) {
 // Pipeline
 // ---------------------------------------------------------------------------
 
+// --- source categories ------------------------------------------------------
+
+export async function seedSourcesAction() {
+  const user = await requireUser();
+  const sources = await pipeline.seedSources(user.id);
+  revalidatePath("/applications");
+  return sources.map((source) => ({
+    id: source.id,
+    name: source.name,
+    color: source.color,
+    applications: source._count.applications,
+  }));
+}
+
+export async function createSourceAction(input: { name: string; color?: string }) {
+  const user = await requireUser();
+  const source = await pipeline.createSource(user.id, input);
+  revalidatePath("/applications");
+  return { id: source.id, name: source.name, color: source.color };
+}
+
+export async function updateSourceAction(id: string, patch: { name?: string; color?: string }) {
+  const user = await requireUser();
+  await pipeline.updateSource(user.id, id, patch);
+  revalidatePath("/applications");
+  revalidatePath("/crm/companies");
+}
+
+export async function deleteSourceAction(id: string) {
+  const user = await requireUser();
+  const result = await pipeline.deleteSource(user.id, id);
+  revalidatePath("/applications");
+  revalidatePath("/crm/companies");
+  return result;
+}
+
 export async function createApplicationAction(input: pipeline.ApplicationInput) {
   const user = await requireUser();
   const application = await pipeline.createApplication(user.id, input);
@@ -929,7 +965,7 @@ export async function getApplicationForPanelAction(id: string) {
   const [application, resumeList, sourceOptions, companies, settings] = await Promise.all([
     pipeline.getApplication(user.id, id),
     resumes.listResumes(user.id),
-    pipeline.listSourceOptions(user.id),
+    pipeline.listSources(user.id),
     pipeline.listCompanies(user.id),
     getSettings(),
   ]);
@@ -980,7 +1016,12 @@ export async function getApplicationForPanelAction(id: string) {
       dueAt: task.dueAt?.toISOString() ?? null,
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
-    sourceOptions,
+    sourceOptions: sourceOptions.map((source) => ({
+      id: source.id,
+      name: source.name,
+      color: source.color,
+      applications: source._count.applications,
+    })),
     company: {
       id: application.companyId,
       name: application.company.name,

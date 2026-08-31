@@ -28,15 +28,16 @@ import { BOARD_STAGES, STAGE_LABEL } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
 import { createApplicationAction, parsePostingAction } from "@/server/actions";
 import { RatingInput } from "@/components/pipeline/rating-input";
-import { SourcesInput } from "@/components/pipeline/sources-input";
+import { SourcesInput, type SourceOption } from "@/components/pipeline/sources-input";
+import type { SourceValue } from "@/components/pipeline/source-chip";
 
 export function NewApplicationDialog({
   resumes,
   sourceOptions,
 }: {
   resumes: { id: string; name: string }[];
-  /** Choices for the sources picker: their own channels, then the starters. */
-  sourceOptions: string[];
+  /** Every source category on file, with usage counts. */
+  sourceOptions: SourceOption[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -50,7 +51,7 @@ export function NewApplicationDialog({
     jobUrl: "",
     location: "",
     salaryRange: "",
-    sources: [] as string[],
+    sources: [] as SourceValue[],
     excitement: 3,
     jobDescription: "",
     resumeId: "",
@@ -84,8 +85,15 @@ export function NewApplicationDialog({
         roleTitle: current.roleTitle || parsed.roleTitle,
         location: current.location || parsed.location,
         salaryRange: current.salaryRange || parsed.salaryRange,
+        // The parser hands back a name. Only prefill it when it matches a
+        // category that already exists — a capture should not invent one from
+        // a job board's own wording.
         sources:
-          current.sources.length > 0 || !parsed.source ? current.sources : [parsed.source],
+          current.sources.length > 0 || !parsed.source
+            ? current.sources
+            : sourceOptions.filter(
+                (option) => option.name.toLowerCase() === parsed.source.toLowerCase(),
+              ),
         jobDescription: current.jobDescription || parsed.jobDescription,
       }));
       toast.success(
@@ -102,8 +110,10 @@ export function NewApplicationDialog({
       return;
     }
     startTransition(async () => {
+      const { sources, ...rest } = form;
       const id = await createApplicationAction({
-        ...form,
+        ...rest,
+        sourceIds: sources.map((source) => source.id),
         resumeId: form.resumeId || null,
       });
       setOpen(false);
