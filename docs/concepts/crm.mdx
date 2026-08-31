@@ -53,6 +53,26 @@ whatever you will want the night before an interview:
   spells the read-first step out.
 </Warning>
 
+### The same employer, twice
+
+An application creates its company automatically and a capture creates another, so
+"Stripe", "Stripe, Inc." and "stripe" end up as three rows each holding a slice of the
+pipeline. `merge_companies` folds one into another: applications and contacts move, blank
+fields on the survivor are filled from the duplicate, the duplicate's notes are appended
+under a line saying where they came from, and the duplicate row is deleted.
+
+<Warning>
+  Merging is irreversible and nothing records afterwards which applications came from which
+  side. Call `preview_company_merge` first — it returns exactly what would move without
+  writing anything — and let the person confirm. `keep_id` is the company whose name
+  survives; `merge_id` is deleted.
+</Warning>
+
+Nothing is de-duplicated by a merge. Two identical role titles on the survivor is the
+correct result: the alternative is guessing which of two records to destroy. In the app the
+company page has a **Merge** button, and it pre-selects the other company when the two
+names reduce to the same key.
+
 Deleting a company refuses while applications still point at it — move or delete those
 first, so tidying up can never take an application with it. Contacts survive and simply
 lose their employer.

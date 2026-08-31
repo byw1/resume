@@ -2406,3 +2406,61 @@ it, and the newcomer took the name that says what it actually holds.
 `src/app/(app)/crm/contacts/page.tsx`, `src/app/(app)/crm/contacts/[id]/page.tsx`,
 `src/app/(app)/crm/companies/[id]/page.tsx`, `src/lib/data/pipeline.ts`,
 `src/lib/mcp/tools.ts`, `src/server/actions.ts`, `README.md`.
+
+---
+
+## 2026-08-31 — Merging duplicate employers, and the bug that was manufacturing them
+
+**The duplicates had a cause, and it was ours.** `updateApplication` resolves `company`
+through `upsertCompanyByName`, which creates the company when the name does not exist. The
+application header put that name on the 700ms autosave, so typing "Stripe" and pausing after
+"Str" created a company called `Str` and moved the application onto it. Every hesitation
+mid-name was a new employer. The name commits on blur now, and `upsertCompanyByName` refuses
+a blank outright — a `Company` named `""` is unreachable, unnameable and permanent. Fixing
+the cause first was the point: a merge tool that tidies up after a machine still producing
+mess is a bailer, not a repair.
+
+**`mergeCompanies` runs in one transaction because `Application.company` is
+`onDelete: Cascade`.** Delete the duplicate before re-pointing its applications and they go
+with it, silently, with no recovery. The ordering inside the transaction is the safety
+property; a failure between the two `updateMany`s would leave the pipeline split across two
+companies, which is the state being repaired but half-done. It does not reuse
+`deleteCompany` for the last step: that function throws while applications point at the
+company, and it closes over the module-level `db` rather than the transaction client.
+
+**Four rules, in order of how much they matter.** Nothing is deleted but the duplicate's own
+row; notes are never lost (the survivor's keep their position, the duplicate's are appended
+under a provenance line, skipped entirely when already present so merging a recreated name
+twice cannot double the text); blanks are filled but values are never overwritten, because
+the duplicate usually holds the website while the record you kept holds the research; and
+the survivor's NAME is never taken from the duplicate, because which name lives IS the
+direction of the merge.
+
+**Nothing is de-duplicated.** Two identical role titles on the survivor is correct — the
+alternative is guessing which of two records to destroy. Both the tool description and the
+dialog say so, because "merge" reads like "de-duplicate" to everyone who has not thought
+about it.
+
+**Detection suggests, never acts.** `companyKey` (the existing `slugify`, now exported)
+strips `inc`, `llc`, `labs`, `group` and friends, so it pairs "Stripe" with "Stripe, Inc."
+and also "Meta" with "Meta Labs". That false-positive rate is fine for pre-selecting a
+dialog and unacceptable for anything automatic, so it only ever populates a suggestion a
+person reads a plan before accepting.
+
+**There is no unmerge, and the preview exists because of it.** `preview_company_merge` is a
+separate read-only tool, the confirm button stays disabled until a plan comes back, and the
+dialog lists the role titles that will move. Do not let a later simplification collapse the
+preview away.
+
+**Two corrections found while in here.** The company page's delete confirmation promised it
+would "delete all N applications with them, history included" — but `deleteCompany` refuses
+while any application exists, so the warning was a threat followed by an error toast. And
+the comment above `deleteCompany` claimed the schema nulls the link rather than cascading:
+true of contacts, false of applications, and exactly backwards about the risk.
+
+**Applies to:** `src/lib/data/pipeline.ts` (`previewCompanyMerge`, `mergeCompanies`,
+`planCompanyMerge`, `upsertCompanyByName`, `deleteCompany`'s comment), `src/lib/company.ts`
+(`companyKey`), `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/crm/merge-companies-dialog.tsx`, `src/components/crm/company-detail.tsx`,
+`src/components/pipeline/application-detail.tsx`, `src/app/(app)/crm/companies/[id]/page.tsx`,
+`README.md`, `docs/concepts/crm.mdx`, `docs/tools/crm.mdx` (generated).

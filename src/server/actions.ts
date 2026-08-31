@@ -856,6 +856,24 @@ export async function createCompanyAction(input: { name: string; website?: strin
   return { id: company.id };
 }
 
+/** What a merge would do. Writes nothing, so nothing is revalidated. */
+export async function previewCompanyMergeAction(keepId: string, mergeId: string) {
+  const user = await requireUser();
+  return pipeline.previewCompanyMerge(user.id, keepId, mergeId);
+}
+
+export async function mergeCompaniesAction(keepId: string, mergeId: string) {
+  const user = await requireUser();
+  const survivor = await pipeline.mergeCompanies(user.id, keepId, mergeId);
+  revalidatePath("/crm/companies");
+  revalidatePath(`/crm/companies/${keepId}`);
+  revalidatePath("/crm/contacts");
+  // The board carries the company's name and logo on every card it moved.
+  revalidatePath("/applications");
+  revalidatePath("/");
+  return { id: survivor.id, name: survivor.name, merged: survivor.merged };
+}
+
 export async function deleteCompanyAction(id: string) {
   const user = await requireUser();
   await pipeline.deleteCompany(user.id, id);

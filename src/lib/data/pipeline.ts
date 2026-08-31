@@ -258,6 +258,135 @@ export async function deleteCompany(userId: string, id: string) {
   return { id, name: company.name };
 }
 
+/**
+ * Folding a duplicate employer into the one you are keeping.
+ *
+ * "Stripe", "Stripe, Inc." and "stripe" all end up on file — an application
+ * created one, a capture created another, and a typo created the third. The
+ * applications are spread across them, so the company page tells you a half
+ * truth wherever you look.
+ *
+ * The rules, in order of how much they matter:
+ *
+ *   1. Nothing is deleted except the duplicate's own row. Applications and
+ *      contacts move; none is dropped, and none is de-duplicated — two
+ *      identical role titles on the survivor is the correct outcome, because
+ *      the alternative is guessing which of two records to destroy.
+ *   2. Notes are never lost. The survivor's notes win their position and the
+ *      duplicate's are appended under a line saying where they came from.
+ *   3. Blanks are filled, values are never overwritten. The duplicate usually
+ *      holds the website (it was auto-created from a posting) while the record
+ *      you kept holds the research, or the other way round.
+ *   4. The survivor's NAME is never taken from the duplicate. Which name lives
+ *      is the direction of the merge; renaming afterwards is a separate act.
+ *
+ * The transaction is not a nicety. `Application.company` is `onDelete: Cascade`,
+ * so the delete has to come after the re-pointing, and a failure in between
+ * would leave the pipeline split across two companies — the exact state being
+ * repaired, but now half-done.
+ */
+
+/** Scalars a merge may fill in on the survivor. `name` is deliberately absent. */
+const MERGE_FILL_COLUMNS = ["website", "industry", "size", "location"] as const;
+
+export type CompanyMergePlan = {
+  keep: { id: string; name: string };
+  merge: { id: string; name: string };
+  /** How many rows change owner. */
+  applications: number;
+  contacts: number;
+  /** Which blank fields on the survivor get filled, and with what. */
+  fills: { field: string; value: string }[];
+  /** Whether the duplicate's notes will be appended to the survivor's. */
+  notesAppended: boolean;
+  /** Role titles that move, for a confirmation that is not a blind click. */
+  movingRoles: string[];
+};
+
+async function planCompanyMerge(userId: string, keepId: string, mergeId: string) {
+  if (keepId === mergeId) throw new Error("Those are the same company.");
+  const [keep, merge] = await Promise.all([
+    db.company.findFirst({
+      where: { id: keepId, userId },
+      include: { applications: { select: { roleTitle: true } }, contacts: { select: { id: true } } },
+    }),
+    db.company.findFirst({
+      where: { id: mergeId, userId },
+      include: { applications: { select: { roleTitle: true } }, contacts: { select: { id: true } } },
+    }),
+  ]);
+  if (!keep) throw new Error(`No company with id ${keepId}`);
+  if (!merge) throw new Error(`No company with id ${mergeId}`);
+
+  const fills = MERGE_FILL_COLUMNS.flatMap((field) =>
+    !keep[field].trim() && merge[field].trim() ? [{ field, value: merge[field] }] : [],
+  );
+  // Skipped when the survivor already carries them — merging the same pair
+  // twice (a name recreated by upsertCompanyByName, then merged again) must
+  // not double the text.
+  const loserNotes = merge.notes.trim();
+  const notesAppended = Boolean(loserNotes) && !keep.notes.includes(loserNotes);
+
+  const plan: CompanyMergePlan = {
+    keep: { id: keep.id, name: keep.name },
+    merge: { id: merge.id, name: merge.name },
+    applications: merge.applications.length,
+    contacts: merge.contacts.length,
+    fills,
+    notesAppended,
+    movingRoles: merge.applications.map((application) => application.roleTitle),
+  };
+  return { plan, keep, merge, loserNotes };
+}
+
+/** What a merge would do, without doing any of it. */
+export async function previewCompanyMerge(
+  userId: string,
+  keepId: string,
+  mergeId: string,
+): Promise<CompanyMergePlan> {
+  const { plan } = await planCompanyMerge(userId, keepId, mergeId);
+  return plan;
+}
+
+export async function mergeCompanies(userId: string, keepId: string, mergeId: string) {
+  const { plan, keep, loserNotes } = await planCompanyMerge(userId, keepId, mergeId);
+
+  const notes = !keep.notes.trim()
+    ? loserNotes
+    : plan.notesAppended
+      ? `${keep.notes}\n\n— merged from "${plan.merge.name}" on ${new Date().toISOString().slice(0, 10)} —\n${loserNotes}`
+      : keep.notes;
+
+  await db.$transaction(async (tx) => {
+    // Re-point first. The delete at the end cascades to applications, so
+    // anything still pointing at the duplicate when it goes is destroyed.
+    await tx.application.updateMany({
+      where: { companyId: mergeId, userId },
+      data: { companyId: keepId },
+    });
+    await tx.contact.updateMany({
+      where: { companyId: mergeId, userId },
+      data: { companyId: keepId },
+    });
+    await tx.company.update({
+      where: { id: keepId },
+      data: {
+        ...Object.fromEntries(plan.fills.map((fill) => [fill.field, fill.value])),
+        ...(notes === keep.notes ? {} : { notes }),
+      },
+    });
+    // Ownership was established by planCompanyMerge's userId-filtered reads.
+    await tx.company.delete({ where: { id: mergeId } });
+  });
+
+  const survivor = await db.company.findFirstOrThrow({
+    where: { id: keepId, userId },
+    include: companyCounts,
+  });
+  return { ...survivor, merged: plan };
+}
+
 export async function upsertCompanyByName(
   userId: string,
   name: string,

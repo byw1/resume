@@ -1,7 +1,7 @@
 ---
 title: "CRM tools"
 sidebarTitle: "Companies & contacts"
-description: "Ten tools over the companies you are talking to and the people at them, including their own timelines and ping dates."
+description: "Twelve tools over the companies you are talking to and the people at them, including their own timelines and ping dates."
 icon: "building"
 ---
 
@@ -92,6 +92,30 @@ Remove a company record. Refuses while applications still point at it — move o
 | Argument | Type | |
 | --- | --- | --- |
 | `id` | string | **required** — Company id |
+
+### `preview_company_merge`
+
+_Preview merging two companies_
+
+What merging one company into another WOULD do, without doing any of it. Call this first, every time — merge_companies is irreversible and takes an argument order that is easy to get backwards. Returns how many applications and contacts would move, which of them by role title, which blank fields on the survivor would be filled from the duplicate, and whether the duplicate's notes would be appended. Show that to the person before you merge. Read-only.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `keep_id` | string | **required** — Company id that SURVIVES the merge, with its name |
+| `merge_id` | string | **required** — Company id that is folded in and then DELETED |
+
+### `merge_companies`
+
+_Merge one company into another_
+
+Fix the same employer being on file twice — 'Stripe', 'Stripe, Inc.' and 'stripe' each holding a slice of the pipeline. Every application and contact on merge_id moves to keep_id, blank fields on keep_id are filled from the duplicate, the duplicate's notes are APPENDED to the survivor's under a line saying where they came from, and then the duplicate row is deleted. DESTRUCTIVE and IRREVERSIBLE: the company at merge_id ceases to exist, its page stops resolving, and nothing records afterwards which applications came from which side. Call preview_company_merge first and let the person confirm. The direction matters and is not guessable — keep_id is the name that lives on. Nothing is de-duplicated: two identical role titles on the survivor is the correct result, not a bug. Note that a later create_application naming the old spelling will simply create it again as an empty company.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `keep_id` | string | **required** — Company id that SURVIVES, keeping its name |
+| `merge_id` | string | **required** — Company id that is folded in and then DELETED |
 
 ### `list_contacts`
 

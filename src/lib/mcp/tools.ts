@@ -2033,6 +2033,48 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => pipeline.deleteCompany(ctx.userId, required(args, "id")),
   },
   {
+    name: "preview_company_merge",
+    title: "Preview merging two companies",
+    description:
+      "What merging one company into another WOULD do, without doing any of it. Call this first, every time — merge_companies is irreversible and takes an argument order that is easy to get backwards. Returns how many applications and contacts would move, which of them by role title, which blank fields on the survivor would be filled from the duplicate, and whether the duplicate's notes would be appended. Show that to the person before you merge. Read-only.",
+    inputSchema: object(
+      {
+        keep_id: str("Company id that SURVIVES the merge, with its name"),
+        merge_id: str("Company id that is folded in and then DELETED"),
+      },
+      ["keep_id", "merge_id"],
+    ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.previewCompanyMerge(ctx.userId, required(args, "keep_id"), required(args, "merge_id")),
+  },
+  {
+    name: "merge_companies",
+    title: "Merge one company into another",
+    description:
+      "Fix the same employer being on file twice — 'Stripe', 'Stripe, Inc.' and 'stripe' each holding a slice of the pipeline. Every application and contact on merge_id moves to keep_id, blank fields on keep_id are filled from the duplicate, the duplicate's notes are APPENDED to the survivor's under a line saying where they came from, and then the duplicate row is deleted. DESTRUCTIVE and IRREVERSIBLE: the company at merge_id ceases to exist, its page stops resolving, and nothing records afterwards which applications came from which side. Call preview_company_merge first and let the person confirm. The direction matters and is not guessable — keep_id is the name that lives on. Nothing is de-duplicated: two identical role titles on the survivor is the correct result, not a bug. Note that a later create_application naming the old spelling will simply create it again as an empty company.",
+    inputSchema: object(
+      {
+        keep_id: str("Company id that SURVIVES, keeping its name"),
+        merge_id: str("Company id that is folded in and then DELETED"),
+      },
+      ["keep_id", "merge_id"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.mergeCompanies(ctx.userId, required(args, "keep_id"), required(args, "merge_id")),
+  },
+  {
     name: "list_contacts",
     title: "List contacts",
     description:

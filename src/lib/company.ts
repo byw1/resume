@@ -24,7 +24,19 @@ function hostOf(url: string): string | null {
   }
 }
 
-/** "Vertex Payments, Inc." -> "vertexpayments". Suffixes are noise in a domain. */
+/**
+ * "Vertex Payments, Inc." -> "vertexpayments". Suffixes are noise in a domain,
+ * and they are the same noise that makes "Stripe" and "Stripe, Inc." two rows —
+ * so this doubles as the key for spotting a duplicate employer.
+ *
+ * Deliberately aggressive: it also folds "Meta" and "Meta Labs" together. That
+ * is why it may only ever SUGGEST a merge for a person to look at, never
+ * perform one.
+ */
+export function companyKey(name: string): string {
+  return slugify(name);
+}
+
 function slugify(name: string): string {
   return name
     .toLowerCase()

@@ -5,7 +5,8 @@ import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
 import { CompanyDetail } from "@/components/crm/company-detail";
-import { getCompany } from "@/lib/data/pipeline";
+import { getCompany, listCompanies } from "@/lib/data/pipeline";
+import { companyKey } from "@/lib/company";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 
@@ -14,8 +15,29 @@ export const dynamic = "force-dynamic";
 export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [company, { companyLogos }] = await Promise.all([getCompany(user.id, id), getSettings()]);
+  const [company, { companyLogos }, everyCompany] = await Promise.all([
+    getCompany(user.id, id),
+    getSettings(),
+    listCompanies(user.id),
+  ]);
   if (!company) notFound();
+
+  const candidates = everyCompany
+    .filter((candidate) => candidate.id !== company.id)
+    .map((candidate) => ({
+      id: candidate.id,
+      name: candidate.name,
+      website: candidate.website,
+      applications: candidate._count.applications,
+      contacts: candidate._count.contacts,
+    }));
+  // "Stripe" and "Stripe, Inc." reduce to the same key. Only ever a suggestion:
+  // the key strips enough noise that it will also pair "Meta" with "Meta Labs",
+  // so a person reads the plan before anything moves.
+  const key = companyKey(company.name);
+  const suggestedMergeId = key
+    ? candidates.find((candidate) => companyKey(candidate.name) === key)?.id
+    : undefined;
 
   return (
     <PageShell>
@@ -56,6 +78,8 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             relationship: contact.relationship,
           }))}
           logos={companyLogos}
+          candidates={candidates}
+          suggestedMergeId={suggestedMergeId}
         />
       </FadeIn>
     </PageShell>

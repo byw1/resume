@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
+import { MergeCompaniesDialog, type MergeCandidate } from "@/components/crm/merge-companies-dialog";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
@@ -35,6 +36,8 @@ export function CompanyDetail({
   applications,
   contacts,
   logos,
+  candidates,
+  suggestedMergeId,
 }: {
   company: CompanyFields;
   applications: {
@@ -52,6 +55,10 @@ export function CompanyDetail({
   }[];
   contacts: { id: string; name: string; title: string; email: string; relationship: string }[];
   logos: boolean;
+  /** Every other company on file, for folding a duplicate into this one. */
+  candidates: MergeCandidate[];
+  /** One of the candidates that looks like the same employer, if any. */
+  suggestedMergeId?: string;
 }) {
   const [values, setValues] = useState(company);
   const [state, setState] = useState<SaveState>("idle");
@@ -141,6 +148,12 @@ export function CompanyDetail({
         </div>
         <div className="flex items-center gap-2">
           <SaveIndicator state={state} />
+          <MergeCompaniesDialog
+            company={{ id: company.id, name: values.name }}
+            candidates={candidates}
+            logos={logos}
+            suggestedId={suggestedMergeId}
+          />
           {values.website && (
             <Button asChild variant="outline" size="sm">
               <a
