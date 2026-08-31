@@ -2650,3 +2650,48 @@ the callback refusing a forged and a mismatched state.
 `src/lib/data/users.ts`, `src/lib/bootstrap.ts`, `src/components/login-form.tsx`,
 `src/components/accept-invite-form.tsx`, `src/components/admin/configuration-panel.tsx`,
 `prisma/schema.prisma`, `docs/self-hosting/google.mdx`.
+
+---
+
+## 2026-08-31 — Searching settings by name, and only then by description
+
+Configuration is one screen now, and Google sign-in added four more rows to it, so finding
+a setting had started to mean scrolling past three sections of somebody else's setup. A
+search box, group chips, and a **Changed** filter that narrows to whatever is no longer on
+its default — which turns out to be the fastest answer to "what has actually been
+configured on this instance".
+
+**Filtering happens in the browser, unlike the Log tab, and the difference is the point.**
+The log pages an unbounded table, so it filters on the server: slicing a hundred rows and
+*then* filtering them shows you the wrong hundred. Configuration is every setting the
+instance has — a few dozen at the very most, already on the page — so the fastest filter is
+the one that makes no request. Same feature, opposite implementation, for a reason worth
+being able to state.
+
+**Searching names and descriptions together was too noisy to use, and the fix is two
+passes.** The help text is prose: "From the webhook you registered", "the Stripe webhook URL
+is built from it". Search all of it at once and `from` returns six unrelated rows, `stripe`
+returns Public URL. So: match keys, labels and group names first, and fall back to the
+descriptions only when nothing was named. `from` gives the two From fields; `webhook` gives
+the signing secret rather than also the Public URL; `twenty-icons` — a word in no name
+anywhere — still finds company logos by what it does. Ranking both passes into one list
+would have been the fancier answer and a worse one: a precise hit and a prose hit are
+different kinds of answer, and mixing them puts the noise back.
+
+**The setup guidance hides while a filter is on.** Resend's four numbered steps, the Stripe
+webhook URL, the Google redirect URI, the test-send and resync buttons — all of it is for
+setting an area up, and somebody searching for one row does not want four numbered steps
+between them and it. Section blurbs and the Add a variable card go the same way. With no
+filter, the screen is exactly what it was.
+
+**An edited row that the filter then hides gets called out.** The sticky bar already listed
+the dirty keys, but "1 hidden by the filter — show" says the thing plainly and clears the
+filter when pressed. Losing an unsaved change because it scrolled out of existence is the
+one way a filter can actively cost you something.
+
+**`FilterChip` moved to `src/components/filter-chip.tsx`.** It was private to the audit
+panel; a second user made it a shared control rather than a copy.
+
+**Applies to:** `src/components/admin/configuration-panel.tsx`,
+`src/components/filter-chip.tsx`, `src/components/admin/audit-panel.tsx`,
+`docs/self-hosting/configuration.mdx`.

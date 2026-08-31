@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import {
   CheckCircle2Icon,
   CopyIcon,
+  SearchIcon,
   ExternalLinkIcon,
   LoaderCircleIcon,
   PlusIcon,
@@ -21,7 +22,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Separator } from "@/components/ui/separator";
 import { Switch } from "@/components/ui/switch";
-import { relativeDay } from "@/lib/utils";
+import { FilterChip } from "@/components/filter-chip";
+import { cn, relativeDay } from "@/lib/utils";
 import {
   deleteVariableAction,
   saveVariablesAction,
@@ -74,10 +76,49 @@ export function ConfigurationPanel({
   const [resetting, startResetting] = useTransition();
   const [adding, startAdding] = useTransition();
 
+  const [query, setQuery] = useState("");
+  const [group, setGroup] = useState<string | null>(null);
+  const [changedOnly, setChangedOnly] = useState(false);
+  const filtering = Boolean(query.trim() || group || changedOnly);
+
+  /**
+   * Filtering happens here rather than on the server, unlike the Log tab.
+   * That one pages an unbounded table, so slicing before filtering would show
+   * you the wrong hundred rows. This is every setting the instance has — a
+   * few dozen at the very most — so it is all on the page already and the
+   * fastest possible filter is the one that does not make a request.
+   */
+  const matches = useMemo(() => {
+    const needle = query.trim().toLowerCase();
+    const inScope = variables.filter(
+      (variable) =>
+        (!group || variable.group === group) && (!changedOnly || !variable.isDefault),
+    );
+    if (!needle) return inScope;
+
+    // Two passes, because one pass over everything is too noisy to use. The
+    // help text is prose — "From the webhook you registered", "the Stripe
+    // webhook URL is built from it" — so searching it alongside names turns
+    // "from" into six unrelated rows. Names first, then descriptions only if
+    // nothing was named: type `from` and get the two From fields, type
+    // `twenty-icons` and still find company logos by what it does.
+    const named = (variable: Variable) =>
+      `${variable.key} ${variable.label} ${variable.group}`.toLowerCase().includes(needle);
+    const described = (variable: Variable) => variable.help.toLowerCase().includes(needle);
+
+    const byName = inScope.filter(named);
+    return byName.length > 0 ? byName : inScope.filter(described);
+  }, [variables, query, group, changedOnly]);
+
+  const groupNames = useMemo(
+    () => [...new Set(variables.map((variable) => variable.group))],
+    [variables],
+  );
+
   const groups = useMemo(() => {
     const order: string[] = [];
     const map = new Map<string, Variable[]>();
-    for (const variable of variables) {
+    for (const variable of matches) {
       if (!map.has(variable.group)) {
         map.set(variable.group, []);
         order.push(variable.group);
@@ -85,7 +126,7 @@ export function ConfigurationPanel({
       map.get(variable.group)!.push(variable);
     }
     return order.map((name) => ({ name, rows: map.get(name)! }));
-  }, [variables]);
+  }, [matches]);
 
   // A secret's shown value is a mask, so anything typed into one is a change
   // and an empty box means "leave it alone" — which is also why clearing a
@@ -95,6 +136,15 @@ export function ConfigurationPanel({
     if (edited === undefined) return false;
     return variable.kind === "secret" ? edited.trim() !== "" : edited !== variable.value;
   });
+
+  const clearFilters = () => {
+    setQuery("");
+    setGroup(null);
+    setChangedOnly(false);
+  };
+
+  const visible = new Set(matches.map((variable) => variable.key));
+  const hiddenPending = pending.filter((variable) => !visible.has(variable.key)).length;
 
   const save = () =>
     startSaving(async () => {
@@ -142,6 +192,65 @@ export function ConfigurationPanel({
 
   return (
     <div className="space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <div className="relative w-full sm:max-w-xs">
+          <SearchIcon className="text-muted-foreground pointer-events-none absolute top-1/2 left-3 size-3.5 -translate-y-1/2" />
+          <Input
+            value={query}
+            onChange={(event) => setQuery(event.target.value)}
+            onKeyDown={(event) => event.key === "Escape" && setQuery("")}
+            placeholder="Search settings…"
+            aria-label="Search settings by name, key or description"
+            className="pl-8"
+          />
+        </div>
+
+        <div className="no-scrollbar -mx-1 flex items-center gap-0.5 overflow-x-auto px-1">
+          {/* Active only when nothing at all is filtering — with a search
+              running, a lit "All" would claim you were seeing everything. It
+              doubles as the one press that clears the lot. */}
+          <FilterChip active={!filtering} onClick={clearFilters}>
+            All
+          </FilterChip>
+          {groupNames.map((name) => (
+            <FilterChip key={name} active={group === name} onClick={() => setGroup(group === name ? null : name)}>
+              {name}
+            </FilterChip>
+          ))}
+          {/* "What has actually been touched on this instance" is a question
+              an admin asks often enough to deserve one press. */}
+          <FilterChip active={changedOnly} onClick={() => setChangedOnly(!changedOnly)}>
+            Changed
+          </FilterChip>
+        </div>
+
+        {filtering && (
+          <p className="text-muted-foreground shrink-0 text-xs sm:ml-auto">
+            {matches.length} of {variables.length}
+          </p>
+        )}
+      </div>
+
+      {groups.length === 0 && (
+        <Card>
+          <CardContent className="py-10 text-center">
+            <p className="text-muted-foreground text-sm">
+              {changedOnly && !query.trim() && !group
+                ? "Everything is still on its default."
+                : "No setting matches that."}
+            </p>
+            <Button
+              variant="outline"
+              size="sm"
+              className="mt-3"
+              onClick={clearFilters}
+            >
+              Clear filters
+            </Button>
+          </CardContent>
+        </Card>
+      )}
+
       {groups.map((group) => (
         <Card key={group.name}>
           <CardHeader>
@@ -170,13 +279,18 @@ export function ConfigurationPanel({
                 />
               )}
             </div>
-            <p className="text-muted-foreground text-sm">{GROUP_BLURB[group.name] ?? ""}</p>
+            {!filtering && (
+              <p className="text-muted-foreground text-sm">{GROUP_BLURB[group.name] ?? ""}</p>
+            )}
           </CardHeader>
 
           <CardContent className="pt-0">
-            {group.name === "Sign-in" && <GoogleSetup redirectUri={google.redirectUri} />}
-            {group.name === "Email" && !email.configured && <ResendSteps />}
-            {group.name === "Billing" && <WebhookUrl url={billing.webhookUrl} />}
+            {/* The setup guidance is hidden while a filter is on. Somebody
+                searching for a setting is looking for one row, and four
+                numbered steps between them and it is the opposite of help. */}
+            {!filtering && group.name === "Sign-in" && <GoogleSetup redirectUri={google.redirectUri} />}
+            {!filtering && group.name === "Email" && !email.configured && <ResendSteps />}
+            {!filtering && group.name === "Billing" && <WebhookUrl url={billing.webhookUrl} />}
 
             <div className="divide-border/70 divide-y">
               {group.rows.map((variable) => (
@@ -202,13 +316,13 @@ export function ConfigurationPanel({
               ))}
             </div>
 
-            {group.name === "Email" && (
+            {!filtering && group.name === "Email" && (
               <>
                 <Separator className="my-5" />
                 <TestEmail ownEmail={email.ownEmail} configured={email.configured} />
               </>
             )}
-            {group.name === "Billing" && (
+            {!filtering && group.name === "Billing" && (
               <>
                 <Separator className="my-5" />
                 <ResyncBilling configured={billing.configured} />
@@ -218,7 +332,7 @@ export function ConfigurationPanel({
         </Card>
       ))}
 
-      <Card>
+      <Card className={cn(filtering && "hidden")}>
         <CardHeader>
           <CardTitle className="text-[15px]">Add a variable</CardTitle>
           <p className="text-muted-foreground text-sm">
@@ -270,6 +384,19 @@ export function ConfigurationPanel({
           <span className="text-muted-foreground truncate text-xs">
             {pending.map((variable) => variable.key).join(", ")}
           </span>
+          {/* Editing a row and then filtering it away would otherwise leave an
+              unsaved change with nothing on screen pointing at it. The keys are
+              listed above either way; this says plainly that some of them are
+              no longer visible. */}
+          {hiddenPending > 0 && (
+            <button
+              type="button"
+              onClick={clearFilters}
+              className="text-warning text-xs underline underline-offset-2"
+            >
+              {hiddenPending} hidden by the filter — show
+            </button>
+          )}
           <div className="ml-auto flex gap-2">
             <Button variant="ghost" onClick={() => setEdits({})} disabled={saving}>
               Discard
