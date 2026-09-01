@@ -42,7 +42,7 @@ just *talk* to it.
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
   paste — because the address that matters is whichever one they actually answer on.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  80 tools any MCP client can call (110 if you're an admin). Claude, Claude Code, ChatGPT,
+  87 tools any MCP client can call (117 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -211,7 +211,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 80, or 110 if you're an admin.
+would, then tells you how many tools answered — 87, or 117 if you're an admin.
 
 #### One connection per client
 
@@ -408,14 +408,20 @@ it has.
 **Brain** — `search_brain`, `get_brain_snapshot`, roles with unlimited brain dumps
 (`append_role_brain_dump` adds without overwriting), reusable highlights, notes and standing
 rules, plus education, projects, skills and certifications, which
-`create_extra` / `update_extra` / `delete_extra` maintain.
+`create_extra` / `update_extra` / `delete_extra` maintain. `import_resume` is the way in for
+anyone who already has a resume: paste it to your assistant and the whole thing gets filed in
+one call — roles with their bullets, education, skills, contact details — without overwriting
+anything already there.
 
 **Resumes** — `get_resume_format` describes the document shape, then `create_resume` /
 `update_resume` / `duplicate_resume` build and tailor them. `preview_resume_text` renders a
 draft and estimates page count *without* saving, so Claude can check length before
 committing. `publish_resume` turns one into a shareable link and hands back the URL;
 `unpublish_resume` destroys it. `export_resume_pdf` renders a real PDF server-side and
-reports the page count it actually came out to.
+reports the page count it actually came out to. A duplicated resume remembers what it was
+tailored from, so `compare_resumes` can say exactly what a variant changed — bullets added,
+dropped, reworded — and `list_resumes` carries each resume's track record: how many
+applications it went out with, how many reached an interview, how many reached an offer.
 
 **Pipeline** — `capture_job_posting` turns a posting URL into a tracked application in one
 move, company and description included. Then applications and stages, an activity timeline,

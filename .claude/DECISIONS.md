@@ -3153,3 +3153,64 @@ beside them to add another.
 `src/components/crm/{contact-companies,contact-detail}.tsx`,
 `src/app/(app)/crm/contacts/`, `src/app/(app)/page.tsx`, `docs/concepts/crm.mdx`,
 `skills/run-the-search/SKILL.md`.
+
+---
+
+## 2026-09-01 — The resume grid learns to answer, and a paste becomes a brain
+
+**The cards got the answers; the thumbnail stopped being the message.** Page count (the
+editor's own gauge), a Live badge, the actions that used to need the editor open, an
+application count that links to `/applications?cv=<id>` (the filter already existed), and
+the outcome line. The card also stopped being one big `<Link>` — the star, the menu and
+the badges are controls, and nesting controls in an anchor is how clicking "delete" also
+navigates. Thumbnail and title navigate; everything else acts.
+
+**LINES_PER_PAGE lived in two places and now lives in one.** The editor hardcoded 46 and
+`preview_resume_text` hardcoded 46 separately. It is exported from `resume-text.ts` now,
+with `estimatePages` beside it, because the grid became a third consumer and three copies
+of a magic number is how gauges start disagreeing.
+
+**Outcomes count the timeline, not just the current stage.** An application's `stage` is
+where it is now; most applications that interviewed are now REJECTED or GHOSTED, and a
+current-stage-only count would have called every effective resume a failure. So a resume's
+`interviewed` counts stage ∈ screen-or-later OR an INTERVIEW activity OR a STAGE_CHANGE
+whose `toStage` reached one — computed in `listResumes` in the data layer, so the card and
+the tool cannot diverge. Honest limit: a stage move logged before `fromStage`/`toStage`
+existed, with no INTERVIEW activity, is invisible to it.
+
+**Lineage flattens to the root.** `Resume.baseResumeId` is set by `duplicateResume` as
+`source.baseResumeId ?? source.id`: a copy of a variant points at the base, not at the
+variant, because the grid and the diff only ever show one level and a chain would rot the
+moment a middle link was deleted. SET NULL on delete — losing the base makes variants
+standalone, it does not delete tailored work. `create_resume` accepts `baseResumeId` but
+validates it against the caller's own resumes first: the FK alone would happily cross
+tenants.
+
+**The diff is exact-string on purpose.** A reworded bullet shows as one removed plus one
+added — old wording beside new — rather than a similarity metric deciding what counts as
+"the same" bullet. `resume-diff.ts` sits next to `resume-text.ts` outside `src/lib/data/`
+for the same reason that file does: the editor computes it client-side as you type.
+
+**Import is additive or it is dangerous.** `importBrain` fills only empty profile fields
+and skips any role (company+title), education (school+degree), project or certification
+(name) that already exists — so a second import of the same document is a no-op, not a
+duplicated history. Skill groups union instead, because "Languages" existing is no reason
+to drop three new languages. One transaction; the summary lists created vs skipped. The
+parser is the assistant, not the server: the tool takes the structured payload, and the
+description carries the no-fabrication rule. The EMPTY_WORKSPACE briefing in `handler.ts`
+said "there is no import tool" — updated, and that sentence is the kind that goes stale
+silently: it duplicates a fact the tools array owns.
+
+**gen-tool-docs maps pages by contiguous ranges of the tools array.** `SECTIONS` pins each
+docs page to a `first`/`last` tool name; adding `import_resume` at the end of the brain
+area meant bumping brain.mdx's `last` or the generator throws. A new tool inserted at an
+area boundary will hit this every time — the error message says exactly what it expected.
+
+**The README's tool count was already five stale before this batch.** It said 80/110 while
+the generator said 85/115. Set to the generated 87/117 now. The count appears twice in the
+README (lines ~45 and ~214), not three times as `mcp-tool`'s skill doc remembers.
+
+**Applies to:** `prisma/schema.prisma`, `prisma/migrations/20250124000000_resume_lineage/`,
+`src/lib/data/{resumes,brain}.ts`, `src/lib/{resume-text,resume-diff}.ts`,
+`src/lib/mcp/{tools,handler}.ts`, `src/app/(app)/resumes/`, `src/components/resume/`,
+`tools/gen-tool-docs.mjs`, `README.md`, `docs/tools/`.
