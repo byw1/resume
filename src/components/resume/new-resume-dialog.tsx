@@ -18,6 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createResumeAction } from "@/server/actions";
+import { PaperThumb } from "@/components/resume/paper-thumb";
+import { ResumePaper } from "@/components/resume/resume-paper";
+import { parseResumeDoc } from "@/lib/resume-schema";
 
 const TEMPLATES = [
   { key: "harvard", name: "Harvard", hint: "The OCS standard. Recruiter-proof." },
@@ -26,6 +29,65 @@ const TEMPLATES = [
   { key: "compact", name: "Compact", hint: "Tight leading, fits more" },
   { key: "editorial", name: "Editorial", hint: "Big name, lots of air" },
 ];
+
+/**
+ * One canned document, rendered through the real ResumePaper for each template
+ * button — the picker shows the actual layouts, not adjectives about them.
+ * Tiny type is fine: the silhouette is what differs between templates.
+ */
+const SAMPLE_DOC = parseResumeDoc({
+  header: {
+    name: "Avery Reyes",
+    title: "Product Engineer",
+    email: "avery@example.com",
+    phone: "555 010 1234",
+    location: "Portland, OR",
+  },
+  sections: [
+    {
+      kind: "summary",
+      heading: "Summary",
+      text: "Engineer of eight years, most of it on billing and payments systems for small teams.",
+    },
+    {
+      kind: "experience",
+      heading: "Experience",
+      experience: [
+        {
+          company: "Meridian",
+          title: "Senior Engineer",
+          location: "Portland, OR",
+          startDate: "2021-03",
+          isCurrent: true,
+          bullets: [
+            "Led the move to usage-based billing, cutting invoice errors 38%",
+            "Mentored four engineers through their first production launches",
+          ],
+        },
+        {
+          company: "Fieldnote",
+          title: "Engineer",
+          startDate: "2018-01",
+          endDate: "2021-02",
+          bullets: ["Built the sync layer every offline customer depends on"],
+        },
+      ],
+    },
+    {
+      kind: "education",
+      heading: "Education",
+      education: [
+        {
+          school: "University of Oregon",
+          degree: "BSc",
+          field: "Computer Science",
+          startDate: "2012-09",
+          endDate: "2016-06",
+        },
+      ],
+    },
+  ],
+});
 
 const ACCENTS = ["#000000", "#B30000", "#0C5B97", "#1f2937", "#6366f1", "#0ea5e9"];
 
@@ -107,20 +169,40 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
 
           <div className="space-y-2">
             <Label>Template</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {TEMPLATES.map((template) => (
                 <button
                   key={template.key}
                   onClick={() => setForm({ ...form, template: template.key })}
+                  aria-pressed={form.template === template.key}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-left transition-all",
+                    "overflow-hidden rounded-lg border text-left transition-all",
                     form.template === template.key
-                      ? "border-primary bg-primary/8 ring-primary/25 ring-2"
-                      : "hover:border-primary/30 hover:bg-accent/50",
+                      ? "border-primary ring-primary/25 ring-2"
+                      : "hover:border-primary/30",
                   )}
                 >
-                  <div className="text-[13px] font-medium">{template.name}</div>
-                  <div className="text-muted-foreground text-[11px]">{template.hint}</div>
+                  <div className="pointer-events-none">
+                    <PaperThumb className="aspect-[17/20]">
+                      <ResumePaper
+                        doc={SAMPLE_DOC}
+                        settings={{
+                          template: template.key,
+                          accent: form.accent,
+                          fontFamily: "serif",
+                          fontSize: 10,
+                          lineHeight: 1.2,
+                          pageMargin: 40,
+                        }}
+                      />
+                    </PaperThumb>
+                  </div>
+                  <div className="border-t px-2 py-1.5">
+                    <div className="text-[12px] font-medium">{template.name}</div>
+                    <div className="text-muted-foreground text-[10px] leading-tight">
+                      {template.hint}
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>

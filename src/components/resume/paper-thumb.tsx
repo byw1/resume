@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
+import { cn } from "@/lib/utils";
 
 /** 8.5in at CSS's 96dpi. The paper always renders at this width. */
 const PAGE_WIDTH = 816;
@@ -17,7 +18,14 @@ const PAGE_WIDTH = 816;
  * Children come in as a slot so the document itself is still server-rendered —
  * only the measuring is client work.
  */
-export function PaperThumb({ children }: { children: React.ReactNode }) {
+export function PaperThumb({
+  children,
+  className,
+}: {
+  children: React.ReactNode;
+  /** Override the crop, e.g. a taller aspect for the template picker's minis. */
+  className?: string;
+}) {
   const box = useRef<HTMLDivElement>(null);
   const [scale, setScale] = useState(0);
 
@@ -32,7 +40,7 @@ export function PaperThumb({ children }: { children: React.ReactNode }) {
   }, []);
 
   return (
-    <div ref={box} className="relative aspect-[7/5] overflow-hidden bg-white">
+    <div ref={box} className={cn("relative overflow-hidden bg-white", className ?? "aspect-[7/5]")}>
       <div
         className="absolute top-0 left-0 origin-top-left transition-opacity duration-200"
         style={{
