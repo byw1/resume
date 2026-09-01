@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Twenty-eight tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Twenty-nine tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -263,6 +263,20 @@ Move a follow-up date further out without recording anything — for a thread yo
 | `applicationId` | string | The application whose follow-up moves |
 | `contactId` | string | Or the person whose ping moves |
 | `days` | number | How many days from today. 3 = the day after tomorrow but one. |
+
+### `log_follow_up`
+
+_Record that you chased it_
+
+You actually followed up: writes the touch on the timeline and moves the follow-up date out in one call. Use this rather than snooze_follow_up whenever something was said — a chase list emptied by snoozing looks exactly like one that was worked, and the timeline that answers 'when did I last talk to them' stays empty. Pass an applicationId or a contactId, what you said in body, and days for when to come back (a week if you leave it). Logging resets the quiet clock that list_applications reports as quietDays; it deliberately does NOT move the stage, because following up is not progress — use move_application_stage when something actually changed.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `applicationId` | string | The application you chased |
+| `contactId` | string | Or the person you pinged |
+| `body` | string | What you said or heard. Defaults to a plain 'Followed up.' |
+| `type` | enum | Kind of touch. Defaults to FOLLOW_UP.  `NOTE` · `STAGE_CHANGE` · `EMAIL_SENT` · `EMAIL_RECEIVED` · `CALL` · `INTERVIEW` · `FOLLOW_UP` · `APPLIED` · `OFFER` · `REJECTION` · `REFERRAL` · `OUTREACH` |
+| `days` | number | When to come back to it, in days from today. Default 7. |
 
 ### `diagnose_search`
 

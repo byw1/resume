@@ -39,6 +39,7 @@ import { relativeDay, truncate } from "@/lib/utils";
 import { TaskList } from "@/components/dashboard/task-list";
 import { FollowUpList } from "@/components/dashboard/follow-up-list";
 import { DiagnosisCard } from "@/components/dashboard/diagnosis";
+import { QuickLog } from "@/components/dashboard/quick-log";
 
 export const dynamic = "force-dynamic";
 
@@ -113,6 +114,10 @@ export default async function DashboardPage() {
         <Onboarding />
       ) : (
         <div className="space-y-4">
+          {/* Above the numbers, because reporting what happened is the thing
+              you came here to do; the numbers are what you read afterwards. */}
+          <QuickLog />
+
           {/* Two up from the narrowest screen. One card per row made the four
               numbers a four-screen scroll on a phone, which is the opposite of
               what a summary is for. */}

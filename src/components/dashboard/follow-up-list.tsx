@@ -3,12 +3,17 @@
 import Link from "next/link";
 import { useTransition } from "react";
 import { AnimatePresence, motion } from "framer-motion";
-import { AlarmClockIcon, ClockIcon } from "lucide-react";
+import { AlarmClockIcon, CheckIcon, ClockIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
-import { snoozeContactFollowUpAction, snoozeFollowUpAction } from "@/server/actions";
+import {
+  logContactFollowUpAction,
+  logFollowUpAction,
+  snoozeContactFollowUpAction,
+  snoozeFollowUpAction,
+} from "@/server/actions";
 import { cn } from "@/lib/utils";
 
 type Item = {
@@ -31,6 +36,20 @@ export function FollowUpList({ items }: { items: Item[] }) {
       if (item.kind === "contact") await snoozeContactFollowUpAction(item.id, days);
       else await snoozeFollowUpAction(item.id, days);
       toast.success(days === 1 ? "Snoozed to tomorrow" : `Snoozed ${days} days`);
+    });
+  };
+
+  // The other half, and the honest one: snoozing records nothing, so a list
+  // cleared by snoozing looks exactly like one that was worked.
+  const logged = (item: Item) => {
+    startTransition(async () => {
+      try {
+        if (item.kind === "contact") await logContactFollowUpAction(item.id);
+        else await logFollowUpAction(item.id);
+        toast.success("Logged, and back in a week");
+      } catch (error) {
+        toast.error(error instanceof Error ? error.message : "Could not log that.");
+      }
     });
   };
 
@@ -93,13 +112,26 @@ export function FollowUpList({ items }: { items: Item[] }) {
             >
               {item.due}
             </span>
-            <div className="flex gap-1 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100">
+            {/* Not hidden until hover any more. These are the only actions on
+                the dashboard's main card, and a touch device has no hover: the
+                primary verb was unreachable on a phone. */}
+            <div className="flex gap-1">
+              <Button
+                variant="outline"
+                size="xs"
+                disabled={pending}
+                onClick={() => logged(item)}
+                title="Log that you chased it, and come back in a week"
+              >
+                <CheckIcon /> Logged it
+              </Button>
               <Button
                 variant="ghost"
                 size="xs"
+                className="text-muted-foreground"
                 disabled={pending}
                 onClick={() => snooze(item, 3)}
-                title="Snooze 3 days"
+                title="Push it out three days without logging anything"
               >
                 <ClockIcon /> 3d
               </Button>

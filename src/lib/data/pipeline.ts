@@ -2,6 +2,7 @@ import { ActivityType, Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
+import { readQuickLog } from "@/lib/quick-log";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
 /** Like brain.ts: userId is the required first argument on every query. */
@@ -1105,6 +1106,43 @@ export async function snoozeContactFollowUp(userId: string, id: string, days: nu
   return updateContact(userId, id, { nextFollowUpAt: inDays(days) });
 }
 
+/**
+ * Chased it: writes the touch AND moves the date, in that order.
+ *
+ * The pair is the point. Snoozing on its own records nothing, so a chase list
+ * emptied by snoozing looks identical to a chase list you actually worked —
+ * and the timeline, which is what "when did I last talk to them" is answered
+ * from, stays empty. This resets the quiet clock, which snoozing deliberately
+ * does not, and never touches the stage: following up is not progress.
+ */
+export async function logFollowUp(
+  userId: string,
+  input: {
+    applicationId?: string;
+    contactId?: string;
+    /** What happened. Defaults to a plain statement that you chased it. */
+    body?: string;
+    type?: ActivityType;
+    /** When to come back to it. Defaults to a week out. */
+    days?: number;
+  },
+) {
+  if (Boolean(input.applicationId) === Boolean(input.contactId)) {
+    throw new Error("Log a follow-up against exactly one thing: an application or a contact.");
+  }
+  const activity = await addActivity(userId, {
+    applicationId: input.applicationId,
+    contactId: input.contactId,
+    type: input.type ?? "FOLLOW_UP",
+    body: input.body?.trim() || "Followed up.",
+  });
+  const next = inDays(input.days ?? 7);
+  const subject = input.applicationId
+    ? await updateApplication(userId, input.applicationId, { nextFollowUpAt: next })
+    : await updateContact(userId, input.contactId as string, { nextFollowUpAt: next });
+  return { activity, nextFollowUpAt: next, subject };
+}
+
 export async function moveApplicationStage(
   userId: string,
   id: string,
@@ -1233,6 +1271,29 @@ export async function addActivity(
       occurredAt: toDate(input.occurredAt) ?? new Date(),
     },
   });
+}
+
+/**
+ * One typed line, read against this person's live pipeline.
+ *
+ * The matcher itself is pure and lives in src/lib/quick-log.ts; this is the
+ * read that feeds it. There is no tool for it on purpose: an assistant asked
+ * "log that I spoke to Stripe" resolves the application with list_applications
+ * far better than a stopword table can, and then calls log_activity or
+ * move_application_stage. The table exists for the person typing into a box
+ * on the dashboard, who has no assistant in the loop.
+ */
+export async function readQuickLogAgainstPipeline(userId: string, text: string) {
+  const applications = await listApplications(userId);
+  return readQuickLog(
+    text,
+    applications.map((application) => ({
+      id: application.id,
+      company: application.company.name,
+      roleTitle: application.roleTitle,
+      stage: application.stage,
+    })),
+  );
 }
 
 export async function listActivities(userId: string, applicationId?: string, limit = 40) {

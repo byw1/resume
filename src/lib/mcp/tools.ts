@@ -1800,6 +1800,35 @@ export const tools: McpTool[] = [
     },
   },
   {
+    name: "log_follow_up",
+    title: "Record that you chased it",
+    description:
+      "You actually followed up: writes the touch on the timeline and moves the follow-up date out in one call. Use this rather than snooze_follow_up whenever something was said — a chase list emptied by snoozing looks exactly like one that was worked, and the timeline that answers 'when did I last talk to them' stays empty. Pass an applicationId or a contactId, what you said in body, and days for when to come back (a week if you leave it). Logging resets the quiet clock that list_applications reports as quietDays; it deliberately does NOT move the stage, because following up is not progress — use move_application_stage when something actually changed.",
+    inputSchema: object({
+      applicationId: str("The application you chased"),
+      contactId: str("Or the person you pinged"),
+      body: str("What you said or heard. Defaults to a plain 'Followed up.'"),
+      type: { type: "string", enum: ACTIVITY_VALUES, description: "Kind of touch. Defaults to FOLLOW_UP." },
+      days: num("When to come back to it, in days from today. Default 7."),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.logFollowUp(ctx.userId, {
+        ...defined({
+          applicationId: s(args, "applicationId"),
+          contactId: s(args, "contactId"),
+          body: s(args, "body"),
+          type: s(args, "type") as ActivityType | undefined,
+          days: n(args, "days"),
+        }),
+      }),
+  },
+  {
     name: "diagnose_search",
     title: "Diagnose the job search",
     description:

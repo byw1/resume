@@ -851,6 +851,62 @@ export async function snoozeContactFollowUpAction(id: string, days: number) {
   revalidatePath("/crm/contacts");
 }
 
+/**
+ * Chased it — the other half of the chase list, and the honest one.
+ * Writes the touch and moves the date; snoozing only moves the date.
+ */
+export async function logFollowUpAction(id: string, body?: string, days?: number) {
+  const user = await requireUser();
+  await pipeline.logFollowUp(user.id, { applicationId: id, body, days });
+  revalidatePath("/");
+  revalidatePath("/applications");
+  revalidatePath(`/applications/${id}`);
+}
+
+export async function logContactFollowUpAction(id: string, body?: string, days?: number) {
+  const user = await requireUser();
+  await pipeline.logFollowUp(user.id, { contactId: id, body, days });
+  revalidatePath("/");
+  revalidatePath("/crm/contacts");
+  revalidatePath(`/crm/contacts/${id}`);
+}
+
+/**
+ * Read one typed line against the open pipeline. Writes nothing: the person
+ * confirms what it found, because a wrong guess written silently is worse
+ * than no guess at all.
+ */
+export async function readQuickLogAction(text: string) {
+  const user = await requireUser();
+  return pipeline.readQuickLogAgainstPipeline(user.id, text);
+}
+
+/**
+ * Commit what they confirmed: one activity, and the stage move if they took
+ * the suggestion. Two writes, because they are two facts — what happened, and
+ * where it leaves the application.
+ */
+export async function commitQuickLogAction(input: {
+  applicationId: string;
+  body: string;
+  type: ActivityType;
+  stage?: Stage | null;
+}) {
+  const user = await requireUser();
+  if (input.stage) {
+    await pipeline.moveApplicationStage(user.id, input.applicationId, input.stage, input.body);
+  } else {
+    await pipeline.addActivity(user.id, {
+      applicationId: input.applicationId,
+      type: input.type,
+      body: input.body,
+    });
+  }
+  revalidatePath("/");
+  revalidatePath("/applications");
+  revalidatePath(`/applications/${input.applicationId}`);
+}
+
 // ---------------------------------------------------------------------------
 // CRM — companies and the people at them
 // ---------------------------------------------------------------------------
