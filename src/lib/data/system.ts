@@ -5,7 +5,7 @@ import { billingIsConfigured, emailIsConfigured, getSettings } from "@/lib/setti
 /**
  * Whether the instance is working, and what broke when it wasn't.
  *
- * Note the shape of this file against brain.ts, resumes.ts and pipeline.ts.
+ * Note the shape of this file against me.ts, resumes.ts and pipeline.ts.
  * Those take `userId` first because they touch one person's content and the
  * compiler has to reject a call site that forgets. Nothing here is anyone's
  * content — it is the instance talking about itself — so it follows users.ts

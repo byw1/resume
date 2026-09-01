@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/resume/share-button";
+import { CompareToBase } from "@/components/resume/compare-to-base";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -59,7 +60,7 @@ import {
 } from "@/lib/resume-schema";
 import { estimateLines } from "@/lib/resume-text";
 import { ResumePaper, type PaperSettings } from "@/components/resume/resume-paper";
-import { ChangesPanel, type LinkedApplication } from "@/components/resume/changes-panel";
+import { EvidencePanel, type LinkedApplication } from "@/components/resume/evidence-panel";
 import {
   deleteResumeAction,
   duplicateResumeAction,
@@ -89,20 +90,23 @@ export function ResumeEditor({
   doc: initialDoc,
   meta: initialMeta,
   shareUrl,
-  photo,
   base,
+  photo,
   siblings,
   applications,
 }: {
   id: string;
   doc: ResumeDoc;
   meta: Meta;
-  /** What this was tailored from, if anything. */
-  base: { id: string; name: string } | null;
   /** Every other resume, for saying which one it came from. */
   siblings: { id: string; name: string }[];
   /** The jobs this document was actually sent to. */
   applications: LinkedApplication[];
+  /**
+   * The resume this one was tailored from, or null. Drives the live
+   * compare-to-base view in the toolbar; the diff recomputes as you type.
+   */
+  base: { id: string; name: string; doc: ResumeDoc } | null;
   /**
    * The owner's headshot, whether or not this document shows it. Held here so
    * the toggle is instant — flipping it repaints the preview rather than
@@ -193,13 +197,15 @@ export function ResumeEditor({
           {pages} page{pages > 1 ? "s" : ""} · {fill}% of last
         </Badge>
 
+        {base && <CompareToBase base={base} doc={doc} />}
+
         <div className="ml-auto flex items-center gap-1.5">
           {/* What this document is against what it came from, what backs each
               claim, and where it was sent. Reads saved data, so the autosave
               is flushed first. */}
-          <ChangesPanel
+          <EvidencePanel
             resumeId={id}
-            base={base}
+            base={base ? { id: base.id, name: base.name } : null}
             siblings={siblings}
             applications={applications}
             onOpen={flush}

@@ -24,8 +24,8 @@ const COPY = {
   history: {
     icon: BrainIcon,
     title: "Bring your history in",
-    body: "Paste a resume and let it fill the brain, or tell Claude about your last job and let it file the detail. Either beats typing your career into a form.",
-    href: "/brain?import=1",
+    body: "Paste a resume and let it fill Me in, or tell Claude about your last job and let it file the detail. Either beats typing your career into a form.",
+    href: "/me?import=1",
     cta: "Import a resume",
   },
   track: {

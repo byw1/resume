@@ -10,7 +10,7 @@ import { recordAudit } from "@/lib/data/audit";
  * the Variables screen — so adding a knob is one entry here plus a field on
  * InstanceSettings, and nothing has to be taught about it twice.
  *
- * Note the shape of this file against brain.ts, resumes.ts and pipeline.ts.
+ * Note the shape of this file against me.ts, resumes.ts and pipeline.ts.
  * Those take `userId` first because they touch one person's content and the
  * compiler has to reject a call site that forgets. Nothing here is anyone's
  * content — it is how the instance behaves — so it follows users.ts and

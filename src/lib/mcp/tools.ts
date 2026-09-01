@@ -1,5 +1,5 @@
 import type { ActivityType, NoteKind, Stage, User, UserRole } from "@prisma/client";
-import * as brain from "@/lib/data/brain";
+import * as me from "@/lib/data/me";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
@@ -25,6 +25,7 @@ import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/bill
 import { sendEmail, testEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
+import { diffResumeDocs } from "@/lib/resume-diff";
 import { renderPdf, pdfRenderingAvailable } from "@/lib/pdf";
 import { clientName, clientsById, guessClient } from "@/lib/mcp/clients";
 
@@ -49,7 +50,7 @@ export type McpContext = {
  *
  * These are not documentation — Claude groups a connector's tools by them in the
  * approval UI, so a missing hint is the difference between someone allowing the
- * read side of this server outright and being asked about `search_brain` as
+ * read side of this server outright and being asked about `search_me` as
  * often as about `delete_resume`.
  *
  * Two of the four default to the DANGEROUS value when omitted (`destructiveHint`
@@ -59,7 +60,7 @@ export type McpContext = {
  *
  * The rule for `destructiveHint` in this codebase: replacing a field's contents
  * is destructive, appending to them is not. That is why `update_role` is
- * destructive and `append_role_brain_dump` — which exists because `update_role`
+ * destructive and `append_role_background` — which exists because `update_role`
  * was eating people's notes — is not.
  */
 export type McpAnnotations = {
@@ -232,13 +233,13 @@ const ACTIVITY_VALUES: ActivityType[] = [
 
 export const tools: McpTool[] = [
   // -------------------------------------------------------------------------
-  // BRAIN — read
+  // ME — read
   // -------------------------------------------------------------------------
   {
-    name: "search_brain",
-    title: "Search the brain",
+    name: "search_me",
+    title: "Search Me",
     description:
-      "Ranked keyword search across everything the user has written about themselves: role brain dumps, achievement highlights, notes, projects and their profile. This is the FIRST tool to call when tailoring a resume or answering a question about their experience. Returns excerpts with the id and kind of each hit so you can fetch the full record.",
+      "Ranked keyword search across everything the user has written about themselves: role backgrounds, achievement highlights, notes, projects and their profile. This is the FIRST tool to call when tailoring a resume or answering a question about their experience. Returns excerpts with the id and kind of each hit so you can fetch the full record.",
     inputSchema: object(
       {
         query: str("Keywords to search for, e.g. 'kubernetes cost savings' or 'led a team'"),
@@ -252,16 +253,16 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => brain.searchBrain(ctx.userId, required(args, "query"), n(args, "limit") ?? 25),
+    handler: async (args, ctx) => me.searchMe(ctx.userId, required(args, "query"), n(args, "limit") ?? 25),
   },
   {
-    name: "get_brain_snapshot",
-    title: "Get the whole brain",
+    name: "get_me_snapshot",
+    title: "Get everything in Me",
     description:
-      "Returns EVERYTHING in the knowledge base at once: profile, all roles with their full brain dumps, all highlights, education, projects, skills, certifications and notes. Use when you need complete context (e.g. writing a resume from scratch). Can be large — prefer search_brain for targeted lookups.",
+      "Returns EVERYTHING in Me at once: profile, all roles with their full background text, all highlights, education, projects, skills, certifications and notes. Use when you need complete context (e.g. writing a resume from scratch). Can be large — prefer search_me for targeted lookups.",
     inputSchema: object({
-      include_brain_dumps: bool(
-        "Include the full long-form brain dump text for each role (default true). Set false for a lighter payload.",
+      include_background: bool(
+        "Include the full long-form background text for each role (default true). Set false for a lighter payload.",
       ),
     }),
     annotations: {
@@ -271,13 +272,13 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) => {
-      const snapshot = await brain.getBrainSnapshot(ctx.userId);
+      const snapshot = await me.getMeSnapshot(ctx.userId);
       const profile = withoutPhotoBytes(snapshot.profile);
-      if (b(args, "include_brain_dumps") === false) {
+      if (b(args, "include_background") === false) {
         return {
           ...snapshot,
-          profile: { ...profile, brainDump: "[omitted]" },
-          roles: snapshot.roles.map((r) => ({ ...r, brainDump: "[omitted]" })),
+          profile: { ...profile, background: "[omitted]" },
+          roles: snapshot.roles.map((r) => ({ ...r, background: "[omitted]" })),
         };
       }
       return { ...snapshot, profile };
@@ -287,7 +288,7 @@ export const tools: McpTool[] = [
     name: "get_profile",
     title: "Get profile",
     description:
-      "The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.",
+      "The user's identity block: name, headline, contact details, links, career summary and their personal background (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: false,
@@ -295,7 +296,7 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => withoutPhotoBytes(await brain.getProfile(ctx.userId)),
+    handler: async (_args, ctx) => withoutPhotoBytes(await me.getProfile(ctx.userId)),
   },
   {
     name: "update_profile",
@@ -313,8 +314,8 @@ export const tools: McpTool[] = [
       github: str("GitHub URL"),
       twitter: str("X/Twitter URL"),
       summary: str("Career summary used as the default resume summary"),
-      brainDump: str(
-        "Long-form personal brain dump. REPLACES the existing text — read it first if you intend to add to it.",
+      background: str(
+        "Long-form personal background. REPLACES the existing text — read it first if you intend to add to it.",
       ),
     }),
     annotations: {
@@ -324,7 +325,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      withoutPhotoBytes(await brain.updateProfile(ctx.userId,
+      withoutPhotoBytes(await me.updateProfile(ctx.userId,
         defined({
           fullName: s(args, "fullName"),
           headline: s(args, "headline"),
@@ -336,7 +337,7 @@ export const tools: McpTool[] = [
           github: s(args, "github"),
           twitter: s(args, "twitter"),
           summary: s(args, "summary"),
-          brainDump: s(args, "brainDump"),
+          background: s(args, "background"),
         }),
       )),
   },
@@ -358,12 +359,12 @@ export const tools: McpTool[] = [
     },
     handler: async (args, ctx) => {
       if (b(args, "remove")) {
-        await brain.setProfilePhoto(ctx.userId, "");
+        await me.setProfilePhoto(ctx.userId, "");
         return { photo: false, message: "Photo removed. Resumes that showed it now render without one." };
       }
       const source = s(args, "data_uri")?.trim() || s(args, "url")?.trim() || "";
       if (!source) throw new Error("Pass a url, a data_uri, or remove: true.");
-      const result = await brain.setProfilePhoto(ctx.userId, source);
+      const result = await me.setProfilePhoto(ctx.userId, source);
       return {
         ...result,
         message:
@@ -375,7 +376,7 @@ export const tools: McpTool[] = [
     name: "list_roles",
     title: "List roles",
     description:
-      "List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full brain dump — use get_role for that.",
+      "List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full background — use get_role for that.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
@@ -383,13 +384,13 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => brain.listRoles(ctx.userId),
+    handler: async (_args, ctx) => me.listRoles(ctx.userId),
   },
   {
     name: "get_role",
     title: "Get a role",
     description:
-      "Full detail for one role including its complete brain dump text and all of its achievement highlights.",
+      "Full detail for one role including its complete background text and all of its achievement highlights.",
     inputSchema: object({ id: str("Role id") }, ["id"]),
     annotations: {
       readOnlyHint: true,
@@ -398,7 +399,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) => {
-      const role = await brain.getRole(ctx.userId, required(args, "id"));
+      const role = await me.getRole(ctx.userId, required(args, "id"));
       if (!role) throw new Error(`No role with id ${required(args, "id")}`);
       return role;
     },
@@ -407,7 +408,7 @@ export const tools: McpTool[] = [
     name: "create_role",
     title: "Create a role",
     description:
-      "Add a job to the knowledge base. Put every raw detail you were given into brainDump — it is unlimited and is the raw material for future resumes.",
+      "Add a job to the knowledge base. Put every raw detail you were given into background — it is unlimited and is the raw material for future resumes.",
     inputSchema: object(
       {
         company: str("Company name"),
@@ -418,8 +419,8 @@ export const tools: McpTool[] = [
         endDate: str("End date as YYYY-MM. Leave empty if current."),
         isCurrent: bool("True if this is their current job"),
         summary: str("One or two sentences describing the scope of the role"),
-        brainDump: str(
-          "THE BRAIN DUMP. Everything raw: projects, metrics, technologies, stories, praise, failures, org context. Markdown welcome. No length limit.",
+        background: str(
+          "THE BACKGROUND. Everything raw: projects, metrics, technologies, stories, praise, failures, org context. Markdown welcome. No length limit.",
         ),
         tags: strArray("Freeform tags, e.g. ['fintech','ic','python']"),
       },
@@ -432,7 +433,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.createRole(ctx.userId, {
+      me.createRole(ctx.userId, {
         company: required(args, "company"),
         title: required(args, "title"),
         ...defined({
@@ -442,7 +443,7 @@ export const tools: McpTool[] = [
           endDate: s(args, "endDate"),
           isCurrent: b(args, "isCurrent"),
           summary: s(args, "summary"),
-          brainDump: s(args, "brainDump"),
+          background: s(args, "background"),
           tags: a(args, "tags"),
         }),
       }),
@@ -451,7 +452,7 @@ export const tools: McpTool[] = [
     name: "update_role",
     title: "Update a role",
     description:
-      "Update fields on an existing role. WARNING: passing brainDump REPLACES the whole dump — use append_role_brain_dump to add to it safely.",
+      "Update fields on an existing role. WARNING: passing background REPLACES the whole thing — use append_role_background to add to it safely.",
     inputSchema: object(
       {
         id: str("Role id"),
@@ -463,7 +464,7 @@ export const tools: McpTool[] = [
         endDate: str("End date as YYYY-MM"),
         isCurrent: bool("Is this the current job"),
         summary: str("Scope summary"),
-        brainDump: str("Replaces the entire brain dump"),
+        background: str("Replaces the entire background"),
         tags: strArray("Tags"),
       },
       ["id"],
@@ -475,7 +476,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.updateRole(ctx.userId, 
+      me.updateRole(ctx.userId, 
         required(args, "id"),
         defined({
           company: s(args, "company"),
@@ -486,16 +487,16 @@ export const tools: McpTool[] = [
           endDate: s(args, "endDate"),
           isCurrent: b(args, "isCurrent"),
           summary: s(args, "summary"),
-          brainDump: s(args, "brainDump"),
+          background: s(args, "background"),
           tags: a(args, "tags"),
         }),
       ),
   },
   {
-    name: "append_role_brain_dump",
-    title: "Append to a role's brain dump",
+    name: "append_role_background",
+    title: "Append to a role's background",
     description:
-      "Safely ADD text to the end of a role's brain dump without touching what is already there. This is the right tool when the user tells you something new about a job they already have on file.",
+      "Safely ADD text to the end of a role's background without touching what is already there. This is the right tool when the user tells you something new about a job they already have on file.",
     inputSchema: object(
       {
         id: str("Role id"),
@@ -511,7 +512,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.appendToRoleBrainDump(ctx.userId, required(args, "id"), required(args, "text"), s(args, "heading")),
+      me.appendToRoleBackground(ctx.userId, required(args, "id"), required(args, "text"), s(args, "heading")),
   },
   {
     name: "delete_role",
@@ -524,11 +525,11 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => brain.deleteRole(ctx.userId, required(args, "id")),
+    handler: async (args, ctx) => me.deleteRole(ctx.userId, required(args, "id")),
   },
 
   // -------------------------------------------------------------------------
-  // BRAIN — highlights
+  // ME — highlights
   // -------------------------------------------------------------------------
   {
     name: "list_highlights",
@@ -542,13 +543,13 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => brain.listHighlights(ctx.userId, s(args, "roleId")),
+    handler: async (args, ctx) => me.listHighlights(ctx.userId, s(args, "roleId")),
   },
   {
     name: "create_highlights",
     title: "Create highlights",
     description:
-      "Distil raw brain-dump material into one or more reusable achievement bullets. Write them in resume voice: strong verb, specific scope, quantified outcome. Create several at once.",
+      "Distil raw background material into one or more reusable achievement bullets. Write them in resume voice: strong verb, specific scope, quantified outcome. Create several at once.",
     inputSchema: object(
       {
         highlights: {
@@ -576,7 +577,7 @@ export const tools: McpTool[] = [
     },
     handler: async (args, ctx) => {
       const items = Array.isArray(args.highlights) ? (args.highlights as Json[]) : [];
-      return brain.createHighlights(ctx.userId, 
+      return me.createHighlights(ctx.userId, 
         items.map((item) => ({
           roleId: s(item, "roleId") ?? null,
           text: required(item, "text"),
@@ -609,7 +610,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.updateHighlight(ctx.userId, 
+      me.updateHighlight(ctx.userId, 
         required(args, "id"),
         defined({
           text: s(args, "text"),
@@ -631,11 +632,11 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => brain.deleteHighlight(ctx.userId, required(args, "id")),
+    handler: async (args, ctx) => me.deleteHighlight(ctx.userId, required(args, "id")),
   },
 
   // -------------------------------------------------------------------------
-  // BRAIN — notes and extras
+  // ME — notes and extras
   // -------------------------------------------------------------------------
   {
     name: "list_notes",
@@ -649,200 +650,13 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => brain.listNotes(ctx.userId),
-  },
-  {
-    name: "import_resume",
-    title: "Import a resume into the brain",
-    description:
-      "Fill an empty workspace in one call. YOU read the document — a resume, a CV, a LinkedIn 'Save to PDF' export, an old profile — and pass what it ACTUALLY SAYS as structured roles, education, skills, certifications and projects, plus the raw text in sourceText so nothing the summary dropped is lost. This is the first tool to reach for when someone new connects and says they have a resume; it is the difference between a product that works in a minute and one that asks them to retype their career.\n\nWhat it does with what you send: a role that is already on file is left EXACTLY as it is (its bullets are still added where they are new), a profile field with anything in it is kept, and skill groups union rather than replace. So calling it twice is safe — the second call reports everything as matched and writes nothing. Call it with dryRun true first to show someone what will land before it lands; the report has the same shape either way.\n\nNever invent. Put in only what the document states: no guessed dates, no improved titles, no metric that is not on the page, no employer you inferred from an email address. A role with no dates is normal and comes back as a warning, which is the honest outcome — an assistant that fills the gap has just written fiction into somebody's career history. Bullets go in as they are written; polishing them is what create_highlights is for, afterwards, with the person in the loop.",
-    inputSchema: object(
-      {
-        dryRun: bool("Report what would happen and write nothing. Default false — pass true to preview."),
-        source: str("What the document was, e.g. 'resume' or 'LinkedIn export'. Titles the saved note."),
-        sourceText: str(
-          "The document as it arrived, in full. Filed as one note so the detail a summary drops stays searchable.",
-        ),
-        profile: object({
-          fullName: str("Their name as it appears"),
-          headline: str("The line under the name, if there is one"),
-          email: str("Email"),
-          phone: str("Phone"),
-          location: str("Where they are"),
-          website: str("Personal site"),
-          linkedin: str("LinkedIn URL"),
-          github: str("GitHub URL"),
-          twitter: str("X / Twitter"),
-          summary: str("The document's own summary paragraph, if it has one"),
-        }),
-        roles: {
-          type: "array",
-          description: "One per job, newest first or oldest first — order does not matter.",
-          items: object(
-            {
-              company: str("Employer"),
-              title: str("Job title as written"),
-              employmentType: str("Full-time | Contract | Internship — only if the document says"),
-              location: str("Where the job was"),
-              startDate: str("As written: '2021', '2021-03', 'Mar 2021'. Leave out if absent."),
-              endDate: str("Same. Leave out when the role is current."),
-              isCurrent: bool("True when the document says Present or Current"),
-              summary: str("A one-line description of the role, if the document gives one"),
-              brainDump: str("The entry's raw text, kept whole. Length is a feature here."),
-              bullets: strArray(
-                "The resume bullets under this job, verbatim. Each becomes a highlight, tagged 'imported'.",
-              ),
-              tags: strArray("Tags for retrieval"),
-            },
-            ["company", "title"],
-          ),
-        },
-        education: {
-          type: "array",
-          description: "Schools, degrees, dates.",
-          items: object(
-            {
-              school: str("Institution"),
-              degree: str("e.g. BSc, MBA"),
-              field: str("Subject"),
-              location: str("Where"),
-              startDate: str("As written"),
-              endDate: str("As written"),
-              gpa: str("Only if the document states one"),
-              details: str("Anything else under the entry"),
-            },
-            ["school"],
-          ),
-        },
-        projects: {
-          type: "array",
-          description: "Side projects, open source, anything with its own name.",
-          items: object(
-            {
-              name: str("Project name"),
-              role: str("What they did on it"),
-              url: str("Link"),
-              description: str("What it is"),
-              brainDump: str("The raw entry"),
-              startDate: str("As written"),
-              endDate: str("As written"),
-              tags: strArray("Tags"),
-            },
-            ["name"],
-          ),
-        },
-        skills: {
-          type: "array",
-          description:
-            "Grouped as the document groups them. One group called 'Skills' is fine when it does not group them.",
-          items: object(
-            { name: str("Group name, e.g. 'Languages'"), skills: strArray("The skills in it") },
-            ["name", "skills"],
-          ),
-        },
-        certifications: {
-          type: "array",
-          description: "Certificates and licences.",
-          items: object(
-            {
-              name: str("What it is"),
-              issuer: str("Who issued it"),
-              date: str("As written"),
-              url: str("Verification link"),
-            },
-            ["name"],
-          ),
-        },
-      },
-      [],
-    ),
-    annotations: {
-      readOnlyHint: false,
-      destructiveHint: false,
-      idempotentHint: true,
-      openWorldHint: false,
-    },
-    handler: async (args, ctx) => {
-      const list = (key: string) => (Array.isArray(args[key]) ? (args[key] as Json[]) : []);
-      const profile = (args.profile ?? {}) as Json;
-      return brain.importIntoBrain(
-        ctx.userId,
-        {
-          source: s(args, "source"),
-          sourceText: s(args, "sourceText"),
-          profile: defined({
-            fullName: s(profile, "fullName"),
-            headline: s(profile, "headline"),
-            email: s(profile, "email"),
-            phone: s(profile, "phone"),
-            location: s(profile, "location"),
-            website: s(profile, "website"),
-            linkedin: s(profile, "linkedin"),
-            github: s(profile, "github"),
-            twitter: s(profile, "twitter"),
-            summary: s(profile, "summary"),
-          }),
-          roles: list("roles").map((role) => ({
-            company: required(role, "company"),
-            title: required(role, "title"),
-            ...defined({
-              employmentType: s(role, "employmentType"),
-              location: s(role, "location"),
-              startDate: s(role, "startDate"),
-              endDate: s(role, "endDate"),
-              isCurrent: b(role, "isCurrent"),
-              summary: s(role, "summary"),
-              brainDump: s(role, "brainDump"),
-              bullets: a(role, "bullets"),
-              tags: a(role, "tags"),
-            }),
-          })),
-          education: list("education").map((entry) => ({
-            school: required(entry, "school"),
-            ...defined({
-              degree: s(entry, "degree"),
-              field: s(entry, "field"),
-              location: s(entry, "location"),
-              startDate: s(entry, "startDate"),
-              endDate: s(entry, "endDate"),
-              gpa: s(entry, "gpa"),
-              details: s(entry, "details"),
-            }),
-          })),
-          projects: list("projects").map((entry) => ({
-            name: required(entry, "name"),
-            ...defined({
-              role: s(entry, "role"),
-              url: s(entry, "url"),
-              description: s(entry, "description"),
-              brainDump: s(entry, "brainDump"),
-              startDate: s(entry, "startDate"),
-              endDate: s(entry, "endDate"),
-              tags: a(entry, "tags"),
-            }),
-          })),
-          skills: list("skills").map((group) => ({
-            name: required(group, "name"),
-            skills: a(group, "skills") ?? [],
-          })),
-          certifications: list("certifications").map((entry) => ({
-            name: required(entry, "name"),
-            ...defined({
-              issuer: s(entry, "issuer"),
-              date: s(entry, "date"),
-              url: s(entry, "url"),
-            }),
-          })),
-        },
-        { dryRun: b(args, "dryRun") ?? false },
-      );
-    },
+    handler: async (_args, ctx) => me.listNotes(ctx.userId),
   },
   {
     name: "create_note",
     title: "Create a note",
     description:
-      "Save a free-floating note. Use this for brain-dump material that does not belong to one specific job. Set kind: GUARDRAIL to make it a standing rule instead — see the kind field.",
+      "Save a free-floating note. Use this for raw material that does not belong to one specific job. Set kind: GUARDRAIL to make it a standing rule instead — see the kind field.",
     inputSchema: object(
       {
         title: str("Short title"),
@@ -865,7 +679,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.createNote(ctx.userId, {
+      me.createNote(ctx.userId, {
         title: required(args, "title"),
         ...defined({
           body: s(args, "body"),
@@ -903,7 +717,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      brain.updateNote(ctx.userId, 
+      me.updateNote(ctx.userId, 
         required(args, "id"),
         defined({
           title: s(args, "title"),
@@ -938,13 +752,13 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => {
       switch (required(args, "kind")) {
         case "education":
-          return brain.listEducation(ctx.userId);
+          return me.listEducation(ctx.userId);
         case "projects":
-          return brain.listProjects(ctx.userId);
+          return me.listProjects(ctx.userId);
         case "skills":
-          return brain.listSkillGroups(ctx.userId);
+          return me.listSkillGroups(ctx.userId);
         case "certifications":
-          return brain.listCertifications(ctx.userId);
+          return me.listCertifications(ctx.userId);
         default:
           throw new Error("kind must be education | projects | skills | certifications");
       }
@@ -971,7 +785,7 @@ export const tools: McpTool[] = [
         role: str("[projects] Your role on the project"),
         url: str("[projects | certifications] Link"),
         description: str("[projects] One-line description"),
-        brainDump: str("[projects] Long-form raw detail about the project"),
+        background: str("[projects] Long-form raw detail about the project"),
         skills: strArray("[skills] The skills in this group, e.g. ['Python','Go','Rust']"),
         issuer: str("[certifications] Issuing body"),
         date: str("[certifications] Date earned"),
@@ -991,7 +805,7 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => {
       switch (required(args, "kind")) {
         case "education":
-          return brain.createEducation(ctx.userId, {
+          return me.createEducation(ctx.userId, {
             school: required(args, "school"),
             ...defined({
               degree: s(args, "degree"),
@@ -1004,25 +818,25 @@ export const tools: McpTool[] = [
             }),
           });
         case "projects":
-          return brain.createProject(ctx.userId, {
+          return me.createProject(ctx.userId, {
             name: required(args, "name"),
             ...defined({
               role: s(args, "role"),
               url: s(args, "url"),
               description: s(args, "description"),
-              brainDump: s(args, "brainDump"),
+              background: s(args, "background"),
               tags: a(args, "tags"),
               startDate: s(args, "startDate"),
               endDate: s(args, "endDate"),
             }),
           });
         case "skills":
-          return brain.createSkillGroup(ctx.userId, {
+          return me.createSkillGroup(ctx.userId, {
             name: required(args, "name"),
             skills: a(args, "skills") ?? [],
           });
         case "certifications":
-          return brain.createCertification(ctx.userId, {
+          return me.createCertification(ctx.userId, {
             name: required(args, "name"),
             ...defined({ issuer: s(args, "issuer"), date: s(args, "date"), url: s(args, "url") }),
           });
@@ -1053,7 +867,7 @@ export const tools: McpTool[] = [
         role: str("[projects] Your role on the project"),
         url: str("[projects | certifications] Link"),
         description: str("[projects] One-line description"),
-        brainDump: str("[projects] Long-form raw detail about the project"),
+        background: str("[projects] Long-form raw detail about the project"),
         skills: strArray("[skills] REPLACES the whole list, e.g. ['Python','Go','Rust']"),
         issuer: str("[certifications] Issuing body"),
         date: str("[certifications] Date earned"),
@@ -1074,7 +888,7 @@ export const tools: McpTool[] = [
       const id = required(args, "id");
       switch (required(args, "kind")) {
         case "education":
-          return brain.updateEducation(ctx.userId, id, 
+          return me.updateEducation(ctx.userId, id, 
             defined({
               school: s(args, "school"),
               degree: s(args, "degree"),
@@ -1087,24 +901,24 @@ export const tools: McpTool[] = [
             }),
           );
         case "projects":
-          return brain.updateProject(ctx.userId, id, 
+          return me.updateProject(ctx.userId, id, 
             defined({
               name: s(args, "name"),
               role: s(args, "role"),
               url: s(args, "url"),
               description: s(args, "description"),
-              brainDump: s(args, "brainDump"),
+              background: s(args, "background"),
               tags: a(args, "tags"),
               startDate: s(args, "startDate"),
               endDate: s(args, "endDate"),
             }),
           );
         case "skills":
-          return brain.updateSkillGroup(ctx.userId, id, 
+          return me.updateSkillGroup(ctx.userId, id, 
             defined({ name: s(args, "name"), skills: a(args, "skills") }),
           );
         case "certifications":
-          return brain.updateCertification(ctx.userId, id, 
+          return me.updateCertification(ctx.userId, id, 
             defined({
               name: s(args, "name"),
               issuer: s(args, "issuer"),
@@ -1142,16 +956,238 @@ export const tools: McpTool[] = [
       const id = required(args, "id");
       switch (required(args, "kind")) {
         case "education":
-          return brain.deleteEducation(ctx.userId, id);
+          return me.deleteEducation(ctx.userId, id);
         case "projects":
-          return brain.deleteProject(ctx.userId, id);
+          return me.deleteProject(ctx.userId, id);
         case "skills":
-          return brain.deleteSkillGroup(ctx.userId, id);
+          return me.deleteSkillGroup(ctx.userId, id);
         case "certifications":
-          return brain.deleteCertification(ctx.userId, id);
+          return me.deleteCertification(ctx.userId, id);
         default:
           throw new Error("kind must be education | projects | skills | certifications");
       }
+    },
+  },
+  {
+    name: "import_resume",
+    title: "Import a resume into the brain",
+    description:
+      "Turn an existing resume, LinkedIn export or any pasted career history into a filled-in Me in ONE call. This is the first tool to reach for when the workspace is empty and the user has a document — it is the difference between starting from their real history and starting from nothing, so offer it before asking them to talk through their life. You do the reading: parse the pasted text yourself into the structured payload — profile facts, one entry per role with its bullets, education, projects, skills, certifications. Copy what the document actually says and NEVER invent, upgrade or round anything: no employers, titles, dates or metrics the text does not state, and a field the document is silent on stays absent. Include startDate on every role — it is part of a role's identity, and two stints at the same company import as two roles only when their dates differ. Everything is additive and re-import is safe: profile fields fill only where currently empty; a role already on file at the same company+title and start date, an education entry with the same school+degree+field, or a project/certification with the same name is SKIPPED, never overwritten; a skill group with an existing name has its skills unioned in. Each role's bullets are saved as highlights and land in its background for search_me to mine. Returns exactly what was created and what was skipped — report that to the user, and for skipped roles add new material with append_role_background instead. Pass create_base_resume: true to also build their first draft from what was imported; it reuses a resume already named 'Base resume' rather than minting another, so repeating the whole call is safe. Offer it — a resume is usually why they pasted one.",
+    inputSchema: object(
+      {
+        profile: {
+          type: "object",
+          description:
+            "Contact and identity facts from the document. Only fills fields that are currently empty.",
+          properties: {
+            fullName: str("Their name as the document states it"),
+            headline: str("Professional headline / current title line"),
+            email: str("Email address"),
+            phone: str("Phone number"),
+            location: str("City / region"),
+            website: str("Personal site URL"),
+            linkedin: str("LinkedIn URL"),
+            github: str("GitHub URL"),
+            summary: str("The document's own summary or objective paragraph, verbatim or lightly cleaned"),
+          },
+          additionalProperties: false,
+        },
+        roles: {
+          type: "array",
+          description: "One entry per job in the document, newest first.",
+          items: object(
+            {
+              company: str("Employer name"),
+              title: str("Job title"),
+              employmentType: str("Full-time (default) | Part-time | Contract | Freelance | Internship"),
+              location: str("Where, if stated"),
+              startDate: str(
+                "YYYY-MM if stated. Part of the role's identity — two stints at the same company+title are told apart by it, so include it whenever the document has it.",
+              ),
+              endDate: str("YYYY-MM, empty if current"),
+              isCurrent: bool("True when the document marks it as current"),
+              summary: str("The role's one-line scope, if the document has one"),
+              background: str(
+                "Raw text about this role beyond the bullets — the section as pasted is fine. Omit to auto-fill from the bullets.",
+              ),
+              bullets: {
+                type: "array",
+                description: "The role's bullet points, one per bullet, wording kept.",
+                items: object(
+                  {
+                    text: str("The bullet as the document states it"),
+                    impact: str("Its quantified outcome, only if not already inside text"),
+                    tags: strArray("Tags for retrieval, e.g. ['leadership','cost']"),
+                    strength: num("1-5 how strong the bullet reads. Default 3."),
+                  },
+                  ["text"],
+                ),
+              },
+            },
+            ["company", "title"],
+          ),
+        },
+        education: {
+          type: "array",
+          description: "Education entries.",
+          items: object(
+            {
+              school: str("Institution"),
+              degree: str("Degree, e.g. 'BSc'"),
+              field: str("Field of study"),
+              location: str("Where, if stated"),
+              startDate: str("YYYY-MM if stated"),
+              endDate: str("YYYY-MM if stated"),
+              gpa: str("GPA / grade, only if stated"),
+              details: str("Honours, coursework, anything else the entry lists"),
+            },
+            ["school"],
+          ),
+        },
+        projects: {
+          type: "array",
+          description: "Side or portfolio projects the document lists.",
+          items: object(
+            {
+              name: str("Project name"),
+              role: str("Their part in it"),
+              url: str("Link, if stated"),
+              description: str("What it is, from the document"),
+              startDate: str("YYYY-MM if stated"),
+              endDate: str("YYYY-MM if stated"),
+              tags: strArray("Tags for retrieval"),
+            },
+            ["name"],
+          ),
+        },
+        skillGroups: {
+          type: "array",
+          description:
+            "Skills grouped the way the document groups them, e.g. {name: 'Languages', skills: ['Go','TypeScript']}. Use one group named 'Skills' when it is a flat list.",
+          items: object(
+            { name: str("Group label"), skills: strArray("The skills in it") },
+            ["name"],
+          ),
+        },
+        certifications: {
+          type: "array",
+          description: "Certifications and licences.",
+          items: object(
+            {
+              name: str("Certification name"),
+              issuer: str("Who issued it"),
+              date: str("When, as the document states it"),
+              url: str("Verification link, if stated"),
+            },
+            ["name"],
+          ),
+        },
+        create_base_resume: bool(
+          "Also build a first draft resume from the imported brain, named 'Base resume'. Offer this — it is usually why they pasted a resume.",
+        ),
+      },
+      [],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const roles = Array.isArray(args.roles) ? (args.roles as Json[]) : [];
+      const education = Array.isArray(args.education) ? (args.education as Json[]) : [];
+      const projects = Array.isArray(args.projects) ? (args.projects as Json[]) : [];
+      const skillGroups = Array.isArray(args.skillGroups) ? (args.skillGroups as Json[]) : [];
+      const certifications = Array.isArray(args.certifications) ? (args.certifications as Json[]) : [];
+      const profile = (args.profile ?? {}) as Json;
+
+      const result = await me.importResume(ctx.userId, {
+        profile: defined({
+          fullName: s(profile, "fullName"),
+          headline: s(profile, "headline"),
+          email: s(profile, "email"),
+          phone: s(profile, "phone"),
+          location: s(profile, "location"),
+          website: s(profile, "website"),
+          linkedin: s(profile, "linkedin"),
+          github: s(profile, "github"),
+          summary: s(profile, "summary"),
+        }),
+        roles: roles.map((role) => ({
+          company: required(role, "company"),
+          title: required(role, "title"),
+          ...defined({
+            employmentType: s(role, "employmentType"),
+            location: s(role, "location"),
+            startDate: s(role, "startDate"),
+            endDate: s(role, "endDate"),
+            isCurrent: b(role, "isCurrent"),
+            summary: s(role, "summary"),
+            background: s(role, "background"),
+          }),
+          bullets: (Array.isArray(role.bullets) ? (role.bullets as Json[]) : []).map((bullet) => ({
+            text: required(bullet, "text"),
+            ...defined({
+              impact: s(bullet, "impact"),
+              tags: a(bullet, "tags"),
+              strength: n(bullet, "strength"),
+            }),
+          })),
+        })),
+        education: education.map((entry) => ({
+          school: required(entry, "school"),
+          ...defined({
+            degree: s(entry, "degree"),
+            field: s(entry, "field"),
+            location: s(entry, "location"),
+            startDate: s(entry, "startDate"),
+            endDate: s(entry, "endDate"),
+            gpa: s(entry, "gpa"),
+            details: s(entry, "details"),
+          }),
+        })),
+        projects: projects.map((entry) => ({
+          name: required(entry, "name"),
+          ...defined({
+            role: s(entry, "role"),
+            url: s(entry, "url"),
+            description: s(entry, "description"),
+            startDate: s(entry, "startDate"),
+            endDate: s(entry, "endDate"),
+            tags: a(entry, "tags"),
+          }),
+        })),
+        skillGroups: skillGroups.map((group) => ({
+          name: required(group, "name"),
+          ...defined({ skills: a(group, "skills") }),
+        })),
+        certifications: certifications.map((entry) => ({
+          name: required(entry, "name"),
+          ...defined({
+            issuer: s(entry, "issuer"),
+            date: s(entry, "date"),
+            url: s(entry, "url"),
+          }),
+        })),
+      });
+
+      if (b(args, "create_base_resume")) {
+        // Reuse before create, so a retried or repeated call cannot mint
+        // "Base resume" twice — the idempotent hint has to hold for the
+        // whole call, not just the brain half.
+        const existing = (await resumes.listResumes(ctx.userId)).find(
+          (resume) => resume.name === "Base resume",
+        );
+        const base =
+          existing ??
+          (await resumes.createResume(ctx.userId, { name: "Base resume", seedFromMe: true }));
+        return {
+          ...result,
+          baseResume: { id: base.id, name: base.name, created: !existing },
+        };
+      }
+      return result;
     },
   },
 
@@ -1197,7 +1233,7 @@ export const tools: McpTool[] = [
       guidance: [
         "Dates use YYYY-MM. Set isCurrent: true instead of an endDate for the current job.",
         "Bullets: strong verb first, specific scope, quantified outcome. One line each where possible.",
-        "Harvard house style: no personal pronouns, each bullet a phrase rather than a full sentence, quantified wherever the brain dump gives you a number.",
+        "Harvard house style: no personal pronouns, each bullet a phrase rather than a full sentence, quantified wherever the background gives you a number.",
         "Harvard renders the organisation on line one and the role on line two, so fill in BOTH `company` and `title` on every experience entry, plus `location`.",
         "Section order: experience-first for anyone with real work history. Education-first is the Harvard student convention — use it only for students and recent graduates.",
         "For a 'Leadership & Activities' section, use an experience-kind section with that heading — organisation, role, location and dates all lay out correctly.",
@@ -1212,16 +1248,18 @@ export const tools: McpTool[] = [
     name: "list_resumes",
     title: "List resumes",
     description:
-      "All saved resumes with their target role/company, how many applications each is attached to, how many tailored variants came off each one, what each was itself tailored from, and publicUrl — the shareable link, or null if that resume isn't published. The one with variants and no base of its own is almost always the base document someone means by 'my resume'.",
-    inputSchema: object({}),
+      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published. Each row carries outcomes: how many applications sent with it actually went out, how many reached at least a screen, and how many reached an offer — so this is the tool that answers 'which resume is working?'. Interview and offer counts include applications that got there and later closed, not just where things stand today. Favourites come first, then most recently updated. Pass search to narrow by name, target role or target company when the user names a specific one — 'my Stripe resume' is a search, not a reason to fetch everything.",
+    inputSchema: object({
+      search: str("Case-insensitive filter on name, target role and target company. Omit for all."),
+    }),
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => {
-      const all = await resumes.listResumes(ctx.userId);
+    handler: async (args, ctx) => {
+      const all = await resumes.listResumes(ctx.userId, defined({ search: s(args, "search") }));
       return all.map((resume) => ({
         ...resume,
         publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug),
@@ -1267,7 +1305,7 @@ export const tools: McpTool[] = [
     name: "create_resume",
     title: "Create a resume",
     description:
-      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.",
+      "Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromMe: true to auto-populate a first draft from Me and then refine it with update_resume.",
     inputSchema: object(
       {
         name: str("What to call this resume, e.g. 'Stripe — Staff Engineer'"),
@@ -1282,11 +1320,14 @@ export const tools: McpTool[] = [
         showPhoto: bool(
           "Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does.",
         ),
-        seedFromBrain: bool("Auto-build a first draft from the knowledge base"),
+        seedFromMe: bool("Auto-build a first draft from the knowledge base"),
+        baseResumeId: str(
+          "Id of the resume this one was tailored from, if any. Records lineage so compare_resumes can show what changed. duplicate_resume sets this automatically — prefer it when the variant starts from an existing document.",
+        ),
         data: {
           type: "object",
           description:
-            "The full resume document. See get_resume_format for the exact shape. Omit if using seedFromBrain.",
+            "The full resume document. See get_resume_format for the exact shape. Omit if using seedFromMe.",
           additionalProperties: true,
         },
       },
@@ -1301,9 +1342,10 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) =>
       resumes.createResume(ctx.userId, {
         name: required(args, "name"),
-        seedFromBrain: b(args, "seedFromBrain"),
+        seedFromMe: b(args, "seedFromMe"),
         data: args.data,
         ...defined({
+          baseResumeId: s(args, "baseResumeId"),
           targetRole: s(args, "targetRole"),
           targetCompany: s(args, "targetCompany"),
           template: s(args, "template"),
@@ -1491,7 +1533,7 @@ export const tools: McpTool[] = [
     name: "duplicate_resume",
     title: "Duplicate a resume",
     description:
-      "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy remembers what it came from, so diff_resume can later show exactly what you changed for that job — which is what makes a tailored resume reviewable rather than just different.",
+      "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy records which resume it came from (baseResumeId), so after tailoring, compare_resumes can show exactly what changed — prefer this over building a tailored document with create_resume from scratch, which loses that trail unless you pass baseResumeId yourself.",
     inputSchema: object({ id: str("Resume id to copy"), name: str("Name for the copy") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -1505,7 +1547,7 @@ export const tools: McpTool[] = [
     name: "tailor_resume_for_application",
     title: "Start a tailored resume for one job",
     description:
-      "Copy the base resume, name it for the job, point it at that company and role, and attach it to the application — the four steps this otherwise takes, in one call. Returns the new resume (with its full document, ready to rewrite with update_resume) and what it was based on. The base is worked out for you: the original document, favourite first, the one that has variants rather than one of the variants. Pass baseId to override that. With nothing on file yet it builds the first draft from the brain instead of refusing, so a new person asking for a tailored resume gets one. Anything already attached to that application is replaced — the old document is not deleted, it just stops being the one on this job.",
+      "Copy the base resume, name it for the job, point it at that company and role, and attach it to the application — the four steps this otherwise takes, in one call. Returns the new resume (with its full document, ready to rewrite with update_resume) and what it was based on. The base is worked out for you: the original document, favourite first, the one that has variants rather than one of the variants. Pass baseId to override that. With nothing on file yet it builds the first draft from what is on file instead of refusing, so a new person asking for a tailored resume gets one. Anything already attached to that application is replaced — the old document is not deleted, it just stops being the one on this job.",
     inputSchema: object(
       {
         applicationId: str("The job this resume is for"),
@@ -1526,12 +1568,17 @@ export const tools: McpTool[] = [
       }),
   },
   {
-    name: "diff_resume",
-    title: "What changed against the base",
+    name: "compare_resumes",
+    title: "Compare two resumes",
     description:
-      "Compare a tailored resume against the one it was copied from, and get back exactly what moved: bullets added, bullets dropped, bullets reworded (with what they used to say and how much survived), whole roles cut, sections hidden or renamed, and header fields changed. Reach for this before someone sends a tailored copy, or when they ask what they actually claimed to a company. Reordering is not reported — moving a bullet is not a change to what it says. Pass baseId to compare against a specific document instead of the recorded base; when there is no base on file the result says so rather than reporting an empty diff, which would read as 'nothing changed'.",
+      "What changed between two resumes — typically a tailored variant against the base it was duplicated from. Pass just id and it compares against the resume's recorded base (duplicate_resume sets that automatically); pass base_id to compare against any other resume. Returns the changed header fields, each section's added and removed bullets and entries, and a one-line summary like '+4 bullets · −2 bullets · summary edited'. A reworded bullet shows as one removed plus one added — old wording beside new, no similarity guessing. Read-only, nothing is written. Reach for this when the user asks what a tailored copy changed, or to review a variant with them before it goes out.",
     inputSchema: object(
-      { id: str("The tailored resume"), baseId: str("Compare against this one instead of its recorded base") },
+      {
+        id: str("The tailored resume to inspect"),
+        base_id: str(
+          "What to compare against. Defaults to the resume's own recorded base; required only when it has none or the user wants a different comparison.",
+        ),
+      },
       ["id"],
     ),
     annotations: {
@@ -1540,13 +1587,30 @@ export const tools: McpTool[] = [
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => resumes.diffResume(ctx.userId, required(args, "id"), s(args, "baseId")),
+    handler: async (args, ctx) => {
+      const variant = await resumes.getResume(ctx.userId, required(args, "id"));
+      if (!variant) throw new Error("Resume not found");
+      const baseId = s(args, "base_id") ?? variant.baseResumeId;
+      if (!baseId) {
+        throw new Error(
+          "This resume has no recorded base. Pass base_id to say what to compare it against.",
+        );
+      }
+      const base = await resumes.getResume(ctx.userId, baseId);
+      if (!base) throw new Error(`No resume with id ${baseId}`);
+      const diff = diffResumeDocs(base.doc, variant.doc);
+      return {
+        base: { id: base.id, name: base.name },
+        variant: { id: variant.id, name: variant.name },
+        ...diff,
+      };
+    },
   },
   {
     name: "set_resume_base",
     title: "Say what a resume was tailored from",
     description:
-      "Record that one resume is a tailored copy of another, so diff_resume can compare them. duplicate_resume sets this for you; this is for documents that already existed, or to re-point one. Pass an empty baseId to unlink. Refuses a loop — two resumes cannot each be the other's base — and refuses to make a resume its own base.",
+      "Record that one resume is a tailored copy of another, so compare_resumes can compare them. duplicate_resume sets this for you; this is for documents that already existed, or to re-point one. Pass an empty baseId to unlink. Refuses a loop — two resumes cannot each be the other's base — and refuses to make a resume its own base.",
     inputSchema: object(
       { id: str("The tailored resume"), baseId: str("The resume it came from, or empty to unlink") },
       ["id"],
@@ -1562,9 +1626,9 @@ export const tools: McpTool[] = [
   },
   {
     name: "trace_resume_evidence",
-    title: "Which brain material backs each bullet",
+    title: "Which of your own material backs each bullet",
     description:
-      "For every experience bullet in a resume, the brain highlights that stand behind it, best match first, plus a count of the bullets nothing backs. This is derived by comparing text, not recorded when the document was written — so treat a match as 'this claim is in your notes', not as proof of authorship. The unbacked list is the useful half: those are the lines the person cannot expand on from their own material, which is exactly what to walk through before an interview, and what to ask about before writing anything new. Never invent evidence for a bullet that has none.",
+      "For every experience bullet in a resume, the highlights from Me that stand behind it, best match first, plus a count of the bullets nothing backs. This is derived by comparing text, not recorded when the document was written — so treat a match as 'this claim is in your notes', not as proof of authorship. The unbacked list is the useful half: those are the lines the person cannot expand on from their own material, which is exactly what to walk through before an interview, and what to ask about before writing anything new. Never invent evidence for a bullet that has none.",
     inputSchema: object({ id: str("Resume id") }, ["id"]),
     annotations: {
       readOnlyHint: true,
@@ -1613,7 +1677,7 @@ export const tools: McpTool[] = [
       return {
         text: resumes.resumeToText(doc),
         estimatedLines: resumes.estimateLines(doc),
-        approxPages: Math.max(1, Math.ceil(resumes.estimateLines(doc) / 46)),
+        approxPages: resumes.estimatePages(doc),
       };
     },
   },
@@ -2727,7 +2791,7 @@ export const tools: McpTool[] = [
     name: "create_connection",
     title: "Connect another assistant",
     description:
-      "Mint a new connection URL so a second client — the laptop's editor, a phone app, a terminal — can reach this workspace too. Returns the URL and the exact steps for that client, so you can hand somebody a copy-paste answer to 'how do I add this to Cursor?'. Give every client its own rather than sharing one: that is what lets a single laptop be disconnected later without breaking everything else. The URL is a credential with full read and write over this person's brain, resumes and pipeline — say so when you hand it over, and never post it anywhere it will be stored.",
+      "Mint a new connection URL so a second client — the laptop's editor, a phone app, a terminal — can reach this workspace too. Returns the URL and the exact steps for that client, so you can hand somebody a copy-paste answer to 'how do I add this to Cursor?'. Give every client its own rather than sharing one: that is what lets a single laptop be disconnected later without breaking everything else. The URL is a credential with full read and write over this person's career history, resumes and pipeline — say so when you hand it over, and never post it anywhere it will be stored.",
     inputSchema: object({
       client: str(
         "Which client it is for: claude | claude-code | chatgpt | cursor | vscode | windsurf | generic-http | stdio-bridge | raw. Sets the setup steps returned.",
@@ -2868,7 +2932,7 @@ export const tools: McpTool[] = [
     name: "admin_list_users",
     title: "List members",
     description:
-      "Everyone on the instance with their role, whether they are active, when they last signed in, and how much they have built. Does not expose anyone's brain, resumes or applications.",
+      "Everyone on the instance with their role, whether they are active, when they last signed in, and how much they have built. Does not expose anyone's career history, resumes or applications.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
@@ -2883,7 +2947,7 @@ export const tools: McpTool[] = [
     name: "admin_user_detail",
     title: "Look up one account",
     description:
-      "Everything known about a single account, for when someone asks for help: when they joined, who invited them, whether that invitation email actually went out, when they last signed in, which assistants they have connected and when each last called, whether they are being billed, how much they have built, every administrative change made to their account, and anything the instance recorded against their address — a bounced invite, a tool call that threw. Start here before admin_reset_user_password or admin_set_user_active, because it tells you whether the problem is the account or the email. Takes a user id from admin_list_users. Returns counts of what is in their workspace, never its contents: no brain, no resumes, no applications, and never a connection token. `manageable` says whether you are allowed to act on this account at all — it is false for the instance owner, for yourself, and for another admin when you are not the owner.",
+      "Everything known about a single account, for when someone asks for help: when they joined, who invited them, whether that invitation email actually went out, when they last signed in, which assistants they have connected and when each last called, whether they are being billed, how much they have built, every administrative change made to their account, and anything the instance recorded against their address — a bounced invite, a tool call that threw. Start here before admin_reset_user_password or admin_set_user_active, because it tells you whether the problem is the account or the email. Takes a user id from admin_list_users. Returns counts of what is in their workspace, never its contents: no career history, no resumes, no applications, and never a connection token. `manageable` says whether you are allowed to act on this account at all — it is false for the instance owner, for yourself, and for another admin when you are not the owner.",
     inputSchema: object({ user_id: str("The user's id, from admin_list_users") }, ["user_id"]),
     annotations: {
       readOnlyHint: true,
@@ -2992,7 +3056,7 @@ export const tools: McpTool[] = [
     name: "admin_audit_log",
     title: "Read the admin audit log",
     description:
-      "What admins have done on this instance, newest first: invitations, role changes, suspensions, deletions, password resets, billing links and changes to the instance's own configuration, each with who did it, to whom, and when. Rows survive the deletion of the account they describe. Use it to answer 'who suspended this person', 'who changed the Resend key', or to review what happened while you were away. Narrow with group (accounts, invites, passwords, billing, settings) and search, which matches either side of a row — the admin who acted or the account acted on — and page with offset. Nothing here touches anyone's brain, resumes or applications, and a secret is recorded as having been set, never as its value.",
+      "What admins have done on this instance, newest first: invitations, role changes, suspensions, deletions, password resets, billing links and changes to the instance's own configuration, each with who did it, to whom, and when. Rows survive the deletion of the account they describe. Use it to answer 'who suspended this person', 'who changed the Resend key', or to review what happened while you were away. Narrow with group (accounts, invites, passwords, billing, settings) and search, which matches either side of a row — the admin who acted or the account acted on — and page with offset. Nothing here touches anyone's career history, resumes or applications, and a secret is recorded as having been set, never as its value.",
     inputSchema: object({
       limit: num("How many entries, newest first. Default 100, max 500."),
       offset: num("Skip this many before returning, for paging through a long log."),
@@ -3024,7 +3088,7 @@ export const tools: McpTool[] = [
     name: "admin_health",
     title: "Check whether the instance is working",
     description:
-      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's brain, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Configuration → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
+      "This is the FIRST tool to call when something is reported broken, and the one to call on a schedule if you check on this instance at all. Returns a short list of checks — database reachability and response time, whether every migration finished, whether email is configured and whether the last send actually succeeded, whether Stripe is still calling the webhook, when an assistant last made a tool call, and how many errors were recorded in the last 24 hours. Each check has a status of ok, warn or down plus a plain-language summary you can read out as-is. Nothing here touches anyone's career history, resumes or applications. A 'down' on billing usually means the signing secret in Admin → Configuration → Billing is wrong; a billing check that says Stripe has never called means the webhook endpoint was never added on Stripe's side. Follow up with admin_recent_errors for the specifics behind an error count.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
@@ -3197,7 +3261,7 @@ export const tools: McpTool[] = [
     name: "admin_delete_user",
     title: "Delete someone",
     description:
-      "PERMANENT. Removes the account and everything it owns: brain, resumes, applications. Confirm with the person you are talking to before calling this.",
+      "PERMANENT. Removes the account and everything it owns: career history, resumes, applications. Confirm with the person you are talking to before calling this.",
     inputSchema: object({ userId: str("User id") }, ["userId"]),
     annotations: {
       readOnlyHint: false,
@@ -3548,66 +3612,69 @@ ${args.job_description ?? ""}
 Work in this order:
 1. Call get_resume_format so you know the document shape.
 2. Pull out the 8-12 requirements the posting actually cares about, in priority order.
-3. For each one, call search_brain to find real evidence. Do not invent anything — if there is no evidence, say so and leave it out.
-4. Call get_brain_snapshot for the profile, dates and education you need.
+3. For each one, call search_me to find real evidence. Do not invent anything — if there is no evidence, say so and leave it out.
+4. Call get_me_snapshot for the profile, dates and education you need.
 5. Draft the document, then call preview_resume_text to check it lands near one page.
-6. Save it with create_resume, naming it "<Company> — <Role>", and set targetRole/targetCompany.
+6. Save it. If a base resume already exists (list_resumes shows one), duplicate_resume it and
+   update_resume the copy — that records the lineage, so compare_resumes can show what this
+   tailoring changed. Otherwise create_resume. Either way name it "<Company> — <Role>" and set
+   targetRole/targetCompany.
 7. Tell me what you emphasised, what you cut, and which requirements you could not evidence.
 
-Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the brain dump.
+Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the background.
 
 Finish with a gap report: which of the posting's requirements the resume evidences, which it half-covers, and which have nothing behind them. Never paper over the third list — it is what the person needs to see.`,
   },
   {
     name: "gap_report",
-    title: "Gap report: a posting against the brain",
+    title: "Gap report: a posting against Me",
     description:
-      "Before tailoring — or before deciding whether to apply at all — check a job posting against the evidence that actually exists in the brain. Returns three lists: requirements with real evidence behind them, requirements with only thin or indirect signal, and requirements with nothing. Nothing is written or saved; this is the reading that decides what happens next.",
+      "Before tailoring — or before deciding whether to apply at all — check a job posting against the evidence that actually exists in Me. Returns three lists: requirements with real evidence behind them, requirements with only thin or indirect signal, and requirements with nothing. Nothing is written or saved; this is the reading that decides what happens next.",
     arguments: [
       { name: "job_description", description: "The full job posting, or an application id whose stored posting to use" },
     ],
-    build: (args) => `Check this posting against what the brain can actually evidence.
+    build: (args) => `Check this posting against what I can actually evidence.
 
 <job_posting>
 ${args.job_description ?? "No posting pasted — if this looks like an application id, call get_application and use its jobDescription; otherwise ask for the posting."}
 </job_posting>
 
-The rule that governs everything here: nothing goes on a resume that the brain cannot back.
+The rule that governs everything here: nothing goes on a resume that the evidence in Me cannot back.
 The quiet upgrade — "helped with" becoming "led", a credit becoming a hire — is the way
 resumes actually go wrong, and this report exists to make that impossible to do by accident.
 
 1. Pull out the 8-12 requirements the posting actually rewards, in priority order. Read
    past the boilerplate: "5+ years of X" and "strong communication" matter less than the
    two or three lines that describe the actual job.
-2. For each requirement, call search_brain with the terms a person would have used when
+2. For each requirement, call search_me with the terms a person would have used when
    dumping — the tool searches raw notes, not polished bullets, so search for the work,
    not the buzzword.
 3. Sort every requirement into exactly one of three lists:
    BACKED — direct evidence exists. Quote the strongest piece and name the role it came from.
    THIN — something adjacent exists but it would be a stretch to claim the requirement
    outright. Say precisely what exists and what the gap is.
-   MISSING — the brain has nothing. Say so plainly.
+   MISSING — there is nothing on file. Say so plainly.
 4. Report the three lists in that order, then say what the report means: roughly how much
    of the posting's core is covered, and whether tailoring is worth it or the fit isn't there.
 5. For each MISSING and THIN item, ask one concrete question that would surface the
    evidence if it exists — people forget their own work constantly. Anything they answer
-   goes into the brain with append_role_brain_dump, and then it is BACKED for every future
+   goes into Me with append_role_background, and then it is BACKED for every future
    application, not just this one.
 
 Never move an item to BACKED to be encouraging. A gap named now costs a rewrite; a gap
 discovered in an interview costs the interview.`,
   },
   {
-    name: "mine_brain_dump",
-    title: "Mine a brain dump into highlights",
+    name: "mine_role_background",
+    title: "Mine a role's background into highlights",
     description:
-      "Read a role's raw brain dump and distil it into polished, reusable achievement bullets.",
+      "Read a role's raw background and distil it into polished, reusable achievement bullets.",
     arguments: [{ name: "role_id", description: "The role id to mine (omit to be asked)" }],
-    build: (args) => `Turn a raw brain dump into reusable resume bullets.
+    build: (args) => `Turn a role's raw background into reusable resume bullets.
 
 ${args.role_id ? `Use role id ${args.role_id}.` : "Call list_roles first and ask me which role to mine."}
 
-1. Call get_role to read the full brain dump.
+1. Call get_role to read the full background.
 2. Call list_highlights for that role so you do not duplicate what already exists.
 3. Extract every distinct accomplishment. For each, write one bullet: strong verb, specific scope, quantified outcome. Keep the real numbers from the dump.
 4. Rate each 1-5 on strength and tag it for retrieval.
@@ -3690,12 +3757,12 @@ Gather first:
    and the whole timeline — what has already been said matters more than the posting does.
 2. list_companies then get_company for the research on file.
 3. list_contacts for that company, so I know who I am meeting and what I know about them.
-4. search_brain for the two or three themes the posting leans on hardest, so my answers come from
+4. search_me for the two or three themes the posting leans on hardest, so my answers come from
    real work rather than from memory under pressure.
 
 Then give me:
 - The three things they most obviously care about, from the posting and the timeline together.
-- For each one, the strongest true story I have, with the specific numbers from my brain. Do not
+- For each one, the strongest true story I have, with the specific numbers from my background. Do not
   invent a metric — if the number is not on file, say the story without one and tell me to check.
 - The questions I am most likely to be asked, and the weak spots in my own history for this role.
 - Five questions worth asking them, drawn from the company research rather than generic ones.
@@ -3725,7 +3792,7 @@ If the research on file is thin, say so and offer to run research_company first.
   {
     name: "log_my_week",
     title: "Log what happened this week",
-    description: "Turn a rambling update into structured brain-dump entries and pipeline updates.",
+    description: "Turn a rambling update into structured background entries and pipeline updates.",
     arguments: [{ name: "update", description: "What happened — write it however you like", required: true }],
     build: (args) => `Here is what happened this week. File it properly.
 
@@ -3733,7 +3800,7 @@ If the research on file is thin, say so and offer to run research_company first.
 ${args.update ?? ""}
 </update>
 
-1. Anything about my current job or a past job → append_role_brain_dump on the right role (call list_roles first to find ids). Keep my numbers and specifics.
+1. Anything about my current job or a past job → append_role_background on the right role (call list_roles first to find ids). Keep my numbers and specifics.
 2. Anything that is a clean accomplishment → also create_highlights so it is resume-ready.
 3. Anything about a company I am talking to → log_activity on the application, and move_application_stage if it moved.
 4. Anything I said I would do → create_task with a due date.

@@ -96,3 +96,16 @@ export function estimateLines(doc: ResumeDoc) {
   }
   return lines;
 }
+
+/**
+ * How many estimated lines fit a US-Letter page at the default type settings.
+ * One number, used by the editor's gauge, the resume grid's page badge and the
+ * `preview_resume_text` tool — it was hardcoded in two of those before and they
+ * would have drifted.
+ */
+export const LINES_PER_PAGE = 46;
+
+/** The page count the gauge and the grid agree on. */
+export function estimatePages(doc: ResumeDoc) {
+  return Math.max(1, Math.ceil(estimateLines(doc) / LINES_PER_PAGE));
+}

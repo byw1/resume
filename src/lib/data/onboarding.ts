@@ -50,7 +50,7 @@ export async function setupStatus(userId: string): Promise<SetupStatus> {
     {
       key: "history",
       done: role !== null || highlight !== null,
-      detail: role || highlight ? "There is material to write from." : "The brain is empty.",
+      detail: role || highlight ? "There is material to write from." : "Nothing is on file yet.",
     },
     {
       key: "track",

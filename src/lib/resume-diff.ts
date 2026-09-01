@@ -1,448 +1,302 @@
-import type {
-  CustomItem,
-  EducationItem,
-  ExperienceItem,
-  ProjectItem,
-  ResumeDoc,
-  ResumeSection,
-  SectionKind,
-} from "@/lib/resume-schema";
+import type { ExperienceItem, ResumeDoc, ResumeSection } from "@/lib/resume-schema";
 
 /**
- * What changed between a base resume and the copy tailored from it.
+ * What changed between two resume documents — typically a tailored variant
+ * against the base it was duplicated from.
  *
- * Tailoring was already one click — duplicate, rewrite, send — and entirely
- * unreviewable: nothing recorded which bullets were dropped for this job or
- * what replaced them, so the question "what did I actually claim to these
- * people" had no answer but reading both documents side by side.
+ * Pure and client-safe on purpose, like resume-text.ts: the editor computes it
+ * live as you type, the grid computes it server-side for the lineage chip, and
+ * the compare_resumes tool returns it over MCP. One implementation, three
+ * surfaces.
  *
- * Pure and client-safe, for the reason src/lib/resume-text.ts records in its
- * own header: the editor is a client component and importing this from the
- * data layer would drag Prisma into the browser bundle. One definition, used
- * by the panel and by diff_resume.
+ * The comparison is exact-string on bullets. A reworded bullet therefore shows
+ * as one removed and one added, which is honest — the reader sees the old
+ * wording and the new side by side rather than a similarity score's opinion of
+ * whether they are "the same" bullet.
  */
 
-export type ChangeStatus = "added" | "removed" | "edited" | "unchanged";
-
-export type FieldChange = { field: string; from: string; to: string };
-
-export type BulletChange = {
-  status: ChangeStatus;
-  text: string;
-  /** Only on "edited": what the base said. */
-  from?: string;
-  /** Only on "edited": 0-1, how much of the original survived. */
-  similarity?: number;
-};
-
-export type EntryDiff = {
-  /** What a person calls this row: "Staff Engineer — Stripe", "MIT", "Postgres". */
+export type ResumeItemDiff = {
+  /** "Stripe — Staff Engineer" style label for the entry. */
   label: string;
-  status: ChangeStatus;
-  fields: FieldChange[];
-  bullets: BulletChange[];
+  status: "added" | "removed" | "changed";
+  bulletsAdded: string[];
+  bulletsRemoved: string[];
+  summaryChanged: boolean;
 };
 
-export type SectionDiff = {
-  kind: SectionKind;
+export type ResumeSectionDiff = {
+  kind: string;
   heading: string;
-  status: ChangeStatus;
-  renamed?: { from: string; to: string };
-  /** Showing or hiding a section is a tailoring decision, not a rendering one. */
-  visibility?: { from: boolean; to: boolean };
-  /** Summary sections only. */
-  text?: { from: string; to: string };
-  entries: EntryDiff[];
-  counts: { bulletsAdded: number; bulletsRemoved: number; bulletsEdited: number };
+  status: "added" | "removed" | "changed";
+  /** Per-entry detail for experience sections. */
+  items: ResumeItemDiff[];
+  /** For summary sections: the text differs. */
+  textChanged: boolean;
+  /** One line for the list-ish kinds (skills, education, certifications…). */
+  detail: string;
 };
 
 export type ResumeDiff = {
   identical: boolean;
-  header: FieldChange[];
-  sections: SectionDiff[];
-  totals: {
-    sectionsAdded: number;
-    sectionsRemoved: number;
-    sectionsHidden: number;
-    entriesAdded: number;
-    entriesRemoved: number;
-    bulletsAdded: number;
-    bulletsRemoved: number;
-    bulletsEdited: number;
-    headerFieldsChanged: number;
-  };
+  /** Header fields whose values differ, e.g. ["title", "location"]. */
+  headerChanged: string[];
+  sections: ResumeSectionDiff[];
+  bulletsAdded: number;
+  bulletsRemoved: number;
+  /** "+4 bullets · −2 bullets · summary edited" — or "No changes from base". */
+  summary: string;
 };
 
-/**
- * How much of one sentence survives in another, 0-1.
- *
- * Dice rather than shared-over-longest, because tailoring a bullet usually
- * makes it longer: "Ran the Postgres migration" becoming "Led the Postgres
- * migration across six services" keeps everything that mattered and scores
- * 0.43 by the longest measure, which would report a rewrite as an unrelated
- * cut and an unrelated addition.
- *
- * Exported because the evidence tracer scores a bullet against a brain
- * highlight with the same measure a rewritten bullet is paired with — one
- * definition of "these are the same sentence, reworded".
- */
-export function bulletSimilarity(a: string, b: string): number {
-  const left = tokens(a);
-  const right = tokens(b);
-  if (left.size === 0 || right.size === 0) return 0;
-  let shared = 0;
-  for (const token of left) if (right.has(token)) shared += 1;
-  return (2 * shared) / (left.size + right.size);
+/** The fallback identity for an experience entry: where, as what. */
+function companyTitleKey(item: { company: string; title: string }) {
+  return `${item.company.trim().toLowerCase()}|${item.title.trim().toLowerCase()}`;
 }
 
-function tokens(value: string): Set<string> {
-  return new Set(
-    value
-      .toLowerCase()
-      .split(/[^a-z0-9+#.]+/)
-      .filter((token) => token.length > 1),
-  );
+function experienceLabel(item: { company: string; title: string }) {
+  return [item.title, item.company].filter(Boolean).join(" — ") || "Untitled entry";
 }
 
-/**
- * Above this, a leftover removed bullet and a leftover added one are the same
- * bullet reworded rather than two separate decisions.
- */
-const EDIT_THRESHOLD = 0.5;
+/** A section's identity across the two documents: same kind, same heading. */
+function sectionKey(section: ResumeSection) {
+  return `${section.kind}|${section.heading.trim().toLowerCase()}`;
+}
 
-export function diffResumeDocs(base: ResumeDoc, tailored: ResumeDoc): ResumeDiff {
-  const header = diffFields(
-    [
-      ["Name", base.header.name, tailored.header.name],
-      ["Title", base.header.title, tailored.header.title],
-      ["Email", base.header.email, tailored.header.email],
-      ["Phone", base.header.phone, tailored.header.phone],
-      ["Location", base.header.location, tailored.header.location],
-      [
-        "Links",
-        base.header.links.map((link) => link.url).join(", "),
-        tailored.header.links.map((link) => link.url).join(", "),
-      ],
-    ],
-  );
+const cleaned = (bullets: string[]) => bullets.map((b) => b.trim()).filter(Boolean);
 
-  const sections = pairSections(base.sections, tailored.sections).map(([left, right]) =>
-    diffSection(left, right),
-  );
-
-  const totals = {
-    sectionsAdded: sections.filter((section) => section.status === "added").length,
-    sectionsRemoved: sections.filter((section) => section.status === "removed").length,
-    sectionsHidden: sections.filter((section) => section.visibility?.to === false).length,
-    entriesAdded: sections.reduce(
-      (sum, section) => sum + section.entries.filter((entry) => entry.status === "added").length,
-      0,
-    ),
-    entriesRemoved: sections.reduce(
-      (sum, section) => sum + section.entries.filter((entry) => entry.status === "removed").length,
-      0,
-    ),
-    bulletsAdded: sections.reduce((sum, section) => sum + section.counts.bulletsAdded, 0),
-    bulletsRemoved: sections.reduce((sum, section) => sum + section.counts.bulletsRemoved, 0),
-    bulletsEdited: sections.reduce((sum, section) => sum + section.counts.bulletsEdited, 0),
-    headerFieldsChanged: header.length,
+function diffBullets(base: string[], variant: string[]) {
+  const baseSet = new Set(cleaned(base));
+  const variantSet = new Set(cleaned(variant));
+  return {
+    added: [...variantSet].filter((b) => !baseSet.has(b)),
+    removed: [...baseSet].filter((b) => !variantSet.has(b)),
   };
-
-  const identical =
-    header.length === 0 &&
-    sections.every(
-      (section) =>
-        section.status === "unchanged" &&
-        !section.renamed &&
-        !section.visibility &&
-        !section.text &&
-        section.entries.every((entry) => entry.status === "unchanged"),
-    );
-
-  return { identical, header, sections, totals };
 }
 
-function diffFields(rows: [string, string, string][]): FieldChange[] {
-  return rows
-    .filter(([, from, to]) => (from ?? "") !== (to ?? ""))
-    .map(([field, from, to]) => ({ field, from, to }));
-}
-
-/**
- * Pair sections in three passes: by id, then by kind and heading, then by kind
- * in document order.
- *
- * The last two are not a nicety. RESUME_DOC_SHAPE never mentions `id`, so
- * every document an assistant writes from scratch has an empty id on every
- * section — pairing on id alone would report a completely rewritten resume.
- */
-function pairSections(
-  base: ResumeSection[],
-  tailored: ResumeSection[],
-): [ResumeSection | null, ResumeSection | null][] {
-  const pairs: [ResumeSection | null, ResumeSection | null][] = [];
-  const leftOver = [...base];
-  const takeFrom = (match: (section: ResumeSection) => boolean) => {
-    const index = leftOver.findIndex(match);
-    return index === -1 ? null : leftOver.splice(index, 1)[0];
-  };
-
-  for (const section of tailored) {
-    const found =
-      (section.id ? takeFrom((other) => other.id === section.id) : null) ??
-      takeFrom(
-        (other) =>
-          other.kind === section.kind &&
-          other.heading.trim().toLowerCase() === section.heading.trim().toLowerCase(),
-      ) ??
-      takeFrom((other) => other.kind === section.kind);
-    pairs.push([found, section]);
-  }
-  for (const section of leftOver) pairs.push([section, null]);
-  return pairs;
-}
-
-function diffSection(base: ResumeSection | null, tailored: ResumeSection | null): SectionDiff {
-  const present = (tailored ?? base) as ResumeSection;
-  const status: ChangeStatus = !base ? "added" : !tailored ? "removed" : "unchanged";
-  const entries =
-    base && tailored
-      ? diffEntries(base, tailored)
-      : listEntries(present).map((entry) => ({
-          label: entry.label,
-          status,
-          fields: [],
-          bullets: entry.bullets.map((text) => ({ status, text })),
-        }));
-
-  const counts = {
-    bulletsAdded: countBullets(entries, "added"),
-    bulletsRemoved: countBullets(entries, "removed"),
-    bulletsEdited: countBullets(entries, "edited"),
-  };
-
-  const section: SectionDiff = {
-    kind: present.kind,
-    heading: present.heading || present.kind,
-    status,
-    entries,
-    counts,
-  };
-
-  if (base && tailored) {
-    if (base.heading !== tailored.heading) {
-      section.renamed = { from: base.heading, to: tailored.heading };
-    }
-    if (base.visible !== tailored.visible) {
-      section.visibility = { from: base.visible, to: tailored.visible };
-    }
-    if (present.kind === "summary" && base.text !== tailored.text) {
-      section.text = { from: base.text, to: tailored.text };
-    }
-  }
-  return section;
-}
-
-function countBullets(entries: EntryDiff[], status: ChangeStatus): number {
-  return entries.reduce(
-    (sum, entry) => sum + entry.bullets.filter((bullet) => bullet.status === status).length,
-    0,
-  );
-}
-
-/**
- * One row of a section, reduced to what a diff needs.
- *
- * Two keys, because a document's ids are not a given: RESUME_DOC_SHAPE never
- * mentions them, so everything an assistant writes has empty ids on every
- * entry. `key` is the strongest identity available and `fallback` is what the
- * row looks like — pairing on `key` alone reported a base with ids against a
- * copy without as 100% churn.
- */
-type Entry = {
-  key: string;
-  fallback: string;
-  label: string;
-  fields: [string, string][];
-  bullets: string[];
-};
-
-function listEntries(section: ResumeSection): Entry[] {
-  const fold = (value: string) => value.trim().toLowerCase();
+/** Every printable line of a list-ish section, for a coarse entry-level diff. */
+function sectionEntries(section: ResumeSection): string[] {
   switch (section.kind) {
-    case "experience":
-      return section.experience.map((item: ExperienceItem) => ({
-        key: item.id || item.roleId || fold(`${item.company}|${item.title}`),
-        // Two stints at one employer under one title are two entries, and
-        // only the dates tell them apart. Kept beside the key rather than
-        // inside it so a copy that edited the dates still pairs.
-        fallback: fold(
-          `${item.company}|${item.title}|${item.startDate}|${item.isCurrent ? "current" : item.endDate}`,
-        ),
-        label: [item.title, item.company].filter(Boolean).join(" — ") || "Role",
-        fields: [
-          ["Company", item.company],
-          ["Title", item.title],
-          ["Location", item.location],
-          ["Dates", [item.startDate, item.isCurrent ? "Present" : item.endDate].join(" – ")],
-          ["Summary", item.summary],
-        ] as [string, string][],
-        bullets: item.bullets,
-      }));
     case "education":
-      return section.education.map((item: EducationItem) => ({
-        key: item.id || fold(`${item.school}|${item.degree}|${item.field}`),
-        fallback: fold(`${item.school}|${item.degree}|${item.field}`),
-        label: item.school || "School",
-        fields: [
-          ["Degree", item.degree],
-          ["Field", item.field],
-          ["Dates", [item.startDate, item.endDate].join(" – ")],
-        ] as [string, string][],
-        bullets: item.details,
-      }));
+      return section.education.map((e) =>
+        [e.degree, e.field, e.school].filter(Boolean).join(" · "),
+      );
     case "projects":
-      return section.projects.map((item: ProjectItem) => ({
-        key: item.id || fold(item.name),
-        fallback: fold(item.name),
-        label: item.name || "Project",
-        fields: [
-          ["Role", item.role],
-          ["Link", item.url],
-          ["Description", item.description],
-        ] as [string, string][],
-        bullets: item.bullets,
-      }));
+      return section.projects.map((p) => p.name);
     case "skills":
-      return section.skills.map((group) => ({
-        key: fold(group.name),
-        fallback: fold(group.name),
-        label: group.name || "Skills",
-        fields: [] as [string, string][],
-        bullets: group.skills,
-      }));
+      return section.skills.flatMap((g) => g.skills.map((skill) => `${g.name}: ${skill}`));
     case "certifications":
-      return section.certifications.map((item) => ({
-        key: fold(`${item.name}|${item.issuer}`),
-        fallback: fold(`${item.name}|${item.issuer}`),
-        label: item.name || "Certification",
-        fields: [
-          ["Issuer", item.issuer],
-          ["Date", item.date],
-        ] as [string, string][],
-        bullets: [] as string[],
-      }));
+      return section.certifications.map((c) => c.name);
     case "custom":
-      return section.items.map((item: CustomItem) => ({
-        key: fold(`${item.title}|${item.subtitle}`),
-        fallback: fold(`${item.title}|${item.subtitle}`),
-        label: item.title || "Item",
-        fields: [
-          ["Subtitle", item.subtitle],
-          ["Meta", item.meta],
-        ] as [string, string][],
-        bullets: item.bullets,
-      }));
-    case "summary":
+      return section.items.map((item) => item.title);
     default:
       return [];
   }
 }
 
-function diffEntries(base: ResumeSection, tailored: ResumeSection): EntryDiff[] {
-  const left = listEntries(base);
-  const right = listEntries(tailored);
-  const unmatched = [...left];
-  const out: EntryDiff[] = [];
-
-  for (const entry of right) {
-    // Three passes, same shape as pairSections: the strong key, then what the
-    // row looks like, then position within the section.
-    let index = unmatched.findIndex((other) => other.key === entry.key);
-    if (index === -1) index = unmatched.findIndex((other) => other.fallback === entry.fallback);
-    if (index === -1) {
-      const loose = unmatched.findIndex(
-        (other) => other.label.toLowerCase() === entry.label.toLowerCase(),
-      );
-      index = loose;
+export function diffResumeDocs(base: ResumeDoc, variant: ResumeDoc): ResumeDiff {
+  const headerChanged: string[] = [];
+  const baseHeader = base.header as unknown as Record<string, unknown>;
+  const variantHeader = variant.header as unknown as Record<string, unknown>;
+  for (const field of ["name", "title", "email", "phone", "location"]) {
+    if (String(baseHeader[field] ?? "") !== String(variantHeader[field] ?? "")) {
+      headerChanged.push(field);
     }
-    if (index === -1) {
-      out.push({
-        label: entry.label,
+  }
+  const linkLine = (doc: ResumeDoc) => doc.header.links.map((l) => `${l.label}|${l.url}`).join(",");
+  if (linkLine(base) !== linkLine(variant)) headerChanged.push("links");
+
+  const sections: ResumeSectionDiff[] = [];
+  let bulletsAdded = 0;
+  let bulletsRemoved = 0;
+  let summaryEdited = false;
+
+  const baseSections = new Map(base.sections.map((s) => [sectionKey(s), s]));
+  const variantSections = new Map(variant.sections.map((s) => [sectionKey(s), s]));
+
+  const blank: Omit<ResumeSectionDiff, "kind" | "heading" | "status"> = {
+    items: [],
+    textChanged: false,
+    detail: "",
+  };
+
+  for (const [key, variantSection] of variantSections) {
+    const baseSection = baseSections.get(key);
+    if (!baseSection) {
+      // A brand-new section that is hidden was never printed — not a change.
+      if (!variantSection.visible) continue;
+      const entryCount =
+        variantSection.kind === "experience"
+          ? variantSection.experience.length
+          : sectionEntries(variantSection).length;
+      sections.push({
+        ...blank,
+        kind: variantSection.kind,
+        heading: variantSection.heading,
         status: "added",
-        fields: [],
-        bullets: entry.bullets.map((text) => ({ status: "added" as const, text })),
+        detail: entryCount ? `${entryCount} ${entryCount === 1 ? "entry" : "entries"}` : "",
       });
       continue;
     }
-    const was = unmatched.splice(index, 1)[0];
-    const fields = diffFields(
-      entry.fields.map((pair, position) => [
-        pair[0],
-        was.fields[position]?.[1] ?? "",
-        pair[1],
-      ]) as [string, string, string][],
-    );
-    // A skill name is one word: pairing "Postgres" with "PostgREST" as an edit
-    // is worse than reporting both, so that section never pairs.
-    const bullets = diffBullets(was.bullets, entry.bullets, base.kind !== "skills");
-    const changed =
-      fields.length > 0 || bullets.some((bullet) => bullet.status !== "unchanged");
-    out.push({ label: entry.label, status: changed ? "edited" : "unchanged", fields, bullets });
-  }
 
-  for (const entry of unmatched) {
-    out.push({
-      label: entry.label,
-      status: "removed",
-      fields: [],
-      bullets: entry.bullets.map((text) => ({ status: "removed" as const, text })),
-    });
-  }
-  return out;
-}
-
-/**
- * Exact matches first as a multiset, so reordering reads as unchanged — the
- * person who moved a bullet knows they moved it, and reporting moves triples
- * the size of a panel whose whole job is to be scannable. Then the leftovers
- * pair greedily by similarity, and whatever is still standing is a real
- * addition or a real cut.
- */
-function diffBullets(base: string[], tailored: string[], pairEdits: boolean): BulletChange[] {
-  const pool = [...base];
-  const out: BulletChange[] = [];
-  const leftoverTailored: string[] = [];
-
-  for (const text of tailored) {
-    const index = pool.indexOf(text);
-    if (index === -1) leftoverTailored.push(text);
-    else {
-      pool.splice(index, 1);
-      out.push({ status: "unchanged", text });
-    }
-  }
-
-  if (pairEdits) {
-    for (const text of [...leftoverTailored]) {
-      let best = -1;
-      let bestScore = 0;
-      pool.forEach((candidate, index) => {
-        const score = bulletSimilarity(candidate, text);
-        if (score > bestScore) {
-          bestScore = score;
-          best = index;
-        }
+    // Visibility is a first-class tailoring move: the eye toggle changes what
+    // prints exactly as much as deleting does. The diff describes the PRINTED
+    // documents, so a flip reports as removed/added with the honest detail,
+    // and a section hidden on both sides is no diff at all, whatever its text.
+    if (!baseSection.visible && !variantSection.visible) continue;
+    if (baseSection.visible && !variantSection.visible) {
+      sections.push({
+        ...blank,
+        kind: variantSection.kind,
+        heading: variantSection.heading,
+        status: "removed",
+        detail: "hidden, not deleted",
       });
-      if (best !== -1 && bestScore >= EDIT_THRESHOLD) {
-        const from = pool.splice(best, 1)[0];
-        leftoverTailored.splice(leftoverTailored.indexOf(text), 1);
-        out.push({ status: "edited", text, from, similarity: Math.round(bestScore * 100) / 100 });
+      continue;
+    }
+    if (!baseSection.visible && variantSection.visible) {
+      sections.push({
+        ...blank,
+        kind: variantSection.kind,
+        heading: variantSection.heading,
+        status: "added",
+        detail: "shown again",
+      });
+      continue;
+    }
+
+    if (variantSection.kind === "summary") {
+      if (baseSection.text.trim() !== variantSection.text.trim()) {
+        summaryEdited = true;
+        sections.push({
+          ...blank,
+          kind: variantSection.kind,
+          heading: variantSection.heading,
+          status: "changed",
+          textChanged: true,
+        });
       }
+      continue;
+    }
+
+    if (variantSection.kind === "experience") {
+      const items: ResumeItemDiff[] = [];
+      // Two-pass matching over a POOL, not a Map: two stints at the same
+      // employer with the same title (a boomerang) must match one-to-one in
+      // order of appearance rather than collapse into whichever entry a Map
+      // kept last — that collapse made a byte-identical copy report phantom
+      // bullet changes. roleId matches first; company+title mops up, which
+      // also pairs an entry that lost or gained its roleId across the copy.
+      const basePool = [...baseSection.experience];
+      const takeBase = (predicate: (item: ExperienceItem) => boolean) => {
+        const index = basePool.findIndex(predicate);
+        return index < 0 ? null : basePool.splice(index, 1)[0];
+      };
+      const pairs = variantSection.experience.map((item) => ({
+        variant: item,
+        base: item.roleId ? takeBase((candidate) => candidate.roleId === item.roleId) : null,
+      }));
+      for (const pair of pairs) {
+        pair.base ??= takeBase(
+          (candidate) => companyTitleKey(candidate) === companyTitleKey(pair.variant),
+        );
+      }
+
+      for (const { base: baseItem, variant: item } of pairs) {
+        if (!baseItem) {
+          const added = cleaned(item.bullets);
+          bulletsAdded += added.length;
+          items.push({
+            label: experienceLabel(item),
+            status: "added",
+            bulletsAdded: added,
+            bulletsRemoved: [],
+            summaryChanged: false,
+          });
+          continue;
+        }
+        const { added, removed } = diffBullets(baseItem.bullets, item.bullets);
+        const summaryChanged = baseItem.summary.trim() !== item.summary.trim();
+        if (added.length || removed.length || summaryChanged) {
+          bulletsAdded += added.length;
+          bulletsRemoved += removed.length;
+          items.push({
+            label: experienceLabel(item),
+            status: "changed",
+            bulletsAdded: added,
+            bulletsRemoved: removed,
+            summaryChanged,
+          });
+        }
+      }
+      for (const baseItem of basePool) {
+        const removed = cleaned(baseItem.bullets);
+        bulletsRemoved += removed.length;
+        items.push({
+          label: experienceLabel(baseItem),
+          status: "removed",
+          bulletsAdded: [],
+          bulletsRemoved: removed,
+          summaryChanged: false,
+        });
+      }
+      if (items.length) {
+        sections.push({
+          ...blank,
+          kind: variantSection.kind,
+          heading: variantSection.heading,
+          status: "changed",
+          items,
+        });
+      }
+      continue;
+    }
+
+    // The list-ish kinds: education, projects, skills, certifications, custom.
+    const { added, removed } = diffBullets(sectionEntries(baseSection), sectionEntries(variantSection));
+    if (added.length || removed.length) {
+      const parts = [
+        added.length ? `+${added.length}` : "",
+        removed.length ? `−${removed.length}` : "",
+      ].filter(Boolean);
+      sections.push({
+        ...blank,
+        kind: variantSection.kind,
+        heading: variantSection.heading,
+        status: "changed",
+        detail: `${parts.join(" ")} ${added.length + removed.length === 1 ? "entry" : "entries"}`,
+      });
     }
   }
 
-  for (const text of leftoverTailored) out.push({ status: "added", text });
-  for (const text of pool) out.push({ status: "removed", text });
-  return out;
+  for (const [key, baseSection] of baseSections) {
+    // A deleted section that was already hidden changed nothing printed.
+    if (!variantSections.has(key) && baseSection.visible) {
+      sections.push({
+        ...blank,
+        kind: baseSection.kind,
+        heading: baseSection.heading,
+        status: "removed",
+      });
+    }
+  }
+
+  const identical = sections.length === 0 && headerChanged.length === 0;
+
+  const parts: string[] = [];
+  if (bulletsAdded) parts.push(`+${bulletsAdded} bullet${bulletsAdded > 1 ? "s" : ""}`);
+  if (bulletsRemoved) parts.push(`−${bulletsRemoved} bullet${bulletsRemoved > 1 ? "s" : ""}`);
+  if (summaryEdited) parts.push("summary edited");
+  const structural = sections.filter(
+    (s) => s.status !== "changed" || (s.kind !== "experience" && s.kind !== "summary"),
+  ).length;
+  if (structural) parts.push(`${structural} section${structural > 1 ? "s" : ""} changed`);
+  if (headerChanged.length) parts.push("header edited");
+
+  return {
+    identical,
+    headerChanged,
+    sections,
+    bulletsAdded,
+    bulletsRemoved,
+    summary: identical ? "No changes from base" : parts.join(" · ") || "Minor changes",
+  };
 }

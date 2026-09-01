@@ -1,12 +1,17 @@
+import { headers } from "next/headers";
 import Link from "next/link";
-import { FileTextIcon, GitBranchIcon, LinkIcon, StarIcon } from "lucide-react";
-import { PageHeader, PageShell, EmptyState } from "@/components/page-header";
-import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
-import { Lift, Stagger, StaggerItem } from "@/components/motion";
+import { FileTextIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { PageHeader, PageShell, EmptyState, SectionEmpty } from "@/components/page-header";
+import { Stagger, StaggerItem, Lift } from "@/components/motion";
+import { SearchBox } from "@/components/crm/search-box";
+import { ResumeSortSelect } from "@/components/resume/resume-sort";
 import { listResumes } from "@/lib/data/resumes";
 import { parseResumeDoc } from "@/lib/resume-schema";
+import { diffResumeDocs } from "@/lib/resume-diff";
+import { estimatePages } from "@/lib/resume-text";
 import { NewResumeDialog } from "@/components/resume/new-resume-dialog";
+import { ResumeCard } from "@/components/resume/resume-card";
 import { ResumePaper } from "@/components/resume/resume-paper";
 import { PaperThumb } from "@/components/resume/paper-thumb";
 import { db } from "@/lib/db";
@@ -14,128 +19,164 @@ import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function ResumesPage() {
+export default async function ResumesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser();
-  const [resumes, roleCount, profile] = await Promise.all([
-    listResumes(user.id),
+  const params = await searchParams;
+  const one = (key: string) => {
+    const value = params[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const q = one("q")?.trim() ?? "";
+  const sortParam = one("sort");
+  const sort = sortParam === "name" || sortParam === "used" ? sortParam : "recent";
+
+  const [resumes, roleCount, profile, headerList] = await Promise.all([
+    listResumes(user.id, { search: q, sort }),
     db.role.count({ where: { userId: user.id } }),
     // One read for the whole grid: the thumbnails all draw the same face.
     db.profile.findUnique({ where: { userId: user.id }, select: { photo: true } }),
+    headers(),
   ]);
   const photo = profile?.photo ?? "";
+
+  // For the copy-link action on published cards, built the same way the editor
+  // builds its share URL.
+  const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
+  const proto =
+    headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
+
+  // Parsed once per document: the thumbnail, the page gauge and the lineage
+  // diff all read the same object.
+  const docs = new Map(resumes.map((resume) => [resume.id, parseResumeDoc(resume.data)]));
+  const byId = new Map(resumes.map((resume) => [resume.id, resume]));
+  const variantCounts = new Map<string, number>();
+  for (const resume of resumes) {
+    if (resume.baseResumeId) {
+      variantCounts.set(resume.baseResumeId, (variantCounts.get(resume.baseResumeId) ?? 0) + 1);
+    }
+  }
+
+  // In the default view, a base is followed by its variants, so twelve
+  // near-identical thumbnails read as one family rather than a wall. A chosen
+  // sort or an active search means the person asked for a different order —
+  // honour it flat.
+  const ordered =
+    sort === "recent" && !q
+      ? (() => {
+          const out: typeof resumes = [];
+          const seen = new Set<string>();
+          for (const resume of resumes) {
+            if (seen.has(resume.id)) continue;
+            if (resume.baseResumeId && byId.has(resume.baseResumeId)) continue;
+            seen.add(resume.id);
+            out.push(resume);
+            for (const variant of resumes) {
+              if (variant.baseResumeId === resume.id && !seen.has(variant.id)) {
+                seen.add(variant.id);
+                out.push(variant);
+              }
+            }
+          }
+          for (const resume of resumes) if (!seen.has(resume.id)) out.push(resume);
+          return out;
+        })()
+      : resumes;
 
   return (
     <PageShell>
       <PageHeader
         eyebrow="Documents"
         title="Resumes"
-        description="One base resume, then a tailored variant per job. Ask Claude to build them from your brain — it will save them straight here."
-        actions={<NewResumeDialog hasBrain={roleCount > 0} />}
+        description="One base resume, then a tailored variant per job. Ask Claude to build them from what is in Me — it will save them straight here."
+        actions={<NewResumeDialog hasMaterial={roleCount > 0} />}
       />
 
-      {resumes.length === 0 ? (
+      {(resumes.length > 0 || q) && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <SearchBox placeholder="Search resumes…" className="w-full sm:w-72" />
+          <ResumeSortSelect className="ml-auto" />
+        </div>
+      )}
+
+      {resumes.length === 0 && q ? (
+        <SectionEmpty>Nothing matches “{q}”. Clear the search to see everything.</SectionEmpty>
+      ) : resumes.length === 0 ? (
         <EmptyState
           icon={FileTextIcon}
           title="No resumes yet"
           description={
             roleCount > 0
-              ? "Build one from your brain in a click, or ask Claude to tailor one to a job posting."
-              : "Add a role to your brain first, then build a resume from it."
+              ? "Build one from Me in a click, or ask Claude to tailor one to a job posting."
+              : "Already have a resume? Paste it to Claude and say \"import this\" — it fills in Me and drafts a resume in one move. Or add a role under Me by hand first."
           }
-          action={<NewResumeDialog hasBrain={roleCount > 0} />}
+          action={
+            roleCount > 0 ? (
+              <NewResumeDialog hasMaterial />
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button asChild variant="default" size="sm">
+                  <Link href="/settings?tab=connections">Connect an assistant</Link>
+                </Button>
+                <NewResumeDialog hasMaterial={false} />
+              </div>
+            )
+          }
         />
       ) : (
         <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {resumes.map((resume) => {
-            const doc = parseResumeDoc(resume.data);
+          {ordered.map((resume) => {
+            const doc = docs.get(resume.id)!;
+            const baseRow = resume.baseResumeId ? byId.get(resume.baseResumeId) : undefined;
             return (
               <StaggerItem key={resume.id}>
                 <Lift>
-                  <Link href={`/resumes/${resume.id}`} className="block">
-                    <Card className="group overflow-hidden p-0 transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
-                      {/* Live thumbnail of the actual document */}
-                      <div className="relative border-b">
-                        <PaperThumb>
-                          <ResumePaper
-                            doc={doc}
-                            settings={{
-                              template: resume.template,
-                              accent: resume.accent,
-                              fontFamily: resume.fontFamily,
-                              fontSize: resume.fontSize,
-                              lineHeight: resume.lineHeight,
-                              pageMargin: resume.pageMargin,
-                              photo: resume.showPhoto ? photo : "",
-                            }}
-                          />
-                        </PaperThumb>
-                        {/* The page is cropped, so fade the cut rather than
-                            ending it on a hard line mid-sentence. */}
-                        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-10 bg-gradient-to-t from-white to-transparent" />
-                      </div>
-
-                      <CardContent className="pt-4">
-                        <div className="flex items-start gap-2">
-                          <div className="min-w-0 flex-1">
-                            <div className="truncate text-sm font-semibold">{resume.name}</div>
-                            <div className="text-muted-foreground truncate text-xs">
-                              {[resume.targetRole, resume.targetCompany].filter(Boolean).join(" · ") ||
-                                "No target set"}
-                            </div>
-                          </div>
-                          {resume.isFavorite && (
-                            <StarIcon className="fill-primary text-primary size-3.5 shrink-0" />
-                          )}
-                        </div>
-
-                        <div className="mt-3 flex items-center gap-2">
-                          <Badge variant="secondary" className="text-[10px] capitalize">
-                            {resume.template}
-                          </Badge>
-                          {resume._count.applications > 0 && (
-                            <Badge
-                              variant="outline"
-                              className="text-[10px]"
-                              title={`Sent with ${resume._count.applications} application${resume._count.applications > 1 ? "s" : ""}`}
-                            >
-                              <LinkIcon className="size-2.5" />
-                              {resume._count.applications}
-                            </Badge>
-                          )}
-                          {/* Which of these is the original, and which were cut
-                              from it. A grid of eight documents said nothing
-                              about how they were related. */}
-                          {resume.base ? (
-                            <Badge
-                              variant="outline"
-                              className="max-w-[10rem] text-[10px]"
-                              title={`Tailored from ${resume.base.name}`}
-                            >
-                              <GitBranchIcon className="size-2.5" />
-                              <span className="truncate">{resume.base.name}</span>
-                            </Badge>
-                          ) : (
-                            resume._count.variants > 0 && (
-                              <Badge
-                                variant="outline"
-                                className="text-[10px]"
-                                title={`${resume._count.variants} tailored from this one`}
-                              >
-                                <GitBranchIcon className="size-2.5" />
-                                {resume._count.variants}
-                              </Badge>
-                            )
-                          )}
-                          <span className="text-muted-foreground ml-auto text-[11px]">
-                            {resume.updatedAt.toLocaleDateString("en-US", {
-                              month: "short",
-                              day: "numeric",
-                            })}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  </Link>
+                  <ResumeCard
+                    id={resume.id}
+                    name={resume.name}
+                    target={[resume.targetRole, resume.targetCompany].filter(Boolean).join(" · ")}
+                    template={resume.template}
+                    pages={estimatePages(doc)}
+                    publicUrl={resume.slug ? `${proto}://${host}/r/${resume.slug}` : null}
+                    photoOnPublicPage={resume.showPhoto && Boolean(photo)}
+                    applications={resume._count.applications}
+                    outcomes={resume.outcomes}
+                    lineage={
+                      resume.baseResume
+                        ? {
+                            baseId: resume.baseResume.id,
+                            baseName: resume.baseResume.name,
+                            changes: baseRow
+                              ? diffResumeDocs(docs.get(baseRow.id)!, doc).summary
+                              : "",
+                          }
+                        : null
+                    }
+                    variants={variantCounts.get(resume.id) ?? 0}
+                    isFavorite={resume.isFavorite}
+                    updatedLabel={resume.updatedAt.toLocaleDateString("en-US", {
+                      month: "short",
+                      day: "numeric",
+                    })}
+                  >
+                    <PaperThumb>
+                      <ResumePaper
+                        doc={doc}
+                        settings={{
+                          template: resume.template,
+                          accent: resume.accent,
+                          fontFamily: resume.fontFamily,
+                          fontSize: resume.fontSize,
+                          lineHeight: resume.lineHeight,
+                          pageMargin: resume.pageMargin,
+                          photo: resume.showPhoto ? photo : "",
+                        }}
+                      />
+                    </PaperThumb>
+                  </ResumeCard>
                 </Lift>
               </StaggerItem>
             );

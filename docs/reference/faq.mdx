@@ -7,11 +7,11 @@ icon: "circle-question"
 
 <AccordionGroup>
   <Accordion title="Do I have to use an AI assistant?">
-    No. The web app is complete: you can type brain dumps, edit resumes, drag cards, run
+    No. The web app is complete: you can type backgrounds, edit resumes, drag cards, run
     the CRM and never connect anything.
 
     But the product is designed around the conversation, and the two halves are not equal
-    in effort. Twenty minutes of talking produces a better brain dump than twenty minutes
+    in effort. Twenty minutes of talking produces a better background than twenty minutes
     of typing into a textarea, and "tailor this to the posting and tell me what I can't
     evidence" has no equivalent button.
   </Accordion>
@@ -72,20 +72,19 @@ icon: "circle-question"
   <Accordion title="Can I import my existing resume or LinkedIn export?">
     Yes, and it is one call. Paste the document into your assistant and say "import
     this": it reads the page and calls `import_resume` with what the document actually
-    says — a role per job with its bullets, education, skills, certifications, and the
-    raw text kept as a note so nothing a summary drops is lost. Ask for a dry run first
-    if you want to see what will land before it lands.
+    says — a role per job with its bullets, education, projects, skills and
+    certifications. Ask it to build your first resume in the same breath and it will.
 
-    It adds rather than overwrites. A job already on file is left exactly as it is, a
-    profile field you have filled in is kept, and skill lists merge — so importing the
-    same document twice writes nothing the second time.
+    It adds rather than overwrites. A job already on file at the same company, title and
+    start date is skipped, a profile field you have filled in is kept, and skill lists
+    merge — so importing the same document twice writes nothing the second time.
 
-    If you have not connected an assistant yet, the brain page has an **Import** button
-    that takes pasted text and shows you what it read before saving anything. It guesses
-    at headings, so check it; the conversation does this properly.
+    If you have not connected an assistant yet, the Me page has an **Import** button that
+    takes pasted text and shows you what it read before saving anything. It guesses at
+    headings, so check it; the conversation does this properly.
 
     Treat it as a floor rather than a ceiling. A resume is the compressed version of your
-    career; the point of the brain is to hold what compression threw away.
+    career; the point of Me is to hold what compression threw away.
   </Accordion>
 
   <Accordion title="Why the Harvard format?">
@@ -123,7 +122,7 @@ icon: "circle-question"
     On a self-hosted instance, `pg_dump` — the database is the whole thing, photos
     included, because they are stored in the owning row rather than in a file store.
 
-    From either kind of instance, `get_brain_snapshot` returns everything in the knowledge
+    From either kind of instance, `get_me_snapshot` returns everything in the knowledge
     base in one call, and `list_resumes` plus `get_resume` returns every document as JSON.
     Ask your assistant to write them to files.
   </Accordion>

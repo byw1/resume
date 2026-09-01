@@ -3154,6 +3154,194 @@ beside them to add another.
 `src/app/(app)/crm/contacts/`, `src/app/(app)/page.tsx`, `docs/concepts/crm.mdx`,
 `skills/run-the-search/SKILL.md`.
 
+## 2026-09-01 — The brain is called Me
+
+The nav had said **Me** for a while; everything behind it still said brain — the route,
+the column, five tool names, forty pages of manual and the landing page. One name in the
+product and another in every sentence about it is a tax on every future reader, so the
+rename went all the way through in one pass.
+
+**The database was left alone deliberately.** `Profile.background`, `Role.background` and
+`Project.background` are `@map("brainDump")`: the Prisma field is renamed, the column is
+not. There is no migration, no drift, and no self-hoster has to take a schema change to
+follow a vocabulary change. If a later migration ever renames the columns for real, it
+can — nothing above the data layer knows the old name any more.
+
+**"Me dump" is not a phrase, so the raw text became the background.** "Notes" was the
+natural English and was rejected: `Note` is already a model with its own tools, and
+`append_role_notes` sitting next to `create_note` is exactly the ambiguity that makes an
+assistant pick the wrong one. Everything the field touches follows it — the card titles,
+`append_role_background`, `include_background`, `mine_role_background`.
+
+**Tools renamed, arguments included:** `search_brain` → `search_me`, `get_brain_snapshot`
+→ `get_me_snapshot`, `append_role_brain_dump` → `append_role_background`,
+`include_brain_dumps` → `include_background`, `mine_brain_dump` → `mine_role_background`,
+`brainDump` → `background`, `seedFromBrain` → `seedFromMe`. Tool names are resolved live
+from `tools/list`, so a connected client picks the new ones up on its next session — but
+a prompt somebody saved that names `search_brain` will not, which is the one real cost and
+was taken knowingly.
+
+**"Me" works as a proper noun and not as a possessive.** "Search Me", "nothing goes on a
+resume that the evidence in Me cannot back", "filling in Me" all read. "Does not expose
+anyone's Me" does not, so the privacy and admin sentences — which were listing the three
+things an admin cannot see — say **career history** instead. It is descriptive rather
+than a section name, which is what those sentences needed anyway.
+
+**`/brain` redirects permanently to `/me`, and `/brain/:path*` with it.** Claude has been
+handing out `/brain/<roleId>` links since the first release and they are in people's
+history; a 404 on somebody's own record is the worst possible outcome of a rename.
+
+**Applies to:** `prisma/schema.prisma`, `next.config.ts`, `src/lib/data/me.ts` (was
+`brain.ts`), `src/lib/data/resumes.ts`, `src/lib/mcp/{tools,handler,clients}.ts`,
+`src/server/actions.ts`, `src/app/(app)/me/` (was `brain/`), `src/components/me/` (was
+`brain/`), `tools/gen-tool-docs.mjs`, all of `docs/` (`concepts/me`, `tools/me`,
+`guides/fill-in-me` renamed), `skills/`, `site/index.html`, `README.md`, `CLAUDE.md`.
+---
+
+## 2026-09-01 — The resume grid learns to answer, and a paste fills in Me
+
+**The cards got the answers; the thumbnail stopped being the message.** Page count (the
+editor's own gauge), a Live badge, the actions that used to need the editor open, an
+application count that links to `/applications?cv=<id>` (the filter already existed), and
+the outcome line. The card also stopped being one big `<Link>` — the star, the menu and
+the badges are controls, and nesting controls in an anchor is how clicking "delete" also
+navigates. Thumbnail and title navigate; everything else acts.
+
+**LINES_PER_PAGE lived in two places and now lives in one.** The editor hardcoded 46 and
+`preview_resume_text` hardcoded 46 separately. It is exported from `resume-text.ts` now,
+with `estimatePages` beside it, because the grid became a third consumer and three copies
+of a magic number is how gauges start disagreeing.
+
+**Outcomes count the timeline, not just the current stage.** An application's `stage` is
+where it is now; most applications that interviewed are now REJECTED or GHOSTED, and a
+current-stage-only count would have called every effective resume a failure. So a resume's
+`interviewed` counts stage ∈ screen-or-later OR an INTERVIEW activity OR a STAGE_CHANGE
+whose `toStage` reached one — computed in `listResumes` in the data layer, so the card and
+the tool cannot diverge. Honest limit: a stage move logged before `fromStage`/`toStage`
+existed, with no INTERVIEW activity, is invisible to it.
+
+**Lineage flattens to the root.** `Resume.baseResumeId` is set by `duplicateResume` as
+`source.baseResumeId ?? source.id`: a copy of a variant points at the base, not at the
+variant, because the grid and the diff only ever show one level and a chain would rot the
+moment a middle link was deleted. SET NULL on delete — losing the base makes variants
+standalone, it does not delete tailored work. `create_resume` accepts `baseResumeId` but
+validates it against the caller's own resumes first: the FK alone would happily cross
+tenants.
+
+**The diff is exact-string on purpose.** A reworded bullet shows as one removed plus one
+added — old wording beside new — rather than a similarity metric deciding what counts as
+"the same" bullet. `resume-diff.ts` sits next to `resume-text.ts` outside `src/lib/data/`
+for the same reason that file does: the editor computes it client-side as you type.
+
+**Import is additive or it is dangerous.** `importResume` fills only empty profile fields
+and skips any role (company+title), education (school+degree), project or certification
+(name) that already exists — so a second import of the same document is a no-op, not a
+duplicated history. Skill groups union instead, because "Languages" existing is no reason
+to drop three new languages. One transaction; the summary lists created vs skipped. The
+parser is the assistant, not the server: the tool takes the structured payload, and the
+description carries the no-fabrication rule. The EMPTY_WORKSPACE briefing in `handler.ts`
+said "there is no import tool" — updated, and that sentence is the kind that goes stale
+silently: it duplicates a fact the tools array owns.
+
+**gen-tool-docs maps pages by contiguous ranges of the tools array.** `SECTIONS` pins each
+docs page to a `first`/`last` tool name; adding `import_resume` at the end of the Me
+area meant bumping that page's `last` or the generator throws. A new tool inserted at an
+area boundary will hit this every time — the error message says exactly what it expected.
+
+**The README's tool count was already five stale before this batch.** It said 80/110 while
+the generator said 85/115. Set to the generated 87/117 now. The count appears twice in the
+README (lines ~45 and ~214), not three times as `mcp-tool`'s skill doc remembers.
+
+**Applies to:** `prisma/schema.prisma`, `prisma/migrations/20250124000000_resume_lineage/`,
+`src/lib/data/{resumes,me}.ts`, `src/lib/{resume-text,resume-diff}.ts`,
+`src/lib/mcp/{tools,handler}.ts`, `src/app/(app)/resumes/`, `src/components/resume/`,
+`tools/gen-tool-docs.mjs`, `README.md`, `docs/tools/`.
+
+---
+
+## 2026-09-01 — What the adversarial pass found in the resume batch
+
+Five review lenses (logic, tenant, UI, MCP surface, data/migration) with three verifying
+skeptics per finding, plus a live run of the whole data path — every migration applied to a
+throwaway Postgres 16, then import/lineage/outcomes/search exercised for real across two
+tenants. Six distinct findings survived verification; all fixed, all covered by the live
+checks now.
+
+**Import's dedupe key was eating boomerang careers.** company|title as the whole identity
+meant a resume listing two stints at one employer lost the second ON FIRST IMPORT — data
+loss in the one tool whose promise is "nothing is lost". The date is part of a stint's
+identity now: within a payload, company|title|startDate; against existing rows, skip only
+when dates match or either side has none. Education keys gained field for the same reason
+(two degree-less certificates at one school). The lesson generalises: a dedupe key is a
+claim about what makes two things the same, and "same employer, same title" is not it.
+
+**The diff answered a question nobody asked.** It compared the stored documents; the person
+asks about the printed ones. section.visible is a first-class tailoring move (the eye
+toggle, and update_resume's own description recommends it), so hiding a section now reports
+as removed ("hidden, not deleted"), unhiding as added, and edits inside a section hidden on
+both sides as nothing at all.
+
+**A Map is the wrong container for a multiset.** Keying base experience entries by
+company|title collapsed two same-key stints into whichever the Map kept last, so a
+byte-identical copy reported phantom bullet diffs. Matching is a two-pass pool now: roleId
+first, then company+title in order of appearance — which also pairs an entry that lost or
+gained its roleId across a copy.
+
+**idempotentHint is a promise about the whole call.** import_resume's Me half was
+genuinely idempotent while create_base_resume minted a new "Base resume" per retry. It
+reuses an existing resume of that name now. If one branch of a handler breaks an
+annotation, the annotation is wrong, not nearly-right.
+
+**?new=1 plus URL-writing controls is a reopen loop.** The dialog's effect fired on every
+params identity change; harmless while nothing on /resumes wrote the URL, a reopen-on-
+every-keystroke the moment search did. The flag is consumed on first open. Any future
+"open X via query param" effect on a page with a toolbar needs the same consume.
+
+**The 5s interactive-transaction default is sized for none of this.** A full-career import
+is dozens of round trips; importResume now batches highlights per role (createMany) and
+passes timeout: 60s. Also from the pass: fractional bullet strength is rounded rather than
+rolling the whole import back; an OFFER activity counts as interview evidence (offers ⊆
+interviewed, always); deleteResumeAction only redirects from the editor, so deleting from
+the grid keeps the search and sort; pickers use listResumeNames instead of paying
+listResumes' new outcomes join; and the README carried a THIRD hand-written count at line
+~364 that both CLAUDE.md and the mcp-tool skill misremember as three-elsewhere — it is
+lines ~45, ~214 and ~364.
+
+**Applies to:** `src/lib/data/{me,resumes}.ts`, `src/lib/resume-diff.ts`,
+`src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/resume/{resume-card,new-resume-dialog}.tsx`,
+`src/app/(app)/applications/`, `README.md`.
+
+---
+
+## 2026-09-01 — Merging the resume batch across the Me rename
+
+Two branches touched the same eight files: the resume-page batch and the brain→Me
+vocabulary rename. Notes from resolving it, because the same shape will recur.
+
+**A rename lands as conflicts in the diff and silence everywhere else.** Git resolved most
+files cleanly and left code that compiled against a vocabulary that no longer exists —
+`importBrain` writing `brainDump`, `create_resume` called with `seedFromBrain`, a tool
+description telling assistants to call `search_brain`. The conflict markers were the small
+half of the job; the grep for every retired term across the added code was the real one.
+`npx prisma generate` first, per the working agreement — the stale client reported
+`background` missing on Role, which reads like the merge broke the schema when it only
+meant the client predated it.
+
+**The import API took the new vocabulary, not a translation layer.** `importBrain` →
+`importResume` in `me.ts`, `BrainImport*` → `ResumeImport*`, and the role payload's
+`brainDump` argument → `background`, matching `append_role_background` and the `@map`ped
+column. The tool is `import_resume`, so the data function it calls is `importResume`: one
+name for one thing, which is the whole point of the rename it merged into.
+
+**The generated pages were regenerated, not merged.** `docs/tools/{overview,resumes}.mdx`
+conflicted; both sides were machine output. Taking main's copy and re-running
+`gen-tool-docs.mjs` is the only resolution that cannot be subtly wrong. `SECTIONS` needed
+both halves — main's renamed `me.mdx` page, this branch's `last: "import_resume"`.
+
+**Applies to:** the merge commit, `src/lib/data/me.ts`, `src/lib/mcp/{tools,handler}.ts`,
+`src/lib/data/resumes.ts`, `src/app/(app)/resumes/page.tsx`, `tools/gen-tool-docs.mjs`,
+`docs/tools/`.
 ---
 
 ## 2026-09-01 — Eleven improvements, and what the review found in them
@@ -3245,8 +3433,22 @@ critic found six more, including the wishlist badge contradicting the rule modul
 files away. Two were mine to have caught by reading (the pluralised toast, the frontmatter
 count); the rest needed either a probe or a second pair of eyes.
 
-**Applies to:** `src/lib/{quiet,quick-log,resume-diff,resume-parse}.ts`,
-`src/lib/data/{brain,resumes,pipeline,onboarding}.ts`, `src/lib/mcp/{tools,handler}.ts`,
+**Applies to:** `src/lib/{quiet,quick-log,resume-parse}.ts`,
+`src/lib/data/{me,resumes,pipeline,onboarding}.ts`, `src/lib/mcp/{tools,handler}.ts`,
 `src/server/actions.ts`, `src/hooks/use-keyboard-nav.ts`, `src/components/` (board, list,
-application-actions, command-palette, changes-panel, import-dialog, quick-log, setup-strip),
-`prisma/migrations/20250124000000_resume_lineage/`, and the manual.
+application-actions, command-palette, evidence-panel, import-dialog, quick-log,
+setup-strip), and the manual.
+
+**Postscript, written at the merge.** Main built import and lineage in parallel with this
+branch, and main is what is deployed. So main's `import_resume`, its `resume-diff.ts`, its
+`compare_resumes` and its already-applied `20250124000000_resume_lineage` migration are
+what survived; this branch's equivalents were dropped rather than reconciled, because two
+implementations of one feature is worse than either. What was kept from here is what main
+had no answer for: `trace_resume_evidence` and the evidence panel (main compares two
+documents; this says what backs a claim), `set_resume_base` for a document that was not
+made by duplicating one, `tailor_resume_for_application`, and the paste-and-correct dialog
+for somebody who has not connected an assistant yet — rewired to call main's `importResume`
+so there is still one filing path. Two lessons worth the space: a migration directory name
+is a shared namespace, and the file has to match the one already applied byte for byte;
+and when two branches solve the same problem, the one that shipped wins even when the other
+is more thorough, because the diff nobody can review is the one that breaks.

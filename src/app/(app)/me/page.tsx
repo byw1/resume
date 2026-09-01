@@ -1,4 +1,4 @@
-import { BrainIcon } from "lucide-react";
+import { CircleUserRoundIcon } from "lucide-react";
 import { PageHeader, PageShell } from "@/components/page-header";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { FadeIn } from "@/components/motion";
@@ -10,18 +10,18 @@ import {
   listProjects,
   listRoles,
   listSkillGroups,
-} from "@/lib/data/brain";
+} from "@/lib/data/me";
 import { requireUser } from "@/lib/auth";
-import { RolesPanel } from "@/components/brain/roles-panel";
-import { ProfileForm } from "@/components/brain/profile-form";
-import { NotesPanel } from "@/components/brain/notes-panel";
-import { ExtrasPanel } from "@/components/brain/extras-panel";
-import { ImportDialog } from "@/components/brain/import-dialog";
-import { NewRoleDialog } from "@/components/brain/new-role-dialog";
+import { RolesPanel } from "@/components/me/roles-panel";
+import { ProfileForm } from "@/components/me/profile-form";
+import { NotesPanel } from "@/components/me/notes-panel";
+import { ExtrasPanel } from "@/components/me/extras-panel";
+import { ImportDialog } from "@/components/me/import-dialog";
+import { NewRoleDialog } from "@/components/me/new-role-dialog";
 
 export const dynamic = "force-dynamic";
 
-export default async function BrainPage() {
+export default async function MePage() {
   const user = await requireUser();
   const [profile, roles, notes, education, projects, skills, certifications] = await Promise.all([
     getProfile(user.id),
@@ -37,7 +37,7 @@ export default async function BrainPage() {
     <PageShell>
       <PageHeader
         eyebrow="Me"
-        title="Your brain"
+        title="Everything about you"
         description="Everything you know about your own career. Dump it here raw and unfiltered — length is a feature. Claude reads all of it when it writes."
         actions={
           <>
@@ -50,7 +50,7 @@ export default async function BrainPage() {
       <Tabs defaultValue="roles">
         <TabsList className="mb-6">
           <TabsTrigger value="roles">
-            <BrainIcon /> Roles
+            <CircleUserRoundIcon /> Roles
             <span className="text-muted-foreground ml-1 text-xs tabular-nums">{roles.length}</span>
           </TabsTrigger>
           <TabsTrigger value="profile">Profile</TabsTrigger>
@@ -73,7 +73,7 @@ export default async function BrainPage() {
               isCurrent: role.isCurrent,
               summary: role.summary,
               tags: role.tags,
-              dumpLength: role.brainDump.length,
+              backgroundLength: role.background.length,
               highlightCount: role._count.highlights,
             }))}
           />

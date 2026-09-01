@@ -5,7 +5,7 @@ import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
 import { readQuickLog } from "@/lib/quick-log";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
-/** Like brain.ts: userId is the required first argument on every query. */
+/** Like me.ts: userId is the required first argument on every query. */
 
 export const STAGES: Stage[] = [
   "WISHLIST",

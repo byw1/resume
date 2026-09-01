@@ -3,12 +3,12 @@
 import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
-  BrainIcon,
-  CircleUserRoundIcon,
   BuildingIcon,
   ClockIcon,
   CheckIcon,
   ExternalLinkIcon,
+  BriefcaseIcon,
+  CircleUserRoundIcon,
   FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
@@ -220,7 +220,7 @@ export function CommandPalette({
               <CommandItem value="go-dashboard" onSelect={() => go("/")}>
                 <LayoutDashboardIcon /> Dashboard
               </CommandItem>
-              <CommandItem value="go-brain" onSelect={() => go("/brain")}>
+              <CommandItem value="go-me" onSelect={() => go("/me")}>
                 <CircleUserRoundIcon /> Me
               </CommandItem>
               <CommandItem value="go-resumes" onSelect={() => go("/resumes")}>
@@ -244,7 +244,7 @@ export function CommandPalette({
             <CommandSeparator />
 
             <CommandGroup heading="Create">
-              <CommandItem value="new-role" onSelect={() => go("/brain?new=role")}>
+              <CommandItem value="new-role" onSelect={() => go("/me?new=role")}>
                 <PlusIcon /> New role
               </CommandItem>
               <CommandItem value="new-resume" onSelect={() => go("/resumes?new=1")}>
@@ -253,7 +253,7 @@ export function CommandPalette({
               <CommandItem value="new-application" onSelect={() => go("/applications?new=1")}>
                 <PlusIcon /> Track a new job
               </CommandItem>
-              <CommandItem value="new-import" onSelect={() => go("/brain?import=1")}>
+              <CommandItem value="new-import" onSelect={() => go("/me?import=1")}>
                 <PlusIcon /> Import a resume
               </CommandItem>
             </CommandGroup>
@@ -344,9 +344,9 @@ export function CommandPalette({
                     <CommandItem
                       key={item.id}
                       value={`role-${item.id} ${item.label} ${item.sub}`}
-                      onSelect={() => go(`/brain/${item.id}`)}
+                      onSelect={() => go(`/me/${item.id}`)}
                     >
-                      <BrainIcon />
+                      <BriefcaseIcon />
                       <span>{item.label}</span>
                       <span className="text-muted-foreground ml-auto text-xs">{item.sub}</span>
                     </CommandItem>

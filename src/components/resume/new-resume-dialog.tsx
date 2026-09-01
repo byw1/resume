@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { BrainIcon, FilePlus2Icon, LoaderCircleIcon, PlusIcon } from "lucide-react";
+import { CircleUserRoundIcon, FilePlus2Icon, LoaderCircleIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -18,6 +18,9 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { createResumeAction } from "@/server/actions";
+import { PaperThumb } from "@/components/resume/paper-thumb";
+import { ResumePaper } from "@/components/resume/resume-paper";
+import { parseResumeDoc } from "@/lib/resume-schema";
 
 const TEMPLATES = [
   { key: "harvard", name: "Harvard", hint: "The OCS standard. Recruiter-proof." },
@@ -27,9 +30,74 @@ const TEMPLATES = [
   { key: "editorial", name: "Editorial", hint: "Big name, lots of air" },
 ];
 
+/**
+ * One canned document, rendered through the real ResumePaper for each template
+ * button — the picker shows the actual layouts, not adjectives about them.
+ * Tiny type is fine: the silhouette is what differs between templates.
+ */
+const SAMPLE_DOC = parseResumeDoc({
+  header: {
+    name: "Avery Reyes",
+    title: "Product Engineer",
+    email: "avery@example.com",
+    phone: "555 010 1234",
+    location: "Portland, OR",
+  },
+  sections: [
+    {
+      id: "smp-summary",
+      kind: "summary",
+      heading: "Summary",
+      text: "Engineer of eight years, most of it on billing and payments systems for small teams.",
+    },
+    {
+      id: "smp-experience",
+      kind: "experience",
+      heading: "Experience",
+      experience: [
+        {
+          id: "smp-exp-1",
+          company: "Meridian",
+          title: "Senior Engineer",
+          location: "Portland, OR",
+          startDate: "2021-03",
+          isCurrent: true,
+          bullets: [
+            "Led the move to usage-based billing, cutting invoice errors 38%",
+            "Mentored four engineers through their first production launches",
+          ],
+        },
+        {
+          id: "smp-exp-2",
+          company: "Fieldnote",
+          title: "Engineer",
+          startDate: "2018-01",
+          endDate: "2021-02",
+          bullets: ["Built the sync layer every offline customer depends on"],
+        },
+      ],
+    },
+    {
+      id: "smp-education",
+      kind: "education",
+      heading: "Education",
+      education: [
+        {
+          id: "smp-edu-1",
+          school: "University of Oregon",
+          degree: "BSc",
+          field: "Computer Science",
+          startDate: "2012-09",
+          endDate: "2016-06",
+        },
+      ],
+    },
+  ],
+});
+
 const ACCENTS = ["#000000", "#B30000", "#0C5B97", "#1f2937", "#6366f1", "#0ea5e9"];
 
-export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
+export function NewResumeDialog({ hasMaterial }: { hasMaterial: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -40,19 +108,26 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
     targetCompany: "",
     template: "harvard",
     accent: ACCENTS[0],
-    seedFromBrain: true,
+    seedFromMe: true,
   });
 
   useEffect(() => {
-    if (params.get("new")) setOpen(true);
-  }, [params]);
+    if (!params.get("new")) return;
+    setOpen(true);
+    // Consume the flag: the search box and sort control on this page rewrite
+    // the query string, and a ?new that lingers would reopen the dialog on
+    // every one of those rewrites.
+    const next = new URLSearchParams(params.toString());
+    next.delete("new");
+    router.replace(next.toString() ? `?${next}` : "?", { scroll: false });
+  }, [params, router]);
 
   const submit = () => {
     startTransition(async () => {
       const id = await createResumeAction({
         ...form,
         name: form.name.trim() || suggestName(form),
-        seedFromBrain: form.seedFromBrain && hasBrain,
+        seedFromMe: form.seedFromMe && hasMaterial,
       });
       setOpen(false);
       toast.success("Resume created");
@@ -71,7 +146,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
         <DialogHeader>
           <DialogTitle>New resume</DialogTitle>
           <DialogDescription>
-            Start from your brain and edit, or start blank and fill it in.
+            Start from what is in Me and edit, or start blank and fill it in.
           </DialogDescription>
         </DialogHeader>
 
@@ -107,20 +182,40 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
 
           <div className="space-y-2">
             <Label>Template</Label>
-            <div className="grid grid-cols-2 gap-2">
+            <div className="grid grid-cols-3 gap-2">
               {TEMPLATES.map((template) => (
                 <button
                   key={template.key}
                   onClick={() => setForm({ ...form, template: template.key })}
+                  aria-pressed={form.template === template.key}
                   className={cn(
-                    "rounded-lg border px-3 py-2 text-left transition-all",
+                    "overflow-hidden rounded-lg border text-left transition-all",
                     form.template === template.key
-                      ? "border-primary bg-primary/8 ring-primary/25 ring-2"
-                      : "hover:border-primary/30 hover:bg-accent/50",
+                      ? "border-primary ring-primary/25 ring-2"
+                      : "hover:border-primary/30",
                   )}
                 >
-                  <div className="text-[13px] font-medium">{template.name}</div>
-                  <div className="text-muted-foreground text-[11px]">{template.hint}</div>
+                  <div className="pointer-events-none">
+                    <PaperThumb className="aspect-[17/20]">
+                      <ResumePaper
+                        doc={SAMPLE_DOC}
+                        settings={{
+                          template: template.key,
+                          accent: form.accent,
+                          fontFamily: "serif",
+                          fontSize: 10,
+                          lineHeight: 1.2,
+                          pageMargin: 40,
+                        }}
+                      />
+                    </PaperThumb>
+                  </div>
+                  <div className="border-t px-2 py-1.5">
+                    <div className="text-[12px] font-medium">{template.name}</div>
+                    <div className="text-muted-foreground text-[10px] leading-tight">
+                      {template.hint}
+                    </div>
+                  </div>
                 </button>
               ))}
             </div>
@@ -144,27 +239,27 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
             </div>
           </div>
 
-          {hasBrain && (
+          {hasMaterial && (
             <button
-              onClick={() => setForm({ ...form, seedFromBrain: !form.seedFromBrain })}
+              onClick={() => setForm({ ...form, seedFromMe: !form.seedFromMe })}
               className={cn(
                 "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
-                form.seedFromBrain
+                form.seedFromMe
                   ? "border-primary bg-primary/8"
                   : "hover:border-primary/30 hover:bg-accent/50",
               )}
             >
-              {form.seedFromBrain ? (
-                <BrainIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+              {form.seedFromMe ? (
+                <CircleUserRoundIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               ) : (
                 <FilePlus2Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               )}
               <div>
                 <div className="text-[13px] font-medium">
-                  {form.seedFromBrain ? "Build from my brain" : "Start blank"}
+                  {form.seedFromMe ? "Build from Me" : "Start blank"}
                 </div>
                 <div className="text-muted-foreground text-[11px]">
-                  {form.seedFromBrain
+                  {form.seedFromMe
                     ? "Pulls in every role, its strongest highlights, education and skills."
                     : "An empty document you fill in yourself."}
                 </div>

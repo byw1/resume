@@ -1,7 +1,7 @@
 ---
 title: "Resume tools"
 sidebarTitle: "Resumes"
-description: "Fifteen tools for writing documents, checking their length before saving, publishing them to a link and exporting real PDFs."
+description: "Twelve tools for writing documents, checking their length before saving, comparing a tailored variant against its base, publishing them to a link and exporting real PDFs."
 icon: "file-lines"
 ---
 
@@ -18,6 +18,11 @@ so what you build validates the first time.
 Two dry runs are worth knowing about: `preview_resume_text` renders and estimates length
 without saving anything, and `export_resume_pdf` reports the page count measured from the
 rendered document rather than estimated.
+
+Tailoring keeps a trail. `duplicate_resume` records which resume the copy came from, so
+`compare_resumes` can say exactly what a variant changed — bullets added, dropped and
+reworded, sections hidden — and `list_resumes` carries each resume's track record: how many
+applications went out with it, how many reached an interview, how many reached an offer.
 
 [The document contract →](/concepts/resumes) · [Publishing and exporting →](/guides/publish-and-export)
 
@@ -39,9 +44,11 @@ No arguments.
 
 _List resumes_
 
-All saved resumes with their target role/company, how many applications each is attached to, how many tailored variants came off each one, what each was itself tailored from, and publicUrl — the shareable link, or null if that resume isn't published. The one with variants and no base of its own is almost always the base document someone means by 'my resume'.
+All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published. Each row carries outcomes: how many applications sent with it actually went out, how many reached at least a screen, and how many reached an offer — so this is the tool that answers 'which resume is working?'. Interview and offer counts include applications that got there and later closed, not just where things stand today. Favourites come first, then most recently updated. Pass search to narrow by name, target role or target company when the user names a specific one — 'my Stripe resume' is a search, not a reason to fetch everything.
 
-No arguments.
+| Argument | Type | |
+| --- | --- | --- |
+| `search` | string | Case-insensitive filter on name, target role and target company. Omit for all. |
 
 ### `get_resume`
 
@@ -58,7 +65,7 @@ Fetch one resume: its settings, its full document JSON, publicUrl — the sharea
 
 _Create a resume_
 
-Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.
+Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromMe: true to auto-populate a first draft from Me and then refine it with update_resume.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -72,8 +79,9 @@ Create a resume. Either pass a complete `data` document you have written (call g
 | `lineHeight` | number | Line height, 1.15-1.6. Default 1.2. |
 | `notes` | string | Private notes about this version — what you tailored and why |
 | `showPhoto` | boolean | Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does. |
-| `seedFromBrain` | boolean | Auto-build a first draft from the knowledge base |
-| `data` | object | The full resume document. See get_resume_format for the exact shape. Omit if using seedFromBrain. |
+| `seedFromMe` | boolean | Auto-build a first draft from the knowledge base |
+| `baseResumeId` | string | Id of the resume this one was tailored from, if any. Records lineage so compare_resumes can show what changed. duplicate_resume sets this automatically — prefer it when the variant starts from an existing document. |
+| `data` | object | The full resume document. See get_resume_format for the exact shape. Omit if using seedFromMe. |
 
 ### `update_resume`
 
@@ -135,7 +143,7 @@ Turn off a resume's public link. Reach for this when the user is done with a lin
 
 _Duplicate a resume_
 
-Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy remembers what it came from, so diff_resume can later show exactly what you changed for that job — which is what makes a tailored resume reviewable rather than just different.
+Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy records which resume it came from (baseResumeId), so after tailoring, compare_resumes can show exactly what changed — prefer this over building a tailored document with create_resume from scratch, which loses that trail unless you pass baseResumeId yourself.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -146,7 +154,7 @@ Copy an existing resume so you can tailor a variant without losing the original.
 
 _Start a tailored resume for one job_
 
-Copy the base resume, name it for the job, point it at that company and role, and attach it to the application — the four steps this otherwise takes, in one call. Returns the new resume (with its full document, ready to rewrite with update_resume) and what it was based on. The base is worked out for you: the original document, favourite first, the one that has variants rather than one of the variants. Pass baseId to override that. With nothing on file yet it builds the first draft from the brain instead of refusing, so a new person asking for a tailored resume gets one. Anything already attached to that application is replaced — the old document is not deleted, it just stops being the one on this job.
+Copy the base resume, name it for the job, point it at that company and role, and attach it to the application — the four steps this otherwise takes, in one call. Returns the new resume (with its full document, ready to rewrite with update_resume) and what it was based on. The base is worked out for you: the original document, favourite first, the one that has variants rather than one of the variants. Pass baseId to override that. With nothing on file yet it builds the first draft from what is on file instead of refusing, so a new person asking for a tailored resume gets one. Anything already attached to that application is replaced — the old document is not deleted, it just stops being the one on this job.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -154,22 +162,22 @@ Copy the base resume, name it for the job, point it at that company and role, an
 | `baseId` | string | Copy this resume instead of the one picked for you |
 | `name` | string | Name for the copy. Defaults to 'Company — Role'. |
 
-### `diff_resume`
+### `compare_resumes`
 
-_What changed against the base_
+_Compare two resumes_
 
-Compare a tailored resume against the one it was copied from, and get back exactly what moved: bullets added, bullets dropped, bullets reworded (with what they used to say and how much survived), whole roles cut, sections hidden or renamed, and header fields changed. Reach for this before someone sends a tailored copy, or when they ask what they actually claimed to a company. Reordering is not reported — moving a bullet is not a change to what it says. Pass baseId to compare against a specific document instead of the recorded base; when there is no base on file the result says so rather than reporting an empty diff, which would read as 'nothing changed'.
+What changed between two resumes — typically a tailored variant against the base it was duplicated from. Pass just id and it compares against the resume's recorded base (duplicate_resume sets that automatically); pass base_id to compare against any other resume. Returns the changed header fields, each section's added and removed bullets and entries, and a one-line summary like '+4 bullets · −2 bullets · summary edited'. A reworded bullet shows as one removed plus one added — old wording beside new, no similarity guessing. Read-only, nothing is written. Reach for this when the user asks what a tailored copy changed, or to review a variant with them before it goes out.
 
 | Argument | Type | |
 | --- | --- | --- |
-| `id` | string | **required** — The tailored resume |
-| `baseId` | string | Compare against this one instead of its recorded base |
+| `id` | string | **required** — The tailored resume to inspect |
+| `base_id` | string | What to compare against. Defaults to the resume's own recorded base; required only when it has none or the user wants a different comparison. |
 
 ### `set_resume_base`
 
 _Say what a resume was tailored from_
 
-Record that one resume is a tailored copy of another, so diff_resume can compare them. duplicate_resume sets this for you; this is for documents that already existed, or to re-point one. Pass an empty baseId to unlink. Refuses a loop — two resumes cannot each be the other's base — and refuses to make a resume its own base.
+Record that one resume is a tailored copy of another, so compare_resumes can compare them. duplicate_resume sets this for you; this is for documents that already existed, or to re-point one. Pass an empty baseId to unlink. Refuses a loop — two resumes cannot each be the other's base — and refuses to make a resume its own base.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -178,9 +186,9 @@ Record that one resume is a tailored copy of another, so diff_resume can compare
 
 ### `trace_resume_evidence`
 
-_Which brain material backs each bullet_
+_Which of your own material backs each bullet_
 
-For every experience bullet in a resume, the brain highlights that stand behind it, best match first, plus a count of the bullets nothing backs. This is derived by comparing text, not recorded when the document was written — so treat a match as 'this claim is in your notes', not as proof of authorship. The unbacked list is the useful half: those are the lines the person cannot expand on from their own material, which is exactly what to walk through before an interview, and what to ask about before writing anything new. Never invent evidence for a bullet that has none.
+For every experience bullet in a resume, the highlights from Me that stand behind it, best match first, plus a count of the bullets nothing backs. This is derived by comparing text, not recorded when the document was written — so treat a match as 'this claim is in your notes', not as proof of authorship. The unbacked list is the useful half: those are the lines the person cannot expand on from their own material, which is exactly what to walk through before an interview, and what to ask about before writing anything new. Never invent evidence for a bullet that has none.
 
 | Argument | Type | |
 | --- | --- | --- |

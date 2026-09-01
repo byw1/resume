@@ -10,7 +10,7 @@ import {
   listSchedule,
   listSources,
 } from "@/lib/data/pipeline";
-import { listResumes } from "@/lib/data/resumes";
+import { listResumeNames } from "@/lib/data/resumes";
 import { PipelineBoard } from "@/components/pipeline/board";
 import { PipelineList } from "@/components/pipeline/list";
 import { parseSort, sortRows, type ListRow } from "@/lib/pipeline-list";
@@ -81,7 +81,7 @@ export default async function ApplicationsPage({
   const [{ companyLogos }, resumes, savedViews, sourceOptions, everyApplication] =
     await Promise.all([
       getSettings(),
-      listResumes(user.id),
+      listResumeNames(user.id),
       listSavedViews(user.id),
       listSources(user.id),
       listApplications(user.id, { includeClosed: true }),

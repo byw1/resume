@@ -720,8 +720,8 @@ function TailorCard({ applicationId, company }: { applicationId: string; company
               try {
                 const result = await tailorResumeForApplicationAction(applicationId);
                 toast.success(
-                  result.seededFromBrain
-                    ? "Built a first draft from your brain"
+                  result.seededFromMe
+                    ? "Built a first draft from what is on file"
                     : `Copied ${result.basedOn}`,
                 );
                 router.push(`/resumes/${result.id}`);

@@ -1,4 +1,4 @@
-import type { BrainImport, ImportedRole } from "@/lib/data/brain";
+import type { ResumeImport, ResumeImportRole } from "@/lib/data/me";
 
 /**
  * Reading a pasted resume well enough to correct.
@@ -18,8 +18,10 @@ import type { BrainImport, ImportedRole } from "@/lib/data/brain";
  */
 
 export type ParsedResume = {
-  /** Exactly the shape importIntoBrain takes. */
-  draft: BrainImport;
+  /** Exactly the shape importResume takes. */
+  draft: ResumeImport;
+  /** The document as it arrived, filed as a note by the caller. */
+  sourceText: string;
   /** Lines it could not place. Never dropped — sourceText still carries them. */
   unparsed: string[];
   /** Plain sentences for the dialog: what it guessed, what it could not read. */
@@ -122,7 +124,7 @@ function splitTitleAndCompany(line: string): { company: string; title: string } 
   return null;
 }
 
-export function parseResumeText(text: string, source?: string): ParsedResume {
+export function parseResumeText(text: string): ParsedResume {
   const lines = normalise(text.slice(0, 200_000));
   const warnings: string[] = [];
   const unparsed: string[] = [];
@@ -137,7 +139,7 @@ export function parseResumeText(text: string, source?: string): ParsedResume {
 
   const header = blocks[0].lines.filter((line) => line.trim());
   const joined = header.join("  ");
-  const profile: NonNullable<BrainImport["profile"]> = {};
+  const profile: NonNullable<ResumeImport["profile"]> = {};
   const name = header[0]?.trim();
   if (name && name.length <= 60 && !EMAIL.test(name)) profile.fullName = name;
   const email = joined.match(EMAIL)?.[0];
@@ -156,7 +158,14 @@ export function parseResumeText(text: string, source?: string): ParsedResume {
   }
   if (!profile.fullName) warnings.push("No name found at the top — fill it in yourself.");
 
-  const draft: BrainImport = { profile, roles: [], education: [], projects: [], skills: [], certifications: [], sourceText: text, source };
+  const draft: ResumeImport = {
+    profile,
+    roles: [],
+    education: [],
+    projects: [],
+    skillGroups: [],
+    certifications: [],
+  };
 
   for (const block of blocks.slice(1)) {
     const body = block.lines;
@@ -175,9 +184,9 @@ export function parseResumeText(text: string, source?: string): ParsedResume {
             .map((skill) => skill.trim())
             .filter((skill) => skill.length > 0 && skill.length < 60);
           if (list.length === 0) continue;
-          const group = draft.skills!.find((existing) => existing.name === name);
-          if (group) group.skills.push(...list);
-          else draft.skills!.push({ name, skills: list });
+          const group = draft.skillGroups!.find((existing) => existing.name === name);
+          if (group) group.skills = [...(group.skills ?? []), ...list];
+          else draft.skillGroups!.push({ name, skills: list });
         }
         break;
       }
@@ -217,7 +226,7 @@ export function parseResumeText(text: string, source?: string): ParsedResume {
             name: first.split(/\s+[–—|:]\s+/)[0].trim(),
             description: entry.slice(1).join("\n").trim() || undefined,
             url: entry.join(" ").match(URL)?.[0],
-            brainDump: entry.join("\n"),
+            background: entry.join("\n"),
           });
         }
         break;
@@ -244,7 +253,7 @@ export function parseResumeText(text: string, source?: string): ParsedResume {
     );
   }
 
-  return { draft, unparsed, warnings };
+  return { draft, sourceText: text, unparsed, warnings };
 }
 
 /** Blank lines separate entries; so does a line that starts a new dated header. */
@@ -275,9 +284,11 @@ function groupEntries(lines: string[]): string[][] {
   return entries;
 }
 
-function parseRole(entry: string[], warnings: string[]): ImportedRole | null {
+function parseRole(entry: string[], warnings: string[]): ResumeImportRole | null {
   const headerLines = entry.filter((line) => !BULLET.test(line));
-  const bullets = entry.filter((line) => BULLET.test(line)).map((line) => line.replace(BULLET, "").trim());
+  const bullets = entry
+    .filter((line) => BULLET.test(line))
+    .map((line) => line.replace(BULLET, "").trim());
   if (headerLines.length === 0) return null;
 
   const dates = parseDates(headerLines.join(" "));
@@ -317,9 +328,9 @@ function parseRole(entry: string[], warnings: string[]): ImportedRole | null {
     startDate: dates?.startDate,
     endDate: dates?.endDate,
     isCurrent: dates?.isCurrent,
-    // Bullets go in as highlights AND stay in the dump: the dump is the raw
-    // material, and losing the original wording is how detail disappears.
-    brainDump: entry.join("\n"),
-    bullets,
+    // Bullets become highlights AND stay in the background: the background is
+    // the raw material, and losing the original wording is how detail goes.
+    background: entry.join("\n"),
+    bullets: bullets.map((text) => ({ text })),
   };
 }

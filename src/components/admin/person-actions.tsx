@@ -128,7 +128,7 @@ export function PersonActions({
           onClick={() => {
             if (
               !confirm(
-                `Delete ${email}? This permanently removes their brain, resumes and applications.`,
+                `Delete ${email}? This permanently removes their career history, resumes and applications.`,
               )
             )
               return;

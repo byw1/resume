@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 import {
@@ -8,12 +9,11 @@ import {
   rid,
   type ResumeDoc,
 } from "@/lib/resume-schema";
-import { getBrainSnapshot, listHighlights } from "@/lib/data/brain";
-import { bulletSimilarity, diffResumeDocs } from "@/lib/resume-diff";
+import { getMeSnapshot, listHighlights } from "@/lib/data/me";
 
 // Rendering helpers live in resume-text.ts (client-safe); re-exported so server
 // callers can keep reaching them through this module.
-export { resumeToText, estimateLines } from "@/lib/resume-text";
+export { resumeToText, estimateLines, estimatePages, LINES_PER_PAGE } from "@/lib/resume-text";
 
 export type ResumeMeta = Partial<{
   name: string;
@@ -30,16 +30,114 @@ export type ResumeMeta = Partial<{
   showPhoto: boolean;
 }>;
 
-export async function listResumes(userId: string) {
+export type ResumeListOpts = {
+  /** Case-insensitive match against name, target role and target company. */
+  search?: string;
+  /** "recent" (favourites first, then latest) is the default. */
+  sort?: "recent" | "name" | "used";
+};
+
+/**
+ * A resume's track record, computed from the applications it went out with.
+ *
+ * This is the question the whole product is arranged around — "which version
+ * of me gets callbacks" — and it can only be answered because the documents
+ * and the pipeline share a database. An application counts as interviewed if
+ * it sits at screen-or-later now, or if its timeline records an interview or
+ * a move to one: current stage alone would forget every application that
+ * interviewed and then closed, which is most of them.
+ */
+export type ResumeOutcomes = {
+  /** Applications that actually went out — anything past WISHLIST. */
+  sent: number;
+  /** Of those, how many reached at least a screen. */
+  interviewed: number;
+  /** How many reached an offer. */
+  offers: number;
+};
+
+const INTERVIEWED_STAGES: Stage[] = ["SCREEN", "INTERVIEW", "FINAL", "OFFER", "ACCEPTED"];
+const OFFER_STAGES: Stage[] = ["OFFER", "ACCEPTED"];
+
+export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
+  const search = opts.search?.trim();
+  const orderBy: Prisma.ResumeOrderByWithRelationInput[] =
+    opts.sort === "name"
+      ? [{ name: "asc" }]
+      : opts.sort === "used"
+        ? [{ applications: { _count: "desc" } }, { updatedAt: "desc" }]
+        : [{ isFavorite: "desc" }, { updatedAt: "desc" }];
+  const rows = await db.resume.findMany({
+    where: {
+      userId,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { targetRole: { contains: search, mode: "insensitive" as const } },
+              { targetCompany: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
+    orderBy,
+    include: {
+      _count: { select: { applications: true } },
+      // The base's name is what the lineage chip prints; one join beats a
+      // per-card lookup.
+      baseResume: { select: { id: true, name: true } },
+      // Only what the outcome summary needs: the current stage, and the slice
+      // of the timeline that proves an interview or an offer ever happened.
+      applications: {
+        select: {
+          stage: true,
+          activities: {
+            where: {
+              OR: [
+                { type: "INTERVIEW" },
+                { type: "OFFER" },
+                { toStage: { in: INTERVIEWED_STAGES } },
+              ],
+            },
+            select: { type: true, toStage: true },
+          },
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => {
+    const { applications, ...resume } = row;
+    const outcomes: ResumeOutcomes = { sent: 0, interviewed: 0, offers: 0 };
+    for (const application of applications) {
+      if (application.stage === "WISHLIST") continue;
+      outcomes.sent += 1;
+      const reached = (stages: Stage[], type: "INTERVIEW" | "OFFER") =>
+        stages.includes(application.stage) ||
+        application.activities.some(
+          (activity) =>
+            activity.type === type || (activity.toStage !== null && stages.includes(activity.toStage)),
+        );
+      // An offer proves the interviews happened even when no move to a screen
+      // was ever recorded — offers is a subset of interviewed, always.
+      const offered = reached(OFFER_STAGES, "OFFER");
+      if (offered || reached(INTERVIEWED_STAGES, "INTERVIEW")) outcomes.interviewed += 1;
+      if (offered) outcomes.offers += 1;
+    }
+    return { ...resume, outcomes };
+  });
+}
+
+/**
+ * Just names, for pickers. The full listResumes now carries outcomes — an
+ * applications-and-activities join per row — and three screens only ever
+ * needed something to put in a dropdown.
+ */
+export async function listResumeNames(userId: string) {
   return db.resume.findMany({
     where: { userId },
     orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
-    include: {
-      _count: { select: { applications: true, variants: true } },
-      // What it was tailored from, so a grid of eight documents says which one
-      // is the original rather than making you open them to find out.
-      base: { select: { id: true, name: true } },
-    },
+    select: { id: true, name: true },
   });
 }
 
@@ -47,7 +145,7 @@ export async function getResume(userId: string, id: string) {
   const resume = await db.resume.findFirst({
     where: { id, userId },
     include: {
-      base: { select: { id: true, name: true } },
+      baseResume: { select: { id: true, name: true } },
       variants: { select: { id: true, name: true }, orderBy: { updatedAt: "desc" } },
       // Where this document actually went. The loop was half-built: an
       // application named its resume and a resume named nothing back, so
@@ -88,17 +186,28 @@ async function resumePhoto(userId: string, resume: { showPhoto: boolean }) {
 
 export async function createResume(
   userId: string,
-  input: ResumeMeta & { data?: unknown; seedFromBrain?: boolean },
+  input: ResumeMeta & { data?: unknown; seedFromMe?: boolean; baseResumeId?: string },
 ) {
   const doc = input.data
     ? parseResumeDoc(input.data)
-    : input.seedFromBrain
-      ? await buildDocFromBrain(userId)
+    : input.seedFromMe
+      ? await buildDocFromMe(userId)
       : emptyResumeDoc();
+
+  // Lineage may only point at the caller's own resume — the id arrives from
+  // outside, and the foreign key alone would happily cross tenants.
+  if (input.baseResumeId) {
+    const base = await db.resume.findFirst({
+      where: { id: input.baseResumeId, userId },
+      select: { id: true },
+    });
+    if (!base) throw new Error(`No resume with id ${input.baseResumeId}`);
+  }
 
   return db.resume.create({
     data: {
       userId,
+      baseResumeId: input.baseResumeId ?? null,
       name: input.name?.trim() || "Untitled resume",
       targetRole: input.targetRole ?? "",
       targetCompany: input.targetCompany ?? "",
@@ -144,6 +253,131 @@ export async function updateResume(
 }
 
 /**
+ * How much of one sentence survives in another, 0-1.
+ *
+ * Dice rather than shared-over-longest, because a bullet written from a note
+ * usually says more than the note did: "Ran the Postgres migration" becoming
+ * "Led the Postgres migration across six services" keeps everything that
+ * mattered and scores 0.43 by the longest measure.
+ *
+ * Deliberately not in resume-diff.ts. That module compares bullets by exact
+ * string and says why — the reader sees both wordings rather than a score's
+ * opinion of whether they are the same bullet. This is a different question:
+ * whether a claim traces back to something the person wrote down.
+ */
+function bulletSimilarity(a: string, b: string): number {
+  const tokens = (value: string) =>
+    new Set(
+      value
+        .toLowerCase()
+        .split(/[^a-z0-9+#.]+/)
+        .filter((token) => token.length > 1),
+    );
+  const left = tokens(a);
+  const right = tokens(b);
+  if (left.size === 0 || right.size === 0) return 0;
+  let shared = 0;
+  for (const token of left) if (right.has(token)) shared += 1;
+  return (2 * shared) / (left.size + right.size);
+}
+
+/**
+ * Point a resume at the one it was tailored from, or unlink it.
+ *
+ * duplicate_resume sets this for you; this is for documents that already
+ * existed, or to re-point one. Refuses itself and refuses a cycle: A tailored
+ * from B tailored from A is a lineage that cannot be read in either direction.
+ * Both resumes are re-checked against this user — the relation carries no
+ * userId of its own.
+ */
+export async function setResumeBase(userId: string, id: string, baseResumeId: string | null) {
+  const resume = await db.resume.findFirst({ where: { id, userId } });
+  if (!resume) throw new Error(`No resume with id ${id}`);
+  if (baseResumeId === null) {
+    return db.resume.update({ where: { id }, data: { baseResumeId: null } });
+  }
+  if (baseResumeId === id) throw new Error("A resume cannot be tailored from itself.");
+
+  let cursor: string | null = baseResumeId;
+  const seen = new Set<string>([id]);
+  while (cursor) {
+    if (seen.has(cursor)) throw new Error("That would make a loop: the two are already related.");
+    seen.add(cursor);
+    const next: { baseResumeId: string | null } | null = await db.resume.findFirst({
+      where: { id: cursor, userId },
+      select: { baseResumeId: true },
+    });
+    if (!next) throw new Error(`No resume with id ${cursor}`);
+    cursor = next.baseResumeId;
+  }
+  return db.resume.update({ where: { id }, data: { baseResumeId } });
+}
+
+/** One bullet, and the material that stands behind it. */
+export type BulletEvidence = {
+  /** Where the bullet sits: "Staff Engineer — Stripe". */
+  entry: string;
+  bullet: string;
+  /** Best matches first, strongest three at most. */
+  evidence: {
+    highlightId: string;
+    text: string;
+    role: string;
+    /** 0-1 word overlap with the bullet. 1 means it was used verbatim. */
+    similarity: number;
+  }[];
+};
+
+/**
+ * Which of a person's own material backs each claim in a document.
+ *
+ * Derived rather than recorded, deliberately. A provenance field written when
+ * a document is seeded would be right for those documents and silently wrong
+ * for every one an assistant wrote or a person edited — and a wrong provenance
+ * record is worse than none, because it is believed.
+ *
+ * A bullet with no evidence is not an accusation. It means the claim is not on
+ * file yet — which is exactly the list worth walking before an interview,
+ * since those are the lines nobody can expand on from their own notes. When an
+ * entry names a role, only that role's highlights can back it: crediting a
+ * Stripe line to a note about another employer discredits the whole thing.
+ */
+export async function traceResumeEvidence(userId: string, id: string) {
+  const resume = await db.resume.findFirst({ where: { id, userId } });
+  if (!resume) throw new Error(`No resume with id ${id}`);
+  const highlights = await listHighlights(userId);
+  const doc = parseResumeDoc(resume.data);
+
+  const rows: BulletEvidence[] = [];
+  for (const section of doc.sections) {
+    for (const item of section.experience) {
+      const entry = [item.title, item.company].filter(Boolean).join(" — ") || "Role";
+      const candidates = item.roleId
+        ? highlights.filter((highlight) => highlight.roleId === item.roleId)
+        : highlights;
+      for (const bullet of item.bullets) {
+        const evidence = candidates
+          .map((highlight) => ({
+            highlightId: highlight.id,
+            text: highlight.text,
+            role: [highlight.role?.title, highlight.role?.company].filter(Boolean).join(" — "),
+            similarity: Math.round(bulletSimilarity(highlight.text, bullet) * 100) / 100,
+          }))
+          .filter((row) => row.similarity >= 0.3)
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, 3);
+        rows.push({ entry, bullet, evidence });
+      }
+    }
+  }
+  return {
+    resume: { id: resume.id, name: resume.name },
+    bullets: rows,
+    unbacked: rows.filter((row) => row.evidence.length === 0).length,
+  };
+}
+
+/**
  * Which document somebody means by "my resume".
  *
  * The original, not a copy: something with variants hanging off it and no base
@@ -170,8 +404,8 @@ export async function pickBaseResume(userId: string) {
  * The four-step move this app made everybody do by hand: copy the base, rename
  * it for the job, attach it, open it.
  *
- * With nothing to copy it builds the first document straight from the brain
- * rather than refusing — a new user asking for a tailored resume should get
+ * With nothing to copy it builds the first document from what is on file
+ * rather than refusing — a new person asking for a tailored resume should get
  * one, not an error telling them to go and make a resume first.
  */
 export async function createResumeForApplication(
@@ -194,7 +428,7 @@ export async function createResumeForApplication(
 
   const created = base
     ? await duplicateResume(userId, base.id, name)
-    : await createResume(userId, { name, seedFromBrain: true });
+    : await createResume(userId, { name, seedFromMe: true });
 
   const resume = await db.resume.update({
     where: { id: created.id },
@@ -206,144 +440,12 @@ export async function createResumeForApplication(
   return {
     resume,
     basedOn: base ? { id: base.id, name: base.name } : null,
-    seededFromBrain: !base,
-    attachedTo: { id: application.id, company: application.company.name, roleTitle: application.roleTitle },
-  };
-}
-
-/**
- * Point a resume at the one it was tailored from, or unlink it.
- *
- * Refuses itself and refuses a cycle: A tailored from B tailored from A is a
- * lineage that cannot be read in either direction, and the diff panel would
- * follow it forever. Both resumes are re-checked against this user — the
- * relation has no userId of its own.
- */
-export async function setResumeBase(userId: string, id: string, baseResumeId: string | null) {
-  const resume = await db.resume.findFirst({ where: { id, userId } });
-  if (!resume) throw new Error(`No resume with id ${id}`);
-  if (baseResumeId === null) {
-    return db.resume.update({ where: { id }, data: { baseResumeId: null } });
-  }
-  if (baseResumeId === id) throw new Error("A resume cannot be tailored from itself.");
-
-  let cursor: string | null = baseResumeId;
-  const seen = new Set<string>([id]);
-  while (cursor) {
-    if (seen.has(cursor)) throw new Error("That would make a loop: the two are already related.");
-    seen.add(cursor);
-    const next: { baseResumeId: string | null } | null = await db.resume.findFirst({
-      where: { id: cursor, userId },
-      select: { baseResumeId: true },
-    });
-    if (!next) throw new Error(`No resume with id ${cursor}`);
-    cursor = next.baseResumeId;
-  }
-  return db.resume.update({ where: { id }, data: { baseResumeId } });
-}
-
-/**
- * What changed between a resume and the one it was tailored from.
- *
- * Pass baseId to compare against something else — two variants against each
- * other, say. Without a base on either side there is nothing to answer with,
- * and saying so is more use than an empty diff that looks like "no changes".
- */
-export async function diffResume(userId: string, id: string, baseId?: string) {
-  const resume = await db.resume.findFirst({
-    where: { id, userId },
-    include: { base: { select: { id: true, name: true } } },
-  });
-  if (!resume) throw new Error(`No resume with id ${id}`);
-
-  const compareTo = baseId ?? resume.baseResumeId;
-  if (!compareTo) {
-    return {
-      resume: { id: resume.id, name: resume.name },
-      base: null,
-      diff: null,
-      note: "This resume has no base on file, so there is nothing to compare it against. Use set_resume_base to say which document it was tailored from, or pass baseId to compare against a specific one.",
-    };
-  }
-  const base = await db.resume.findFirst({ where: { id: compareTo, userId } });
-  if (!base) throw new Error(`No resume with id ${compareTo}`);
-
-  return {
-    resume: { id: resume.id, name: resume.name },
-    base: { id: base.id, name: base.name },
-    diff: diffResumeDocs(parseResumeDoc(base.data), parseResumeDoc(resume.data)),
-    note: null,
-  };
-}
-
-/** One bullet, and the brain material that stands behind it. */
-export type BulletEvidence = {
-  /** Where the bullet sits: "Staff Engineer — Stripe". */
-  entry: string;
-  bullet: string;
-  /** Best matches first, strongest three at most. */
-  evidence: {
-    highlightId: string;
-    text: string;
-    role: string;
-    /** 0-1 word overlap with the bullet. 1 means it was used verbatim. */
-    similarity: number;
-  }[];
-};
-
-/**
- * Which brain material backs each claim in a document.
- *
- * Derived rather than recorded, deliberately. A provenance field written when
- * a document is seeded from the brain would be right for those documents and
- * silently wrong for every one an assistant wrote or a person edited — and a
- * wrong provenance record is worse than none, because it is believed. This
- * measures instead: same similarity the diff pairs a reworded bullet with.
- *
- * A bullet with no evidence is not an accusation. It means the claim is not in
- * the brain yet — which is exactly the list worth walking before an interview,
- * since those are the lines you cannot expand on from your own notes.
- */
-export async function traceResumeEvidence(userId: string, id: string) {
-  const resume = await db.resume.findFirst({ where: { id, userId } });
-  if (!resume) throw new Error(`No resume with id ${id}`);
-  const highlights = await listHighlights(userId);
-  const doc = parseResumeDoc(resume.data);
-
-  const rows: BulletEvidence[] = [];
-  for (const section of doc.sections) {
-    for (const item of section.experience) {
-      const entry = [item.title, item.company].filter(Boolean).join(" — ") || "Role";
-      // A bullet under a role that came from the brain is scored against that
-      // role's own highlights first: crediting a Stripe line to a highlight
-      // from another employer is the failure that discredits the whole thing.
-      // When the entry names a role, ONLY that role's material can back it.
-      // Falling back to the whole brain when the role has no highlights broke
-      // this in the one case the scoping exists for: a Stripe bullet credited
-      // at 100% to a note recorded against another employer, and an unbacked
-      // count of zero — the opposite of what the list is for.
-      const candidates = item.roleId
-        ? highlights.filter((highlight) => highlight.roleId === item.roleId)
-        : highlights;
-      for (const bullet of item.bullets) {
-        const evidence = candidates
-          .map((highlight) => ({
-            highlightId: highlight.id,
-            text: highlight.text,
-            role: [highlight.role?.title, highlight.role?.company].filter(Boolean).join(" — "),
-            similarity: Math.round(bulletSimilarity(highlight.text, bullet) * 100) / 100,
-          }))
-          .filter((row) => row.similarity >= 0.3)
-          .sort((a, b) => b.similarity - a.similarity)
-          .slice(0, 3);
-        rows.push({ entry, bullet, evidence });
-      }
-    }
-  }
-  return {
-    resume: { id: resume.id, name: resume.name },
-    bullets: rows,
-    unbacked: rows.filter((row) => row.evidence.length === 0).length,
+    seededFromMe: !base,
+    attachedTo: {
+      id: application.id,
+      company: application.company.name,
+      roleTitle: application.roleTitle,
+    },
   };
 }
 
@@ -353,20 +455,12 @@ export async function deleteResume(userId: string, id: string) {
   return { id };
 }
 
-/**
- * A copy that remembers where it came from.
- *
- * The base is the source itself, not the source's own base: a chain of copies
- * of copies is a chain nobody can read, and the useful comparison is always
- * against the document you started from.
- */
 export async function duplicateResume(userId: string, id: string, name?: string) {
   const source = await db.resume.findFirst({ where: { id, userId } });
   if (!source) throw new Error(`No resume with id ${id}`);
   return db.resume.create({
     data: {
       userId,
-      baseResumeId: source.id,
       name: name ?? `${source.name} (copy)`,
       targetRole: source.targetRole,
       targetCompany: source.targetCompany,
@@ -376,20 +470,22 @@ export async function duplicateResume(userId: string, id: string, name?: string)
       fontSize: source.fontSize,
       lineHeight: source.lineHeight,
       pageMargin: source.pageMargin,
-      // Copied like every other setting. Leaving it out meant duplicating a
-      // resume that shows your face quietly produced one that does not.
       showPhoto: source.showPhoto,
       notes: source.notes,
       data: source.data as object,
+      // The copy remembers what it was tailored from — flattened to the root,
+      // so a copy of a variant still points at the base and lineage stays one
+      // level deep, which is all the grid or the diff ever shows.
+      baseResumeId: source.baseResumeId ?? source.id,
     },
   });
 }
 
 /**
- * Builds a complete first-draft resume document straight from the brain.
+ * Builds a complete first-draft resume document straight from Me.
  * Every role becomes an experience entry; its strongest highlights become the
- * bullets. This is what "New resume from my brain" and the MCP
- * `create_resume(seed_from_brain: true)` call use.
+ * bullets. This is what "Build from my history" and the MCP
+ * `create_resume(seed_from_me: true)` call use.
  */
 
 /**
@@ -408,9 +504,9 @@ function bulletFor(text: string, impact: string) {
   return flatten(text).includes(flatten(trimmed)) ? text : `${text} — ${trimmed}`;
 }
 
-export async function buildDocFromBrain(userId: string): Promise<ResumeDoc> {
+export async function buildDocFromMe(userId: string): Promise<ResumeDoc> {
   const { profile, roles, highlights, education, projects, skillGroups, certifications } =
-    await getBrainSnapshot(userId);
+    await getMeSnapshot(userId);
 
   const links = [
     profile.website && { label: "Website", url: profile.website },

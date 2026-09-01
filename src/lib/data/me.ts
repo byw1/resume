@@ -47,12 +47,12 @@ export type ProfilePatch = Partial<{
   github: string;
   twitter: string;
   summary: string;
-  brainDump: string;
+  background: string;
 }>;
 
 const PROFILE_COLUMNS = [
   "fullName", "headline", "email", "phone", "location", "website",
-  "linkedin", "github", "twitter", "summary", "brainDump",
+  "linkedin", "github", "twitter", "summary", "background",
 ] as const;
 
 export async function updateProfile(userId: string, patch: ProfilePatch) {
@@ -90,7 +90,7 @@ export type RoleInput = {
   endDate?: string;
   isCurrent?: boolean;
   summary?: string;
-  brainDump?: string;
+  background?: string;
   tags?: string[];
 };
 
@@ -122,7 +122,7 @@ export async function createRole(userId: string, input: RoleInput) {
       endDate: input.endDate ?? "",
       isCurrent: input.isCurrent ?? false,
       summary: input.summary ?? "",
-      brainDump: input.brainDump ?? "",
+      background: input.background ?? "",
       tags: input.tags ?? [],
       sortOrder: count,
     },
@@ -131,7 +131,7 @@ export async function createRole(userId: string, input: RoleInput) {
 
 const ROLE_COLUMNS = [
   "company", "title", "employmentType", "location", "startDate", "endDate",
-  "isCurrent", "summary", "brainDump", "tags",
+  "isCurrent", "summary", "background", "tags",
 ] as const;
 
 export async function updateRole(userId: string, id: string, patch: Partial<RoleInput>) {
@@ -148,8 +148,8 @@ export async function deleteRole(userId: string, id: string) {
   return { id };
 }
 
-/** Non-destructive: adds text to the end of the role's brain dump. */
-export async function appendToRoleBrainDump(
+/** Non-destructive: adds text to the end of the role's background. */
+export async function appendToRoleBackground(
   userId: string,
   id: string,
   text: string,
@@ -158,8 +158,8 @@ export async function appendToRoleBrainDump(
   const role = await db.role.findFirst({ where: { id, userId } });
   if (!role) throw new Error(`No role with id ${id}`);
   const stamp = heading ? `\n\n## ${heading}\n` : "\n\n";
-  const next = `${role.brainDump}${role.brainDump ? stamp : heading ? `## ${heading}\n` : ""}${text}`.trim();
-  return db.role.update({ where: { id: role.id }, data: { brainDump: next } });
+  const next = `${role.background}${role.background ? stamp : heading ? `## ${heading}\n` : ""}${text}`.trim();
+  return db.role.update({ where: { id: role.id }, data: { background: next } });
 }
 
 // ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ export async function updateHighlight(
   patch: Partial<HighlightInput> & { archived?: boolean },
 ) {
   // Re-parenting is a read of whatever it points at — listHighlights and
-  // searchBrain join the role in — so the new parent must be the caller's own,
+  // searchMe join the role in — so the new parent must be the caller's own,
   // exactly as createHighlight already checks.
   if (patch.roleId) {
     const role = await db.role.findFirst({ where: { id: patch.roleId, userId } });
@@ -357,7 +357,7 @@ export async function createProject(
     role?: string;
     url?: string;
     description?: string;
-    brainDump?: string;
+    background?: string;
     tags?: string[];
     startDate?: string;
     endDate?: string;
@@ -374,7 +374,7 @@ export type ProjectPatch = Partial<{
   role: string;
   url: string;
   description: string;
-  brainDump: string;
+  background: string;
   tags: string[];
   startDate: string;
   endDate: string;
@@ -382,7 +382,7 @@ export type ProjectPatch = Partial<{
 
 export async function updateProject(userId: string, id: string, patch: ProjectPatch) {
   const data = pick(patch, [
-    "name", "role", "url", "description", "brainDump", "tags", "startDate", "endDate",
+    "name", "role", "url", "description", "background", "tags", "startDate", "endDate",
   ] as const);
   if (Object.keys(data).length === 0) return existingOrThrow(db.project, id, userId, "project");
   const { count } = await db.project.updateMany({ where: { id, userId }, data });
@@ -462,7 +462,7 @@ export async function deleteCertification(userId: string, id: string) {
 // Search — the function Claude leans on hardest
 // ---------------------------------------------------------------------------
 
-export type BrainHit = {
+export type SearchHit = {
   kind: "profile" | "role" | "highlight" | "note" | "project";
   id: string;
   title: string;
@@ -498,11 +498,11 @@ function excerptAround(haystack: string, terms: string[], radius = 180) {
 }
 
 /**
- * Ranked full-text search across everything in one user's brain. Deliberately
+ * Ranked full-text search across everything in one user's Me. Deliberately
  * done in application code rather than Postgres FTS so it works identically on
  * a fresh database with zero extensions to configure.
  */
-export async function searchBrain(userId: string, query: string, limit = 25): Promise<BrainHit[]> {
+export async function searchMe(userId: string, query: string, limit = 25): Promise<SearchHit[]> {
   const terms = query
     .toLowerCase()
     .split(/\s+/)
@@ -520,7 +520,7 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
     db.project.findMany({ where: { userId } }),
   ]);
 
-  const hits: BrainHit[] = [];
+  const hits: SearchHit[] = [];
 
   if (terms.length === 0) {
     for (const role of roles.slice(0, limit)) {
@@ -531,14 +531,14 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
         subtitle: [role.startDate, role.isCurrent ? "Present" : role.endDate]
           .filter(Boolean)
           .join(" – "),
-        excerpt: role.brainDump.slice(0, 240),
+        excerpt: role.background.slice(0, 240),
         score: 1,
       });
     }
     return hits;
   }
 
-  const profileBlob = [profile.summary, profile.brainDump, profile.headline].join("\n");
+  const profileBlob = [profile.summary, profile.background, profile.headline].join("\n");
   const profileScore = scoreText(profileBlob, terms);
   if (profileScore > 0) {
     hits.push({
@@ -552,7 +552,7 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
   }
 
   for (const role of roles) {
-    const blob = [role.company, role.title, role.summary, role.brainDump, role.tags.join(" ")].join(
+    const blob = [role.company, role.title, role.summary, role.background, role.tags.join(" ")].join(
       "\n",
     );
     const score = scoreText(blob, terms) + scoreText(`${role.company} ${role.title}`, terms) * 3;
@@ -601,7 +601,7 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
   }
 
   for (const p of projects) {
-    const blob = [p.name, p.role, p.description, p.brainDump, p.tags.join(" ")].join("\n");
+    const blob = [p.name, p.role, p.description, p.background, p.tags.join(" ")].join("\n");
     const score = scoreText(blob, terms);
     if (score > 0) {
       hits.push({
@@ -618,8 +618,8 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-/** Everything in one payload — used to seed a resume and by `get_brain_snapshot`. */
-export async function getBrainSnapshot(userId: string) {
+/** Everything in one payload — used to seed a resume and by `get_me_snapshot`. */
+export async function getMeSnapshot(userId: string) {
   const [profile, roles, highlights, education, projects, skillGroups, certifications, notes] =
     await Promise.all([
       getProfile(userId),
@@ -647,16 +647,16 @@ export async function getBrainSnapshot(userId: string) {
  * not then read its own row back as evidence of a filled-in workspace. The row
  * is judged on its contents for the same reason: blank fields are not a career.
  *
- * Deliberately brain-only. Someone can have applications and no brain — that is
+ * Deliberately Me-only. Someone can have applications and nothing filed here — that is
  * exactly the person this predicate exists to catch, because they have a
  * pipeline and nothing to build a resume out of.
  */
-export async function brainIsEmpty(userId: string) {
+export async function meIsEmpty(userId: string) {
   const id = { select: { id: true } };
   const where = { where: { userId } };
   const [profile, role, highlight, note, education, project, skillGroup, certification] =
     await Promise.all([
-      db.profile.findFirst({ where: { userId }, select: { fullName: true, headline: true, summary: true, brainDump: true } }),
+      db.profile.findFirst({ where: { userId }, select: { fullName: true, headline: true, summary: true, background: true } }),
       db.role.findFirst({ ...where, ...id }),
       db.highlight.findFirst({ ...where, ...id }),
       db.note.findFirst({ ...where, ...id }),
@@ -666,495 +666,276 @@ export async function brainIsEmpty(userId: string) {
       db.certification.findFirst({ ...where, ...id }),
     ]);
 
-  const profileIsBlank = !profile || ![profile.fullName, profile.headline, profile.summary, profile.brainDump].some((field) => field?.trim());
+  const profileIsBlank = !profile || ![profile.fullName, profile.headline, profile.summary, profile.background].some((field) => field?.trim());
 
   return profileIsBlank && !role && !highlight && !note && !education && !project && !skillGroup && !certification;
 }
 
-// ---------------------------------------------------------------------------
-// Import
-// ---------------------------------------------------------------------------
-
-export type ImportedRole = {
-  company: string;
-  title: string;
-  employmentType?: string;
-  location?: string;
-  startDate?: string;
-  endDate?: string;
-  isCurrent?: boolean;
-  summary?: string;
-  brainDump?: string;
-  /** Resume bullets. Each becomes a highlight on this role. */
-  bullets?: string[];
-  tags?: string[];
-};
-
-export type ImportedEducation = {
-  school: string;
-  degree?: string;
-  field?: string;
-  location?: string;
-  startDate?: string;
-  endDate?: string;
-  gpa?: string;
-  details?: string;
-};
-
-export type ImportedProject = {
-  name: string;
-  role?: string;
-  url?: string;
-  description?: string;
-  brainDump?: string;
-  startDate?: string;
-  endDate?: string;
-  tags?: string[];
-};
-
-export type ImportedSkillGroup = { name: string; skills: string[] };
-export type ImportedCertification = { name: string; issuer?: string; date?: string; url?: string };
-
-export type BrainImport = {
-  profile?: ProfilePatch;
-  roles?: ImportedRole[];
-  education?: ImportedEducation[];
-  projects?: ImportedProject[];
-  skills?: ImportedSkillGroup[];
-  certifications?: ImportedCertification[];
-  /** The document as it arrived, filed as one note so nothing is lost. */
-  sourceText?: string;
-  /** What it was — "resume", "LinkedIn export". Titles that note. */
-  source?: string;
-};
-
-export type ImportOutcome = {
-  /** How a person would say it: "Staff Engineer @ Stripe". */
-  label: string;
-  action: "created" | "matched" | "merged";
-  /** Null on a dry run and on anything that was not written. */
-  id: string | null;
-  highlightsAdded?: number;
-  highlightsSkipped?: number;
-  skillsAdded?: number;
-};
-
-export type ImportReport = {
-  dryRun: boolean;
-  profile: { filled: string[]; kept: string[] };
-  roles: ImportOutcome[];
-  education: ImportOutcome[];
-  projects: ImportOutcome[];
-  skills: ImportOutcome[];
-  certifications: ImportOutcome[];
-  sourceNote: { id: string | null; action: "created" | "matched" } | null;
-  warnings: string[];
-};
-
-/**
- * Caps live here rather than in the parser, because the MCP door never touches
- * the parser: neither entrance may be the lenient one.
- */
-export const IMPORT_LIMITS = {
-  roles: 40,
-  bulletsPerRole: 60,
-  education: 20,
-  projects: 40,
-  skillGroups: 30,
-  skillsPerGroup: 120,
-  certifications: 40,
-  textChars: 4_000,
-  sourceTextChars: 200_000,
-} as const;
-
-/** "Stripe, Inc." and "stripe inc" are one employer. */
-function importKey(value: string): string {
-  return value
-    .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
-    .replace(/\b(inc|llc|ltd|limited|corp|corporation|co|the|gmbh|plc|sa|ag)\b/g, "")
-    .trim()
-    .replace(/\s+/g, " ");
-}
-
-function text(value: string | undefined, limit: number = IMPORT_LIMITS.textChars): string {
-  return (value ?? "").trim().slice(0, limit);
-}
-
-/** True when text() would have cut something, so the caller can say so. */
-function wasCut(value: string | undefined, limit: number = IMPORT_LIMITS.textChars): boolean {
-  return (value ?? "").trim().length > limit;
-}
-
-/**
- * Everything a person has already written down, from a document they wrote
- * once. This is the adoption blocker made small: without it a new workspace is
- * an empty form and the product does nothing until a career has been retyped
- * into it.
- *
- * Three rules, and they are the whole design:
- *
- * 1. It ADDS. Nothing already on file is overwritten — a matched role is left
- *    exactly as it is, and a profile field with anything in it is kept. The
- *    one exception is a skill group, where a second import unions the lists,
- *    because that is the one collection where "and also these" is what a
- *    person means.
- * 2. It is idempotent. Importing the same document twice reports every row as
- *    matched and writes nothing, which is what makes the tool safe to retry
- *    when a connection drops halfway.
- * 3. It never invents. Only fields present in the input are written; a missing
- *    date stays empty and is reported as a warning rather than guessed.
- *
- * dryRun runs the same code path as a read, so a preview cannot disagree with
- * what the write would do.
- */
-export async function importIntoBrain(
-  userId: string,
-  input: BrainImport,
-  options: { dryRun?: boolean } = {},
-): Promise<ImportReport> {
-  const dryRun = options.dryRun ?? true;
-  const warnings: string[] = [];
-
-  const roles = (input.roles ?? []).slice(0, IMPORT_LIMITS.roles);
-  const education = (input.education ?? []).slice(0, IMPORT_LIMITS.education);
-  const projects = (input.projects ?? []).slice(0, IMPORT_LIMITS.projects);
-  const skills = (input.skills ?? []).slice(0, IMPORT_LIMITS.skillGroups);
-  const certifications = (input.certifications ?? []).slice(0, IMPORT_LIMITS.certifications);
-  const sourceText = text(input.sourceText, IMPORT_LIMITS.sourceTextChars);
-
-  const nothing =
-    roles.length === 0 &&
-    education.length === 0 &&
-    projects.length === 0 &&
-    skills.length === 0 &&
-    certifications.length === 0 &&
-    !sourceText &&
-    Object.keys(input.profile ?? {}).length === 0;
-  if (nothing) throw new Error("There is nothing in this import.");
-
-  for (const [name, list, limit] of [
-    ["roles", input.roles, IMPORT_LIMITS.roles],
-    ["education entries", input.education, IMPORT_LIMITS.education],
-    ["projects", input.projects, IMPORT_LIMITS.projects],
-    ["skill groups", input.skills, IMPORT_LIMITS.skillGroups],
-    ["certifications", input.certifications, IMPORT_LIMITS.certifications],
-  ] as const) {
-    if ((list?.length ?? 0) > limit) {
-      warnings.push(`Only the first ${limit} ${name} were taken; ${list!.length} were sent.`);
-    }
-  }
-
-  // --- profile: fill blanks, keep everything else ---------------------------
-  const stored = await getProfile(userId);
-  const filled: string[] = [];
-  const kept: string[] = [];
-  const profilePatch: ProfilePatch = {};
-  for (const column of PROFILE_COLUMNS) {
-    const incoming = text(input.profile?.[column]);
-    if (!incoming) continue;
-    if (stored[column]) kept.push(column);
-    else {
-      filled.push(column);
-      profilePatch[column] = incoming;
-    }
-  }
-  if (kept.length > 0) {
-    warnings.push(
-      `Kept what was already on the profile: ${kept.join(", ")}. Change those by hand or with update_profile.`,
-    );
-  }
-  if (!dryRun && filled.length > 0) await updateProfile(userId, profilePatch);
-
-  // --- roles ----------------------------------------------------------------
-  const storedRoles = await db.role.findMany({
-    where: { userId },
-    select: { id: true, company: true, title: true },
-  });
-  const roleIndex = new Map(
-    storedRoles.map((role) => [`${importKey(role.company)}|${importKey(role.title)}`, role.id]),
-  );
-
-  const roleOutcomes: ImportOutcome[] = [];
-  const bulletsSeen = new Map<string, Set<string>>();
-  for (const role of roles) {
-    const company = text(role.company, 200);
-    const title = text(role.title, 200);
-    if (!company && !title) continue;
-    const label = `${title || "Role"} @ ${company || "somewhere"}`;
-    const key = `${importKey(company)}|${importKey(title)}`;
-    const bullets = (role.bullets ?? [])
-      .map((bullet) => text(bullet))
-      .filter(Boolean)
-      .slice(0, IMPORT_LIMITS.bulletsPerRole);
-
-    if (!role.startDate) warnings.push(`${label} came with no dates.`);
-    if (wasCut(role.brainDump)) {
-      warnings.push(
-        `The raw text for ${label} was cut at ${IMPORT_LIMITS.textChars} characters. Add the rest with append_role_brain_dump.`,
-      );
-    }
-    for (const bullet of bullets) {
-      if (bullet.length > 400) {
-        warnings.push(`A very long bullet on ${label} may be a paragraph read as one line.`);
-        break;
-      }
-    }
-
-    let roleId = roleIndex.get(key) ?? null;
-    const matched = roleId !== null;
-    if (!matched && !dryRun) {
-      // A matched role is left exactly as it is. Enriching one that exists is
-      // what append_role_brain_dump is for, and it is one call away.
-      const created = await createRole(userId, {
-        company,
-        title,
-        // Explicitly empty rather than undefined: createRole defaults a
-        // missing type to "Full-time", which would be this import stating a
-        // fact the document never did.
-        employmentType: role.employmentType ? text(role.employmentType, 60) : "",
-        location: text(role.location, 200),
-        startDate: text(role.startDate, 40),
-        endDate: text(role.endDate, 40),
-        isCurrent: role.isCurrent ?? false,
-        summary: text(role.summary),
-        brainDump: text(role.brainDump),
-        tags: (role.tags ?? []).map((tag) => text(tag, 60)).filter(Boolean),
-      });
-      roleId = created.id;
-      roleIndex.set(key, created.id);
-    }
-    // The preview has to remember what it would have created, or a document
-    // that lists the same employer twice reports two creates and performs one.
-    // The empty string is a placeholder id: outcomes on a dry run report null.
-    if (!matched && dryRun) roleIndex.set(key, "");
-
-    let added = 0;
-    let skipped = 0;
-    if (bullets.length > 0) {
-      // Kept per role key rather than per loop iteration, so a document that
-      // lists the same employer twice dedupes its bullets the same way on a
-      // preview as on the write — the preview has no ids to read back.
-      let seen = bulletsSeen.get(key);
-      if (!seen) {
-        const existing = roleId
-          ? await db.highlight.findMany({
-              where: { userId, roleId, archived: false },
-              select: { text: true },
-            })
-          : [];
-        seen = new Set(existing.map((highlight) => importKey(highlight.text)));
-        bulletsSeen.set(key, seen);
-      }
-      for (const bullet of bullets) {
-        const bulletKey = importKey(bullet);
-        if (seen.has(bulletKey)) {
-          skipped += 1;
-          continue;
-        }
-        seen.add(bulletKey);
-        added += 1;
-        if (!dryRun && roleId) {
-          await createHighlight(userId, { roleId, text: bullet, tags: ["imported"], strength: 3 });
-        }
-      }
-    }
-
-    roleOutcomes.push({
-      label,
-      action: matched ? "matched" : "created",
-      id: dryRun ? null : roleId,
-      highlightsAdded: added,
-      highlightsSkipped: skipped,
-    });
-  }
-
-  // --- education, projects, certifications ----------------------------------
-  const storedEducation = await db.education.findMany({
-    where: { userId },
-    select: { id: true, school: true, degree: true },
-  });
-  const educationIndex = new Map(
-    storedEducation.map((row) => [`${importKey(row.school)}|${importKey(row.degree)}`, row.id]),
-  );
-  const educationOutcomes: ImportOutcome[] = [];
-  for (const entry of education) {
-    const school = text(entry.school, 200);
-    if (!school) continue;
-    const key = `${importKey(school)}|${importKey(entry.degree ?? "")}`;
-    const found = educationIndex.get(key);
-    if (found) {
-      educationOutcomes.push({ label: school, action: "matched", id: dryRun ? null : found });
-      continue;
-    }
-    let id: string | null = null;
-    if (!dryRun) {
-      const created = await createEducation(userId, {
-        school,
-        degree: text(entry.degree, 200),
-        field: text(entry.field, 200),
-        location: text(entry.location, 200),
-        startDate: text(entry.startDate, 40),
-        endDate: text(entry.endDate, 40),
-        gpa: text(entry.gpa, 40),
-        details: text(entry.details),
-      });
-      id = created.id;
-      educationIndex.set(key, created.id);
-    } else {
-      educationIndex.set(key, "");
-    }
-    educationOutcomes.push({ label: school, action: "created", id });
-  }
-
-  const storedProjects = await db.project.findMany({ where: { userId }, select: { id: true, name: true } });
-  const projectIndex = new Map(storedProjects.map((row) => [importKey(row.name), row.id]));
-  const projectOutcomes: ImportOutcome[] = [];
-  for (const entry of projects) {
-    const name = text(entry.name, 200);
-    if (!name) continue;
-    const found = projectIndex.get(importKey(name));
-    if (found) {
-      projectOutcomes.push({ label: name, action: "matched", id: dryRun ? null : found });
-      continue;
-    }
-    let id: string | null = null;
-    if (!dryRun) {
-      const created = await createProject(userId, {
-        name,
-        role: text(entry.role, 200),
-        url: text(entry.url, 500),
-        description: text(entry.description),
-        brainDump: text(entry.brainDump),
-        startDate: text(entry.startDate, 40),
-        endDate: text(entry.endDate, 40),
-        tags: (entry.tags ?? []).map((tag) => text(tag, 60)).filter(Boolean),
-      });
-      id = created.id;
-      projectIndex.set(importKey(name), created.id);
-    } else {
-      projectIndex.set(importKey(name), "");
-    }
-    projectOutcomes.push({ label: name, action: "created", id });
-  }
-
-  const storedCerts = await db.certification.findMany({
-    where: { userId },
-    select: { id: true, name: true, issuer: true },
-  });
-  const certIndex = new Map(
-    storedCerts.map((row) => [`${importKey(row.name)}|${importKey(row.issuer)}`, row.id]),
-  );
-  const certOutcomes: ImportOutcome[] = [];
-  for (const entry of certifications) {
-    const name = text(entry.name, 200);
-    if (!name) continue;
-    const key = `${importKey(name)}|${importKey(entry.issuer ?? "")}`;
-    const found = certIndex.get(key);
-    if (found) {
-      certOutcomes.push({ label: name, action: "matched", id: dryRun ? null : found });
-      continue;
-    }
-    let id: string | null = null;
-    if (!dryRun) {
-      const created = await createCertification(userId, {
-        name,
-        issuer: text(entry.issuer, 200),
-        date: text(entry.date, 40),
-        url: text(entry.url, 500),
-      });
-      id = created.id;
-      certIndex.set(key, created.id);
-    } else {
-      certIndex.set(key, "");
-    }
-    certOutcomes.push({ label: name, action: "created", id });
-  }
-
-  // --- skills: the one collection where a second import legitimately adds ---
-  const storedGroups = await db.skillGroup.findMany({
-    where: { userId },
-    select: { id: true, name: true, skills: true },
-  });
-  const skillOutcomes: ImportOutcome[] = [];
-  for (const group of skills) {
-    const name = text(group.name, 120);
-    const incoming = (group.skills ?? [])
-      .map((skill) => text(skill, 120))
-      .filter(Boolean)
-      .slice(0, IMPORT_LIMITS.skillsPerGroup);
-    if (!name || incoming.length === 0) continue;
-
-    const found = storedGroups.find((row) => importKey(row.name) === importKey(name));
-    if (!found) {
-      let id: string | null = null;
-      if (!dryRun) {
-        const created = await createSkillGroup(userId, { name, skills: incoming });
-        id = created.id;
-        storedGroups.push({ id: created.id, name, skills: incoming });
-      } else {
-        storedGroups.push({ id: "", name, skills: incoming });
-      }
-      skillOutcomes.push({ label: name, action: "created", id, skillsAdded: incoming.length });
-      continue;
-    }
-
-    const have = new Set(found.skills.map((skill) => skill.toLowerCase()));
-    const fresh = incoming.filter((skill) => !have.has(skill.toLowerCase()));
-    if (fresh.length > 0 && !dryRun) {
-      await updateSkillGroup(userId, found.id, {
-        skills: [...found.skills, ...fresh].slice(0, IMPORT_LIMITS.skillsPerGroup),
-      });
-    }
-    skillOutcomes.push({
-      label: name,
-      action: fresh.length > 0 ? "merged" : "matched",
-      id: dryRun ? null : found.id,
-      skillsAdded: fresh.length,
-    });
-  }
-
-  // --- the document itself --------------------------------------------------
-  let sourceNote: ImportReport["sourceNote"] = null;
-  if (sourceText) {
-    const duplicate = await db.note.findFirst({
-      where: { userId, body: sourceText },
-      select: { id: true },
-    });
-    if (duplicate) {
-      sourceNote = { id: dryRun ? null : duplicate.id, action: "matched" };
-    } else if (dryRun) {
-      sourceNote = { id: null, action: "created" };
-    } else {
-      const note = await createNote(userId, {
-        title: `Imported ${input.source?.trim() || "resume"} — ${new Date().toISOString().slice(0, 10)}`,
-        body: sourceText,
-        tags: ["imported"],
-      });
-      sourceNote = { id: note.id, action: "created" };
-    }
-  }
-
-  const matchedRoles = roleOutcomes.filter((outcome) => outcome.action === "matched").length;
-  if (matchedRoles > 0) {
-    warnings.push(
-      `${matchedRoles} role${matchedRoles > 1 ? "s were" : " was"} already on file and left untouched. Bullets were still added where they were new.`,
-    );
-  }
-
-  return {
-    dryRun,
-    profile: { filled, kept },
-    roles: roleOutcomes,
-    education: educationOutcomes,
-    projects: projectOutcomes,
-    skills: skillOutcomes,
-    certifications: certOutcomes,
-    sourceNote,
-    warnings,
-  };
-}
-
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
+}
+
+// ---------------------------------------------------------------------------
+// Import — a pasted resume fills in Me in one call
+// ---------------------------------------------------------------------------
+
+export type ResumeImportBullet = {
+  text: string;
+  impact?: string;
+  tags?: string[];
+  strength?: number;
+};
+
+export type ResumeImportRole = RoleInput & { bullets?: ResumeImportBullet[] };
+
+export type ResumeImport = {
+  profile?: ProfilePatch;
+  roles?: ResumeImportRole[];
+  education?: {
+    school: string;
+    degree?: string;
+    field?: string;
+    location?: string;
+    startDate?: string;
+    endDate?: string;
+    gpa?: string;
+    details?: string;
+  }[];
+  projects?: {
+    name: string;
+    role?: string;
+    url?: string;
+    description?: string;
+    background?: string;
+    tags?: string[];
+    startDate?: string;
+    endDate?: string;
+  }[];
+  skillGroups?: { name: string; skills?: string[] }[];
+  certifications?: { name: string; issuer?: string; date?: string; url?: string }[];
+};
+
+const normalised = (value: string) => value.trim().toLowerCase();
+
+/**
+ * Fill in Me from a parsed resume, additively and in one transaction.
+ *
+ * The caller (an assistant reading a pasted document) does the parsing; this
+ * does the filing, and its one promise is that nothing already here is lost:
+ *
+ *   - profile fields fill only where they are currently empty;
+ *   - a role is skipped when one already exists at the same company+title
+ *     whose start date matches — or when either side has no date to compare,
+ *     which errs toward skipping. Within one payload the date IS part of the
+ *     identity, so a boomerang career (two stints, same employer, same
+ *     title, different dates) imports as two roles rather than losing one;
+ *   - an education entry is skipped on school+degree+field, a project or
+ *     certification on name — skipped, never merged into, so re-importing
+ *     the same document is a no-op rather than a duplicate of someone's
+ *     history;
+ *   - a skill group with an existing name has its skills unioned in.
+ *
+ * Each created role gets its bullets saved as highlights, and the raw
+ * material lands in the role's background so search_me can mine it.
+ * The summary says exactly what was created and what was skipped.
+ */
+export async function importResume(userId: string, input: ResumeImport) {
+  return db.$transaction(async (tx) => {
+    // Profile: fill the blanks, leave everything a person already wrote.
+    const profileFieldsFilled: string[] = [];
+    if (input.profile) {
+      const current =
+        (await tx.profile.findUnique({ where: { userId } })) ??
+        (await tx.profile.create({ data: { userId } }));
+      const patch: Record<string, string> = {};
+      for (const key of Object.keys(input.profile) as (keyof ProfilePatch)[]) {
+        const incoming = input.profile[key]?.trim();
+        if (!incoming) continue;
+        if ((current[key] ?? "").trim()) continue;
+        patch[key] = incoming;
+        profileFieldsFilled.push(key);
+      }
+      if (Object.keys(patch).length) {
+        await tx.profile.update({ where: { userId }, data: patch });
+      }
+    }
+
+    // Roles, and their bullets as highlights.
+    const rolesCreated: { id: string; company: string; title: string }[] = [];
+    const rolesSkipped: { company: string; title: string }[] = [];
+    let highlightsCreated = 0;
+    if (input.roles?.length) {
+      const existing = await tx.role.findMany({
+        where: { userId },
+        select: { company: true, title: true, startDate: true },
+      });
+      // company|title → the start dates already on file there. An incoming
+      // role clashes when a stint at that company+title has the same start
+      // date, or when either side has no date to compare against.
+      const datesOnFile = new Map<string, string[]>();
+      for (const role of existing) {
+        const key = `${normalised(role.company)}|${normalised(role.title)}`;
+        datesOnFile.set(key, [...(datesOnFile.get(key) ?? []), role.startDate.trim()]);
+      }
+      const clashesWithExisting = (key: string, startDate: string) => {
+        const dates = datesOnFile.get(key);
+        if (!dates) return false;
+        return dates.some((date) => !date || !startDate || date === startDate);
+      };
+      // Within the payload, the date is part of a stint's identity — so a
+      // boomerang career imports whole instead of losing its second stint.
+      const seenInPayload = new Set<string>();
+      let sortOrder = await tx.role.count({ where: { userId } });
+      for (const role of input.roles) {
+        const key = `${normalised(role.company)}|${normalised(role.title)}`;
+        const startDate = (role.startDate ?? "").trim();
+        const payloadKey = `${key}|${normalised(startDate)}`;
+        if (seenInPayload.has(payloadKey) || clashesWithExisting(key, startDate)) {
+          rolesSkipped.push({ company: role.company, title: role.title });
+          continue;
+        }
+        seenInPayload.add(payloadKey);
+        datesOnFile.set(key, [...(datesOnFile.get(key) ?? []), startDate]);
+        const bullets = (role.bullets ?? []).filter((bullet) => bullet.text?.trim());
+        // The background is what search_me mines; the resume's own lines are
+        // the person's claims, so they belong there even before richer material.
+        const background =
+          role.background?.trim() ||
+          (bullets.length
+            ? `## Imported from resume\n\n${bullets
+                .map((bullet) => `- ${bullet.text}${bullet.impact ? ` (${bullet.impact})` : ""}`)
+                .join("\n")}`
+            : "");
+        const created = await tx.role.create({
+          data: {
+            userId,
+            company: role.company,
+            title: role.title,
+            employmentType: role.employmentType ?? "Full-time",
+            location: role.location ?? "",
+            startDate: role.startDate ?? "",
+            endDate: role.endDate ?? "",
+            isCurrent: role.isCurrent ?? false,
+            summary: role.summary ?? "",
+            background,
+            tags: role.tags ?? [],
+            sortOrder: sortOrder++,
+          },
+        });
+        rolesCreated.push({ id: created.id, company: created.company, title: created.title });
+        if (bullets.length) {
+          // One round trip per role, not per bullet: a full career inside one
+          // interactive transaction is exactly where per-row awaits add up.
+          // Strength is rounded because the column is an Int and a well-meant
+          // 3.5 must not roll the whole import back.
+          await tx.highlight.createMany({
+            data: bullets.map((bullet) => ({
+              userId,
+              roleId: created.id,
+              text: bullet.text,
+              impact: bullet.impact ?? "",
+              tags: bullet.tags ?? [],
+              strength: clamp(Math.round(bullet.strength ?? 3), 1, 5),
+            })),
+          });
+          highlightsCreated += bullets.length;
+        }
+      }
+    }
+
+    // Education, projects, certifications: create what is new, skip the rest.
+    const education = { created: 0, skipped: 0 };
+    if (input.education?.length) {
+      const existing = await tx.education.findMany({
+        where: { userId },
+        select: { school: true, degree: true, field: true },
+      });
+      // field is part of the key so two degree-less programs at one school —
+      // two certificates, say — both survive the import.
+      const seen = new Set(
+        existing.map((e) => `${normalised(e.school)}|${normalised(e.degree)}|${normalised(e.field)}`),
+      );
+      let sortOrder = await tx.education.count({ where: { userId } });
+      for (const entry of input.education) {
+        const key = `${normalised(entry.school)}|${normalised(entry.degree ?? "")}|${normalised(entry.field ?? "")}`;
+        if (seen.has(key)) {
+          education.skipped += 1;
+          continue;
+        }
+        seen.add(key);
+        await tx.education.create({ data: { ...entry, userId, sortOrder: sortOrder++ } });
+        education.created += 1;
+      }
+    }
+
+    const projects = { created: 0, skipped: 0 };
+    if (input.projects?.length) {
+      const existing = await tx.project.findMany({ where: { userId }, select: { name: true } });
+      const seen = new Set(existing.map((p) => normalised(p.name)));
+      let sortOrder = await tx.project.count({ where: { userId } });
+      for (const entry of input.projects) {
+        if (seen.has(normalised(entry.name))) {
+          projects.skipped += 1;
+          continue;
+        }
+        seen.add(normalised(entry.name));
+        await tx.project.create({
+          data: { ...entry, userId, tags: entry.tags ?? [], sortOrder: sortOrder++ },
+        });
+        projects.created += 1;
+      }
+    }
+
+    // Skill groups merge: skills are a set, and "Languages" existing already
+    // is not a reason to drop the three new ones the resume lists.
+    const skillGroups = { created: 0, merged: 0 };
+    if (input.skillGroups?.length) {
+      const existing = await tx.skillGroup.findMany({ where: { userId } });
+      let sortOrder = existing.length;
+      for (const group of input.skillGroups) {
+        const match = existing.find((g) => normalised(g.name) === normalised(group.name));
+        if (match) {
+          const merged = [...new Set([...match.skills, ...(group.skills ?? [])])];
+          if (merged.length > match.skills.length) {
+            await tx.skillGroup.update({ where: { id: match.id }, data: { skills: merged } });
+            skillGroups.merged += 1;
+          }
+          continue;
+        }
+        await tx.skillGroup.create({
+          data: { userId, name: group.name, skills: group.skills ?? [], sortOrder: sortOrder++ },
+        });
+        skillGroups.created += 1;
+      }
+    }
+
+    const certifications = { created: 0, skipped: 0 };
+    if (input.certifications?.length) {
+      const existing = await tx.certification.findMany({ where: { userId }, select: { name: true } });
+      const seen = new Set(existing.map((c) => normalised(c.name)));
+      let sortOrder = await tx.certification.count({ where: { userId } });
+      for (const entry of input.certifications) {
+        if (seen.has(normalised(entry.name))) {
+          certifications.skipped += 1;
+          continue;
+        }
+        seen.add(normalised(entry.name));
+        await tx.certification.create({ data: { ...entry, userId, sortOrder: sortOrder++ } });
+        certifications.created += 1;
+      }
+    }
+
+    return {
+      profileFieldsFilled,
+      roles: { created: rolesCreated, skipped: rolesSkipped },
+      highlightsCreated,
+      education,
+      projects,
+      skillGroups,
+      certifications,
+    };
+    // A full career is dozens of round trips, and Prisma's default 5s
+    // interactive-transaction timeout is sized for none of them crossing a
+    // region. The one-shot adoption moment must not roll back over latency.
+  }, { timeout: 60_000, maxWait: 10_000 });
 }

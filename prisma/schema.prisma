@@ -21,7 +21,7 @@ enum UserRole {
   SUPER_ADMIN
   /// Can invite people and manage users, but not touch the super admin.
   ADMIN
-  /// Owns their own brain, resumes and pipeline. Sees nothing else.
+  /// Owns their own career history, resumes and pipeline. Sees nothing else.
   MEMBER
 }
 
@@ -295,7 +295,7 @@ model WaitlistSignup {
 }
 
 // ---------------------------------------------------------------------------
-// BRAIN — the knowledge base you dump everything into
+// ME — the knowledge base you dump everything into
 // ---------------------------------------------------------------------------
 
 model Profile {
@@ -311,10 +311,14 @@ model Profile {
   linkedin  String   @default("")
   github    String   @default("")
   twitter   String   @default("")
-  /// Long-form "about me" brain dump: values, working style, career narrative,
+  /// Long-form "about me" background: values, working style, career narrative,
   /// what you want next, salary expectations, non-negotiables, etc.
-  summary   String   @default("")
-  brainDump String   @default("")
+  ///
+  /// The column is still called brainDump — the concept was renamed to "me"
+  /// and its raw text to "background", and @map keeps that rename off the
+  /// database so no self-hosted instance needs a migration to follow along.
+  summary    String  @default("")
+  background String  @default("") @map("brainDump")
   /// A square headshot, held as a data URI ("data:image/jpeg;base64,..."). It
   /// lives in the row rather than an object store so self-hosting still needs
   /// one environment variable, and so a published resume renders the picture
@@ -337,9 +341,10 @@ model Role {
   isCurrent      Boolean  @default(false)
   /// One or two sentences describing the scope of the role.
   summary        String   @default("")
-  /// THE BRAIN DUMP. Unlimited markdown: projects, metrics, stories, tech,
-  /// politics, wins, failures, praise, numbers. Claude mines this.
-  brainDump      String   @default("")
+  /// THE BACKGROUND. Unlimited markdown: projects, metrics, stories, tech,
+  /// politics, wins, failures, praise, numbers. Claude mines this. Stored in
+  /// the brainDump column — see the note on Profile.background.
+  background     String   @default("") @map("brainDump")
   tags           String[] @default([])
   sortOrder      Int      @default(0)
   createdAt      DateTime @default(now())
@@ -350,7 +355,7 @@ model Role {
   @@index([userId, sortOrder])
 }
 
-/// A reusable, polished achievement line distilled from a role's brain dump.
+/// A reusable, polished achievement line distilled from a role's background.
 model Highlight {
   id        String   @id @default(cuid())
   userId    String
@@ -398,7 +403,8 @@ model Project {
   role        String   @default("")
   url         String   @default("")
   description String   @default("")
-  brainDump   String   @default("")
+  /// Stored in the brainDump column — see the note on Profile.background.
+  background  String   @default("") @map("brainDump")
   tags        String[] @default([])
   startDate   String   @default("")
   endDate     String   @default("")
@@ -433,7 +439,7 @@ model Certification {
   @@index([userId])
 }
 
-/// Free-floating brain dump not tied to a role: stories, STAR answers,
+/// Free-floating raw material not tied to a role: stories, STAR answers,
 /// interview prep, references, compensation history, anything.
 /// What a note is for. A GUARDRAIL is not filed away to be found later — it is
 /// prepended to the briefing every connected client receives on connect, so it
@@ -507,13 +513,12 @@ model Resume {
   visibility  ResumeVisibility @default(PRIVATE)
   publishedAt DateTime?
 
-  /// What this was tailored from. A variant remembers its base so the two can
-  /// be compared — which bullets were dropped for this job, which were added —
-  /// and so "which of these is the real one" has an answer. SET NULL rather
-  /// than cascade: deleting a base must leave its copies standing, because one
-  /// of those copies is what somebody actually sent.
+  /// The resume this was tailored from. Set by duplicate_resume (flattened to
+  /// the root, so a copy of a variant still points at the base) and optionally
+  /// by create_resume. SET NULL on delete: losing the base makes a variant
+  /// standalone, it does not delete someone's tailored work.
   baseResumeId String?
-  base         Resume?  @relation("ResumeLineage", fields: [baseResumeId], references: [id], onDelete: SetNull)
+  baseResume   Resume?  @relation("ResumeLineage", fields: [baseResumeId], references: [id], onDelete: SetNull)
   variants     Resume[] @relation("ResumeLineage")
 
   applications Application[]

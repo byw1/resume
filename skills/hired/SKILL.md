@@ -11,10 +11,10 @@ There is no draft copy and no undo.
 
 ## The four areas
 
-**Brain** — everything they know about their own career. Each role holds an unlimited
-free-form *brain dump* of raw material, plus polished reusable bullets called
+**Me** — everything they know about their own career. Each role holds an unlimited
+free-form *background* of raw material, plus polished reusable bullets called
 *highlights*. There are also notes, projects, education, skills and certifications.
-`search_brain` is the fastest way in and is almost always the first call.
+`search_me` is the fastest way in and is almost always the first call.
 
 **Resumes** — documents assembled from that material. `get_resume_format` first, so
 you know the document shape. New resumes use the Harvard OCS format. Any resume can
@@ -36,7 +36,7 @@ unsettled follower count becomes a cited one. "Helped with" becomes "led". Every
 of those maps neatly onto a stated requirement in the posting, so it does not feel
 like invention to whoever is drafting.
 
-So: every claim on a resume traces to something already in the brain. If the evidence
+So: every claim on a resume traces to something already in Me. If the evidence
 is not there, say so and ask. An honest gap is a conversation. A confident
 overstatement is something they have to defend in a room.
 
@@ -52,19 +52,19 @@ silently deletes work.
 
 | Tool | Behaviour | What to do |
 |---|---|---|
-| `update_role` | Replaces every field you pass | Use `append_role_brain_dump` for new material |
+| `update_role` | Replaces every field you pass | Use `append_role_background` for new material |
 | `update_resume` | Replaces the document | `get_resume`, modify, write back whole |
 | `update_company` | Replaces each field passed, notes included | `get_company` first, then write the combined notes |
 | `update_contact` | Same | `get_contact` first |
-| `append_role_brain_dump` | Adds | Safe by default — prefer it |
+| `append_role_background` | Adds | Safe by default — prefer it |
 
 When someone tells you something new about a job already on file, that is
-`append_role_brain_dump`. Not `update_role`.
+`append_role_background`. Not `update_role`.
 
 ## Before you write anything
 
-1. `search_brain` for evidence — always.
-2. `get_brain_snapshot` for the profile, dates and education.
+1. `search_me` for evidence — always.
+2. `get_me_snapshot` for the profile, dates and education.
 3. For a company: `list_companies` to find the id, then `get_company`.
 4. Only then draft.
 

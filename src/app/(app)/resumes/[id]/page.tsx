@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { getResume, listResumes } from "@/lib/data/resumes";
-import { getProfile } from "@/lib/data/brain";
+import { getResume, listResumeNames } from "@/lib/data/resumes";
+import { getProfile } from "@/lib/data/me";
 import { requireUser } from "@/lib/auth";
 import { ResumeEditor } from "@/components/resume/resume-editor";
 
@@ -13,12 +13,18 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const resume = await getResume(user.id, id);
   if (!resume) notFound();
-  // Every other document, so "tailored from" can be set from the panel.
-  const siblings = (await listResumes(user.id)).filter((row) => row.id !== id);
+  // Every other document by name only, so "tailored from" can be set from the
+  // evidence panel without paying for the full list's outcome joins.
+  const siblings = (await listResumeNames(user.id)).filter((row) => row.id !== id);
 
   // The editor gets the photo whether or not this document shows it, so the
   // toggle in the design popover previews instantly.
   const profile = await getProfile(user.id);
+
+  // The base this variant was tailored from, for the live compare view. A
+  // dangling reference (base deleted) resolves to null and the editor simply
+  // doesn't offer the comparison.
+  const base = resume.baseResumeId ? await getResume(user.id, resume.baseResumeId) : null;
 
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const proto =
@@ -28,6 +34,7 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
     <ResumeEditor
       id={resume.id}
       shareUrl={resume.slug ? `${proto}://${host}/r/${resume.slug}` : null}
+      base={base ? { id: base.id, name: base.name, doc: base.doc } : null}
       doc={resume.doc}
       meta={{
         name: resume.name,
@@ -44,7 +51,6 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
         showPhoto: resume.showPhoto,
       }}
       photo={profile.photo}
-      base={resume.base}
       siblings={siblings.map((row) => ({ id: row.id, name: row.name }))}
       applications={resume.applications.map((application) => ({
         id: application.id,

@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { ActivityType, NoteKind, Stage, UserRole } from "@prisma/client";
-import * as brain from "@/lib/data/brain";
+import * as me from "@/lib/data/me";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import { STAGE_LABEL } from "@/lib/data/pipeline";
@@ -469,13 +469,13 @@ export async function sendTestEmailAction(to?: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Brain
+// Me
 // ---------------------------------------------------------------------------
 
-export async function saveProfileAction(patch: brain.ProfilePatch) {
+export async function saveProfileAction(patch: me.ProfilePatch) {
   const user = await requireUser();
-  await brain.updateProfile(user.id, patch);
-  revalidatePath("/brain");
+  await me.updateProfile(user.id, patch);
+  revalidatePath("/me");
   revalidatePath("/");
 }
 
@@ -489,62 +489,62 @@ export async function saveProfileAction(patch: brain.ProfilePatch) {
  */
 export async function setProfilePhotoAction(input: string) {
   const user = await requireUser();
-  const result = await brain.setProfilePhoto(user.id, input);
+  const result = await me.setProfilePhoto(user.id, input);
   revalidatePath("/settings");
-  revalidatePath("/brain");
+  revalidatePath("/me");
   revalidatePath("/resumes");
   revalidatePath("/");
   return result;
 }
 
-export async function createRoleAction(input: brain.RoleInput) {
+export async function createRoleAction(input: me.RoleInput) {
   const user = await requireUser();
-  const role = await brain.createRole(user.id, input);
-  revalidatePath("/brain");
+  const role = await me.createRole(user.id, input);
+  revalidatePath("/me");
   return role.id;
 }
 
-export async function updateRoleAction(id: string, patch: Partial<brain.RoleInput>) {
+export async function updateRoleAction(id: string, patch: Partial<me.RoleInput>) {
   const user = await requireUser();
-  await brain.updateRole(user.id, id, patch);
-  revalidatePath("/brain");
-  revalidatePath(`/brain/${id}`);
+  await me.updateRole(user.id, id, patch);
+  revalidatePath("/me");
+  revalidatePath(`/me/${id}`);
 }
 
 export async function deleteRoleAction(id: string) {
   const user = await requireUser();
-  await brain.deleteRole(user.id, id);
-  revalidatePath("/brain");
-  redirect("/brain");
+  await me.deleteRole(user.id, id);
+  revalidatePath("/me");
+  redirect("/me");
 }
 
-export async function createHighlightAction(input: brain.HighlightInput) {
+export async function createHighlightAction(input: me.HighlightInput) {
   const user = await requireUser();
-  const highlight = await brain.createHighlight(user.id, input);
-  revalidatePath("/brain");
-  if (input.roleId) revalidatePath(`/brain/${input.roleId}`);
+  const highlight = await me.createHighlight(user.id, input);
+  revalidatePath("/me");
+  if (input.roleId) revalidatePath(`/me/${input.roleId}`);
   return highlight;
 }
 
 export async function updateHighlightAction(
   id: string,
-  patch: Partial<brain.HighlightInput> & { archived?: boolean },
+  patch: Partial<me.HighlightInput> & { archived?: boolean },
 ) {
   const user = await requireUser();
-  await brain.updateHighlight(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateHighlight(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteHighlightAction(id: string) {
   const user = await requireUser();
-  await brain.deleteHighlight(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteHighlight(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createNoteAction(input: { title: string; body?: string; tags?: string[] }) {
   const user = await requireUser();
-  const note = await brain.createNote(user.id, input);
-  revalidatePath("/brain");
+  const note = await me.createNote(user.id, input);
+  revalidatePath("/me");
   return note.id;
 }
 
@@ -553,68 +553,68 @@ export async function updateNoteAction(
   patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean; kind: NoteKind }>,
 ) {
   const user = await requireUser();
-  await brain.updateNote(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateNote(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteNoteAction(id: string) {
   const user = await requireUser();
-  await brain.deleteNote(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteNote(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createEducationAction(input: { school: string }) {
   const user = await requireUser();
-  await brain.createEducation(user.id, input);
-  revalidatePath("/brain");
+  await me.createEducation(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function updateEducationAction(id: string, patch: Record<string, unknown>) {
   const user = await requireUser();
-  await brain.updateEducation(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateEducation(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteEducationAction(id: string) {
   const user = await requireUser();
-  await brain.deleteEducation(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteEducation(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createProjectAction(input: { name: string }) {
   const user = await requireUser();
-  await brain.createProject(user.id, input);
-  revalidatePath("/brain");
+  await me.createProject(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function updateProjectAction(id: string, patch: Record<string, unknown>) {
   const user = await requireUser();
-  await brain.updateProject(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateProject(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteProjectAction(id: string) {
   const user = await requireUser();
-  await brain.deleteProject(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteProject(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createSkillGroupAction(input: { name: string; skills?: string[] }) {
   const user = await requireUser();
-  await brain.createSkillGroup(user.id, input);
-  revalidatePath("/brain");
+  await me.createSkillGroup(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function updateSkillGroupAction(id: string, patch: { name?: string; skills?: string[] }) {
   const user = await requireUser();
-  await brain.updateSkillGroup(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateSkillGroup(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteSkillGroupAction(id: string) {
   const user = await requireUser();
-  await brain.deleteSkillGroup(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteSkillGroup(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createCertificationAction(input: {
@@ -624,21 +624,21 @@ export async function createCertificationAction(input: {
   url?: string;
 }) {
   const user = await requireUser();
-  await brain.createCertification(user.id, input);
-  revalidatePath("/brain");
+  await me.createCertification(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function deleteCertificationAction(id: string) {
   const user = await requireUser();
-  await brain.deleteCertification(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteCertification(user.id, id);
+  revalidatePath("/me");
 }
 
 // ---------------------------------------------------------------------------
 // Resumes
 // ---------------------------------------------------------------------------
 
-export async function createResumeAction(input: resumes.ResumeMeta & { seedFromBrain?: boolean }) {
+export async function createResumeAction(input: resumes.ResumeMeta & { seedFromMe?: boolean }) {
   const user = await requireUser();
   const resume = await resumes.createResume(user.id, input);
   revalidatePath("/resumes");
@@ -653,21 +653,6 @@ export async function updateResumeAction(id: string, patch: resumes.ResumeMeta &
 }
 
 /**
- * What changed against the base, and what backs each claim.
- *
- * Computed on the server from what is SAVED, which is why the editor flushes
- * its autosave before asking: a diff of a document you are still typing is a
- * diff of a document that does not exist yet.
- */
-/**
- * Bring a career in from a document.
- *
- * The draft arrives from the browser because the parse happens there: it is
- * pure, and the person corrects it before anything is written. The data layer
- * sanitises and caps every field, so a hand-edited draft is no more trusted
- * than a parsed one.
- */
-/**
  * Everything the command palette can jump to or act on.
  *
  * Fetched when the palette opens rather than shipped with every page. It used
@@ -679,7 +664,7 @@ export async function updateResumeAction(id: string, patch: resumes.ResumeMeta &
 export async function paletteIndexAction() {
   const user = await requireUser();
   const [roles, resumeList, applications, companies, contacts] = await Promise.all([
-    brain.listRoles(user.id),
+    me.listRoles(user.id),
     resumes.listResumes(user.id),
     // includeClosed, because the layout's version had no stage filter and
     // "what did that rejected Stripe role pay" is a thing people look up.
@@ -725,23 +710,48 @@ export async function paletteIndexAction() {
   };
 }
 
-export async function importBrainAction(draft: brain.BrainImport, dryRun = false) {
+/**
+ * Bring a career in from a pasted document.
+ *
+ * The draft arrives from the browser because the parse happens there: it is
+ * pure, and the person corrects it on screen before anything is written. The
+ * filing itself is importResume — the same call an assistant makes — so the
+ * two doors cannot drift.
+ *
+ * The raw text is filed as a note here rather than inside importResume: the
+ * assistant reading a document keeps its own copy of what it read, and this is
+ * the browser path making sure the paste is not the only place it existed.
+ */
+export async function importResumeAction(draft: me.ResumeImport, sourceText?: string) {
   const user = await requireUser();
-  const report = await brain.importIntoBrain(user.id, draft, { dryRun });
-  if (!dryRun) {
-    revalidatePath("/brain");
-    revalidatePath("/");
+  const report = await me.importResume(user.id, draft);
+  const raw = sourceText?.trim();
+  if (raw) {
+    const existing = await me.listNotes(user.id);
+    if (!existing.some((note) => note.body.trim() === raw)) {
+      await me.createNote(user.id, {
+        title: `Imported resume — ${new Date().toISOString().slice(0, 10)}`,
+        body: raw,
+        tags: ["imported"],
+      });
+    }
   }
+  revalidatePath("/me");
+  revalidatePath("/");
   return report;
 }
 
-export async function resumeChangesAction(id: string, baseId?: string) {
+/**
+ * What backs each claim in a document, and where the document went.
+ *
+ * Read on demand rather than with the page: the editor flushes its autosave
+ * before asking, because evidence for a document you are still typing is
+ * evidence for a document that does not exist yet. The diff is not here — the
+ * compare-to-base view computes that live in the browser.
+ */
+export async function resumeEvidenceAction(id: string) {
   const user = await requireUser();
-  const [changes, evidence] = await Promise.all([
-    resumes.diffResume(user.id, id, baseId),
-    resumes.traceResumeEvidence(user.id, id),
-  ]);
-  return { ...changes, evidence };
+  return resumes.traceResumeEvidence(user.id, id);
 }
 
 /**
@@ -758,7 +768,7 @@ export async function tailorResumeForApplicationAction(applicationId: string) {
     id: result.resume.id,
     name: result.resume.name,
     basedOn: result.basedOn?.name ?? null,
-    seededFromBrain: result.seededFromBrain,
+    seededFromMe: result.seededFromMe,
   };
 }
 
@@ -769,11 +779,13 @@ export async function setResumeBaseAction(id: string, baseId: string | null) {
   revalidatePath(`/resumes/${id}`);
 }
 
-export async function deleteResumeAction(id: string) {
+export async function deleteResumeAction(id: string, redirectAfter = true) {
   const user = await requireUser();
   await resumes.deleteResume(user.id, id);
   revalidatePath("/resumes");
-  redirect("/resumes");
+  // The editor needs somewhere to go after its document is gone; the grid is
+  // already standing where it wants to be, search and sort included.
+  if (redirectAfter) redirect("/resumes");
 }
 
 export async function duplicateResumeAction(id: string, name?: string) {
@@ -1155,7 +1167,7 @@ export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
   const [application, resumeList, sourceOptions, companies, settings] = await Promise.all([
     pipeline.getApplication(user.id, id),
-    resumes.listResumes(user.id),
+    resumes.listResumeNames(user.id),
     pipeline.listSources(user.id),
     pipeline.listCompanies(user.id),
     getSettings(),

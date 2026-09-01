@@ -10,7 +10,7 @@ keep in sync.
 
 ## What this is
 
-A self-hosted career operating system: a **brain** (everything you know about every job
+A self-hosted career operating system: **Me** (everything you know about every job
 you've had), a **resume builder** that assembles documents from that material, and a
 **pipeline** CRM for the search. One person per workspace, many people per instance.
 
@@ -58,7 +58,7 @@ compiler rejects a call site that forgets. Never add a data function with an opt
 object-bag `userId`. Never let a `userId` arrive from the client — server actions resolve
 the caller from their session cookie, MCP tools resolve them from the connection token.
 Admins manage *accounts*, never *content*: no code path lets one user read another's
-brain, resumes or applications.
+career history, resumes or applications.
 
 **2. The MCP tools and the UI share one data layer.**
 Both call `src/lib/data/`. If you write logic in a server action that a tool would also
@@ -96,7 +96,7 @@ generates resume content inherits that rule and should restate it.
 
 ```
 prisma/schema.prisma          Data model. Migrations in prisma/migrations/, applied on boot.
-src/lib/data/                 THE data layer, one file per area: brain, resumes, pipeline,
+src/lib/data/                 THE data layer, one file per area: me, resumes, pipeline,
                               pipeline-share, views, users, connections, waitlist, audit,
                               system, patch. userId first wherever content is touched;
                               the instance-level files (users, waitlist, audit, system)
@@ -108,7 +108,7 @@ src/lib/resume-schema.ts      The resume document contract (zod).
 src/lib/pdf.ts                Server-side PDF rendering. Needs a Chromium on the host;
                               degrades to the print page where there isn't one.
 src/server/actions.ts         Server actions for the UI. Never accepts a userId.
-src/app/(app)/                The app: dashboard, brain, resumes, applications, crm, docs,
+src/app/(app)/                The app: dashboard, me, resumes, applications, crm, docs,
                               settings (admin lives under it).
 src/app/api/mcp/[token]/      The connection URL. /api/mcp also accepts a bearer header.
 src/app/r/[slug]/             Published resume, no auth. With /p/[slug] (shared pipeline),
@@ -140,8 +140,8 @@ tools/gen-tool-docs.mjs       Rewrites docs/tools/*.mdx from the tools array by 
                               first "### `" heading on each page is yours to write.
 ```
 
-Data areas map cleanly onto tool prefixes: brain (`search_brain`, `list_roles`,
-`append_role_brain_dump`, …), resumes (`get_resume_format`, `create_resume`,
+Data areas map cleanly onto tool prefixes: me (`search_me`, `list_roles`,
+`append_role_background`, …), resumes (`get_resume_format`, `create_resume`,
 `preview_resume_text`, …), pipeline (`list_applications`, `move_application_stage`,
 `list_follow_ups`, …), CRM (`list_companies`, `create_contact`, …), admin (`admin_*`,
 hidden from members' `tools/list` entirely — not merely refused). Don't trust any
@@ -157,7 +157,7 @@ The description **is** the UX. An assistant with a good description calls the ri
 with the right arguments the first time; with a vague one it guesses and writes garbage
 into someone's career history. Budget real effort here.
 
-- Say **when to reach for it**, not just what it does. `search_brain`'s description opens
+- Say **when to reach for it**, not just what it does. `search_me`'s description opens
   with "This is the FIRST tool to call when tailoring a resume" — that sentence does more
   work than the whole schema.
 - Say what comes back and how to use it — ids, kinds, whether it saved anything.
@@ -165,7 +165,7 @@ into someone's career history. Budget real effort here.
   **replace** what you send; the description has to say "read first, modify, then write
   back whole" or an assistant will silently drop half a role.
 - Prefer additive tools where a person would expect additive behaviour.
-  `append_role_brain_dump` exists because `update_role` was eating people's notes.
+  `append_role_background` exists because `update_role` was eating people's notes.
 - Give a dry-run where a mistake is expensive. `preview_resume_text` renders and estimates
   length *without* saving; `export_resume_pdf` reports the measured page count.
 - Use the local helpers (`str`, `num`, `bool`, `object`, `required`, `defined`) rather
@@ -192,19 +192,20 @@ landed.
 
 Both of the items that stood here are now shipped, and neither should be rebuilt:
 
-**Import.** `import_resume` takes what an assistant read off a resume and populates a
-brain in one call — additive, idempotent, `dryRun` for a preview. The app has a paste-and-
-correct dialog on `/brain` for someone who has not connected anything yet, backed by a
-heuristic parser in `src/lib/resume-parse.ts`. It reads headings, so it is a draft a person
-fixes; the conversational path is better and the dialog says so. PDFs are deliberately not
-parsed: a two-column layout comes out interleaved.
+**Import.** `import_resume` takes what an assistant read off a resume and fills in Me in
+one call — additive, and safe to repeat: a role already on file is skipped rather than
+overwritten. The app also has a paste-and-correct dialog on `/me` for someone who has not
+connected anything yet, backed by a heuristic parser in `src/lib/resume-parse.ts`. It reads
+headings, so it is a draft a person fixes before it lands; the conversational path is
+better and the dialog says so. PDFs are deliberately not parsed: a two-column layout comes
+out interleaved.
 
 **Traceable tailoring.** `Resume.baseResumeId`, a pure diff in `src/lib/resume-diff.ts`,
-and the Changes panel in the resume editor: what moved against the base, which brain
-material backs each bullet, and which jobs the document was sent to. `diff_resume`,
-`trace_resume_evidence` and `set_resume_base` are the same thing over MCP. The evidence is
-derived by comparing text rather than recorded when a document is written — read the
-decision log before changing that.
+and the compare-to-base view in the resume editor, which recomputes as you type.
+`compare_resumes` is the same thing over MCP. Beside it, `trace_resume_evidence` answers
+the other half — which of a person's own material stands behind each bullet, and which
+bullets nothing does. That is derived by comparing text rather than recorded when a
+document is written; read the decision log before changing it.
 
 What is worth doing next is unglamorous: the six `docs/tools/*.mdx` frontmatter counts are
 still hand-written and drift every time a tool is added (the generator owns the tables and

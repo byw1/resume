@@ -4,9 +4,9 @@ import { ArrowLeftIcon } from "lucide-react";
 import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
-import { getRole } from "@/lib/data/brain";
+import { getRole } from "@/lib/data/me";
 import { requireUser } from "@/lib/auth";
-import { RoleEditor } from "@/components/brain/role-editor";
+import { RoleEditor } from "@/components/me/role-editor";
 
 export const dynamic = "force-dynamic";
 
@@ -20,7 +20,7 @@ export default async function RolePage({ params }: { params: Promise<{ roleId: s
     <PageShell>
       <FadeIn>
         <Button asChild variant="ghost" size="sm" className="text-muted-foreground -ml-2 mb-4">
-          <Link href="/brain">
+          <Link href="/me">
             <ArrowLeftIcon /> Me
           </Link>
         </Button>
@@ -36,7 +36,7 @@ export default async function RolePage({ params }: { params: Promise<{ roleId: s
             endDate: role.endDate,
             isCurrent: role.isCurrent,
             summary: role.summary,
-            brainDump: role.brainDump,
+            background: role.background,
             tags: role.tags,
           }}
           highlights={role.highlights.map((h) => ({

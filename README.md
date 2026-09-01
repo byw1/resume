@@ -3,7 +3,7 @@
 An applicant tracking system, for applicants.
 
 Every company you apply to runs one. Theirs keeps a record on you, scores what you sent and
-decides what happens next. This one keeps the record on them — a career brain, a resume
+decides what happens next. This one keeps the record on them — a record of your career, a resume
 builder and a job-search CRM in one app you host yourself, wired into Claude so you can
 just *talk* to it.
 
@@ -46,7 +46,7 @@ just *talk* to it.
   93 tools any MCP client can call (123 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
-  admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
+  admins manage accounts but never see anyone's career history, resumes or applications. Admin lives
   under Settings → Admin: invitations, accounts, per-workspace usage, a password reset for
   whoever is locked out, and a log of every administrative change — including changes to how
   the instance itself is configured, so clearing the Resend key is traceable rather than a
@@ -55,7 +55,7 @@ just *talk* to it.
   account on one page — when they joined, who invited them, whether that invitation email
   actually left, which assistants they have connected, and everything the instance recorded
   against their address. It is the page you open when somebody emails asking why they can't
-  get in, and there is no way from it into their brain, resumes or applications.
+  get in, and there is no way from it into their career history, resumes or applications.
 - **You can tell when it breaks** — Settings → Admin → Health checks the database, whether
   every migration finished, whether the last invite email actually left, and whether Stripe
   is still calling the webhook, then lists what has failed in the last thirty days. Ask an
@@ -89,7 +89,7 @@ never content — and if you stop paying it's suspended, not deleted.
 clicks on Railway if you'd rather never open a terminal. Both below.
 
 The manual is at **[docs.hired.tools](https://docs.hired.tools)** — getting connected,
-filling the brain, tailoring a resume, running the search, every tool written out, and
+filling in Me, tailoring a resume, running the search, every tool written out, and
 the deploy guides in longer form than they are here.
 
 ## Self-host with Docker
@@ -284,7 +284,7 @@ conversation: `admin_get_billing_config`, `admin_set_billing_config`, `admin_syn
 | **Member** | Their own workspace. Never sees the admin area. |
 
 Admins manage *accounts*, not *content*. There is no way — through the UI or through
-Claude — for one person to read another's brain, resumes or applications. That's enforced
+Claude — for one person to read another's career history, resumes or applications. That's enforced
 at the data layer: every query is scoped by owner, and it's a required argument the compiler
 won't let a caller omit.
 
@@ -371,9 +371,9 @@ permission they don't have.
 
 | Workflow | What it does |
 | --- | --- |
-| **Tailor a resume to a job** | Reads a posting, mines your brain for real evidence, drafts and saves a tailored resume, and tells you what it couldn't back up. |
-| **Gap report** | Checks a posting against your brain before you write anything: which requirements you can evidence, which are thin, which are missing — and the questions that would fill the gaps. |
-| **Mine a brain dump into highlights** | Turns a raw, rambling brain dump into polished, reusable resume bullets. |
+| **Tailor a resume to a job** | Reads a posting, mines Me for real evidence, drafts and saves a tailored resume, and tells you what it couldn't back up. |
+| **Gap report** | Checks a posting against Me before you write anything: which requirements you can evidence, which are thin, which are missing — and the questions that would fill the gaps. |
+| **Mine a background into highlights** | Turns a raw, rambling background into polished, reusable resume bullets. |
 | **Weekly pipeline review** | What's stalled, who needs chasing, what to do next — with the follow-up messages drafted. |
 | **Research a company into the CRM** | Gathers what's known, works out what's missing, and writes it back to their record without flattening what was already there. |
 | **Prepare for an interview** | Pulls the posting, the timeline, the company research, the people involved and your own evidence into one prep sheet. |
@@ -381,7 +381,7 @@ permission they don't have.
 | **Invite and onboard someone** *(admin)* | Invites a person, hands you the link if email isn't set up, and drafts the message to send them. |
 
 Every client is instructed never to invent experience, employers, dates, or metrics. If there's
-no evidence in your brain for something a job asks for, it says so instead of making it up.
+no evidence in Me for something a job asks for, it says so instead of making it up.
 
 Every tool also declares what it does to your data — whether it only reads, whether it can
 overwrite or delete, whether it reaches anything outside this instance. Claude sorts its
@@ -406,17 +406,23 @@ it has.
 
 ### The four areas
 
-**Brain** — `search_brain`, `get_brain_snapshot`, roles with unlimited brain dumps
-(`append_role_brain_dump` adds without overwriting), reusable highlights, notes and standing
+**Me** — `search_me`, `get_me_snapshot`, roles with unlimited backgrounds
+(`append_role_background` adds without overwriting), reusable highlights, notes and standing
 rules, plus education, projects, skills and certifications, which
-`create_extra` / `update_extra` / `delete_extra` maintain.
+`create_extra` / `update_extra` / `delete_extra` maintain. `import_resume` is the way in for
+anyone who already has a resume: paste it to your assistant and the whole thing gets filed in
+one call — roles with their bullets, education, skills, contact details — without overwriting
+anything already there.
 
 **Resumes** — `get_resume_format` describes the document shape, then `create_resume` /
 `update_resume` / `duplicate_resume` build and tailor them. `preview_resume_text` renders a
 draft and estimates page count *without* saving, so Claude can check length before
 committing. `publish_resume` turns one into a shareable link and hands back the URL;
 `unpublish_resume` destroys it. `export_resume_pdf` renders a real PDF server-side and
-reports the page count it actually came out to.
+reports the page count it actually came out to. A duplicated resume remembers what it was
+tailored from, so `compare_resumes` can say exactly what a variant changed — bullets added,
+dropped, reworded — and `list_resumes` carries each resume's track record: how many
+applications it went out with, how many reached an interview, how many reached an offer.
 
 **Pipeline** — `capture_job_posting` turns a posting URL into a tracked application in one
 move, company and description included. Then applications and stages, an activity timeline,

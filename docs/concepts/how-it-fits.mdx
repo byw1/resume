@@ -10,7 +10,7 @@ and what happens next comes back as a record.
 
 ```mermaid
 flowchart LR
-  B["Brain<br/>roles · brain dumps · highlights<br/>notes · projects · education"]
+  B["Me<br/>roles · backgrounds · highlights<br/>notes · projects · education"]
   R["Resumes<br/>documents assembled<br/>from that material"]
   P["Pipeline<br/>applications · stages<br/>timeline · tasks"]
   C["CRM<br/>companies · contacts"]
@@ -23,15 +23,15 @@ flowchart LR
 ```
 
 The loop at the end is the part people miss. An interview that went well is not just a
-stage change — it is new material about you, and it belongs back in the brain so the
+stage change — it is new material about you, and it belongs back in Me so the
 next resume is better than this one.
 
 ## The four areas
 
 <CardGroup cols={2}>
-  <Card title="Brain" icon="brain" href="/concepts/brain">
+  <Card title="Me" icon="user" href="/concepts/me">
     Everything you know about your own career, stored raw. Roles hold an unlimited
-    free-form brain dump plus polished reusable bullets called highlights. There are
+    free-form background plus polished reusable bullets called highlights. There are
     also notes, projects, education, skills and certifications.
   </Card>
   <Card title="Resumes" icon="file-lines" href="/concepts/resumes">
@@ -54,8 +54,8 @@ These words mean something specific here. Using them gets you what you meant.
 
 | Word | What it is |
 | --- | --- |
-| **Role** | One job you have had. Holds dates, a scope summary, tags, and the brain dump. |
-| **Brain dump** | Unlimited raw text about a role. Not a document — nobody reads it directly, it gets searched. |
+| **Role** | One job you have had. Holds dates, a scope summary, tags, and the background. |
+| **Background** | Unlimited raw text about a role. Not a document — nobody reads it directly, it gets searched. |
 | **Highlight** | One polished, reusable achievement bullet, rated 1–5 for strength and tagged for retrieval. |
 | **Note** | Free-floating material that belongs to no single job. STAR stories, comp history, references. |
 | **Guardrail** | A note promoted to a standing rule. It rides along in the briefing every assistant receives. |
@@ -77,8 +77,8 @@ wrong deletes work silently.
 
 | Tool | What it does |
 | --- | --- |
-| `append_role_brain_dump` | **Adds** to the end. Safe by default; prefer it. |
-| `update_role` | **Replaces** every field you pass, `brainDump` included. |
+| `append_role_background` | **Adds** to the end. Safe by default; prefer it. |
+| `update_role` | **Replaces** every field you pass, `background` included. |
 | `update_resume` | **Replaces** the whole document. |
 | `update_company` | **Replaces** each field passed, `notes` included. |
 | `update_contact` | Same. |
@@ -86,7 +86,7 @@ wrong deletes work silently.
 
 The rule an assistant is given: read first, modify, write back whole. When somebody tells
 it something *new* about a job already on file, that is
-`append_role_brain_dump` — not `update_role`.
+`append_role_background` — not `update_role`.
 
 ### Isolation is not a setting
 
@@ -97,7 +97,7 @@ call site that does not compile.
 
 Admins manage *accounts* — invitations, suspensions, password resets, instance
 configuration. There is no path, through the app or through an assistant, from an admin
-to another person's brain, resumes or applications.
+to another person's career history, resumes or applications.
 
 [The full security model →](/reference/security)
 

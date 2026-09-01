@@ -274,7 +274,7 @@ export function UsersPanel({
                       onSelect={() => {
                         if (
                           confirm(
-                            `Delete ${user.email}? This permanently removes their brain, resumes and applications.`,
+                            `Delete ${user.email}? This permanently removes their career history, resumes and applications.`,
                           )
                         ) {
                           setRemoved((prev) => new Set(prev).add(user.id));

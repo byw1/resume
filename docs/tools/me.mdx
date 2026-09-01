@@ -1,22 +1,27 @@
 ---
-title: "Brain tools"
-sidebarTitle: "Brain"
-description: "Twenty-three tools over roles, brain dumps, highlights, notes, standing rules and the four supporting collections."
-icon: "brain"
+title: "Me tools"
+sidebarTitle: "Me"
+description: "Twenty-three tools over roles, backgrounds, highlights, notes, standing rules, the four supporting collections, and importing a resume you already have."
+icon: "user"
 ---
 
-Everything the user has written about their own career. `search_brain` is almost always
+Everything the user has written about their own career. `search_me` is almost always
 the first call — it is the fastest way in, and it is what an assistant is told to reach
 for before writing anything.
 
 <Warning>
-  `update_role` with a `brainDump` **replaces** the entire dump. When somebody tells you
+  `update_role` with a `background` **replaces** the entire thing. When somebody tells you
   something new about a job already on file, the correct tool is
-  `append_role_brain_dump`. That tool exists precisely because the update one was eating
+  `append_role_background`. That tool exists precisely because the update one was eating
   people's notes.
 </Warning>
 
-[What each of these concepts is →](/concepts/brain)
+If you already have a resume, you do not have to type any of this. Paste it to your
+assistant and ask it to import: one `import_resume` call files the whole document — roles
+with their bullets, education, skills, contact details. It only ever adds, so anything
+already on file is skipped rather than overwritten, and running it twice is safe.
+
+[What each of these concepts is →](/concepts/me)
 
 <Note>
   The descriptions below are quoted **verbatim** from what the server sends a connected
@@ -24,32 +29,32 @@ for before writing anything.
   rewritten so this page cannot drift from what your assistant actually receives.
 </Note>
 
-### `search_brain`
+### `search_me`
 
-_Search the brain_
+_Search Me_
 
-Ranked keyword search across everything the user has written about themselves: role brain dumps, achievement highlights, notes, projects and their profile. This is the FIRST tool to call when tailoring a resume or answering a question about their experience. Returns excerpts with the id and kind of each hit so you can fetch the full record.
+Ranked keyword search across everything the user has written about themselves: role backgrounds, achievement highlights, notes, projects and their profile. This is the FIRST tool to call when tailoring a resume or answering a question about their experience. Returns excerpts with the id and kind of each hit so you can fetch the full record.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `query` | string | **required** — Keywords to search for, e.g. 'kubernetes cost savings' or 'led a team' |
 | `limit` | number | Max results (default 25) |
 
-### `get_brain_snapshot`
+### `get_me_snapshot`
 
-_Get the whole brain_
+_Get everything in Me_
 
-Returns EVERYTHING in the knowledge base at once: profile, all roles with their full brain dumps, all highlights, education, projects, skills, certifications and notes. Use when you need complete context (e.g. writing a resume from scratch). Can be large — prefer search_brain for targeted lookups.
+Returns EVERYTHING in Me at once: profile, all roles with their full background text, all highlights, education, projects, skills, certifications and notes. Use when you need complete context (e.g. writing a resume from scratch). Can be large — prefer search_me for targeted lookups.
 
 | Argument | Type | |
 | --- | --- | --- |
-| `include_brain_dumps` | boolean | Include the full long-form brain dump text for each role (default true). Set false for a lighter payload. |
+| `include_background` | boolean | Include the full long-form background text for each role (default true). Set false for a lighter payload. |
 
 ### `get_profile`
 
 _Get profile_
 
-The user's identity block: name, headline, contact details, links, career summary and their personal brain dump (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.
+The user's identity block: name, headline, contact details, links, career summary and their personal background (values, what they want next, comp expectations, non-negotiables). `hasPhoto` says whether a profile photo is set; the picture itself is not returned because it is hundreds of kilobytes of base64 — use set_profile_photo to change it.
 
 No arguments.
 
@@ -73,7 +78,7 @@ Update any subset of the user's profile fields. Only pass the fields you want to
 | `github` | string | GitHub URL |
 | `twitter` | string | X/Twitter URL |
 | `summary` | string | Career summary used as the default resume summary |
-| `brainDump` | string | Long-form personal brain dump. REPLACES the existing text — read it first if you intend to add to it. |
+| `background` | string | Long-form personal background. REPLACES the existing text — read it first if you intend to add to it. |
 
 ### `set_profile_photo`
 
@@ -93,7 +98,7 @@ Give the user a headshot, or remove the one they have. One picture serves the wh
 
 _List roles_
 
-List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full brain dump — use get_role for that.
+List every job/role in the knowledge base with dates and how many highlights each has. Does not include the full background — use get_role for that.
 
 No arguments.
 
@@ -101,7 +106,7 @@ No arguments.
 
 _Get a role_
 
-Full detail for one role including its complete brain dump text and all of its achievement highlights.
+Full detail for one role including its complete background text and all of its achievement highlights.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -111,7 +116,7 @@ Full detail for one role including its complete brain dump text and all of its a
 
 _Create a role_
 
-Add a job to the knowledge base. Put every raw detail you were given into brainDump — it is unlimited and is the raw material for future resumes.
+Add a job to the knowledge base. Put every raw detail you were given into background — it is unlimited and is the raw material for future resumes.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -123,14 +128,14 @@ Add a job to the knowledge base. Put every raw detail you were given into brainD
 | `endDate` | string | End date as YYYY-MM. Leave empty if current. |
 | `isCurrent` | boolean | True if this is their current job |
 | `summary` | string | One or two sentences describing the scope of the role |
-| `brainDump` | string | THE BRAIN DUMP. Everything raw: projects, metrics, technologies, stories, praise, failures, org context. Markdown welcome. No length limit. |
+| `background` | string | THE BACKGROUND. Everything raw: projects, metrics, technologies, stories, praise, failures, org context. Markdown welcome. No length limit. |
 | `tags` | string[] | Freeform tags, e.g. ['fintech','ic','python'] |
 
 ### `update_role`
 
 _Update a role_
 
-Update fields on an existing role. WARNING: passing brainDump REPLACES the whole dump — use append_role_brain_dump to add to it safely.
+Update fields on an existing role. WARNING: passing background REPLACES the whole thing — use append_role_background to add to it safely.
 
 **Overwrites or deletes.**
 
@@ -145,14 +150,14 @@ Update fields on an existing role. WARNING: passing brainDump REPLACES the whole
 | `endDate` | string | End date as YYYY-MM |
 | `isCurrent` | boolean | Is this the current job |
 | `summary` | string | Scope summary |
-| `brainDump` | string | Replaces the entire brain dump |
+| `background` | string | Replaces the entire background |
 | `tags` | string[] | Tags |
 
-### `append_role_brain_dump`
+### `append_role_background`
 
-_Append to a role's brain dump_
+_Append to a role's background_
 
-Safely ADD text to the end of a role's brain dump without touching what is already there. This is the right tool when the user tells you something new about a job they already have on file.
+Safely ADD text to the end of a role's background without touching what is already there. This is the right tool when the user tells you something new about a job they already have on file.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -186,7 +191,7 @@ Reusable, polished achievement bullets, strongest first. These are the distilled
 
 _Create highlights_
 
-Distil raw brain-dump material into one or more reusable achievement bullets. Write them in resume voice: strong verb, specific scope, quantified outcome. Create several at once.
+Distil raw background material into one or more reusable achievement bullets. Write them in resume voice: strong verb, specific scope, quantified outcome. Create several at once.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -229,33 +234,11 @@ Free-floating notes not tied to any single job: STAR stories, interview prep, re
 
 No arguments.
 
-### `import_resume`
-
-_Import a resume into the brain_
-
-Fill an empty workspace in one call. YOU read the document — a resume, a CV, a LinkedIn 'Save to PDF' export, an old profile — and pass what it ACTUALLY SAYS as structured roles, education, skills, certifications and projects, plus the raw text in sourceText so nothing the summary dropped is lost. This is the first tool to reach for when someone new connects and says they have a resume; it is the difference between a product that works in a minute and one that asks them to retype their career.
-
-What it does with what you send: a role that is already on file is left EXACTLY as it is (its bullets are still added where they are new), a profile field with anything in it is kept, and skill groups union rather than replace. So calling it twice is safe — the second call reports everything as matched and writes nothing. Call it with dryRun true first to show someone what will land before it lands; the report has the same shape either way.
-
-Never invent. Put in only what the document states: no guessed dates, no improved titles, no metric that is not on the page, no employer you inferred from an email address. A role with no dates is normal and comes back as a warning, which is the honest outcome — an assistant that fills the gap has just written fiction into somebody's career history. Bullets go in as they are written; polishing them is what create_highlights is for, afterwards, with the person in the loop.
-
-| Argument | Type | |
-| --- | --- | --- |
-| `dryRun` | boolean | Report what would happen and write nothing. Default false — pass true to preview. |
-| `source` | string | What the document was, e.g. 'resume' or 'LinkedIn export'. Titles the saved note. |
-| `sourceText` | string | The document as it arrived, in full. Filed as one note so the detail a summary drops stays searchable. |
-| `profile` | object |  |
-| `roles` | object[] | One per job, newest first or oldest first — order does not matter. |
-| `education` | object[] | Schools, degrees, dates. |
-| `projects` | object[] | Side projects, open source, anything with its own name. |
-| `skills` | object[] | Grouped as the document groups them. One group called 'Skills' is fine when it does not group them. |
-| `certifications` | object[] | Certificates and licences. |
-
 ### `create_note`
 
 _Create a note_
 
-Save a free-floating note. Use this for brain-dump material that does not belong to one specific job. Set kind: GUARDRAIL to make it a standing rule instead — see the kind field.
+Save a free-floating note. Use this for raw material that does not belong to one specific job. Set kind: GUARDRAIL to make it a standing rule instead — see the kind field.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -310,7 +293,7 @@ Add an item to one of the supporting collections. Only the fields relevant to `k
 | `role` | string | [projects] Your role on the project |
 | `url` | string | [projects \| certifications] Link |
 | `description` | string | [projects] One-line description |
-| `brainDump` | string | [projects] Long-form raw detail about the project |
+| `background` | string | [projects] Long-form raw detail about the project |
 | `skills` | string[] | [skills] The skills in this group, e.g. ['Python','Go','Rust'] |
 | `issuer` | string | [certifications] Issuing body |
 | `date` | string | [certifications] Date earned |
@@ -340,7 +323,7 @@ Change fields on an item in one of the supporting collections. Reach for this in
 | `role` | string | [projects] Your role on the project |
 | `url` | string | [projects \| certifications] Link |
 | `description` | string | [projects] One-line description |
-| `brainDump` | string | [projects] Long-form raw detail about the project |
+| `background` | string | [projects] Long-form raw detail about the project |
 | `skills` | string[] | [skills] REPLACES the whole list, e.g. ['Python','Go','Rust'] |
 | `issuer` | string | [certifications] Issuing body |
 | `date` | string | [certifications] Date earned |
@@ -361,3 +344,19 @@ Remove an item from one of the supporting collections.
 | --- | --- | --- |
 | `kind` | enum | **required** — Which collection the item is in  `education` · `projects` · `skills` · `certifications` |
 | `id` | string | **required** — Item id |
+
+### `import_resume`
+
+_Import a resume into the brain_
+
+Turn an existing resume, LinkedIn export or any pasted career history into a filled-in Me in ONE call. This is the first tool to reach for when the workspace is empty and the user has a document — it is the difference between starting from their real history and starting from nothing, so offer it before asking them to talk through their life. You do the reading: parse the pasted text yourself into the structured payload — profile facts, one entry per role with its bullets, education, projects, skills, certifications. Copy what the document actually says and NEVER invent, upgrade or round anything: no employers, titles, dates or metrics the text does not state, and a field the document is silent on stays absent. Include startDate on every role — it is part of a role's identity, and two stints at the same company import as two roles only when their dates differ. Everything is additive and re-import is safe: profile fields fill only where currently empty; a role already on file at the same company+title and start date, an education entry with the same school+degree+field, or a project/certification with the same name is SKIPPED, never overwritten; a skill group with an existing name has its skills unioned in. Each role's bullets are saved as highlights and land in its background for search_me to mine. Returns exactly what was created and what was skipped — report that to the user, and for skipped roles add new material with append_role_background instead. Pass create_base_resume: true to also build their first draft from what was imported; it reuses a resume already named 'Base resume' rather than minting another, so repeating the whole call is safe. Offer it — a resume is usually why they pasted one.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `profile` | object | Contact and identity facts from the document. Only fills fields that are currently empty. |
+| `roles` | object[] | One entry per job in the document, newest first. |
+| `education` | object[] | Education entries. |
+| `projects` | object[] | Side or portfolio projects the document lists. |
+| `skillGroups` | object[] | Skills grouped the way the document groups them, e.g. {name: 'Languages', skills: ['Go','TypeScript']}. Use one group named 'Skills' when it is a flat list. |
+| `certifications` | object[] | Certifications and licences. |
+| `create_base_resume` | boolean | Also build a first draft resume from the imported brain, named 'Base resume'. Offer this — it is usually why they pasted a resume. |

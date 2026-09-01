@@ -37,7 +37,7 @@ Read the rest of this document as a proposal for where that one place is.
 - **Invite-only.** An admin invites an email; `acceptInvite` creates the `User`. There is no
   signup policy setting — `SETTING_KEYS` has no key for it.
 - **Admins manage accounts, never content.** The 16 `admin_*` tools touch users, invites,
-  email and billing. None of them reads a brain.
+  email and billing. None of them reads anyone's own material.
 - **The only sharing that exists is per-document**: `publish_resume` mints an unguessable
   slug and `/r/[slug]` renders that one document with an explicit nine-field `select`. It is
   the single deliberately anonymous read in the codebase.
@@ -99,9 +99,9 @@ model Membership {
 
 ### AccessRole — and a name that is already taken
 
-**`Role` is not available.** `model Role` is a job you held, in the brain. Naming the
+**`Role` is not available.** `model Role` is a job you held, in Me. Naming the
 permission set `Role` would collide with the single most-referenced model in
-`src/lib/data/brain.ts` and make every future grep ambiguous. Call it `AccessRole`.
+`src/lib/data/me.ts` and make every future grep ambiguous. Call it `AccessRole`.
 
 ```prisma
 enum Access { NONE VIEW EDIT }
@@ -112,7 +112,7 @@ model AccessRole {
   name        String            // "Owner", "Editor", "Coach", or whatever you make
   isOwnerRole Boolean @default(false)   // exactly one per workspace, undeletable
 
-  brain       Access @default(NONE)
+  me          Access @default(NONE)
   resumes     Access @default(NONE)
   pipeline    Access @default(NONE)
   crm         Access @default(NONE)
@@ -138,7 +138,7 @@ understands:
 
 | Area          | Models                                                                   |
 | ------------- | ------------------------------------------------------------------------ |
-| `brain`       | Profile, Role, Highlight, Education, Project, SkillGroup, Certification, Note |
+| `me`          | Profile, Role, Highlight, Education, Project, SkillGroup, Certification, Note |
 | `resumes`     | Resume                                                                    |
 | `pipeline`    | Application, Activity, Task                                               |
 | `crm`         | Company, Contact                                                          |
@@ -154,7 +154,7 @@ This is the load-bearing decision.
 
 ```ts
 // src/lib/scope.ts
-export type Area = "brain" | "resumes" | "pipeline" | "crm" | "connections";
+export type Area = "me" | "resumes" | "pipeline" | "crm" | "connections";
 
 export type Scope = {
   readonly workspaceId: string;
@@ -283,7 +283,7 @@ is why it is its own phase.*
 `AccessRole` seeding, the runtime assert, workspace invites, the Members screen, the
 `workspace_*` tools, permission-filtered `tools/list`, nav items hidden for areas you cannot
 see. **This is the phase that does what you asked for**: you invite a friend into your
-workspace as a Viewer and they can see your pipeline and not your brain.
+workspace as a Viewer and they can see your pipeline and not your history.
 
 **Phase 3 — more than one workspace, and self-signup.**
 A switcher in the rail, `signupMode` in `Setting` (`INVITE_ONLY | OPEN`), self-signup creating

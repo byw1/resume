@@ -22,11 +22,11 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
-import { resumeChangesAction, setResumeBaseAction } from "@/server/actions";
+import { resumeEvidenceAction, setResumeBaseAction } from "@/server/actions";
 import type { Stage } from "@prisma/client";
 import { cn } from "@/lib/utils";
 
-type Changes = Awaited<ReturnType<typeof resumeChangesAction>>;
+type Evidence = Awaited<ReturnType<typeof resumeEvidenceAction>>;
 
 export type LinkedApplication = {
   id: string;
@@ -37,18 +37,19 @@ export type LinkedApplication = {
 };
 
 /**
- * What this document is, against what it came from.
+ * What stands behind this document, and where it went.
  *
- * Tailoring was a one-way street: duplicate, rewrite, send, and no way back to
- * what you changed. The panel answers three questions in one place — what
- * moved against the base, which of your own notes stand behind each claim, and
- * which jobs this document was actually sent to.
+ * The compare-to-base view beside it answers "what changed"; this answers the
+ * two questions it cannot — which of your own material backs each claim, and
+ * which jobs this document was actually sent to. It also says what the
+ * document was tailored from, which is the only place that can be set for a
+ * resume that was not made by duplicating one.
  *
- * The diff is computed on the server from what is SAVED, and the editor
- * flushes its autosave before opening: a diff of a document you are still
- * typing is a diff of a document that does not exist yet.
+ * Read from what is SAVED, and the editor flushes its autosave before opening:
+ * evidence for a document you are still typing is evidence for a document that
+ * does not exist yet.
  */
-export function ChangesPanel({
+export function EvidencePanel({
   resumeId,
   base,
   siblings,
@@ -64,8 +65,8 @@ export function ChangesPanel({
   onOpen: () => Promise<void> | void;
 }) {
   const [open, setOpen] = useState(false);
-  const [changes, setChanges] = useState<Changes | null>(null);
-  const [tab, setTab] = useState<"changes" | "evidence" | "sent">("changes");
+  const [evidence, setEvidence] = useState<Evidence | null>(null);
+  const [tab, setTab] = useState<"evidence" | "sent">("evidence");
   const [loading, startLoading] = useTransition();
   const [saving, startSaving] = useTransition();
 
@@ -73,9 +74,9 @@ export function ChangesPanel({
     startLoading(async () => {
       try {
         await onOpen();
-        setChanges(await resumeChangesAction(resumeId));
+        setEvidence(await resumeEvidenceAction(resumeId));
       } catch (error) {
-        toast.error(error instanceof Error ? error.message : "Could not read the changes.");
+        toast.error(error instanceof Error ? error.message : "Could not read the evidence.");
       }
     });
   };
@@ -84,15 +85,13 @@ export function ChangesPanel({
     startSaving(async () => {
       try {
         await setResumeBaseAction(resumeId, value === "none" ? null : value);
-        setChanges(await resumeChangesAction(resumeId));
+        setEvidence(await resumeEvidenceAction(resumeId));
         toast.success(value === "none" ? "Unlinked" : "Base set");
       } catch (error) {
         toast.error(error instanceof Error ? error.message : "Could not set that base.");
       }
     });
   };
-
-  const totals = changes?.diff?.totals;
 
   return (
     <>
@@ -105,15 +104,15 @@ export function ChangesPanel({
           load();
         }}
       >
-        <GitBranchIcon /> Changes
+        <GitBranchIcon /> Evidence
       </Button>
 
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent className="w-full overflow-y-auto p-5 sm:max-w-xl sm:p-6">
-          <SheetTitle>Changes</SheetTitle>
+          <SheetTitle>Evidence</SheetTitle>
           <SheetDescription className="sr-only">
-            What this resume changed against the one it was tailored from, the brain material
-            behind each bullet, and the applications it was sent to.
+            The material behind each bullet in this resume, and the applications it was sent
+            to.
           </SheetDescription>
 
           <div className="mt-4 space-y-4">
@@ -141,7 +140,6 @@ export function ChangesPanel({
             <div className="flex gap-1 border-b">
               {(
                 [
-                  ["changes", "What changed"],
                   ["evidence", "Evidence"],
                   ["sent", `Sent to ${applications.length}`],
                 ] as const
@@ -168,125 +166,24 @@ export function ChangesPanel({
               </div>
             )}
 
-            {!loading && tab === "changes" && (
-              <div className="space-y-4">
-                {!changes?.diff ? (
-                  <p className="text-muted-foreground text-[13px] leading-relaxed">
-                    {changes?.note ??
-                      "Nothing to compare against yet. Say what this was tailored from above and the changes appear here."}
-                  </p>
-                ) : changes.diff.identical ? (
-                  <p className="text-muted-foreground text-[13px]">
-                    Identical to {changes.base?.name}. Nothing has been tailored yet.
-                  </p>
-                ) : (
-                  <>
-                    {totals && (
-                      <div className="text-muted-foreground flex flex-wrap gap-x-3 gap-y-1 text-[12px]">
-                        <Count n={totals.bulletsAdded} label="added" tone="add" />
-                        <Count n={totals.bulletsRemoved} label="dropped" tone="drop" />
-                        <Count n={totals.bulletsEdited} label="reworded" tone="edit" />
-                        <Count n={totals.entriesRemoved} label="roles cut" tone="drop" />
-                        <Count n={totals.sectionsHidden} label="sections hidden" tone="drop" />
-                      </div>
-                    )}
-
-                    {changes.diff.header.length > 0 && (
-                      <Block title="Header">
-                        {changes.diff.header.map((field) => (
-                          <div key={field.field} className="text-[12.5px]">
-                            <span className="text-faint">{field.field}: </span>
-                            <span className="text-muted-foreground line-through">
-                              {field.from || "—"}
-                            </span>
-                            <ArrowRightIcon className="mx-1 inline size-3" />
-                            <span>{field.to || "—"}</span>
-                          </div>
-                        ))}
-                      </Block>
-                    )}
-
-                    {changes.diff.sections
-                      .filter(
-                        (section) =>
-                          section.status !== "unchanged" ||
-                          section.renamed ||
-                          section.visibility ||
-                          section.text ||
-                          section.entries.some((entry) => entry.status !== "unchanged"),
-                      )
-                      .map((section, index) => (
-                        <Block
-                          key={`${section.kind}-${index}`}
-                          title={section.heading}
-                          note={
-                            section.status !== "unchanged"
-                              ? section.status
-                              : section.visibility?.to === false
-                                ? "hidden"
-                                : section.renamed
-                                  ? `renamed from ${section.renamed.from}`
-                                  : undefined
-                          }
-                        >
-                          {section.text && (
-                            <p className="text-[12.5px] leading-relaxed">
-                              <span className="text-muted-foreground line-through">
-                                {section.text.from}
-                              </span>
-                              <br />
-                              {section.text.to}
-                            </p>
-                          )}
-                          {section.entries
-                            .filter((entry) => entry.status !== "unchanged")
-                            .map((entry, entryIndex) => (
-                              <div key={`${entry.label}-${entryIndex}`} className="space-y-1">
-                                <div className="flex items-center gap-1.5 text-[12.5px] font-medium">
-                                  {entry.label}
-                                  {entry.status !== "edited" && (
-                                    <span className="text-faint text-[11px] font-normal">
-                                      {entry.status}
-                                    </span>
-                                  )}
-                                </div>
-                                {entry.fields.map((field) => (
-                                  <div key={field.field} className="text-faint pl-3 text-[12px]">
-                                    {field.field}: {field.from || "—"} → {field.to || "—"}
-                                  </div>
-                                ))}
-                                {entry.bullets
-                                  .filter((bullet) => bullet.status !== "unchanged")
-                                  .map((bullet, bulletIndex) => (
-                                    <Bullet key={bulletIndex} bullet={bullet} />
-                                  ))}
-                              </div>
-                            ))}
-                        </Block>
-                      ))}
-                  </>
-                )}
-              </div>
-            )}
-
-            {!loading && tab === "evidence" && changes && (
+            {!loading && tab === "evidence" && evidence && (
               <div className="space-y-3">
                 <p className="text-muted-foreground text-[12.5px] leading-relaxed">
                   Which of your own notes stand behind each claim, matched on the words
-                  themselves. {changes.evidence.unbacked > 0 ? (
+                  themselves. {evidence.unbacked > 0 ? (
                     <>
                       <span className="text-foreground font-medium">
-                        {changes.evidence.unbacked}
+                        {evidence.unbacked}
                       </span>{" "}
-                      of {changes.evidence.bullets.length}{" "}
-                      {changes.evidence.unbacked === 1 ? "has" : "have"} nothing behind them yet —
+                      of {evidence.bullets.length}{" "}
+                      {evidence.unbacked === 1 ? "has" : "have"} nothing behind them yet —
                       those are the lines you cannot expand on from your own material.
                     </>
                   ) : (
                     <>Every bullet here traces back to something you wrote down.</>
                   )}
                 </p>
-                {changes.evidence.bullets.map((row, index) => (
+                {evidence.bullets.map((row, index) => (
                   <div key={index} className="border-l-2 pl-3">
                     <div className="text-faint text-[11px]">{row.entry}</div>
                     <div className="text-[12.5px]">{row.bullet}</div>

@@ -44,7 +44,7 @@ type Role = {
   endDate: string;
   isCurrent: boolean;
   summary: string;
-  brainDump: string;
+  background: string;
   tags: string[];
 };
 
@@ -60,7 +60,7 @@ export function RoleEditor({ role, highlights }: { role: Role; highlights: Highl
     endDate: role.endDate,
     isCurrent: role.isCurrent,
     summary: role.summary,
-    brainDump: role.brainDump,
+    background: role.background,
     tags: role.tags.join(", "),
   });
 
@@ -80,7 +80,7 @@ export function RoleEditor({ role, highlights }: { role: Role; highlights: Highl
     push(next);
   };
 
-  const words = Math.round(values.brainDump.length / 5.5);
+  const words = Math.round(values.background.length / 5.5);
 
   return (
     <div className="space-y-6">
@@ -128,7 +128,7 @@ export function RoleEditor({ role, highlights }: { role: Role; highlights: Highl
           <Card>
             <CardHeader className="flex-row items-center justify-between">
               <div>
-                <CardTitle className="text-[15px]">Brain dump</CardTitle>
+                <CardTitle className="text-[15px]">Background</CardTitle>
                 <p className="text-muted-foreground mt-1 text-sm">
                   Everything. Projects, numbers, tech, politics, praise, screw-ups. No editing, no
                   structure needed — Claude does that part.
@@ -140,8 +140,8 @@ export function RoleEditor({ role, highlights }: { role: Role; highlights: Highl
             </CardHeader>
             <CardContent>
               <Textarea
-                value={values.brainDump}
-                onChange={(event) => set({ brainDump: event.target.value })}
+                value={values.background}
+                onChange={(event) => set({ background: event.target.value })}
                 placeholder={`Rebuilt the billing pipeline in Q2 — was taking 6 hours nightly, got it to 20 min.
 Ran the migration off Mongo. 400M documents. Zero downtime, took 4 months.
 Manager said in my review I was "the only person who could hold the whole system in their head".
@@ -253,7 +253,7 @@ function HighlightsCard({ roleId, highlights }: { roleId: string; highlights: Hi
           <SparklesIcon className="text-muted-foreground size-4" /> Highlights
         </CardTitle>
         <p className="text-muted-foreground text-sm">
-          Polished, reusable bullets distilled from the dump above. Ask Claude to
+          Polished, reusable bullets distilled from the background above. Ask Claude to
           &ldquo;mine this role&rdquo; and it will write these for you.
         </p>
       </CardHeader>

@@ -19,8 +19,8 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { parseResumeText } from "@/lib/resume-parse";
-import { importBrainAction } from "@/server/actions";
-import type { BrainImport } from "@/lib/data/brain";
+import { importResumeAction } from "@/server/actions";
+import type { ResumeImport } from "@/lib/data/me";
 
 /**
  * Paste a resume, check what it read, keep what is right.
@@ -39,7 +39,8 @@ export function ImportDialog() {
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
   const [text, setText] = useState("");
-  const [draft, setDraft] = useState<BrainImport | null>(null);
+  const [draft, setDraft] = useState<ResumeImport | null>(null);
+  const [source, setSource] = useState("");
   const [warnings, setWarnings] = useState<string[]>([]);
   const [pending, startTransition] = useTransition();
 
@@ -53,7 +54,7 @@ export function ImportDialog() {
     const counts = [
       [roleCount, "job"],
       [draft.education?.length ?? 0, "school"],
-      [draft.skills?.reduce((sum, group) => sum + group.skills.length, 0) ?? 0, "skill"],
+      [draft.skillGroups?.reduce((sum, group) => sum + (group.skills?.length ?? 0), 0) ?? 0, "skill"],
       [draft.certifications?.length ?? 0, "certification"],
       [draft.projects?.length ?? 0, "project"],
     ] as const;
@@ -66,8 +67,9 @@ export function ImportDialog() {
   const read = () => {
     const body = text.trim();
     if (!body) return;
-    const result = parseResumeText(body, "resume");
+    const result = parseResumeText(body);
     setDraft(result.draft);
+    setSource(result.sourceText);
     setWarnings(result.warnings);
   };
 
@@ -75,9 +77,9 @@ export function ImportDialog() {
     if (!draft) return;
     startTransition(async () => {
       try {
-        const report = await importBrainAction(draft, false);
-        const created = report.roles.filter((row) => row.action === "created").length;
-        const matched = report.roles.length - created;
+        const report = await importResumeAction(draft, source);
+        const created = report.roles.created.length;
+        const matched = report.roles.skipped.length;
         toast.success(
           matched > 0
             ? `Brought in ${created} job${created === 1 ? "" : "s"}; ${matched} ${matched === 1 ? "was" : "were"} already here`
@@ -93,7 +95,7 @@ export function ImportDialog() {
     });
   };
 
-  const editRole = (index: number, patch: Partial<NonNullable<BrainImport["roles"]>[number]>) => {
+  const editRole = (index: number, patch: Partial<NonNullable<ResumeImport["roles"]>[number]>) => {
     setDraft((current) =>
       current
         ? {
