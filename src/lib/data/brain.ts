@@ -671,6 +671,457 @@ export async function brainIsEmpty(userId: string) {
   return profileIsBlank && !role && !highlight && !note && !education && !project && !skillGroup && !certification;
 }
 
+// ---------------------------------------------------------------------------
+// Import
+// ---------------------------------------------------------------------------
+
+export type ImportedRole = {
+  company: string;
+  title: string;
+  employmentType?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  isCurrent?: boolean;
+  summary?: string;
+  brainDump?: string;
+  /** Resume bullets. Each becomes a highlight on this role. */
+  bullets?: string[];
+  tags?: string[];
+};
+
+export type ImportedEducation = {
+  school: string;
+  degree?: string;
+  field?: string;
+  location?: string;
+  startDate?: string;
+  endDate?: string;
+  gpa?: string;
+  details?: string;
+};
+
+export type ImportedProject = {
+  name: string;
+  role?: string;
+  url?: string;
+  description?: string;
+  brainDump?: string;
+  startDate?: string;
+  endDate?: string;
+  tags?: string[];
+};
+
+export type ImportedSkillGroup = { name: string; skills: string[] };
+export type ImportedCertification = { name: string; issuer?: string; date?: string; url?: string };
+
+export type BrainImport = {
+  profile?: ProfilePatch;
+  roles?: ImportedRole[];
+  education?: ImportedEducation[];
+  projects?: ImportedProject[];
+  skills?: ImportedSkillGroup[];
+  certifications?: ImportedCertification[];
+  /** The document as it arrived, filed as one note so nothing is lost. */
+  sourceText?: string;
+  /** What it was — "resume", "LinkedIn export". Titles that note. */
+  source?: string;
+};
+
+export type ImportOutcome = {
+  /** How a person would say it: "Staff Engineer @ Stripe". */
+  label: string;
+  action: "created" | "matched" | "merged";
+  /** Null on a dry run and on anything that was not written. */
+  id: string | null;
+  highlightsAdded?: number;
+  highlightsSkipped?: number;
+  skillsAdded?: number;
+};
+
+export type ImportReport = {
+  dryRun: boolean;
+  profile: { filled: string[]; kept: string[] };
+  roles: ImportOutcome[];
+  education: ImportOutcome[];
+  projects: ImportOutcome[];
+  skills: ImportOutcome[];
+  certifications: ImportOutcome[];
+  sourceNote: { id: string | null; action: "created" | "matched" } | null;
+  warnings: string[];
+};
+
+/**
+ * Caps live here rather than in the parser, because the MCP door never touches
+ * the parser: neither entrance may be the lenient one.
+ */
+export const IMPORT_LIMITS = {
+  roles: 40,
+  bulletsPerRole: 60,
+  education: 20,
+  projects: 40,
+  skillGroups: 30,
+  skillsPerGroup: 120,
+  certifications: 40,
+  textChars: 4_000,
+  sourceTextChars: 200_000,
+} as const;
+
+/** "Stripe, Inc." and "stripe inc" are one employer. */
+function importKey(value: string): string {
+  return value
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, " ")
+    .replace(/\b(inc|llc|ltd|limited|corp|corporation|co|the|gmbh|plc|sa|ag)\b/g, "")
+    .trim()
+    .replace(/\s+/g, " ");
+}
+
+function text(value: string | undefined, limit: number = IMPORT_LIMITS.textChars): string {
+  return (value ?? "").trim().slice(0, limit);
+}
+
+/**
+ * Everything a person has already written down, from a document they wrote
+ * once. This is the adoption blocker made small: without it a new workspace is
+ * an empty form and the product does nothing until a career has been retyped
+ * into it.
+ *
+ * Three rules, and they are the whole design:
+ *
+ * 1. It ADDS. Nothing already on file is overwritten — a matched role is left
+ *    exactly as it is, and a profile field with anything in it is kept. The
+ *    one exception is a skill group, where a second import unions the lists,
+ *    because that is the one collection where "and also these" is what a
+ *    person means.
+ * 2. It is idempotent. Importing the same document twice reports every row as
+ *    matched and writes nothing, which is what makes the tool safe to retry
+ *    when a connection drops halfway.
+ * 3. It never invents. Only fields present in the input are written; a missing
+ *    date stays empty and is reported as a warning rather than guessed.
+ *
+ * dryRun runs the same code path as a read, so a preview cannot disagree with
+ * what the write would do.
+ */
+export async function importIntoBrain(
+  userId: string,
+  input: BrainImport,
+  options: { dryRun?: boolean } = {},
+): Promise<ImportReport> {
+  const dryRun = options.dryRun ?? true;
+  const warnings: string[] = [];
+
+  const roles = (input.roles ?? []).slice(0, IMPORT_LIMITS.roles);
+  const education = (input.education ?? []).slice(0, IMPORT_LIMITS.education);
+  const projects = (input.projects ?? []).slice(0, IMPORT_LIMITS.projects);
+  const skills = (input.skills ?? []).slice(0, IMPORT_LIMITS.skillGroups);
+  const certifications = (input.certifications ?? []).slice(0, IMPORT_LIMITS.certifications);
+  const sourceText = text(input.sourceText, IMPORT_LIMITS.sourceTextChars);
+
+  const nothing =
+    roles.length === 0 &&
+    education.length === 0 &&
+    projects.length === 0 &&
+    skills.length === 0 &&
+    certifications.length === 0 &&
+    !sourceText &&
+    Object.keys(input.profile ?? {}).length === 0;
+  if (nothing) throw new Error("There is nothing in this import.");
+
+  for (const [name, list, limit] of [
+    ["roles", input.roles, IMPORT_LIMITS.roles],
+    ["education entries", input.education, IMPORT_LIMITS.education],
+    ["projects", input.projects, IMPORT_LIMITS.projects],
+    ["skill groups", input.skills, IMPORT_LIMITS.skillGroups],
+    ["certifications", input.certifications, IMPORT_LIMITS.certifications],
+  ] as const) {
+    if ((list?.length ?? 0) > limit) {
+      warnings.push(`Only the first ${limit} ${name} were taken; ${list!.length} were sent.`);
+    }
+  }
+
+  // --- profile: fill blanks, keep everything else ---------------------------
+  const stored = await getProfile(userId);
+  const filled: string[] = [];
+  const kept: string[] = [];
+  const profilePatch: ProfilePatch = {};
+  for (const column of PROFILE_COLUMNS) {
+    const incoming = text(input.profile?.[column]);
+    if (!incoming) continue;
+    if (stored[column]) kept.push(column);
+    else {
+      filled.push(column);
+      profilePatch[column] = incoming;
+    }
+  }
+  if (kept.length > 0) {
+    warnings.push(
+      `Kept what was already on the profile: ${kept.join(", ")}. Change those by hand or with update_profile.`,
+    );
+  }
+  if (!dryRun && filled.length > 0) await updateProfile(userId, profilePatch);
+
+  // --- roles ----------------------------------------------------------------
+  const storedRoles = await db.role.findMany({
+    where: { userId },
+    select: { id: true, company: true, title: true },
+  });
+  const roleIndex = new Map(
+    storedRoles.map((role) => [`${importKey(role.company)}|${importKey(role.title)}`, role.id]),
+  );
+
+  const roleOutcomes: ImportOutcome[] = [];
+  for (const role of roles) {
+    const company = text(role.company, 200);
+    const title = text(role.title, 200);
+    if (!company && !title) continue;
+    const label = `${title || "Role"} @ ${company || "somewhere"}`;
+    const key = `${importKey(company)}|${importKey(title)}`;
+    const bullets = (role.bullets ?? [])
+      .map((bullet) => text(bullet))
+      .filter(Boolean)
+      .slice(0, IMPORT_LIMITS.bulletsPerRole);
+
+    if (!role.startDate) warnings.push(`${label} came with no dates.`);
+    for (const bullet of bullets) {
+      if (bullet.length > 400) {
+        warnings.push(`A very long bullet on ${label} may be a paragraph read as one line.`);
+        break;
+      }
+    }
+
+    let roleId = roleIndex.get(key) ?? null;
+    const matched = roleId !== null;
+    if (!matched && !dryRun) {
+      // A matched role is left exactly as it is. Enriching one that exists is
+      // what append_role_brain_dump is for, and it is one call away.
+      const created = await createRole(userId, {
+        company,
+        title,
+        employmentType: role.employmentType ? text(role.employmentType, 60) : undefined,
+        location: text(role.location, 200),
+        startDate: text(role.startDate, 40),
+        endDate: text(role.endDate, 40),
+        isCurrent: role.isCurrent ?? false,
+        summary: text(role.summary),
+        brainDump: text(role.brainDump),
+        tags: (role.tags ?? []).map((tag) => text(tag, 60)).filter(Boolean),
+      });
+      roleId = created.id;
+      roleIndex.set(key, created.id);
+    }
+
+    let added = 0;
+    let skipped = 0;
+    if (bullets.length > 0) {
+      const existing = roleId
+        ? await db.highlight.findMany({
+            where: { userId, roleId, archived: false },
+            select: { text: true },
+          })
+        : [];
+      const seen = new Set(existing.map((highlight) => importKey(highlight.text)));
+      for (const bullet of bullets) {
+        const bulletKey = importKey(bullet);
+        if (seen.has(bulletKey)) {
+          skipped += 1;
+          continue;
+        }
+        seen.add(bulletKey);
+        added += 1;
+        if (!dryRun && roleId) {
+          await createHighlight(userId, { roleId, text: bullet, tags: ["imported"], strength: 3 });
+        }
+      }
+    }
+
+    roleOutcomes.push({
+      label,
+      action: matched ? "matched" : "created",
+      id: dryRun ? null : roleId,
+      highlightsAdded: added,
+      highlightsSkipped: skipped,
+    });
+  }
+
+  // --- education, projects, certifications ----------------------------------
+  const storedEducation = await db.education.findMany({
+    where: { userId },
+    select: { id: true, school: true, degree: true },
+  });
+  const educationIndex = new Map(
+    storedEducation.map((row) => [`${importKey(row.school)}|${importKey(row.degree)}`, row.id]),
+  );
+  const educationOutcomes: ImportOutcome[] = [];
+  for (const entry of education) {
+    const school = text(entry.school, 200);
+    if (!school) continue;
+    const key = `${importKey(school)}|${importKey(entry.degree ?? "")}`;
+    const found = educationIndex.get(key);
+    if (found) {
+      educationOutcomes.push({ label: school, action: "matched", id: dryRun ? null : found });
+      continue;
+    }
+    let id: string | null = null;
+    if (!dryRun) {
+      const created = await createEducation(userId, {
+        school,
+        degree: text(entry.degree, 200),
+        field: text(entry.field, 200),
+        location: text(entry.location, 200),
+        startDate: text(entry.startDate, 40),
+        endDate: text(entry.endDate, 40),
+        gpa: text(entry.gpa, 40),
+        details: text(entry.details),
+      });
+      id = created.id;
+      educationIndex.set(key, created.id);
+    }
+    educationOutcomes.push({ label: school, action: "created", id });
+  }
+
+  const storedProjects = await db.project.findMany({ where: { userId }, select: { id: true, name: true } });
+  const projectIndex = new Map(storedProjects.map((row) => [importKey(row.name), row.id]));
+  const projectOutcomes: ImportOutcome[] = [];
+  for (const entry of projects) {
+    const name = text(entry.name, 200);
+    if (!name) continue;
+    const found = projectIndex.get(importKey(name));
+    if (found) {
+      projectOutcomes.push({ label: name, action: "matched", id: dryRun ? null : found });
+      continue;
+    }
+    let id: string | null = null;
+    if (!dryRun) {
+      const created = await createProject(userId, {
+        name,
+        role: text(entry.role, 200),
+        url: text(entry.url, 500),
+        description: text(entry.description),
+        brainDump: text(entry.brainDump),
+        startDate: text(entry.startDate, 40),
+        endDate: text(entry.endDate, 40),
+        tags: (entry.tags ?? []).map((tag) => text(tag, 60)).filter(Boolean),
+      });
+      id = created.id;
+      projectIndex.set(importKey(name), created.id);
+    }
+    projectOutcomes.push({ label: name, action: "created", id });
+  }
+
+  const storedCerts = await db.certification.findMany({
+    where: { userId },
+    select: { id: true, name: true, issuer: true },
+  });
+  const certIndex = new Map(
+    storedCerts.map((row) => [`${importKey(row.name)}|${importKey(row.issuer)}`, row.id]),
+  );
+  const certOutcomes: ImportOutcome[] = [];
+  for (const entry of certifications) {
+    const name = text(entry.name, 200);
+    if (!name) continue;
+    const key = `${importKey(name)}|${importKey(entry.issuer ?? "")}`;
+    const found = certIndex.get(key);
+    if (found) {
+      certOutcomes.push({ label: name, action: "matched", id: dryRun ? null : found });
+      continue;
+    }
+    let id: string | null = null;
+    if (!dryRun) {
+      const created = await createCertification(userId, {
+        name,
+        issuer: text(entry.issuer, 200),
+        date: text(entry.date, 40),
+        url: text(entry.url, 500),
+      });
+      id = created.id;
+      certIndex.set(key, created.id);
+    }
+    certOutcomes.push({ label: name, action: "created", id });
+  }
+
+  // --- skills: the one collection where a second import legitimately adds ---
+  const storedGroups = await db.skillGroup.findMany({
+    where: { userId },
+    select: { id: true, name: true, skills: true },
+  });
+  const skillOutcomes: ImportOutcome[] = [];
+  for (const group of skills) {
+    const name = text(group.name, 120);
+    const incoming = (group.skills ?? [])
+      .map((skill) => text(skill, 120))
+      .filter(Boolean)
+      .slice(0, IMPORT_LIMITS.skillsPerGroup);
+    if (!name || incoming.length === 0) continue;
+
+    const found = storedGroups.find((row) => importKey(row.name) === importKey(name));
+    if (!found) {
+      let id: string | null = null;
+      if (!dryRun) {
+        const created = await createSkillGroup(userId, { name, skills: incoming });
+        id = created.id;
+        storedGroups.push({ id: created.id, name, skills: incoming });
+      }
+      skillOutcomes.push({ label: name, action: "created", id, skillsAdded: incoming.length });
+      continue;
+    }
+
+    const have = new Set(found.skills.map((skill) => skill.toLowerCase()));
+    const fresh = incoming.filter((skill) => !have.has(skill.toLowerCase()));
+    if (fresh.length > 0 && !dryRun) {
+      await updateSkillGroup(userId, found.id, {
+        skills: [...found.skills, ...fresh].slice(0, IMPORT_LIMITS.skillsPerGroup),
+      });
+    }
+    skillOutcomes.push({
+      label: name,
+      action: fresh.length > 0 ? "merged" : "matched",
+      id: dryRun ? null : found.id,
+      skillsAdded: fresh.length,
+    });
+  }
+
+  // --- the document itself --------------------------------------------------
+  let sourceNote: ImportReport["sourceNote"] = null;
+  if (sourceText) {
+    const duplicate = await db.note.findFirst({
+      where: { userId, body: sourceText },
+      select: { id: true },
+    });
+    if (duplicate) {
+      sourceNote = { id: dryRun ? null : duplicate.id, action: "matched" };
+    } else if (dryRun) {
+      sourceNote = { id: null, action: "created" };
+    } else {
+      const note = await createNote(userId, {
+        title: `Imported ${input.source?.trim() || "resume"} — ${new Date().toISOString().slice(0, 10)}`,
+        body: sourceText,
+        tags: ["imported"],
+      });
+      sourceNote = { id: note.id, action: "created" };
+    }
+  }
+
+  const matchedRoles = roleOutcomes.filter((outcome) => outcome.action === "matched").length;
+  if (matchedRoles > 0) {
+    warnings.push(
+      `${matchedRoles} role${matchedRoles > 1 ? "s were" : " was"} already on file and left untouched. Bullets were still added where they were new.`,
+    );
+  }
+
+  return {
+    dryRun,
+    profile: { filled, kept },
+    roles: roleOutcomes,
+    education: educationOutcomes,
+    projects: projectOutcomes,
+    skills: skillOutcomes,
+    certifications: certOutcomes,
+    sourceNote,
+    warnings,
+  };
+}
+
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }

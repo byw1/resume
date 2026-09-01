@@ -1,7 +1,7 @@
 ---
 title: "Brain tools"
 sidebarTitle: "Brain"
-description: "Twenty-two tools over roles, brain dumps, highlights, notes, standing rules and the four supporting collections."
+description: "Twenty-three tools over roles, brain dumps, highlights, notes, standing rules and the four supporting collections."
 icon: "brain"
 ---
 
@@ -228,6 +228,28 @@ _List notes_
 Free-floating notes not tied to any single job: STAR stories, interview prep, references, compensation history, anything.
 
 No arguments.
+
+### `import_resume`
+
+_Import a resume into the brain_
+
+Fill an empty workspace in one call. YOU read the document — a resume, a CV, a LinkedIn 'Save to PDF' export, an old profile — and pass what it ACTUALLY SAYS as structured roles, education, skills, certifications and projects, plus the raw text in sourceText so nothing the summary dropped is lost. This is the first tool to reach for when someone new connects and says they have a resume; it is the difference between a product that works in a minute and one that asks them to retype their career.
+
+What it does with what you send: a role that is already on file is left EXACTLY as it is (its bullets are still added where they are new), a profile field with anything in it is kept, and skill groups union rather than replace. So calling it twice is safe — the second call reports everything as matched and writes nothing. Call it with dryRun true first to show someone what will land before it lands; the report has the same shape either way.
+
+Never invent. Put in only what the document states: no guessed dates, no improved titles, no metric that is not on the page, no employer you inferred from an email address. A role with no dates is normal and comes back as a warning, which is the honest outcome — an assistant that fills the gap has just written fiction into somebody's career history. Bullets go in as they are written; polishing them is what create_highlights is for, afterwards, with the person in the loop.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `dryRun` | boolean | Report what would happen and write nothing. Default false — pass true to preview. |
+| `source` | string | What the document was, e.g. 'resume' or 'LinkedIn export'. Titles the saved note. |
+| `sourceText` | string | The document as it arrived, in full. Filed as one note so the detail a summary drops stays searchable. |
+| `profile` | object |  |
+| `roles` | object[] | One per job, newest first or oldest first — order does not matter. |
+| `education` | object[] | Schools, degrees, dates. |
+| `projects` | object[] | Side projects, open source, anything with its own name. |
+| `skills` | object[] | Grouped as the document groups them. One group called 'Skills' is fine when it does not group them. |
+| `certifications` | object[] | Certificates and licences. |
 
 ### `create_note`
 

@@ -657,6 +657,24 @@ export async function updateResumeAction(id: string, patch: resumes.ResumeMeta &
  * its autosave before asking: a diff of a document you are still typing is a
  * diff of a document that does not exist yet.
  */
+/**
+ * Bring a career in from a document.
+ *
+ * The draft arrives from the browser because the parse happens there: it is
+ * pure, and the person corrects it before anything is written. The data layer
+ * sanitises and caps every field, so a hand-edited draft is no more trusted
+ * than a parsed one.
+ */
+export async function importBrainAction(draft: brain.BrainImport, dryRun = false) {
+  const user = await requireUser();
+  const report = await brain.importIntoBrain(user.id, draft, { dryRun });
+  if (!dryRun) {
+    revalidatePath("/brain");
+    revalidatePath("/");
+  }
+  return report;
+}
+
 export async function resumeChangesAction(id: string, baseId?: string) {
   const user = await requireUser();
   const [changes, evidence] = await Promise.all([

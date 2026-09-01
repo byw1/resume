@@ -16,6 +16,7 @@ import { RolesPanel } from "@/components/brain/roles-panel";
 import { ProfileForm } from "@/components/brain/profile-form";
 import { NotesPanel } from "@/components/brain/notes-panel";
 import { ExtrasPanel } from "@/components/brain/extras-panel";
+import { ImportDialog } from "@/components/brain/import-dialog";
 import { NewRoleDialog } from "@/components/brain/new-role-dialog";
 
 export const dynamic = "force-dynamic";
@@ -38,7 +39,12 @@ export default async function BrainPage() {
         eyebrow="Me"
         title="Your brain"
         description="Everything you know about your own career. Dump it here raw and unfiltered — length is a feature. Claude reads all of it when it writes."
-        actions={<NewRoleDialog />}
+        actions={
+          <>
+            <ImportDialog />
+            <NewRoleDialog />
+          </>
+        }
       />
 
       <Tabs defaultValue="roles">

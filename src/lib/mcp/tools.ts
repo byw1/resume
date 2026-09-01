@@ -651,6 +651,193 @@ export const tools: McpTool[] = [
     handler: async (_args, ctx) => brain.listNotes(ctx.userId),
   },
   {
+    name: "import_resume",
+    title: "Import a resume into the brain",
+    description:
+      "Fill an empty workspace in one call. YOU read the document — a resume, a CV, a LinkedIn 'Save to PDF' export, an old profile — and pass what it ACTUALLY SAYS as structured roles, education, skills, certifications and projects, plus the raw text in sourceText so nothing the summary dropped is lost. This is the first tool to reach for when someone new connects and says they have a resume; it is the difference between a product that works in a minute and one that asks them to retype their career.\n\nWhat it does with what you send: a role that is already on file is left EXACTLY as it is (its bullets are still added where they are new), a profile field with anything in it is kept, and skill groups union rather than replace. So calling it twice is safe — the second call reports everything as matched and writes nothing. Call it with dryRun true first to show someone what will land before it lands; the report has the same shape either way.\n\nNever invent. Put in only what the document states: no guessed dates, no improved titles, no metric that is not on the page, no employer you inferred from an email address. A role with no dates is normal and comes back as a warning, which is the honest outcome — an assistant that fills the gap has just written fiction into somebody's career history. Bullets go in as they are written; polishing them is what create_highlights is for, afterwards, with the person in the loop.",
+    inputSchema: object(
+      {
+        dryRun: bool("Report what would happen and write nothing. Default false — pass true to preview."),
+        source: str("What the document was, e.g. 'resume' or 'LinkedIn export'. Titles the saved note."),
+        sourceText: str(
+          "The document as it arrived, in full. Filed as one note so the detail a summary drops stays searchable.",
+        ),
+        profile: object({
+          fullName: str("Their name as it appears"),
+          headline: str("The line under the name, if there is one"),
+          email: str("Email"),
+          phone: str("Phone"),
+          location: str("Where they are"),
+          website: str("Personal site"),
+          linkedin: str("LinkedIn URL"),
+          github: str("GitHub URL"),
+          twitter: str("X / Twitter"),
+          summary: str("The document's own summary paragraph, if it has one"),
+        }),
+        roles: {
+          type: "array",
+          description: "One per job, newest first or oldest first — order does not matter.",
+          items: object(
+            {
+              company: str("Employer"),
+              title: str("Job title as written"),
+              employmentType: str("Full-time | Contract | Internship — only if the document says"),
+              location: str("Where the job was"),
+              startDate: str("As written: '2021', '2021-03', 'Mar 2021'. Leave out if absent."),
+              endDate: str("Same. Leave out when the role is current."),
+              isCurrent: bool("True when the document says Present or Current"),
+              summary: str("A one-line description of the role, if the document gives one"),
+              brainDump: str("The entry's raw text, kept whole. Length is a feature here."),
+              bullets: strArray(
+                "The resume bullets under this job, verbatim. Each becomes a highlight, tagged 'imported'.",
+              ),
+              tags: strArray("Tags for retrieval"),
+            },
+            ["company", "title"],
+          ),
+        },
+        education: {
+          type: "array",
+          description: "Schools, degrees, dates.",
+          items: object(
+            {
+              school: str("Institution"),
+              degree: str("e.g. BSc, MBA"),
+              field: str("Subject"),
+              location: str("Where"),
+              startDate: str("As written"),
+              endDate: str("As written"),
+              gpa: str("Only if the document states one"),
+              details: str("Anything else under the entry"),
+            },
+            ["school"],
+          ),
+        },
+        projects: {
+          type: "array",
+          description: "Side projects, open source, anything with its own name.",
+          items: object(
+            {
+              name: str("Project name"),
+              role: str("What they did on it"),
+              url: str("Link"),
+              description: str("What it is"),
+              brainDump: str("The raw entry"),
+              startDate: str("As written"),
+              endDate: str("As written"),
+              tags: strArray("Tags"),
+            },
+            ["name"],
+          ),
+        },
+        skills: {
+          type: "array",
+          description:
+            "Grouped as the document groups them. One group called 'Skills' is fine when it does not group them.",
+          items: object(
+            { name: str("Group name, e.g. 'Languages'"), skills: strArray("The skills in it") },
+            ["name", "skills"],
+          ),
+        },
+        certifications: {
+          type: "array",
+          description: "Certificates and licences.",
+          items: object(
+            {
+              name: str("What it is"),
+              issuer: str("Who issued it"),
+              date: str("As written"),
+              url: str("Verification link"),
+            },
+            ["name"],
+          ),
+        },
+      },
+      [],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const list = (key: string) => (Array.isArray(args[key]) ? (args[key] as Json[]) : []);
+      const profile = (args.profile ?? {}) as Json;
+      return brain.importIntoBrain(
+        ctx.userId,
+        {
+          source: s(args, "source"),
+          sourceText: s(args, "sourceText"),
+          profile: defined({
+            fullName: s(profile, "fullName"),
+            headline: s(profile, "headline"),
+            email: s(profile, "email"),
+            phone: s(profile, "phone"),
+            location: s(profile, "location"),
+            website: s(profile, "website"),
+            linkedin: s(profile, "linkedin"),
+            github: s(profile, "github"),
+            twitter: s(profile, "twitter"),
+            summary: s(profile, "summary"),
+          }),
+          roles: list("roles").map((role) => ({
+            company: required(role, "company"),
+            title: required(role, "title"),
+            ...defined({
+              employmentType: s(role, "employmentType"),
+              location: s(role, "location"),
+              startDate: s(role, "startDate"),
+              endDate: s(role, "endDate"),
+              isCurrent: b(role, "isCurrent"),
+              summary: s(role, "summary"),
+              brainDump: s(role, "brainDump"),
+              bullets: a(role, "bullets"),
+              tags: a(role, "tags"),
+            }),
+          })),
+          education: list("education").map((entry) => ({
+            school: required(entry, "school"),
+            ...defined({
+              degree: s(entry, "degree"),
+              field: s(entry, "field"),
+              location: s(entry, "location"),
+              startDate: s(entry, "startDate"),
+              endDate: s(entry, "endDate"),
+              gpa: s(entry, "gpa"),
+              details: s(entry, "details"),
+            }),
+          })),
+          projects: list("projects").map((entry) => ({
+            name: required(entry, "name"),
+            ...defined({
+              role: s(entry, "role"),
+              url: s(entry, "url"),
+              description: s(entry, "description"),
+              brainDump: s(entry, "brainDump"),
+              startDate: s(entry, "startDate"),
+              endDate: s(entry, "endDate"),
+              tags: a(entry, "tags"),
+            }),
+          })),
+          skills: list("skills").map((group) => ({
+            name: required(group, "name"),
+            skills: a(group, "skills") ?? [],
+          })),
+          certifications: list("certifications").map((entry) => ({
+            name: required(entry, "name"),
+            ...defined({
+              issuer: s(entry, "issuer"),
+              date: s(entry, "date"),
+              url: s(entry, "url"),
+            }),
+          })),
+        },
+        { dryRun: b(args, "dryRun") ?? false },
+      );
+    },
+  },
+  {
     name: "create_note",
     title: "Create a note",
     description:

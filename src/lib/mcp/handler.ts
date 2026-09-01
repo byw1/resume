@@ -32,18 +32,25 @@ const SERVER_INFO = {
  * the exact moment this server's one real rule gets broken, because an invented
  * career is the only way left to satisfy the request in front of it.
  *
- * Naming the tools that get material IN is the whole point. There is no import
- * tool yet, so the honest instruction is to take whatever shape the person
- * already has their history in and file it by hand.
+ * Naming the tools that get material IN is the whole point, and the first of
+ * them is import_resume: this briefing used to say no import tool existed,
+ * which meant the server was steering every assistant away from the one thing
+ * that fills an empty workspace in a single call.
  */
 const EMPTY_WORKSPACE = `This workspace is EMPTY: no roles, no highlights, no notes, no projects.
 Every read tool will come back with nothing, and that is the state of the account rather than a
 failed call. Say so plainly instead of closing the gap with something plausible.
 
 Ask one thing before anything else: "Do you have a resume or a LinkedIn export you can paste, or
-would you rather talk me through your last job?" Take whatever comes back — a pasted document, an
-old job description, what they remember out loud — and file it yourself. There is no import tool;
-filing is you reading it and calling these:
+would you rather talk me through your last job?"
+
+If they paste a document, YOU read it and call import_resume with what it actually says — roles,
+education, skills, certifications, projects, and the raw text in sourceText so nothing is lost.
+That is one call and the workspace is populated. Read every field off the page; leave out
+anything the document does not state rather than filling it in, and never round a date or improve
+a title. Call it with dryRun first if you want to show them what will land before it lands.
+
+If they would rather talk, file what they say as it comes:
 • update_profile — name, contact details, links, and their personal brain dump: what they want
   next, what they will not take.
 • create_role — one per job, with dates. The raw material goes in its brain dump, where length is a
