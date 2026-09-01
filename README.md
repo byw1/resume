@@ -361,7 +361,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-85 tools. Seventy-eight of them are the data tools across the four areas and your account;
+87 tools. Eighty of them are the data tools across the four areas and your account;
 the other seven are the workflows below, published as tools as well as prompts, because
 prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
 a step-by-step plan that it then follows. Admins get 30 more — 29 data tools and an eighth

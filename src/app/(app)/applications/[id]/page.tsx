@@ -5,7 +5,7 @@ import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
 import { getApplication, listCompanies, listSources } from "@/lib/data/pipeline";
-import { getResume, listResumes } from "@/lib/data/resumes";
+import { getResume, listResumeNames } from "@/lib/data/resumes";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { ApplicationDetail } from "@/components/pipeline/application-detail";
@@ -17,7 +17,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
   const { id } = await params;
   const [application, resumes, sourceOptions, companies, { companyLogos }] = await Promise.all([
     getApplication(user.id, id),
-    listResumes(user.id),
+    listResumeNames(user.id),
     listSources(user.id),
     listCompanies(user.id),
     getSettings(),

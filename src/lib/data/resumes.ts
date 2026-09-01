@@ -118,10 +118,26 @@ export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
           (activity) =>
             activity.type === type || (activity.toStage !== null && stages.includes(activity.toStage)),
         );
-      if (reached(INTERVIEWED_STAGES, "INTERVIEW")) outcomes.interviewed += 1;
-      if (reached(OFFER_STAGES, "OFFER")) outcomes.offers += 1;
+      // An offer proves the interviews happened even when no move to a screen
+      // was ever recorded — offers is a subset of interviewed, always.
+      const offered = reached(OFFER_STAGES, "OFFER");
+      if (offered || reached(INTERVIEWED_STAGES, "INTERVIEW")) outcomes.interviewed += 1;
+      if (offered) outcomes.offers += 1;
     }
     return { ...resume, outcomes };
+  });
+}
+
+/**
+ * Just names, for pickers. The full listResumes now carries outcomes — an
+ * applications-and-activities join per row — and three screens only ever
+ * needed something to put in a dropdown.
+ */
+export async function listResumeNames(userId: string) {
+  return db.resume.findMany({
+    where: { userId },
+    orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
+    select: { id: true, name: true },
   });
 }
 

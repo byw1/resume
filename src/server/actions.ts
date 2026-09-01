@@ -650,11 +650,13 @@ export async function updateResumeAction(id: string, patch: resumes.ResumeMeta &
   revalidatePath(`/resumes/${id}`);
 }
 
-export async function deleteResumeAction(id: string) {
+export async function deleteResumeAction(id: string, redirectAfter = true) {
   const user = await requireUser();
   await resumes.deleteResume(user.id, id);
   revalidatePath("/resumes");
-  redirect("/resumes");
+  // The editor needs somewhere to go after its document is gone; the grid is
+  // already standing where it wants to be, search and sort included.
+  if (redirectAfter) redirect("/resumes");
 }
 
 export async function duplicateResumeAction(id: string, name?: string) {
@@ -986,7 +988,7 @@ export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
   const [application, resumeList, sourceOptions, companies, settings] = await Promise.all([
     pipeline.getApplication(user.id, id),
-    resumes.listResumes(user.id),
+    resumes.listResumeNames(user.id),
     pipeline.listSources(user.id),
     pipeline.listCompanies(user.id),
     getSettings(),

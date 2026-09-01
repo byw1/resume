@@ -3214,3 +3214,58 @@ README (lines ~45 and ~214), not three times as `mcp-tool`'s skill doc remembers
 `src/lib/data/{resumes,brain}.ts`, `src/lib/{resume-text,resume-diff}.ts`,
 `src/lib/mcp/{tools,handler}.ts`, `src/app/(app)/resumes/`, `src/components/resume/`,
 `tools/gen-tool-docs.mjs`, `README.md`, `docs/tools/`.
+
+---
+
+## 2026-09-01 — What the adversarial pass found in the resume batch
+
+Five review lenses (logic, tenant, UI, MCP surface, data/migration) with three verifying
+skeptics per finding, plus a live run of the whole data path — every migration applied to a
+throwaway Postgres 16, then import/lineage/outcomes/search exercised for real across two
+tenants. Six distinct findings survived verification; all fixed, all covered by the live
+checks now.
+
+**Import's dedupe key was eating boomerang careers.** company|title as the whole identity
+meant a resume listing two stints at one employer lost the second ON FIRST IMPORT — data
+loss in the one tool whose promise is "nothing is lost". The date is part of a stint's
+identity now: within a payload, company|title|startDate; against existing rows, skip only
+when dates match or either side has none. Education keys gained field for the same reason
+(two degree-less certificates at one school). The lesson generalises: a dedupe key is a
+claim about what makes two things the same, and "same employer, same title" is not it.
+
+**The diff answered a question nobody asked.** It compared the stored documents; the person
+asks about the printed ones. section.visible is a first-class tailoring move (the eye
+toggle, and update_resume's own description recommends it), so hiding a section now reports
+as removed ("hidden, not deleted"), unhiding as added, and edits inside a section hidden on
+both sides as nothing at all.
+
+**A Map is the wrong container for a multiset.** Keying base experience entries by
+company|title collapsed two same-key stints into whichever the Map kept last, so a
+byte-identical copy reported phantom bullet diffs. Matching is a two-pass pool now: roleId
+first, then company+title in order of appearance — which also pairs an entry that lost or
+gained its roleId across a copy.
+
+**idempotentHint is a promise about the whole call.** import_resume's brain half was
+genuinely idempotent while create_base_resume minted a new "Base resume" per retry. It
+reuses an existing resume of that name now. If one branch of a handler breaks an
+annotation, the annotation is wrong, not nearly-right.
+
+**?new=1 plus URL-writing controls is a reopen loop.** The dialog's effect fired on every
+params identity change; harmless while nothing on /resumes wrote the URL, a reopen-on-
+every-keystroke the moment search did. The flag is consumed on first open. Any future
+"open X via query param" effect on a page with a toolbar needs the same consume.
+
+**The 5s interactive-transaction default is sized for none of this.** A full-career import
+is dozens of round trips; importBrain now batches highlights per role (createMany) and
+passes timeout: 60s. Also from the pass: fractional bullet strength is rounded rather than
+rolling the whole import back; an OFFER activity counts as interview evidence (offers ⊆
+interviewed, always); deleteResumeAction only redirects from the editor, so deleting from
+the grid keeps the search and sort; pickers use listResumeNames instead of paying
+listResumes' new outcomes join; and the README carried a THIRD hand-written count at line
+~364 that both CLAUDE.md and the mcp-tool skill misremember as three-elsewhere — it is
+lines ~45, ~214 and ~364.
+
+**Applies to:** `src/lib/data/{brain,resumes}.ts`, `src/lib/resume-diff.ts`,
+`src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/resume/{resume-card,new-resume-dialog}.tsx`,
+`src/app/(app)/applications/`, `README.md`.

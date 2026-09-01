@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useState, useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import {
   CopyIcon,
@@ -86,11 +86,23 @@ export function ResumeCard({
   // the click feel dead.
   const [favorite, setFavorite] = useState(initialFavorite);
 
+  // Follow the server when it disagrees — this card instance survives
+  // revalidations, and a favourite toggled in the editor (or another tab)
+  // arrives here as a prop change, not a remount.
+  useEffect(() => {
+    setFavorite(initialFavorite);
+  }, [initialFavorite]);
+
   const toggleFavorite = () => {
     const next = !favorite;
     setFavorite(next);
     startTransition(async () => {
-      await updateResumeAction(id, { isFavorite: next });
+      try {
+        await updateResumeAction(id, { isFavorite: next });
+      } catch {
+        setFavorite(!next);
+        toast.error("Couldn't save the favourite");
+      }
     });
   };
 
@@ -202,7 +214,10 @@ export function ResumeCard({
                 onSelect={() => {
                   if (confirm(`Delete "${name}"? This cannot be undone.`)) {
                     startTransition(async () => {
-                      await deleteResumeAction(id);
+                      // No redirect: the grid revalidates in place, keeping
+                      // the search and sort the person is standing in.
+                      await deleteResumeAction(id, false);
+                      toast.success("Deleted");
                     });
                   }
                 }}

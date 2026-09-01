@@ -1,4 +1,4 @@
-import type { ResumeDoc, ResumeSection } from "@/lib/resume-schema";
+import type { ExperienceItem, ResumeDoc, ResumeSection } from "@/lib/resume-schema";
 
 /**
  * What changed between two resume documents — typically a tailored variant
@@ -47,9 +47,9 @@ export type ResumeDiff = {
   summary: string;
 };
 
-/** Experience entries match on the brain role they came from, else company+title. */
-function experienceKey(item: { roleId?: string; company: string; title: string }) {
-  return item.roleId || `${item.company.trim().toLowerCase()}|${item.title.trim().toLowerCase()}`;
+/** The fallback identity for an experience entry: where, as what. */
+function companyTitleKey(item: { company: string; title: string }) {
+  return `${item.company.trim().toLowerCase()}|${item.title.trim().toLowerCase()}`;
 }
 
 function experienceLabel(item: { company: string; title: string }) {
@@ -121,6 +121,8 @@ export function diffResumeDocs(base: ResumeDoc, variant: ResumeDoc): ResumeDiff 
   for (const [key, variantSection] of variantSections) {
     const baseSection = baseSections.get(key);
     if (!baseSection) {
+      // A brand-new section that is hidden was never printed — not a change.
+      if (!variantSection.visible) continue;
       const entryCount =
         variantSection.kind === "experience"
           ? variantSection.experience.length
@@ -131,6 +133,32 @@ export function diffResumeDocs(base: ResumeDoc, variant: ResumeDoc): ResumeDiff 
         heading: variantSection.heading,
         status: "added",
         detail: entryCount ? `${entryCount} ${entryCount === 1 ? "entry" : "entries"}` : "",
+      });
+      continue;
+    }
+
+    // Visibility is a first-class tailoring move: the eye toggle changes what
+    // prints exactly as much as deleting does. The diff describes the PRINTED
+    // documents, so a flip reports as removed/added with the honest detail,
+    // and a section hidden on both sides is no diff at all, whatever its text.
+    if (!baseSection.visible && !variantSection.visible) continue;
+    if (baseSection.visible && !variantSection.visible) {
+      sections.push({
+        ...blank,
+        kind: variantSection.kind,
+        heading: variantSection.heading,
+        status: "removed",
+        detail: "hidden, not deleted",
+      });
+      continue;
+    }
+    if (!baseSection.visible && variantSection.visible) {
+      sections.push({
+        ...blank,
+        kind: variantSection.kind,
+        heading: variantSection.heading,
+        status: "added",
+        detail: "shown again",
       });
       continue;
     }
@@ -151,11 +179,28 @@ export function diffResumeDocs(base: ResumeDoc, variant: ResumeDoc): ResumeDiff 
 
     if (variantSection.kind === "experience") {
       const items: ResumeItemDiff[] = [];
-      const baseItems = new Map(baseSection.experience.map((item) => [experienceKey(item), item]));
-      const variantKeys = new Set(variantSection.experience.map((item) => experienceKey(item)));
+      // Two-pass matching over a POOL, not a Map: two stints at the same
+      // employer with the same title (a boomerang) must match one-to-one in
+      // order of appearance rather than collapse into whichever entry a Map
+      // kept last — that collapse made a byte-identical copy report phantom
+      // bullet changes. roleId matches first; company+title mops up, which
+      // also pairs an entry that lost or gained its roleId across the copy.
+      const basePool = [...baseSection.experience];
+      const takeBase = (predicate: (item: ExperienceItem) => boolean) => {
+        const index = basePool.findIndex(predicate);
+        return index < 0 ? null : basePool.splice(index, 1)[0];
+      };
+      const pairs = variantSection.experience.map((item) => ({
+        variant: item,
+        base: item.roleId ? takeBase((candidate) => candidate.roleId === item.roleId) : null,
+      }));
+      for (const pair of pairs) {
+        pair.base ??= takeBase(
+          (candidate) => companyTitleKey(candidate) === companyTitleKey(pair.variant),
+        );
+      }
 
-      for (const item of variantSection.experience) {
-        const baseItem = baseItems.get(experienceKey(item));
+      for (const { base: baseItem, variant: item } of pairs) {
         if (!baseItem) {
           const added = cleaned(item.bullets);
           bulletsAdded += added.length;
@@ -182,18 +227,16 @@ export function diffResumeDocs(base: ResumeDoc, variant: ResumeDoc): ResumeDiff 
           });
         }
       }
-      for (const [key2, baseItem] of baseItems) {
-        if (!variantKeys.has(key2)) {
-          const removed = cleaned(baseItem.bullets);
-          bulletsRemoved += removed.length;
-          items.push({
-            label: experienceLabel(baseItem),
-            status: "removed",
-            bulletsAdded: [],
-            bulletsRemoved: removed,
-            summaryChanged: false,
-          });
-        }
+      for (const baseItem of basePool) {
+        const removed = cleaned(baseItem.bullets);
+        bulletsRemoved += removed.length;
+        items.push({
+          label: experienceLabel(baseItem),
+          status: "removed",
+          bulletsAdded: [],
+          bulletsRemoved: removed,
+          summaryChanged: false,
+        });
       }
       if (items.length) {
         sections.push({
@@ -225,7 +268,8 @@ export function diffResumeDocs(base: ResumeDoc, variant: ResumeDoc): ResumeDiff 
   }
 
   for (const [key, baseSection] of baseSections) {
-    if (!variantSections.has(key)) {
+    // A deleted section that was already hidden changed nothing printed.
+    if (!variantSections.has(key) && baseSection.visible) {
       sections.push({
         ...blank,
         kind: baseSection.kind,

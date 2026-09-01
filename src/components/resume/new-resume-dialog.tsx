@@ -45,15 +45,18 @@ const SAMPLE_DOC = parseResumeDoc({
   },
   sections: [
     {
+      id: "smp-summary",
       kind: "summary",
       heading: "Summary",
       text: "Engineer of eight years, most of it on billing and payments systems for small teams.",
     },
     {
+      id: "smp-experience",
       kind: "experience",
       heading: "Experience",
       experience: [
         {
+          id: "smp-exp-1",
           company: "Meridian",
           title: "Senior Engineer",
           location: "Portland, OR",
@@ -65,6 +68,7 @@ const SAMPLE_DOC = parseResumeDoc({
           ],
         },
         {
+          id: "smp-exp-2",
           company: "Fieldnote",
           title: "Engineer",
           startDate: "2018-01",
@@ -74,10 +78,12 @@ const SAMPLE_DOC = parseResumeDoc({
       ],
     },
     {
+      id: "smp-education",
       kind: "education",
       heading: "Education",
       education: [
         {
+          id: "smp-edu-1",
           school: "University of Oregon",
           degree: "BSc",
           field: "Computer Science",
@@ -106,8 +112,15 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
   });
 
   useEffect(() => {
-    if (params.get("new")) setOpen(true);
-  }, [params]);
+    if (!params.get("new")) return;
+    setOpen(true);
+    // Consume the flag: the search box and sort control on this page rewrite
+    // the query string, and a ?new that lingers would reopen the dialog on
+    // every one of those rewrites.
+    const next = new URLSearchParams(params.toString());
+    next.delete("new");
+    router.replace(next.toString() ? `?${next}` : "?", { scroll: false });
+  }, [params, router]);
 
   const submit = () => {
     startTransition(async () => {

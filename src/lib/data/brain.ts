@@ -724,11 +724,15 @@ const normalised = (value: string) => value.trim().toLowerCase();
  * does the filing, and its one promise is that nothing already here is lost:
  *
  *   - profile fields fill only where they are currently empty;
- *   - a role is skipped when the same company+title already exists, an
- *     education entry when the same school+degree does, a project or
- *     certification when the same name does — skipped, never merged into,
- *     so re-importing the same document is a no-op rather than a duplicate
- *     of someone's history;
+ *   - a role is skipped when one already exists at the same company+title
+ *     whose start date matches — or when either side has no date to compare,
+ *     which errs toward skipping. Within one payload the date IS part of the
+ *     identity, so a boomerang career (two stints, same employer, same
+ *     title, different dates) imports as two roles rather than losing one;
+ *   - an education entry is skipped on school+degree+field, a project or
+ *     certification on name — skipped, never merged into, so re-importing
+ *     the same document is a no-op rather than a duplicate of someone's
+ *     history;
  *   - a skill group with an existing name has its skills unioned in.
  *
  * Each created role gets its bullets saved as highlights, and the raw
@@ -763,17 +767,35 @@ export async function importBrain(userId: string, input: BrainImport) {
     if (input.roles?.length) {
       const existing = await tx.role.findMany({
         where: { userId },
-        select: { company: true, title: true },
+        select: { company: true, title: true, startDate: true },
       });
-      const seen = new Set(existing.map((role) => `${normalised(role.company)}|${normalised(role.title)}`));
+      // company|title → the start dates already on file there. An incoming
+      // role clashes when a stint at that company+title has the same start
+      // date, or when either side has no date to compare against.
+      const datesOnFile = new Map<string, string[]>();
+      for (const role of existing) {
+        const key = `${normalised(role.company)}|${normalised(role.title)}`;
+        datesOnFile.set(key, [...(datesOnFile.get(key) ?? []), role.startDate.trim()]);
+      }
+      const clashesWithExisting = (key: string, startDate: string) => {
+        const dates = datesOnFile.get(key);
+        if (!dates) return false;
+        return dates.some((date) => !date || !startDate || date === startDate);
+      };
+      // Within the payload, the date is part of a stint's identity — so a
+      // boomerang career imports whole instead of losing its second stint.
+      const seenInPayload = new Set<string>();
       let sortOrder = await tx.role.count({ where: { userId } });
       for (const role of input.roles) {
         const key = `${normalised(role.company)}|${normalised(role.title)}`;
-        if (seen.has(key)) {
+        const startDate = (role.startDate ?? "").trim();
+        const payloadKey = `${key}|${normalised(startDate)}`;
+        if (seenInPayload.has(payloadKey) || clashesWithExisting(key, startDate)) {
           rolesSkipped.push({ company: role.company, title: role.title });
           continue;
         }
-        seen.add(key);
+        seenInPayload.add(payloadKey);
+        datesOnFile.set(key, [...(datesOnFile.get(key) ?? []), startDate]);
         const bullets = (role.bullets ?? []).filter((bullet) => bullet.text?.trim());
         // The dump is what search_brain mines; the resume's own lines are the
         // person's claims, so they belong there even before richer material.
@@ -801,18 +823,22 @@ export async function importBrain(userId: string, input: BrainImport) {
           },
         });
         rolesCreated.push({ id: created.id, company: created.company, title: created.title });
-        for (const bullet of bullets) {
-          await tx.highlight.create({
-            data: {
+        if (bullets.length) {
+          // One round trip per role, not per bullet: a full career inside one
+          // interactive transaction is exactly where per-row awaits add up.
+          // Strength is rounded because the column is an Int and a well-meant
+          // 3.5 must not roll the whole import back.
+          await tx.highlight.createMany({
+            data: bullets.map((bullet) => ({
               userId,
               roleId: created.id,
               text: bullet.text,
               impact: bullet.impact ?? "",
               tags: bullet.tags ?? [],
-              strength: clamp(bullet.strength ?? 3, 1, 5),
-            },
+              strength: clamp(Math.round(bullet.strength ?? 3), 1, 5),
+            })),
           });
-          highlightsCreated += 1;
+          highlightsCreated += bullets.length;
         }
       }
     }
@@ -822,12 +848,16 @@ export async function importBrain(userId: string, input: BrainImport) {
     if (input.education?.length) {
       const existing = await tx.education.findMany({
         where: { userId },
-        select: { school: true, degree: true },
+        select: { school: true, degree: true, field: true },
       });
-      const seen = new Set(existing.map((e) => `${normalised(e.school)}|${normalised(e.degree)}`));
+      // field is part of the key so two degree-less programs at one school —
+      // two certificates, say — both survive the import.
+      const seen = new Set(
+        existing.map((e) => `${normalised(e.school)}|${normalised(e.degree)}|${normalised(e.field)}`),
+      );
       let sortOrder = await tx.education.count({ where: { userId } });
       for (const entry of input.education) {
-        const key = `${normalised(entry.school)}|${normalised(entry.degree ?? "")}`;
+        const key = `${normalised(entry.school)}|${normalised(entry.degree ?? "")}|${normalised(entry.field ?? "")}`;
         if (seen.has(key)) {
           education.skipped += 1;
           continue;
@@ -904,5 +934,8 @@ export async function importBrain(userId: string, input: BrainImport) {
       skillGroups,
       certifications,
     };
-  });
+    // A full career is dozens of round trips, and Prisma's default 5s
+    // interactive-transaction timeout is sized for none of them crossing a
+    // region. The one-shot adoption moment must not roll back over latency.
+  }, { timeout: 60_000, maxWait: 10_000 });
 }
