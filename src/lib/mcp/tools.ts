@@ -1024,16 +1024,18 @@ export const tools: McpTool[] = [
     name: "list_resumes",
     title: "List resumes",
     description:
-      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published.",
-    inputSchema: object({}),
+      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published. Favourites come first, then most recently updated. Pass search to narrow by name, target role or target company when the user names a specific one — 'my Stripe resume' is a search, not a reason to fetch everything.",
+    inputSchema: object({
+      search: str("Case-insensitive filter on name, target role and target company. Omit for all."),
+    }),
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => {
-      const all = await resumes.listResumes(ctx.userId);
+    handler: async (args, ctx) => {
+      const all = await resumes.listResumes(ctx.userId, defined({ search: s(args, "search") }));
       return all.map((resume) => ({
         ...resume,
         publicUrl: publicResumeUrl(ctx.baseUrl, resume.slug),
@@ -1352,7 +1354,7 @@ export const tools: McpTool[] = [
       return {
         text: resumes.resumeToText(doc),
         estimatedLines: resumes.estimateLines(doc),
-        approxPages: Math.max(1, Math.ceil(resumes.estimateLines(doc) / 46)),
+        approxPages: resumes.estimatePages(doc),
       };
     },
   },

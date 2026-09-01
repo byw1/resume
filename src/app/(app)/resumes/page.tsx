@@ -1,7 +1,9 @@
 import { headers } from "next/headers";
 import { FileTextIcon } from "lucide-react";
-import { PageHeader, PageShell, EmptyState } from "@/components/page-header";
+import { PageHeader, PageShell, EmptyState, SectionEmpty } from "@/components/page-header";
 import { Stagger, StaggerItem, Lift } from "@/components/motion";
+import { SearchBox } from "@/components/crm/search-box";
+import { ResumeSortSelect } from "@/components/resume/resume-sort";
 import { listResumes } from "@/lib/data/resumes";
 import { parseResumeDoc } from "@/lib/resume-schema";
 import { estimatePages } from "@/lib/resume-text";
@@ -14,10 +16,23 @@ import { requireUser } from "@/lib/auth";
 
 export const dynamic = "force-dynamic";
 
-export default async function ResumesPage() {
+export default async function ResumesPage({
+  searchParams,
+}: {
+  searchParams: Promise<Record<string, string | string[] | undefined>>;
+}) {
   const user = await requireUser();
+  const params = await searchParams;
+  const one = (key: string) => {
+    const value = params[key];
+    return Array.isArray(value) ? value[0] : value;
+  };
+  const q = one("q")?.trim() ?? "";
+  const sortParam = one("sort");
+  const sort = sortParam === "name" || sortParam === "used" ? sortParam : "recent";
+
   const [resumes, roleCount, profile, headerList] = await Promise.all([
-    listResumes(user.id),
+    listResumes(user.id, { search: q, sort }),
     db.role.count({ where: { userId: user.id } }),
     // One read for the whole grid: the thumbnails all draw the same face.
     db.profile.findUnique({ where: { userId: user.id }, select: { photo: true } }),
@@ -40,7 +55,16 @@ export default async function ResumesPage() {
         actions={<NewResumeDialog hasBrain={roleCount > 0} />}
       />
 
-      {resumes.length === 0 ? (
+      {(resumes.length > 0 || q) && (
+        <div className="mb-4 flex flex-wrap items-center gap-2">
+          <SearchBox placeholder="Search resumes…" className="w-full sm:w-72" />
+          <ResumeSortSelect className="ml-auto" />
+        </div>
+      )}
+
+      {resumes.length === 0 && q ? (
+        <SectionEmpty>Nothing matches “{q}”. Clear the search to see everything.</SectionEmpty>
+      ) : resumes.length === 0 ? (
         <EmptyState
           icon={FileTextIcon}
           title="No resumes yet"

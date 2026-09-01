@@ -39,9 +39,11 @@ No arguments.
 
 _List resumes_
 
-All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published.
+All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published. Favourites come first, then most recently updated. Pass search to narrow by name, target role or target company when the user names a specific one — 'my Stripe resume' is a search, not a reason to fetch everything.
 
-No arguments.
+| Argument | Type | |
+| --- | --- | --- |
+| `search` | string | Case-insensitive filter on name, target role and target company. Omit for all. |
 
 ### `get_resume`
 

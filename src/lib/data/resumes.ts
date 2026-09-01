@@ -1,4 +1,5 @@
 import { randomBytes } from "node:crypto";
+import type { Prisma } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 import {
@@ -29,10 +30,35 @@ export type ResumeMeta = Partial<{
   showPhoto: boolean;
 }>;
 
-export async function listResumes(userId: string) {
+export type ResumeListOpts = {
+  /** Case-insensitive match against name, target role and target company. */
+  search?: string;
+  /** "recent" (favourites first, then latest) is the default. */
+  sort?: "recent" | "name" | "used";
+};
+
+export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
+  const search = opts.search?.trim();
+  const orderBy: Prisma.ResumeOrderByWithRelationInput[] =
+    opts.sort === "name"
+      ? [{ name: "asc" }]
+      : opts.sort === "used"
+        ? [{ applications: { _count: "desc" } }, { updatedAt: "desc" }]
+        : [{ isFavorite: "desc" }, { updatedAt: "desc" }];
   return db.resume.findMany({
-    where: { userId },
-    orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
+    where: {
+      userId,
+      ...(search
+        ? {
+            OR: [
+              { name: { contains: search, mode: "insensitive" as const } },
+              { targetRole: { contains: search, mode: "insensitive" as const } },
+              { targetCompany: { contains: search, mode: "insensitive" as const } },
+            ],
+          }
+        : {}),
+    },
+    orderBy,
     include: { _count: { select: { applications: true } } },
   });
 }
