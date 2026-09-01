@@ -20,7 +20,17 @@ const nextConfig: NextConfig = {
    * somebody a zip built out of them.
    */
   async redirects() {
-    return [{ source: "/docs", destination: MANUAL_URL, permanent: true }];
+    return [
+      { source: "/docs", destination: MANUAL_URL, permanent: true },
+      /**
+       * The knowledge base was called the brain and lived at /brain. It is
+       * called Me now. People have the old address bookmarked and Claude has
+       * been handing out /brain links since the first release, so keep them
+       * working rather than 404ing somebody's own history.
+       */
+      { source: "/brain", destination: "/me", permanent: true },
+      { source: "/brain/:path*", destination: "/me/:path*", permanent: true },
+    ];
   },
 };
 

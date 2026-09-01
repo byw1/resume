@@ -29,8 +29,8 @@ export default async function ResumesPage() {
       <PageHeader
         eyebrow="Documents"
         title="Resumes"
-        description="One base resume, then a tailored variant per job. Ask Claude to build them from your brain — it will save them straight here."
-        actions={<NewResumeDialog hasBrain={roleCount > 0} />}
+        description="One base resume, then a tailored variant per job. Ask Claude to build them from what is in Me — it will save them straight here."
+        actions={<NewResumeDialog hasMaterial={roleCount > 0} />}
       />
 
       {resumes.length === 0 ? (
@@ -39,10 +39,10 @@ export default async function ResumesPage() {
           title="No resumes yet"
           description={
             roleCount > 0
-              ? "Build one from your brain in a click, or ask Claude to tailor one to a job posting."
-              : "Add a role to your brain first, then build a resume from it."
+              ? "Build one from Me in a click, or ask Claude to tailor one to a job posting."
+              : "Add a role under Me first, then build a resume from it."
           }
-          action={<NewResumeDialog hasBrain={roleCount > 0} />}
+          action={<NewResumeDialog hasMaterial={roleCount > 0} />}
         />
       ) : (
         <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

@@ -386,7 +386,7 @@ function domainAllowed(email: string, allowed: string) {
  * account holder can type into. Anyone here can change their own email to any
  * address nobody is using; if that were enough to match, a member could set
  * theirs to a colleague's address and the colleague's first Google sign-in
- * would drop them into the member's workspace — brain, resumes, pipeline —
+ * would drop them into the member's workspace — career history, resumes, pipeline —
  * while the member kept their password and could still read all of it.
  * `emailProvenAt` records the instance actually having had a reason to believe
  * the address: an admin addressed an invitation to it, the owner claimed the

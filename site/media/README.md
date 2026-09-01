@@ -17,7 +17,7 @@ itself and prints its name in the corner. That is the authoritative list. As of 
 | File                          | What it replaces                        | Shape       |
 | ----------------------------- | --------------------------------------- | ----------- |
 | `hero-resume.png`             | The resume beside the hero transcript    | 4:5 portrait |
-| `brain-role.png`              | A role open in the brain                 | 16:10        |
+| `me-role.png`                 | A role open in Me                        | 16:10        |
 | `resume-editor.png`           | The split-pane resume editor             | 16:10        |
 | `pipeline-board.png`          | The pipeline board                       | 16:10        |
 | `crm-companies.png`           | The companies table                      | 16:10        |
@@ -67,7 +67,7 @@ curl -o site/media/companies/<name>.png https://twenty-icons.com/<domain>
 
 Every company in the pipeline and CRM mocks is real and has a mark. Meridian Logistics and
 Northbeam Freight are invented and stay invented, but only as the candidate's *employers* in
-the resume and the brain, where nothing draws a logo — you would not be applying to the place
+the resume and in Me, where nothing draws a logo — you would not be applying to the place
 you already work.
 
 **Look at the icon before you commit it.** Two of the domains checked during this pass

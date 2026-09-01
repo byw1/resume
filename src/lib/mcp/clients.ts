@@ -46,7 +46,7 @@ export const MCP_CLIENTS: McpClientRecipe[] = [
       { text: "Open Claude and go to Settings → Connectors." },
       { text: 'Click "Add custom connector".' },
       { text: "Name it Hired and paste this as the URL:", code: url, codeLabel: "Connection URL" },
-      { text: "Save. Claude can now read and write your brain, resumes and pipeline." },
+      { text: "Save. Claude can now read and write your career history, resumes and pipeline." },
     ],
   },
   {

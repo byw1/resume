@@ -1,7 +1,7 @@
 ---
-title: "Filling the brain"
-description: "How to get twenty years of work into a system in an afternoon, what actually belongs in a brain dump, and how to keep it current without it becoming a chore."
-icon: "brain"
+title: "Filling in Me"
+description: "How to get twenty years of work into a system in an afternoon, what actually belongs in a background, and how to keep it current without it becoming a chore."
+icon: "user"
 ---
 
 This is the step people skip and then wonder why the resumes are thin. It is also the
@@ -15,7 +15,7 @@ One role, one conversation. Do not open a form.
 > I've been at Vertex since March 2021 as a senior platform engineer. Let me dump
 > everything I remember and you file it.
 
-Then talk. The assistant creates the role and puts what you said into the brain dump. It
+Then talk. The assistant creates the role and puts what you said into the background. It
 does not need it in order, and it does not need it to be well written.
 
 ## What actually belongs in there
@@ -56,8 +56,8 @@ Grammar. Structure. Chronology. Repeating yourself. Contradicting yourself. Nobo
 this document — it is searched, and search does not mind a mess.
 
 <Note>
-  If you already have a resume, paste it in as a starting brain dump. It is a floor, not
-  a ceiling: the resume is the compressed version, and the point of the brain is to hold
+  If you already have a resume, paste it in as a starting background. It is a floor, not
+  a ceiling: the resume is the compressed version, and the point of Me is to hold
   the things compression threw away.
 </Note>
 
@@ -76,7 +76,7 @@ Once a role has a dump, mine it:
 
 > Mine the Vertex role into highlights.
 
-That is the [`mine_brain_dump`](/workflows#mine-a-brain-dump-into-highlights) workflow. It reads the full
+That is the [`mine_role_background`](/workflows#mine-a-background-into-highlights) workflow. It reads the full
 dump, checks which highlights already exist so it does not duplicate them, extracts every
 distinct accomplishment as one bullet in resume voice, rates each 1–5 for strength, tags
 them for retrieval, and saves them in one call.
@@ -94,18 +94,18 @@ The fix is to make it a side effect of talking about your week.
 > want someone to own billing end to end. Told Priya I'd send her my resume by Friday.
 
 That is [`log_my_week`](/workflows#log-what-happened-this-week), and it files each piece where it belongs:
-work about a job appends to that role's brain dump, a clean accomplishment also becomes a
+work about a job appends to that role's background, a clean accomplishment also becomes a
 highlight, anything about a company you are talking to becomes a timeline entry and maybe
 a stage change, anything you said you would do becomes a task with a due date, and the
 rest becomes a note.
 
-Ten minutes on a Friday. It is the difference between a brain that is current and one
+Ten minutes on a Friday. It is the difference between a record that is current and one
 that describes the job you had in 2023.
 
 <Tip>
   **Append, never overwrite.** When you tell an assistant something new about a job
-  already on file, the correct call is `append_role_brain_dump`. `update_role` with a
-  `brainDump` replaces the whole thing. Install the [`hired` skill](/skills) and this is
+  already on file, the correct call is `append_role_background`. `update_role` with a
+  `background` replaces the whole thing. Install the [`hired` skill](/skills) and this is
   handled without you having to watch for it.
 </Tip>
 
@@ -119,7 +119,7 @@ of what to correct:
 
 That saves a note with `kind: "GUARDRAIL"`, and every assistant that connects afterwards
 gets it in its briefing before it can call a single tool. See
-[standing rules](/concepts/brain#standing-rules).
+[standing rules](/concepts/me#standing-rules).
 
 ## The rest of the profile
 
@@ -127,9 +127,9 @@ Worth five minutes once:
 
 - **Contact block** — name, headline, email, phone, location, and the links you want on a
   resume. Every document is seeded from this.
-- **Personal brain dump** — the things that are about you rather than a job. What you want
+- **Personal background** — the things that are about you rather than a job. What you want
   next, what you will not do again, compensation expectations, non-negotiables. It is what
   a good summary line and a good "why do you want this?" both come out of.
 - **Education, projects, skills, certifications** — the four supporting collections. Say
   them and they get filed.
-- **A photo**, if you want one on documents. [How the one-photo model works](/concepts/brain#the-photo).
+- **A photo**, if you want one on documents. [How the one-photo model works](/concepts/me#the-photo).

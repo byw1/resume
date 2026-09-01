@@ -47,12 +47,12 @@ export type ProfilePatch = Partial<{
   github: string;
   twitter: string;
   summary: string;
-  brainDump: string;
+  background: string;
 }>;
 
 const PROFILE_COLUMNS = [
   "fullName", "headline", "email", "phone", "location", "website",
-  "linkedin", "github", "twitter", "summary", "brainDump",
+  "linkedin", "github", "twitter", "summary", "background",
 ] as const;
 
 export async function updateProfile(userId: string, patch: ProfilePatch) {
@@ -90,7 +90,7 @@ export type RoleInput = {
   endDate?: string;
   isCurrent?: boolean;
   summary?: string;
-  brainDump?: string;
+  background?: string;
   tags?: string[];
 };
 
@@ -122,7 +122,7 @@ export async function createRole(userId: string, input: RoleInput) {
       endDate: input.endDate ?? "",
       isCurrent: input.isCurrent ?? false,
       summary: input.summary ?? "",
-      brainDump: input.brainDump ?? "",
+      background: input.background ?? "",
       tags: input.tags ?? [],
       sortOrder: count,
     },
@@ -131,7 +131,7 @@ export async function createRole(userId: string, input: RoleInput) {
 
 const ROLE_COLUMNS = [
   "company", "title", "employmentType", "location", "startDate", "endDate",
-  "isCurrent", "summary", "brainDump", "tags",
+  "isCurrent", "summary", "background", "tags",
 ] as const;
 
 export async function updateRole(userId: string, id: string, patch: Partial<RoleInput>) {
@@ -148,8 +148,8 @@ export async function deleteRole(userId: string, id: string) {
   return { id };
 }
 
-/** Non-destructive: adds text to the end of the role's brain dump. */
-export async function appendToRoleBrainDump(
+/** Non-destructive: adds text to the end of the role's background. */
+export async function appendToRoleBackground(
   userId: string,
   id: string,
   text: string,
@@ -158,8 +158,8 @@ export async function appendToRoleBrainDump(
   const role = await db.role.findFirst({ where: { id, userId } });
   if (!role) throw new Error(`No role with id ${id}`);
   const stamp = heading ? `\n\n## ${heading}\n` : "\n\n";
-  const next = `${role.brainDump}${role.brainDump ? stamp : heading ? `## ${heading}\n` : ""}${text}`.trim();
-  return db.role.update({ where: { id: role.id }, data: { brainDump: next } });
+  const next = `${role.background}${role.background ? stamp : heading ? `## ${heading}\n` : ""}${text}`.trim();
+  return db.role.update({ where: { id: role.id }, data: { background: next } });
 }
 
 // ---------------------------------------------------------------------------
@@ -214,7 +214,7 @@ export async function updateHighlight(
   patch: Partial<HighlightInput> & { archived?: boolean },
 ) {
   // Re-parenting is a read of whatever it points at — listHighlights and
-  // searchBrain join the role in — so the new parent must be the caller's own,
+  // searchMe join the role in — so the new parent must be the caller's own,
   // exactly as createHighlight already checks.
   if (patch.roleId) {
     const role = await db.role.findFirst({ where: { id: patch.roleId, userId } });
@@ -357,7 +357,7 @@ export async function createProject(
     role?: string;
     url?: string;
     description?: string;
-    brainDump?: string;
+    background?: string;
     tags?: string[];
     startDate?: string;
     endDate?: string;
@@ -374,7 +374,7 @@ export type ProjectPatch = Partial<{
   role: string;
   url: string;
   description: string;
-  brainDump: string;
+  background: string;
   tags: string[];
   startDate: string;
   endDate: string;
@@ -382,7 +382,7 @@ export type ProjectPatch = Partial<{
 
 export async function updateProject(userId: string, id: string, patch: ProjectPatch) {
   const data = pick(patch, [
-    "name", "role", "url", "description", "brainDump", "tags", "startDate", "endDate",
+    "name", "role", "url", "description", "background", "tags", "startDate", "endDate",
   ] as const);
   if (Object.keys(data).length === 0) return existingOrThrow(db.project, id, userId, "project");
   const { count } = await db.project.updateMany({ where: { id, userId }, data });
@@ -462,7 +462,7 @@ export async function deleteCertification(userId: string, id: string) {
 // Search — the function Claude leans on hardest
 // ---------------------------------------------------------------------------
 
-export type BrainHit = {
+export type SearchHit = {
   kind: "profile" | "role" | "highlight" | "note" | "project";
   id: string;
   title: string;
@@ -498,11 +498,11 @@ function excerptAround(haystack: string, terms: string[], radius = 180) {
 }
 
 /**
- * Ranked full-text search across everything in one user's brain. Deliberately
+ * Ranked full-text search across everything in one user's Me. Deliberately
  * done in application code rather than Postgres FTS so it works identically on
  * a fresh database with zero extensions to configure.
  */
-export async function searchBrain(userId: string, query: string, limit = 25): Promise<BrainHit[]> {
+export async function searchMe(userId: string, query: string, limit = 25): Promise<SearchHit[]> {
   const terms = query
     .toLowerCase()
     .split(/\s+/)
@@ -520,7 +520,7 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
     db.project.findMany({ where: { userId } }),
   ]);
 
-  const hits: BrainHit[] = [];
+  const hits: SearchHit[] = [];
 
   if (terms.length === 0) {
     for (const role of roles.slice(0, limit)) {
@@ -531,14 +531,14 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
         subtitle: [role.startDate, role.isCurrent ? "Present" : role.endDate]
           .filter(Boolean)
           .join(" – "),
-        excerpt: role.brainDump.slice(0, 240),
+        excerpt: role.background.slice(0, 240),
         score: 1,
       });
     }
     return hits;
   }
 
-  const profileBlob = [profile.summary, profile.brainDump, profile.headline].join("\n");
+  const profileBlob = [profile.summary, profile.background, profile.headline].join("\n");
   const profileScore = scoreText(profileBlob, terms);
   if (profileScore > 0) {
     hits.push({
@@ -552,7 +552,7 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
   }
 
   for (const role of roles) {
-    const blob = [role.company, role.title, role.summary, role.brainDump, role.tags.join(" ")].join(
+    const blob = [role.company, role.title, role.summary, role.background, role.tags.join(" ")].join(
       "\n",
     );
     const score = scoreText(blob, terms) + scoreText(`${role.company} ${role.title}`, terms) * 3;
@@ -601,7 +601,7 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
   }
 
   for (const p of projects) {
-    const blob = [p.name, p.role, p.description, p.brainDump, p.tags.join(" ")].join("\n");
+    const blob = [p.name, p.role, p.description, p.background, p.tags.join(" ")].join("\n");
     const score = scoreText(blob, terms);
     if (score > 0) {
       hits.push({
@@ -618,8 +618,8 @@ export async function searchBrain(userId: string, query: string, limit = 25): Pr
   return hits.sort((a, b) => b.score - a.score).slice(0, limit);
 }
 
-/** Everything in one payload — used to seed a resume and by `get_brain_snapshot`. */
-export async function getBrainSnapshot(userId: string) {
+/** Everything in one payload — used to seed a resume and by `get_me_snapshot`. */
+export async function getMeSnapshot(userId: string) {
   const [profile, roles, highlights, education, projects, skillGroups, certifications, notes] =
     await Promise.all([
       getProfile(userId),
@@ -647,16 +647,16 @@ export async function getBrainSnapshot(userId: string) {
  * not then read its own row back as evidence of a filled-in workspace. The row
  * is judged on its contents for the same reason: blank fields are not a career.
  *
- * Deliberately brain-only. Someone can have applications and no brain — that is
+ * Deliberately Me-only. Someone can have applications and nothing filed here — that is
  * exactly the person this predicate exists to catch, because they have a
  * pipeline and nothing to build a resume out of.
  */
-export async function brainIsEmpty(userId: string) {
+export async function meIsEmpty(userId: string) {
   const id = { select: { id: true } };
   const where = { where: { userId } };
   const [profile, role, highlight, note, education, project, skillGroup, certification] =
     await Promise.all([
-      db.profile.findFirst({ where: { userId }, select: { fullName: true, headline: true, summary: true, brainDump: true } }),
+      db.profile.findFirst({ where: { userId }, select: { fullName: true, headline: true, summary: true, background: true } }),
       db.role.findFirst({ ...where, ...id }),
       db.highlight.findFirst({ ...where, ...id }),
       db.note.findFirst({ ...where, ...id }),
@@ -666,7 +666,7 @@ export async function brainIsEmpty(userId: string) {
       db.certification.findFirst({ ...where, ...id }),
     ]);
 
-  const profileIsBlank = !profile || ![profile.fullName, profile.headline, profile.summary, profile.brainDump].some((field) => field?.trim());
+  const profileIsBlank = !profile || ![profile.fullName, profile.headline, profile.summary, profile.background].some((field) => field?.trim());
 
   return profileIsBlank && !role && !highlight && !note && !education && !project && !skillGroup && !certification;
 }

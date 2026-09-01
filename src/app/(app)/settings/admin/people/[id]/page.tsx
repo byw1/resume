@@ -157,7 +157,7 @@ export default async function PersonPage({ params }: { params: Promise<{ id: str
           <CardHeader>
             <CardTitle className="text-[15px]">What you can do</CardTitle>
             <p className="text-muted-foreground text-sm">
-              Account administration only. There is no way from here into anyone&apos;s brain,
+              Account administration only. There is no way from here into anyone&apos;s career history,
               resumes or applications, and no way to sign in as them.
             </p>
           </CardHeader>

@@ -2,9 +2,8 @@
 
 import { useRouter } from "next/navigation";
 import {
-  BrainIcon,
-  CircleUserRoundIcon,
   BuildingIcon,
+  CircleUserRoundIcon,
   FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
@@ -54,7 +53,7 @@ export function CommandPalette({
           <CommandItem onSelect={() => go("/")}>
             <LayoutDashboardIcon /> Dashboard
           </CommandItem>
-          <CommandItem onSelect={() => go("/brain")}>
+          <CommandItem onSelect={() => go("/me")}>
             <CircleUserRoundIcon /> Me
           </CommandItem>
           <CommandItem onSelect={() => go("/resumes")}>
@@ -72,7 +71,7 @@ export function CommandPalette({
         <CommandSeparator />
 
         <CommandGroup heading="Create">
-          <CommandItem onSelect={() => go("/brain?new=role")}>
+          <CommandItem onSelect={() => go("/me?new=role")}>
             <PlusIcon /> New role
           </CommandItem>
           <CommandItem onSelect={() => go("/resumes?new=1")}>
@@ -91,9 +90,9 @@ export function CommandPalette({
                 <CommandItem
                   key={item.id}
                   value={`role ${item.label} ${item.sub}`}
-                  onSelect={() => go(`/brain/${item.id}`)}
+                  onSelect={() => go(`/me/${item.id}`)}
                 >
-                  <BrainIcon />
+                  <CircleUserRoundIcon />
                   <span>{item.label}</span>
                   <span className="text-muted-foreground ml-auto text-xs">{item.sub}</span>
                 </CommandItem>

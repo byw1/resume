@@ -8,7 +8,7 @@ import {
   rid,
   type ResumeDoc,
 } from "@/lib/resume-schema";
-import { getBrainSnapshot } from "@/lib/data/brain";
+import { getMeSnapshot } from "@/lib/data/me";
 
 // Rendering helpers live in resume-text.ts (client-safe); re-exported so server
 // callers can keep reaching them through this module.
@@ -63,12 +63,12 @@ async function resumePhoto(userId: string, resume: { showPhoto: boolean }) {
 
 export async function createResume(
   userId: string,
-  input: ResumeMeta & { data?: unknown; seedFromBrain?: boolean },
+  input: ResumeMeta & { data?: unknown; seedFromMe?: boolean },
 ) {
   const doc = input.data
     ? parseResumeDoc(input.data)
-    : input.seedFromBrain
-      ? await buildDocFromBrain(userId)
+    : input.seedFromMe
+      ? await buildDocFromMe(userId)
       : emptyResumeDoc();
 
   return db.resume.create({
@@ -146,10 +146,10 @@ export async function duplicateResume(userId: string, id: string, name?: string)
 }
 
 /**
- * Builds a complete first-draft resume document straight from the brain.
+ * Builds a complete first-draft resume document straight from Me.
  * Every role becomes an experience entry; its strongest highlights become the
- * bullets. This is what "New resume from my brain" and the MCP
- * `create_resume(seed_from_brain: true)` call use.
+ * bullets. This is what "Build from my history" and the MCP
+ * `create_resume(seed_from_me: true)` call use.
  */
 
 /**
@@ -168,9 +168,9 @@ function bulletFor(text: string, impact: string) {
   return flatten(text).includes(flatten(trimmed)) ? text : `${text} — ${trimmed}`;
 }
 
-export async function buildDocFromBrain(userId: string): Promise<ResumeDoc> {
+export async function buildDocFromMe(userId: string): Promise<ResumeDoc> {
   const { profile, roles, highlights, education, projects, skillGroups, certifications } =
-    await getBrainSnapshot(userId);
+    await getMeSnapshot(userId);
 
   const links = [
     profile.website && { label: "Website", url: profile.website },

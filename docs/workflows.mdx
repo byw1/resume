@@ -28,17 +28,17 @@ Seven are available to everyone. One is admin-only.
 
 `tailor_resume` · takes `job_description` (required), `company`
 
-Reads a posting, mines the brain for real evidence, drafts and saves a tailored resume,
+Reads a posting, mines Me for real evidence, drafts and saves a tailored resume,
 and finishes with a gap report.
 
 The plan it follows: get the document format, pull out the 8–12 requirements the posting
-actually cares about in priority order, search the brain for evidence of each one, get the
+actually cares about in priority order, search Me for evidence of each one, get the
 profile and dates, draft, preview the text to check it lands near one page, save it as
 `"<Company> — <Role>"` with the target fields set, then say what was emphasised, what was
 cut, and which requirements could not be evidenced.
 
 Bullets are required to lead with a strong verb, name the specific scope, and end in a
-measurable outcome pulled from the brain dump. The closing instruction is explicit:
+measurable outcome pulled from the background. The closing instruction is explicit:
 *never paper over the third list — it is what the person needs to see.*
 
 [The craft behind it →](/guides/tailor-a-resume)
@@ -58,14 +58,14 @@ Every requirement lands in exactly one of three lists:
 | --- | --- |
 | **BACKED** | Direct evidence exists. Quoted, with the role it came from. |
 | **THIN** | Something adjacent exists, but claiming the requirement outright would be a stretch. What exists and what the gap is, precisely. |
-| **MISSING** | The brain has nothing. Said plainly. |
+| **MISSING** | There is nothing on file. Said plainly. |
 
 Then it says what the report means — roughly how much of the posting's core is covered,
 and whether tailoring is worth it or the fit is not there.
 
 The last step is the one that compounds: for every missing and thin item it asks one
 concrete question that would surface the evidence if it exists. People forget their own
-work constantly. Anything you answer gets appended to the brain, and it is backed for
+work constantly. Anything you answer gets appended to Me, and it is backed for
 every future application rather than just this one.
 
 The rule stated in the plan itself: *never move an item to BACKED to be encouraging. A gap
@@ -75,13 +75,13 @@ Pass an application id instead of a posting and it reads the stored description.
 
 ---
 
-## Mine a brain dump into highlights
+## Mine a background into highlights
 
-`mine_brain_dump` · takes `role_id` (omit to be asked)
+`mine_role_background` · takes `role_id` (omit to be asked)
 
 Turns raw, rambling material into polished reusable bullets.
 
-Reads the full brain dump, lists the highlights that already exist so it does not
+Reads the full background, lists the highlights that already exist so it does not
 duplicate them, extracts every distinct accomplishment as one bullet — strong verb,
 specific scope, quantified outcome, keeping the real numbers from the dump — rates each
 1–5 for strength, tags them for retrieval, and saves them in a single call.
@@ -146,11 +146,11 @@ one prep sheet.
 
 It gathers before it writes: the application with its full posting **and its whole
 timeline** — what has already been said matters more than the posting does — the company
-record, the contacts there, and the brain evidence for the two or three themes the posting
+record, the contacts there, and the evidence in Me for the two or three themes the posting
 leans on hardest.
 
 Then: the three things they most obviously care about; your strongest true story for each
-with the specific numbers from your brain; the questions you are most likely to be asked
+with the specific numbers from your background; the questions you are most likely to be asked
 and the weak spots in your own history for this role; five questions worth asking them
 drawn from the research; and anything in the timeline to follow up on.
 
@@ -167,7 +167,7 @@ You ramble; it files everything where it belongs.
 
 | What you mention | Where it goes |
 | --- | --- |
-| Anything about a current or past job | Appended to that role's brain dump, numbers kept |
+| Anything about a current or past job | Appended to that role's background, numbers kept |
 | A clean accomplishment | Also a highlight, so it is resume-ready |
 | Anything about a company you are talking to | A timeline entry, and a stage move if it moved |
 | Anything you said you would do | A task, with a due date |

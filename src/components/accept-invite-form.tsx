@@ -84,7 +84,7 @@ export function AcceptInviteForm({
       </form>
 
       <p className="text-muted-foreground mt-6 text-center text-xs">
-        You get your own private space. Nobody else can see your brain, resumes or applications.
+        You get your own private space. Nobody else can see your career history, resumes or applications.
       </p>
     </AuthCard>
   );
