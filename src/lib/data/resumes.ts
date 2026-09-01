@@ -83,6 +83,9 @@ export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
     orderBy,
     include: {
       _count: { select: { applications: true } },
+      // The base's name is what the lineage chip prints; one join beats a
+      // per-card lookup.
+      baseResume: { select: { id: true, name: true } },
       // Only what the outcome summary needs: the current stage, and the slice
       // of the timeline that proves an interview or an offer ever happened.
       applications: {
@@ -148,7 +151,7 @@ async function resumePhoto(userId: string, resume: { showPhoto: boolean }) {
 
 export async function createResume(
   userId: string,
-  input: ResumeMeta & { data?: unknown; seedFromBrain?: boolean },
+  input: ResumeMeta & { data?: unknown; seedFromBrain?: boolean; baseResumeId?: string },
 ) {
   const doc = input.data
     ? parseResumeDoc(input.data)
@@ -156,9 +159,20 @@ export async function createResume(
       ? await buildDocFromBrain(userId)
       : emptyResumeDoc();
 
+  // Lineage may only point at the caller's own resume — the id arrives from
+  // outside, and the foreign key alone would happily cross tenants.
+  if (input.baseResumeId) {
+    const base = await db.resume.findFirst({
+      where: { id: input.baseResumeId, userId },
+      select: { id: true },
+    });
+    if (!base) throw new Error(`No resume with id ${input.baseResumeId}`);
+  }
+
   return db.resume.create({
     data: {
       userId,
+      baseResumeId: input.baseResumeId ?? null,
       name: input.name?.trim() || "Untitled resume",
       targetRole: input.targetRole ?? "",
       targetCompany: input.targetCompany ?? "",
@@ -224,8 +238,13 @@ export async function duplicateResume(userId: string, id: string, name?: string)
       fontSize: source.fontSize,
       lineHeight: source.lineHeight,
       pageMargin: source.pageMargin,
+      showPhoto: source.showPhoto,
       notes: source.notes,
       data: source.data as object,
+      // The copy remembers what it was tailored from — flattened to the root,
+      // so a copy of a variant still points at the base and lineage stays one
+      // level deep, which is all the grid or the diff ever shows.
+      baseResumeId: source.baseResumeId ?? source.id,
     },
   });
 }

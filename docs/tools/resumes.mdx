@@ -75,6 +75,7 @@ Create a resume. Either pass a complete `data` document you have written (call g
 | `notes` | string | Private notes about this version — what you tailored and why |
 | `showPhoto` | boolean | Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does. |
 | `seedFromBrain` | boolean | Auto-build a first draft from the knowledge base |
+| `baseResumeId` | string | Id of the resume this one was tailored from, if any. Records lineage so compare_resumes can show what changed. duplicate_resume sets this automatically — prefer it when the variant starts from an existing document. |
 | `data` | object | The full resume document. See get_resume_format for the exact shape. Omit if using seedFromBrain. |
 
 ### `update_resume`
@@ -137,12 +138,23 @@ Turn off a resume's public link. Reach for this when the user is done with a lin
 
 _Duplicate a resume_
 
-Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application.
+Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy records which resume it came from (baseResumeId), so after tailoring, compare_resumes can show exactly what changed — prefer this over building a tailored document with create_resume from scratch, which loses that trail unless you pass baseResumeId yourself.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `id` | string | **required** — Resume id to copy |
 | `name` | string | Name for the copy |
+
+### `compare_resumes`
+
+_Compare two resumes_
+
+What changed between two resumes — typically a tailored variant against the base it was duplicated from. Pass just id and it compares against the resume's recorded base (duplicate_resume sets that automatically); pass base_id to compare against any other resume. Returns the changed header fields, each section's added and removed bullets and entries, and a one-line summary like '+4 bullets · −2 bullets · summary edited'. A reworded bullet shows as one removed plus one added — old wording beside new, no similarity guessing. Read-only, nothing is written. Reach for this when the user asks what a tailored copy changed, or to review a variant with them before it goes out.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — The tailored resume to inspect |
+| `base_id` | string | What to compare against. Defaults to the resume's own recorded base; required only when it has none or the user wants a different comparison. |
 
 ### `delete_resume`
 

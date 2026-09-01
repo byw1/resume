@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import {
   CopyIcon,
   DownloadIcon,
+  GitBranchIcon,
   Link2Icon,
   LinkIcon,
   MoreVerticalIcon,
@@ -51,6 +52,8 @@ export function ResumeCard({
   photoOnPublicPage,
   applications,
   outcomes,
+  lineage,
+  variants,
   isFavorite: initialFavorite,
   updatedLabel,
   children,
@@ -68,6 +71,10 @@ export function ResumeCard({
   applications: number;
   /** Where the applications this resume went out with actually got to. */
   outcomes: { sent: number; interviewed: number; offers: number };
+  /** Set when this is a tailored variant: who it came from, and what changed. */
+  lineage: { baseId: string; baseName: string; changes: string } | null;
+  /** How many variants have been tailored from this one. */
+  variants: number;
   isFavorite: boolean;
   updatedLabel: string;
   children: React.ReactNode;
@@ -119,6 +126,20 @@ export function ResumeCard({
             <div className="text-muted-foreground truncate text-xs">
               {target || "No target set"}
             </div>
+            {lineage && (
+              <Link
+                href={`/resumes/${lineage.baseId}`}
+                className="text-muted-foreground hover:text-foreground mt-1 flex items-center gap-1 text-[11px] transition-colors"
+                title={`Tailored from ${lineage.baseName}`}
+              >
+                <GitBranchIcon className="size-3 shrink-0" />
+                <span className="truncate">
+                  from {lineage.baseName}
+                  {lineage.changes &&
+                    ` · ${lineage.changes === "No changes from base" ? "unchanged so far" : lineage.changes}`}
+                </span>
+              </Link>
+            )}
           </div>
 
           <button
@@ -216,6 +237,12 @@ export function ResumeCard({
                 <Link2Icon className="size-2.5" /> Live
               </Badge>
             </button>
+          )}
+          {variants > 0 && (
+            <Badge variant="outline" className="text-[10px] tabular-nums" title="Tailored variants of this resume">
+              <GitBranchIcon className="size-2.5" />
+              {variants} variant{variants > 1 ? "s" : ""}
+            </Badge>
           )}
           {applications > 0 && (
             <Link

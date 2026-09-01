@@ -24,6 +24,7 @@ import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/bill
 import { sendEmail, testEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
+import { diffResumeDocs } from "@/lib/resume-diff";
 import { renderPdf, pdfRenderingAvailable } from "@/lib/pdf";
 import { clientName, clientsById, guessClient } from "@/lib/mcp/clients";
 
@@ -1097,6 +1098,9 @@ export const tools: McpTool[] = [
           "Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does.",
         ),
         seedFromBrain: bool("Auto-build a first draft from the knowledge base"),
+        baseResumeId: str(
+          "Id of the resume this one was tailored from, if any. Records lineage so compare_resumes can show what changed. duplicate_resume sets this automatically — prefer it when the variant starts from an existing document.",
+        ),
         data: {
           type: "object",
           description:
@@ -1118,6 +1122,7 @@ export const tools: McpTool[] = [
         seedFromBrain: b(args, "seedFromBrain"),
         data: args.data,
         ...defined({
+          baseResumeId: s(args, "baseResumeId"),
           targetRole: s(args, "targetRole"),
           targetCompany: s(args, "targetCompany"),
           template: s(args, "template"),
@@ -1305,7 +1310,7 @@ export const tools: McpTool[] = [
     name: "duplicate_resume",
     title: "Duplicate a resume",
     description:
-      "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application.",
+      "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy records which resume it came from (baseResumeId), so after tailoring, compare_resumes can show exactly what changed — prefer this over building a tailored document with create_resume from scratch, which loses that trail unless you pass baseResumeId yourself.",
     inputSchema: object({ id: str("Resume id to copy"), name: str("Name for the copy") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -1314,6 +1319,45 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) => resumes.duplicateResume(ctx.userId, required(args, "id"), s(args, "name")),
+  },
+  {
+    name: "compare_resumes",
+    title: "Compare two resumes",
+    description:
+      "What changed between two resumes — typically a tailored variant against the base it was duplicated from. Pass just id and it compares against the resume's recorded base (duplicate_resume sets that automatically); pass base_id to compare against any other resume. Returns the changed header fields, each section's added and removed bullets and entries, and a one-line summary like '+4 bullets · −2 bullets · summary edited'. A reworded bullet shows as one removed plus one added — old wording beside new, no similarity guessing. Read-only, nothing is written. Reach for this when the user asks what a tailored copy changed, or to review a variant with them before it goes out.",
+    inputSchema: object(
+      {
+        id: str("The tailored resume to inspect"),
+        base_id: str(
+          "What to compare against. Defaults to the resume's own recorded base; required only when it has none or the user wants a different comparison.",
+        ),
+      },
+      ["id"],
+    ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const variant = await resumes.getResume(ctx.userId, required(args, "id"));
+      if (!variant) throw new Error("Resume not found");
+      const baseId = s(args, "base_id") ?? variant.baseResumeId;
+      if (!baseId) {
+        throw new Error(
+          "This resume has no recorded base. Pass base_id to say what to compare it against.",
+        );
+      }
+      const base = await resumes.getResume(ctx.userId, baseId);
+      if (!base) throw new Error(`No resume with id ${baseId}`);
+      const diff = diffResumeDocs(base.doc, variant.doc);
+      return {
+        base: { id: base.id, name: base.name },
+        variant: { id: variant.id, name: variant.name },
+        ...diff,
+      };
+    },
   },
   {
     name: "delete_resume",
@@ -3219,7 +3263,10 @@ Work in this order:
 3. For each one, call search_brain to find real evidence. Do not invent anything — if there is no evidence, say so and leave it out.
 4. Call get_brain_snapshot for the profile, dates and education you need.
 5. Draft the document, then call preview_resume_text to check it lands near one page.
-6. Save it with create_resume, naming it "<Company> — <Role>", and set targetRole/targetCompany.
+6. Save it. If a base resume already exists (list_resumes shows one), duplicate_resume it and
+   update_resume the copy — that records the lineage, so compare_resumes can show what this
+   tailoring changed. Otherwise create_resume. Either way name it "<Company> — <Role>" and set
+   targetRole/targetCompany.
 7. Tell me what you emphasised, what you cut, and which requirements you could not evidence.
 
 Bullets must lead with a strong verb, name the specific scope, and end in a measurable outcome pulled from the brain dump.

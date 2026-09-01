@@ -24,6 +24,7 @@ import {
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { ShareButton } from "@/components/resume/share-button";
+import { CompareToBase } from "@/components/resume/compare-to-base";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -88,11 +89,17 @@ export function ResumeEditor({
   doc: initialDoc,
   meta: initialMeta,
   shareUrl,
+  base,
   photo,
 }: {
   id: string;
   doc: ResumeDoc;
   meta: Meta;
+  /**
+   * The resume this one was tailored from, or null. Drives the live
+   * compare-to-base view in the toolbar; the diff recomputes as you type.
+   */
+  base: { id: string; name: string; doc: ResumeDoc } | null;
   /**
    * The owner's headshot, whether or not this document shows it. Held here so
    * the toggle is instant — flipping it repaints the preview rather than
@@ -182,6 +189,8 @@ export function ResumeEditor({
         >
           {pages} page{pages > 1 ? "s" : ""} · {fill}% of last
         </Badge>
+
+        {base && <CompareToBase base={base} doc={doc} />}
 
         <div className="ml-auto flex items-center gap-1.5">
           <Button

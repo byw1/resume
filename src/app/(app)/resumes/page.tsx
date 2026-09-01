@@ -6,6 +6,7 @@ import { SearchBox } from "@/components/crm/search-box";
 import { ResumeSortSelect } from "@/components/resume/resume-sort";
 import { listResumes } from "@/lib/data/resumes";
 import { parseResumeDoc } from "@/lib/resume-schema";
+import { diffResumeDocs } from "@/lib/resume-diff";
 import { estimatePages } from "@/lib/resume-text";
 import { NewResumeDialog } from "@/components/resume/new-resume-dialog";
 import { ResumeCard } from "@/components/resume/resume-card";
@@ -46,6 +47,43 @@ export default async function ResumesPage({
   const proto =
     headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
 
+  // Parsed once per document: the thumbnail, the page gauge and the lineage
+  // diff all read the same object.
+  const docs = new Map(resumes.map((resume) => [resume.id, parseResumeDoc(resume.data)]));
+  const byId = new Map(resumes.map((resume) => [resume.id, resume]));
+  const variantCounts = new Map<string, number>();
+  for (const resume of resumes) {
+    if (resume.baseResumeId) {
+      variantCounts.set(resume.baseResumeId, (variantCounts.get(resume.baseResumeId) ?? 0) + 1);
+    }
+  }
+
+  // In the default view, a base is followed by its variants, so twelve
+  // near-identical thumbnails read as one family rather than a wall. A chosen
+  // sort or an active search means the person asked for a different order —
+  // honour it flat.
+  const ordered =
+    sort === "recent" && !q
+      ? (() => {
+          const out: typeof resumes = [];
+          const seen = new Set<string>();
+          for (const resume of resumes) {
+            if (seen.has(resume.id)) continue;
+            if (resume.baseResumeId && byId.has(resume.baseResumeId)) continue;
+            seen.add(resume.id);
+            out.push(resume);
+            for (const variant of resumes) {
+              if (variant.baseResumeId === resume.id && !seen.has(variant.id)) {
+                seen.add(variant.id);
+                out.push(variant);
+              }
+            }
+          }
+          for (const resume of resumes) if (!seen.has(resume.id)) out.push(resume);
+          return out;
+        })()
+      : resumes;
+
   return (
     <PageShell>
       <PageHeader
@@ -77,8 +115,9 @@ export default async function ResumesPage({
         />
       ) : (
         <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">
-          {resumes.map((resume) => {
-            const doc = parseResumeDoc(resume.data);
+          {ordered.map((resume) => {
+            const doc = docs.get(resume.id)!;
+            const baseRow = resume.baseResumeId ? byId.get(resume.baseResumeId) : undefined;
             return (
               <StaggerItem key={resume.id}>
                 <Lift>
@@ -92,6 +131,18 @@ export default async function ResumesPage({
                     photoOnPublicPage={resume.showPhoto && Boolean(photo)}
                     applications={resume._count.applications}
                     outcomes={resume.outcomes}
+                    lineage={
+                      resume.baseResume
+                        ? {
+                            baseId: resume.baseResume.id,
+                            baseName: resume.baseResume.name,
+                            changes: baseRow
+                              ? diffResumeDocs(docs.get(baseRow.id)!, doc).summary
+                              : "",
+                          }
+                        : null
+                    }
+                    variants={variantCounts.get(resume.id) ?? 0}
                     isFavorite={resume.isFavorite}
                     updatedLabel={resume.updatedAt.toLocaleDateString("en-US", {
                       month: "short",

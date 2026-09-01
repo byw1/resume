@@ -507,9 +507,18 @@ model Resume {
   visibility  ResumeVisibility @default(PRIVATE)
   publishedAt DateTime?
 
+  /// The resume this was tailored from. Set by duplicate_resume (flattened to
+  /// the root, so a copy of a variant still points at the base) and optionally
+  /// by create_resume. SET NULL on delete: losing the base makes a variant
+  /// standalone, it does not delete someone's tailored work.
+  baseResumeId String?
+  baseResume   Resume?  @relation("ResumeLineage", fields: [baseResumeId], references: [id], onDelete: SetNull)
+  variants     Resume[] @relation("ResumeLineage")
+
   applications Application[]
 
   @@index([userId])
+  @@index([baseResumeId])
 }
 
 // ---------------------------------------------------------------------------

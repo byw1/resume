@@ -18,6 +18,11 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
   // toggle in the design popover previews instantly.
   const profile = await getProfile(user.id);
 
+  // The base this variant was tailored from, for the live compare view. A
+  // dangling reference (base deleted) resolves to null and the editor simply
+  // doesn't offer the comparison.
+  const base = resume.baseResumeId ? await getResume(user.id, resume.baseResumeId) : null;
+
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const proto =
     headerList.get("x-forwarded-proto") ?? (host.startsWith("localhost") ? "http" : "https");
@@ -26,6 +31,7 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
     <ResumeEditor
       id={resume.id}
       shareUrl={resume.slug ? `${proto}://${host}/r/${resume.slug}` : null}
+      base={base ? { id: base.id, name: base.name, doc: base.doc } : null}
       doc={resume.doc}
       meta={{
         name: resume.name,
