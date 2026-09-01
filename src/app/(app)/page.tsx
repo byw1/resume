@@ -1,9 +1,8 @@
 import Link from "next/link";
 import {
   ArrowRightIcon,
-  BrainIcon,
-  CircleUserRoundIcon,
   CalendarClockIcon,
+  CircleUserRoundIcon,
   CheckCircle2Icon,
   FileTextIcon,
   FlameIcon,
@@ -34,7 +33,7 @@ import {
   pipelineStats,
 } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
-import { getProfile } from "@/lib/data/brain";
+import { getProfile } from "@/lib/data/me";
 import { relativeDay, truncate } from "@/lib/utils";
 import { TaskList } from "@/components/dashboard/task-list";
 import { FollowUpList } from "@/components/dashboard/follow-up-list";
@@ -96,8 +95,8 @@ export default async function DashboardPage() {
         actions={
           <>
             <Button asChild variant="outline">
-              <Link href="/brain">
-                <BrainIcon /> Brain dump
+              <Link href="/me">
+                <CircleUserRoundIcon /> Me
               </Link>
             </Button>
             <Button asChild variant="default">
@@ -326,16 +325,16 @@ function Onboarding() {
       cta: "Get my URL",
     },
     {
-      icon: BrainIcon,
-      title: "Dump your brain",
+      icon: CircleUserRoundIcon,
+      title: "Fill in Me",
       body: "Add each role and paste in everything — projects, numbers, stories, praise, failures. Length is a feature. Or just tell Claude and let it file things for you.",
-      href: "/brain",
+      href: "/me",
       cta: "Start dumping",
     },
     {
       icon: FileTextIcon,
       title: "Build a resume",
-      body: "Ask Claude to tailor a resume to a job posting. It mines your brain for real evidence, writes the bullets and saves it here, print-ready.",
+      body: "Ask Claude to tailor a resume to a job posting. It mines everything in Me for real evidence, writes the bullets and saves it here, print-ready.",
       href: "/resumes",
       cta: "See resumes",
     },

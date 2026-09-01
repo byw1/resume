@@ -18,7 +18,7 @@ import { AccountPanel } from "@/components/settings/account-panel";
 import { AppearancePanel } from "@/components/settings/appearance-panel";
 import { SkillsPanel } from "@/components/settings/skills-panel";
 import { listConnections } from "@/lib/data/connections";
-import { getProfile } from "@/lib/data/brain";
+import { getProfile } from "@/lib/data/me";
 import { listSkills } from "@/lib/skills";
 import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
@@ -151,7 +151,7 @@ export default async function SettingsPage({
                 <span className="min-w-0 flex-1">
                   <span className="text-foreground block font-medium">The docs</span>
                   Every one of those {visibleTools.length} tools written out with its arguments, plus
-                  getting connected, filling the brain, tailoring a resume and running the search —
+                  getting connected, filling in Me, tailoring a resume and running the search —
                   at docs.hired.tools.
                 </span>
                 <ArrowUpRightIcon className="mt-0.5 size-3.5 shrink-0" />

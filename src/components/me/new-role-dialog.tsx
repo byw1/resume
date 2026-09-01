@@ -32,7 +32,7 @@ export function NewRoleDialog() {
     startDate: "",
     endDate: "",
     isCurrent: false,
-    brainDump: "",
+    background: "",
   });
 
   useEffect(() => {
@@ -54,10 +54,10 @@ export function NewRoleDialog() {
         startDate: "",
         endDate: "",
         isCurrent: false,
-        brainDump: "",
+        background: "",
       });
       toast.success("Role added");
-      router.push(`/brain/${id}`);
+      router.push(`/me/${id}`);
     });
   };
 
@@ -130,10 +130,10 @@ export function NewRoleDialog() {
             />
           </div>
           <div className="space-y-1.5 sm:col-span-2">
-            <Label>First dump (optional)</Label>
+            <Label>Background (optional)</Label>
             <Textarea
-              value={form.brainDump}
-              onChange={(event) => setForm({ ...form, brainDump: event.target.value })}
+              value={form.background}
+              onChange={(event) => setForm({ ...form, background: event.target.value })}
               placeholder="What did you actually do here? Numbers, projects, stories — anything."
               className="min-h-28"
             />

@@ -19,7 +19,7 @@ type ProfileValues = {
   linkedin: string;
   github: string;
   summary: string;
-  brainDump: string;
+  background: string;
 };
 
 export function ProfileForm({ profile }: { profile: ProfileValues }) {
@@ -33,7 +33,7 @@ export function ProfileForm({ profile }: { profile: ProfileValues }) {
     linkedin: profile.linkedin,
     github: profile.github,
     summary: profile.summary,
-    brainDump: profile.brainDump,
+    background: profile.background,
   });
 
   const { state, push } = useAutosave<ProfileValues>((next) => saveProfileAction(next));
@@ -98,7 +98,7 @@ export function ProfileForm({ profile }: { profile: ProfileValues }) {
 
         <Card>
           <CardHeader>
-            <CardTitle className="text-[15px]">Personal brain dump</CardTitle>
+            <CardTitle className="text-[15px]">Personal background</CardTitle>
             <p className="text-muted-foreground text-sm">
               Not for the resume — this is context for Claude. What you want next, what you refuse to
               do again, comp expectations, how you work, what you are proud of, what you are bad at.
@@ -106,8 +106,8 @@ export function ProfileForm({ profile }: { profile: ProfileValues }) {
           </CardHeader>
           <CardContent>
             <Textarea
-              value={values.brainDump}
-              onChange={(event) => set("brainDump")(event.target.value)}
+              value={values.background}
+              onChange={(event) => set("background")(event.target.value)}
               placeholder={`I want to move from IC to staff-level scope without going into management…
 Comp: targeting $220k+ base, will trade for equity at a Series B.
 Non-negotiable: no on-call rotation under four engineers.

@@ -51,7 +51,7 @@ export function AuditPanel({
           <CardTitle className="text-[15px]">Account activity</CardTitle>
           <p className="text-muted-foreground text-sm">
             Every administrative change to this account, newest first. Nothing here touches
-            anyone&apos;s brain, resumes or applications — admins never see those.
+            anyone&apos;s career history, resumes or applications — admins never see those.
           </p>
         </CardHeader>
         <CardContent>
@@ -113,7 +113,7 @@ function FilterableLog({ initial }: { initial: AuditRow[] }) {
         <CardTitle className="text-[15px]">Administrative activity</CardTitle>
         <p className="text-muted-foreground text-sm">
           Every change an admin made to an account or to how this instance is configured, newest
-          first. Nothing here touches anyone&apos;s brain, resumes or applications — admins never
+          first. Nothing here touches anyone&apos;s career history, resumes or applications — admins never
           see those, and a secret is recorded as having been set, never as its value.
         </p>
       </CardHeader>

@@ -3153,3 +3153,46 @@ beside them to add another.
 `src/components/crm/{contact-companies,contact-detail}.tsx`,
 `src/app/(app)/crm/contacts/`, `src/app/(app)/page.tsx`, `docs/concepts/crm.mdx`,
 `skills/run-the-search/SKILL.md`.
+
+## 2026-09-01 — The brain is called Me
+
+The nav had said **Me** for a while; everything behind it still said brain — the route,
+the column, five tool names, forty pages of manual and the landing page. One name in the
+product and another in every sentence about it is a tax on every future reader, so the
+rename went all the way through in one pass.
+
+**The database was left alone deliberately.** `Profile.background`, `Role.background` and
+`Project.background` are `@map("brainDump")`: the Prisma field is renamed, the column is
+not. There is no migration, no drift, and no self-hoster has to take a schema change to
+follow a vocabulary change. If a later migration ever renames the columns for real, it
+can — nothing above the data layer knows the old name any more.
+
+**"Me dump" is not a phrase, so the raw text became the background.** "Notes" was the
+natural English and was rejected: `Note` is already a model with its own tools, and
+`append_role_notes` sitting next to `create_note` is exactly the ambiguity that makes an
+assistant pick the wrong one. Everything the field touches follows it — the card titles,
+`append_role_background`, `include_background`, `mine_role_background`.
+
+**Tools renamed, arguments included:** `search_brain` → `search_me`, `get_brain_snapshot`
+→ `get_me_snapshot`, `append_role_brain_dump` → `append_role_background`,
+`include_brain_dumps` → `include_background`, `mine_brain_dump` → `mine_role_background`,
+`brainDump` → `background`, `seedFromBrain` → `seedFromMe`. Tool names are resolved live
+from `tools/list`, so a connected client picks the new ones up on its next session — but
+a prompt somebody saved that names `search_brain` will not, which is the one real cost and
+was taken knowingly.
+
+**"Me" works as a proper noun and not as a possessive.** "Search Me", "nothing goes on a
+resume that the evidence in Me cannot back", "filling in Me" all read. "Does not expose
+anyone's Me" does not, so the privacy and admin sentences — which were listing the three
+things an admin cannot see — say **career history** instead. It is descriptive rather
+than a section name, which is what those sentences needed anyway.
+
+**`/brain` redirects permanently to `/me`, and `/brain/:path*` with it.** Claude has been
+handing out `/brain/<roleId>` links since the first release and they are in people's
+history; a 404 on somebody's own record is the worst possible outcome of a rename.
+
+**Applies to:** `prisma/schema.prisma`, `next.config.ts`, `src/lib/data/me.ts` (was
+`brain.ts`), `src/lib/data/resumes.ts`, `src/lib/mcp/{tools,handler,clients}.ts`,
+`src/server/actions.ts`, `src/app/(app)/me/` (was `brain/`), `src/components/me/` (was
+`brain/`), `tools/gen-tool-docs.mjs`, all of `docs/` (`concepts/me`, `tools/me`,
+`guides/fill-in-me` renamed), `skills/`, `site/index.html`, `README.md`, `CLAUDE.md`.
