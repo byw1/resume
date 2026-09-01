@@ -1024,7 +1024,7 @@ export const tools: McpTool[] = [
     name: "list_resumes",
     title: "List resumes",
     description:
-      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published.",
+      "All saved resumes with their target role/company, how many applications each is attached to, how many tailored variants came off each one, what each was itself tailored from, and publicUrl — the shareable link, or null if that resume isn't published. The one with variants and no base of its own is almost always the base document someone means by 'my resume'.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
@@ -1044,7 +1044,7 @@ export const tools: McpTool[] = [
     name: "get_resume",
     title: "Get a resume",
     description:
-      "Fetch one resume: its settings, its full document JSON, and publicUrl — the shareable link, or null if it isn't published. Read this before update_resume, which replaces the whole document.",
+      "Fetch one resume: its settings, its full document JSON, publicUrl — the shareable link, or null if it isn't published — what it was tailored from, the variants tailored off it, and every application it was sent to with the stage each reached. Read this before update_resume, which replaces the whole document. The applications are what makes 'is this resume working' answerable from one call.",
     inputSchema: object(
       {
         id: str("Resume id"),
@@ -1303,7 +1303,7 @@ export const tools: McpTool[] = [
     name: "duplicate_resume",
     title: "Duplicate a resume",
     description:
-      "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application.",
+      "Copy an existing resume so you can tailor a variant without losing the original. The usual flow for a new application. The copy remembers what it came from, so diff_resume can later show exactly what you changed for that job — which is what makes a tailored resume reviewable rather than just different.",
     inputSchema: object({ id: str("Resume id to copy"), name: str("Name for the copy") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -1312,6 +1312,79 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) => resumes.duplicateResume(ctx.userId, required(args, "id"), s(args, "name")),
+  },
+  {
+    name: "tailor_resume_for_application",
+    title: "Start a tailored resume for one job",
+    description:
+      "Copy the base resume, name it for the job, point it at that company and role, and attach it to the application — the four steps this otherwise takes, in one call. Returns the new resume (with its full document, ready to rewrite with update_resume) and what it was based on. The base is worked out for you: the original document, favourite first, the one that has variants rather than one of the variants. Pass baseId to override that. With nothing on file yet it builds the first draft from the brain instead of refusing, so a new person asking for a tailored resume gets one. Anything already attached to that application is replaced — the old document is not deleted, it just stops being the one on this job.",
+    inputSchema: object(
+      {
+        applicationId: str("The job this resume is for"),
+        baseId: str("Copy this resume instead of the one picked for you"),
+        name: str("Name for the copy. Defaults to 'Company — Role'."),
+      },
+      ["applicationId"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      resumes.createResumeForApplication(ctx.userId, required(args, "applicationId"), {
+        ...defined({ baseId: s(args, "baseId"), name: s(args, "name") }),
+      }),
+  },
+  {
+    name: "diff_resume",
+    title: "What changed against the base",
+    description:
+      "Compare a tailored resume against the one it was copied from, and get back exactly what moved: bullets added, bullets dropped, bullets reworded (with what they used to say and how much survived), whole roles cut, sections hidden or renamed, and header fields changed. Reach for this before someone sends a tailored copy, or when they ask what they actually claimed to a company. Reordering is not reported — moving a bullet is not a change to what it says. Pass baseId to compare against a specific document instead of the recorded base; when there is no base on file the result says so rather than reporting an empty diff, which would read as 'nothing changed'.",
+    inputSchema: object(
+      { id: str("The tailored resume"), baseId: str("Compare against this one instead of its recorded base") },
+      ["id"],
+    ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => resumes.diffResume(ctx.userId, required(args, "id"), s(args, "baseId")),
+  },
+  {
+    name: "set_resume_base",
+    title: "Say what a resume was tailored from",
+    description:
+      "Record that one resume is a tailored copy of another, so diff_resume can compare them. duplicate_resume sets this for you; this is for documents that already existed, or to re-point one. Pass an empty baseId to unlink. Refuses a loop — two resumes cannot each be the other's base — and refuses to make a resume its own base.",
+    inputSchema: object(
+      { id: str("The tailored resume"), baseId: str("The resume it came from, or empty to unlink") },
+      ["id"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      resumes.setResumeBase(ctx.userId, required(args, "id"), s(args, "baseId") || null),
+  },
+  {
+    name: "trace_resume_evidence",
+    title: "Which brain material backs each bullet",
+    description:
+      "For every experience bullet in a resume, the brain highlights that stand behind it, best match first, plus a count of the bullets nothing backs. This is derived by comparing text, not recorded when the document was written — so treat a match as 'this claim is in your notes', not as proof of authorship. The unbacked list is the useful half: those are the lines the person cannot expand on from their own material, which is exactly what to walk through before an interview, and what to ask about before writing anything new. Never invent evidence for a bullet that has none.",
+    inputSchema: object({ id: str("Resume id") }, ["id"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => resumes.traceResumeEvidence(ctx.userId, required(args, "id")),
   },
   {
     name: "delete_resume",

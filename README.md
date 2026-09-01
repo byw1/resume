@@ -42,7 +42,7 @@ just *talk* to it.
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
   paste — because the address that matters is whichever one they actually answer on.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  87 tools any MCP client can call (117 if you're an admin). Claude, Claude Code, ChatGPT,
+  91 tools any MCP client can call (121 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's brain, resumes or applications. Admin lives
@@ -211,7 +211,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 87, or 117 if you're an admin.
+would, then tells you how many tools answered — 91, or 121 if you're an admin.
 
 #### One connection per client
 
@@ -361,7 +361,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-87 tools. Eighty of them are the data tools across the four areas and your account;
+91 tools. Eighty-four of them are the data tools across the four areas and your account;
 the other seven are the workflows below, published as tools as well as prompts, because
 prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
 a step-by-step plan that it then follows. Admins get 30 more — 29 data tools and an eighth

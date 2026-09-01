@@ -507,9 +507,19 @@ model Resume {
   visibility  ResumeVisibility @default(PRIVATE)
   publishedAt DateTime?
 
+  /// What this was tailored from. A variant remembers its base so the two can
+  /// be compared — which bullets were dropped for this job, which were added —
+  /// and so "which of these is the real one" has an answer. SET NULL rather
+  /// than cascade: deleting a base must leave its copies standing, because one
+  /// of those copies is what somebody actually sent.
+  baseResumeId String?
+  base         Resume?  @relation("ResumeLineage", fields: [baseResumeId], references: [id], onDelete: SetNull)
+  variants     Resume[] @relation("ResumeLineage")
+
   applications Application[]
 
   @@index([userId])
+  @@index([baseResumeId])
 }
 
 // ---------------------------------------------------------------------------

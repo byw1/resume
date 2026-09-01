@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { FileTextIcon, LinkIcon, StarIcon } from "lucide-react";
+import { FileTextIcon, GitBranchIcon, LinkIcon, StarIcon } from "lucide-react";
 import { PageHeader, PageShell, EmptyState } from "@/components/page-header";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -93,10 +93,38 @@ export default async function ResumesPage() {
                             {resume.template}
                           </Badge>
                           {resume._count.applications > 0 && (
-                            <Badge variant="outline" className="text-[10px]">
+                            <Badge
+                              variant="outline"
+                              className="text-[10px]"
+                              title={`Sent with ${resume._count.applications} application${resume._count.applications > 1 ? "s" : ""}`}
+                            >
                               <LinkIcon className="size-2.5" />
                               {resume._count.applications}
                             </Badge>
+                          )}
+                          {/* Which of these is the original, and which were cut
+                              from it. A grid of eight documents said nothing
+                              about how they were related. */}
+                          {resume.base ? (
+                            <Badge
+                              variant="outline"
+                              className="max-w-[10rem] text-[10px]"
+                              title={`Tailored from ${resume.base.name}`}
+                            >
+                              <GitBranchIcon className="size-2.5" />
+                              <span className="truncate">{resume.base.name}</span>
+                            </Badge>
+                          ) : (
+                            resume._count.variants > 0 && (
+                              <Badge
+                                variant="outline"
+                                className="text-[10px]"
+                                title={`${resume._count.variants} tailored from this one`}
+                              >
+                                <GitBranchIcon className="size-2.5" />
+                                {resume._count.variants}
+                              </Badge>
+                            )
                           )}
                           <span className="text-muted-foreground ml-auto text-[11px]">
                             {resume.updatedAt.toLocaleDateString("en-US", {

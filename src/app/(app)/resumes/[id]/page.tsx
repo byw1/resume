@@ -1,6 +1,6 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
-import { getResume } from "@/lib/data/resumes";
+import { getResume, listResumes } from "@/lib/data/resumes";
 import { getProfile } from "@/lib/data/brain";
 import { requireUser } from "@/lib/auth";
 import { ResumeEditor } from "@/components/resume/resume-editor";
@@ -13,6 +13,8 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
   const { id } = await params;
   const resume = await getResume(user.id, id);
   if (!resume) notFound();
+  // Every other document, so "tailored from" can be set from the panel.
+  const siblings = (await listResumes(user.id)).filter((row) => row.id !== id);
 
   // The editor gets the photo whether or not this document shows it, so the
   // toggle in the design popover previews instantly.
@@ -42,6 +44,15 @@ export default async function ResumePage({ params }: { params: Promise<{ id: str
         showPhoto: resume.showPhoto,
       }}
       photo={profile.photo}
+      base={resume.base}
+      siblings={siblings.map((row) => ({ id: row.id, name: row.name }))}
+      applications={resume.applications.map((application) => ({
+        id: application.id,
+        roleTitle: application.roleTitle,
+        stage: application.stage,
+        company: application.company.name,
+        appliedAt: application.appliedAt?.toISOString() ?? null,
+      }))}
     />
   );
 }

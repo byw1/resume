@@ -8,7 +8,8 @@ import {
   rid,
   type ResumeDoc,
 } from "@/lib/resume-schema";
-import { getBrainSnapshot } from "@/lib/data/brain";
+import { getBrainSnapshot, listHighlights } from "@/lib/data/brain";
+import { bulletSimilarity, diffResumeDocs } from "@/lib/resume-diff";
 
 // Rendering helpers live in resume-text.ts (client-safe); re-exported so server
 // callers can keep reaching them through this module.
@@ -33,12 +34,36 @@ export async function listResumes(userId: string) {
   return db.resume.findMany({
     where: { userId },
     orderBy: [{ isFavorite: "desc" }, { updatedAt: "desc" }],
-    include: { _count: { select: { applications: true } } },
+    include: {
+      _count: { select: { applications: true, variants: true } },
+      // What it was tailored from, so a grid of eight documents says which one
+      // is the original rather than making you open them to find out.
+      base: { select: { id: true, name: true } },
+    },
   });
 }
 
 export async function getResume(userId: string, id: string) {
-  const resume = await db.resume.findFirst({ where: { id, userId } });
+  const resume = await db.resume.findFirst({
+    where: { id, userId },
+    include: {
+      base: { select: { id: true, name: true } },
+      variants: { select: { id: true, name: true }, orderBy: { updatedAt: "desc" } },
+      // Where this document actually went. The loop was half-built: an
+      // application named its resume and a resume named nothing back, so
+      // "which jobs did I send this to" meant reading the pipeline.
+      applications: {
+        orderBy: { updatedAt: "desc" },
+        select: {
+          id: true,
+          roleTitle: true,
+          stage: true,
+          appliedAt: true,
+          company: { select: { id: true, name: true, website: true } },
+        },
+      },
+    },
+  });
   if (!resume) return null;
   return { ...resume, doc: parseResumeDoc(resume.data), photo: await resumePhoto(userId, resume) };
 }
@@ -118,18 +143,226 @@ export async function updateResume(
   return db.resume.findFirstOrThrow({ where: { id, userId } });
 }
 
+/**
+ * Which document somebody means by "my resume".
+ *
+ * The original, not a copy: something with variants hanging off it and no base
+ * of its own. A favourite wins among equals, because starring one is the
+ * clearest statement a person can make about which it is. Returns null for an
+ * empty workspace, which the caller has to handle rather than guess around.
+ */
+export async function pickBaseResume(userId: string) {
+  const rows = await db.resume.findMany({
+    where: { userId },
+    include: { _count: { select: { variants: true } } },
+    orderBy: { updatedAt: "desc" },
+  });
+  if (rows.length === 0) return null;
+  const originals = rows.filter((row) => row.baseResumeId === null);
+  const pool = originals.length > 0 ? originals : rows;
+  return (
+    pool.find((row) => row.isFavorite) ??
+    [...pool].sort((a, b) => b._count.variants - a._count.variants)[0]
+  );
+}
+
+/**
+ * The four-step move this app made everybody do by hand: copy the base, rename
+ * it for the job, attach it, open it.
+ *
+ * With nothing to copy it builds the first document straight from the brain
+ * rather than refusing — a new user asking for a tailored resume should get
+ * one, not an error telling them to go and make a resume first.
+ */
+export async function createResumeForApplication(
+  userId: string,
+  applicationId: string,
+  options?: { baseId?: string; name?: string },
+) {
+  const application = await db.application.findFirst({
+    where: { id: applicationId, userId },
+    include: { company: { select: { name: true } } },
+  });
+  if (!application) throw new Error(`No application with id ${applicationId}`);
+
+  const base = options?.baseId
+    ? await db.resume.findFirst({ where: { id: options.baseId, userId } })
+    : await pickBaseResume(userId);
+  if (options?.baseId && !base) throw new Error(`No resume with id ${options.baseId}`);
+
+  const name = options?.name?.trim() || `${application.company.name} — ${application.roleTitle}`;
+
+  const created = base
+    ? await duplicateResume(userId, base.id, name)
+    : await createResume(userId, { name, seedFromBrain: true });
+
+  const resume = await db.resume.update({
+    where: { id: created.id },
+    data: { targetCompany: application.company.name, targetRole: application.roleTitle },
+  });
+
+  await db.application.update({ where: { id: applicationId }, data: { resumeId: resume.id } });
+
+  return {
+    resume,
+    basedOn: base ? { id: base.id, name: base.name } : null,
+    seededFromBrain: !base,
+    attachedTo: { id: application.id, company: application.company.name, roleTitle: application.roleTitle },
+  };
+}
+
+/**
+ * Point a resume at the one it was tailored from, or unlink it.
+ *
+ * Refuses itself and refuses a cycle: A tailored from B tailored from A is a
+ * lineage that cannot be read in either direction, and the diff panel would
+ * follow it forever. Both resumes are re-checked against this user — the
+ * relation has no userId of its own.
+ */
+export async function setResumeBase(userId: string, id: string, baseResumeId: string | null) {
+  const resume = await db.resume.findFirst({ where: { id, userId } });
+  if (!resume) throw new Error(`No resume with id ${id}`);
+  if (baseResumeId === null) {
+    return db.resume.update({ where: { id }, data: { baseResumeId: null } });
+  }
+  if (baseResumeId === id) throw new Error("A resume cannot be tailored from itself.");
+
+  let cursor: string | null = baseResumeId;
+  const seen = new Set<string>([id]);
+  while (cursor) {
+    if (seen.has(cursor)) throw new Error("That would make a loop: the two are already related.");
+    seen.add(cursor);
+    const next: { baseResumeId: string | null } | null = await db.resume.findFirst({
+      where: { id: cursor, userId },
+      select: { baseResumeId: true },
+    });
+    if (!next) throw new Error(`No resume with id ${cursor}`);
+    cursor = next.baseResumeId;
+  }
+  return db.resume.update({ where: { id }, data: { baseResumeId } });
+}
+
+/**
+ * What changed between a resume and the one it was tailored from.
+ *
+ * Pass baseId to compare against something else — two variants against each
+ * other, say. Without a base on either side there is nothing to answer with,
+ * and saying so is more use than an empty diff that looks like "no changes".
+ */
+export async function diffResume(userId: string, id: string, baseId?: string) {
+  const resume = await db.resume.findFirst({
+    where: { id, userId },
+    include: { base: { select: { id: true, name: true } } },
+  });
+  if (!resume) throw new Error(`No resume with id ${id}`);
+
+  const compareTo = baseId ?? resume.baseResumeId;
+  if (!compareTo) {
+    return {
+      resume: { id: resume.id, name: resume.name },
+      base: null,
+      diff: null,
+      note: "This resume has no base on file, so there is nothing to compare it against. Use set_resume_base to say which document it was tailored from, or pass baseId to compare against a specific one.",
+    };
+  }
+  const base = await db.resume.findFirst({ where: { id: compareTo, userId } });
+  if (!base) throw new Error(`No resume with id ${compareTo}`);
+
+  return {
+    resume: { id: resume.id, name: resume.name },
+    base: { id: base.id, name: base.name },
+    diff: diffResumeDocs(parseResumeDoc(base.data), parseResumeDoc(resume.data)),
+    note: null,
+  };
+}
+
+/** One bullet, and the brain material that stands behind it. */
+export type BulletEvidence = {
+  /** Where the bullet sits: "Staff Engineer — Stripe". */
+  entry: string;
+  bullet: string;
+  /** Best matches first, strongest three at most. */
+  evidence: {
+    highlightId: string;
+    text: string;
+    role: string;
+    /** 0-1 word overlap with the bullet. 1 means it was used verbatim. */
+    similarity: number;
+  }[];
+};
+
+/**
+ * Which brain material backs each claim in a document.
+ *
+ * Derived rather than recorded, deliberately. A provenance field written when
+ * a document is seeded from the brain would be right for those documents and
+ * silently wrong for every one an assistant wrote or a person edited — and a
+ * wrong provenance record is worse than none, because it is believed. This
+ * measures instead: same similarity the diff pairs a reworded bullet with.
+ *
+ * A bullet with no evidence is not an accusation. It means the claim is not in
+ * the brain yet — which is exactly the list worth walking before an interview,
+ * since those are the lines you cannot expand on from your own notes.
+ */
+export async function traceResumeEvidence(userId: string, id: string) {
+  const resume = await db.resume.findFirst({ where: { id, userId } });
+  if (!resume) throw new Error(`No resume with id ${id}`);
+  const highlights = await listHighlights(userId);
+  const doc = parseResumeDoc(resume.data);
+
+  const rows: BulletEvidence[] = [];
+  for (const section of doc.sections) {
+    for (const item of section.experience) {
+      const entry = [item.title, item.company].filter(Boolean).join(" — ") || "Role";
+      // A bullet under a role that came from the brain is scored against that
+      // role's own highlights first: crediting a Stripe line to a highlight
+      // from another employer is the failure that discredits the whole thing.
+      const pool = item.roleId
+        ? highlights.filter((highlight) => highlight.roleId === item.roleId)
+        : highlights;
+      const candidates = pool.length > 0 ? pool : highlights;
+      for (const bullet of item.bullets) {
+        const evidence = candidates
+          .map((highlight) => ({
+            highlightId: highlight.id,
+            text: highlight.text,
+            role: [highlight.role?.title, highlight.role?.company].filter(Boolean).join(" — "),
+            similarity: Math.round(bulletSimilarity(highlight.text, bullet) * 100) / 100,
+          }))
+          .filter((row) => row.similarity >= 0.3)
+          .sort((a, b) => b.similarity - a.similarity)
+          .slice(0, 3);
+        rows.push({ entry, bullet, evidence });
+      }
+    }
+  }
+  return {
+    resume: { id: resume.id, name: resume.name },
+    bullets: rows,
+    unbacked: rows.filter((row) => row.evidence.length === 0).length,
+  };
+}
+
 export async function deleteResume(userId: string, id: string) {
   const { count } = await db.resume.deleteMany({ where: { id, userId } });
   if (count === 0) throw new Error(`No resume with id ${id}`);
   return { id };
 }
 
+/**
+ * A copy that remembers where it came from.
+ *
+ * The base is the source itself, not the source's own base: a chain of copies
+ * of copies is a chain nobody can read, and the useful comparison is always
+ * against the document you started from.
+ */
 export async function duplicateResume(userId: string, id: string, name?: string) {
   const source = await db.resume.findFirst({ where: { id, userId } });
   if (!source) throw new Error(`No resume with id ${id}`);
   return db.resume.create({
     data: {
       userId,
+      baseResumeId: source.id,
       name: name ?? `${source.name} (copy)`,
       targetRole: source.targetRole,
       targetCompany: source.targetCompany,

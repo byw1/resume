@@ -14,6 +14,7 @@ import {
   MoreVerticalIcon,
   PlusIcon,
   SendIcon,
+  SparklesIcon,
   Trash2Icon,
   UserMinusIcon,
   UserPlusIcon,
@@ -69,6 +70,7 @@ import {
   listContactsForAttachAction,
   moveStageAction,
   setContactApplicationAction,
+  tailorResumeForApplicationAction,
   toggleTaskAction,
   updateApplicationAction,
 } from "@/server/actions";
@@ -347,8 +349,10 @@ export function ApplicationDetail({
               scrolls below the fold. */}
           <ContactsCard applicationId={application.id} company={values.company} contacts={contacts} />
 
-          {resumePreview && (
+          {resumePreview ? (
             <ResumeCard preview={resumePreview} />
+          ) : (
+            <TailorCard applicationId={application.id} company={values.company} />
           )}
 
           <Timeline applicationId={application.id} activities={activities} />
@@ -682,6 +686,53 @@ function ResumeCard({ preview }: { preview: ResumePreview }) {
         <span className="min-w-0 flex-1 truncate text-[13px] font-medium">{preview.name}</span>
         <Button asChild variant="outline" size="xs">
           <Link href={`/resumes/${preview.id}`}>Open</Link>
+        </Button>
+      </CardContent>
+    </Card>
+  );
+}
+
+/**
+ * The four steps this used to take: copy the base, rename it for the job,
+ * attach it, open it. One button, and the copy remembers what it came from so
+ * the Changes panel can say what you tailored.
+ */
+function TailorCard({ applicationId, company }: { applicationId: string; company: string }) {
+  const [pending, startTransition] = useTransition();
+  const router = useRouter();
+
+  return (
+    <Card>
+      <CardContent className="flex flex-wrap items-center gap-3 py-4">
+        <FileTextIcon className="text-muted-foreground size-4 shrink-0" />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium">No resume on this one yet</div>
+          <div className="text-faint text-[12px]">
+            Start from your base and cut it down for {company || "this job"}.
+          </div>
+        </div>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={pending}
+          onClick={() =>
+            startTransition(async () => {
+              try {
+                const result = await tailorResumeForApplicationAction(applicationId);
+                toast.success(
+                  result.seededFromBrain
+                    ? "Built a first draft from your brain"
+                    : `Copied ${result.basedOn}`,
+                );
+                router.push(`/resumes/${result.id}`);
+              } catch (error) {
+                toast.error(error instanceof Error ? error.message : "Could not start that.");
+              }
+            })
+          }
+        >
+          {pending ? <LoaderCircleIcon className="animate-spin" /> : <SparklesIcon />}
+          Tailor one
         </Button>
       </CardContent>
     </Card>

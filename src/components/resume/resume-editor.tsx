@@ -59,6 +59,7 @@ import {
 } from "@/lib/resume-schema";
 import { estimateLines } from "@/lib/resume-text";
 import { ResumePaper, type PaperSettings } from "@/components/resume/resume-paper";
+import { ChangesPanel, type LinkedApplication } from "@/components/resume/changes-panel";
 import {
   deleteResumeAction,
   duplicateResumeAction,
@@ -89,10 +90,19 @@ export function ResumeEditor({
   meta: initialMeta,
   shareUrl,
   photo,
+  base,
+  siblings,
+  applications,
 }: {
   id: string;
   doc: ResumeDoc;
   meta: Meta;
+  /** What this was tailored from, if anything. */
+  base: { id: string; name: string } | null;
+  /** Every other resume, for saying which one it came from. */
+  siblings: { id: string; name: string }[];
+  /** The jobs this document was actually sent to. */
+  applications: LinkedApplication[];
   /**
    * The owner's headshot, whether or not this document shows it. Held here so
    * the toggle is instant — flipping it repaints the preview rather than
@@ -112,7 +122,7 @@ export function ResumeEditor({
   const [zoom, setZoom] = useState(0.78);
   const [pending, startTransition] = useTransition();
 
-  const { state, push } = useAutosave<{ doc: ResumeDoc; meta: Meta }>((next) =>
+  const { state, push, flush } = useAutosave<{ doc: ResumeDoc; meta: Meta }>((next) =>
     updateResumeAction(id, { ...next.meta, data: next.doc }),
   );
 
@@ -184,6 +194,17 @@ export function ResumeEditor({
         </Badge>
 
         <div className="ml-auto flex items-center gap-1.5">
+          {/* What this document is against what it came from, what backs each
+              claim, and where it was sent. Reads saved data, so the autosave
+              is flushed first. */}
+          <ChangesPanel
+            resumeId={id}
+            base={base}
+            siblings={siblings}
+            applications={applications}
+            onOpen={flush}
+          />
+
           <Button
             variant="ghost"
             size="icon-sm"

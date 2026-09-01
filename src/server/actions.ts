@@ -650,6 +650,47 @@ export async function updateResumeAction(id: string, patch: resumes.ResumeMeta &
   revalidatePath(`/resumes/${id}`);
 }
 
+/**
+ * What changed against the base, and what backs each claim.
+ *
+ * Computed on the server from what is SAVED, which is why the editor flushes
+ * its autosave before asking: a diff of a document you are still typing is a
+ * diff of a document that does not exist yet.
+ */
+export async function resumeChangesAction(id: string, baseId?: string) {
+  const user = await requireUser();
+  const [changes, evidence] = await Promise.all([
+    resumes.diffResume(user.id, id, baseId),
+    resumes.traceResumeEvidence(user.id, id),
+  ]);
+  return { ...changes, evidence };
+}
+
+/**
+ * The button on an application: a copy of the base, named for this job and
+ * attached to it, with the editor open on the other side.
+ */
+export async function tailorResumeForApplicationAction(applicationId: string) {
+  const user = await requireUser();
+  const result = await resumes.createResumeForApplication(user.id, applicationId);
+  revalidatePath("/resumes");
+  revalidatePath("/applications");
+  revalidatePath(`/applications/${applicationId}`);
+  return {
+    id: result.resume.id,
+    name: result.resume.name,
+    basedOn: result.basedOn?.name ?? null,
+    seededFromBrain: result.seededFromBrain,
+  };
+}
+
+export async function setResumeBaseAction(id: string, baseId: string | null) {
+  const user = await requireUser();
+  await resumes.setResumeBase(user.id, id, baseId);
+  revalidatePath("/resumes");
+  revalidatePath(`/resumes/${id}`);
+}
+
 export async function deleteResumeAction(id: string) {
   const user = await requireUser();
   await resumes.deleteResume(user.id, id);
