@@ -12,7 +12,7 @@ import { getBrainSnapshot } from "@/lib/data/brain";
 
 // Rendering helpers live in resume-text.ts (client-safe); re-exported so server
 // callers can keep reaching them through this module.
-export { resumeToText, estimateLines } from "@/lib/resume-text";
+export { resumeToText, estimateLines, estimatePages, LINES_PER_PAGE } from "@/lib/resume-text";
 
 export type ResumeMeta = Partial<{
   name: string;
