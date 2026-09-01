@@ -2,7 +2,7 @@
 
 import { useRouter, useSearchParams } from "next/navigation";
 import { useEffect, useState, useTransition } from "react";
-import { BrainIcon, FilePlus2Icon, LoaderCircleIcon, PlusIcon } from "lucide-react";
+import { CircleUserRoundIcon, FilePlus2Icon, LoaderCircleIcon, PlusIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import {
@@ -97,7 +97,7 @@ const SAMPLE_DOC = parseResumeDoc({
 
 const ACCENTS = ["#000000", "#B30000", "#0C5B97", "#1f2937", "#6366f1", "#0ea5e9"];
 
-export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
+export function NewResumeDialog({ hasMaterial }: { hasMaterial: boolean }) {
   const router = useRouter();
   const params = useSearchParams();
   const [open, setOpen] = useState(false);
@@ -108,7 +108,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
     targetCompany: "",
     template: "harvard",
     accent: ACCENTS[0],
-    seedFromBrain: true,
+    seedFromMe: true,
   });
 
   useEffect(() => {
@@ -127,7 +127,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
       const id = await createResumeAction({
         ...form,
         name: form.name.trim() || suggestName(form),
-        seedFromBrain: form.seedFromBrain && hasBrain,
+        seedFromMe: form.seedFromMe && hasMaterial,
       });
       setOpen(false);
       toast.success("Resume created");
@@ -146,7 +146,7 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
         <DialogHeader>
           <DialogTitle>New resume</DialogTitle>
           <DialogDescription>
-            Start from your brain and edit, or start blank and fill it in.
+            Start from what is in Me and edit, or start blank and fill it in.
           </DialogDescription>
         </DialogHeader>
 
@@ -239,27 +239,27 @@ export function NewResumeDialog({ hasBrain }: { hasBrain: boolean }) {
             </div>
           </div>
 
-          {hasBrain && (
+          {hasMaterial && (
             <button
-              onClick={() => setForm({ ...form, seedFromBrain: !form.seedFromBrain })}
+              onClick={() => setForm({ ...form, seedFromMe: !form.seedFromMe })}
               className={cn(
                 "flex w-full items-start gap-3 rounded-lg border px-3 py-2.5 text-left transition-all",
-                form.seedFromBrain
+                form.seedFromMe
                   ? "border-primary bg-primary/8"
                   : "hover:border-primary/30 hover:bg-accent/50",
               )}
             >
-              {form.seedFromBrain ? (
-                <BrainIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
+              {form.seedFromMe ? (
+                <CircleUserRoundIcon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               ) : (
                 <FilePlus2Icon className="text-muted-foreground mt-0.5 size-4 shrink-0" />
               )}
               <div>
                 <div className="text-[13px] font-medium">
-                  {form.seedFromBrain ? "Build from my brain" : "Start blank"}
+                  {form.seedFromMe ? "Build from Me" : "Start blank"}
                 </div>
                 <div className="text-muted-foreground text-[11px]">
-                  {form.seedFromBrain
+                  {form.seedFromMe
                     ? "Pulls in every role, its strongest highlights, education and skills."
                     : "An empty document you fill in yourself."}
                 </div>

@@ -63,7 +63,7 @@ export default async function AdminPage() {
       <PageHeader
         eyebrow="Admin"
         title="Your platform"
-        description="Invite people, manage accounts, and change how this instance behaves. Everyone gets their own private workspace — admins never see another person's brain or resumes."
+        description="Invite people, manage accounts, and change how this instance behaves. Everyone gets their own private workspace — admins never see another person's career history or resumes."
       />
 
       <Stagger className="mb-7 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
@@ -133,7 +133,7 @@ export default async function AdminPage() {
               <Section
                 title="Members"
                 count={users.length}
-                description="Everyone with an account here. Click a name for their page — when they joined, whether their invitation arrived, which assistants they have connected. Never their brain, resumes or applications."
+                description="Everyone with an account here. Click a name for their page — when they joined, whether their invitation arrived, which assistants they have connected. Never their career history, resumes or applications."
               >
                 <UsersPanel
                   actor={{ id: actor.id, role: actor.role }}

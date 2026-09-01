@@ -3154,9 +3154,51 @@ beside them to add another.
 `src/app/(app)/crm/contacts/`, `src/app/(app)/page.tsx`, `docs/concepts/crm.mdx`,
 `skills/run-the-search/SKILL.md`.
 
+## 2026-09-01 — The brain is called Me
+
+The nav had said **Me** for a while; everything behind it still said brain — the route,
+the column, five tool names, forty pages of manual and the landing page. One name in the
+product and another in every sentence about it is a tax on every future reader, so the
+rename went all the way through in one pass.
+
+**The database was left alone deliberately.** `Profile.background`, `Role.background` and
+`Project.background` are `@map("brainDump")`: the Prisma field is renamed, the column is
+not. There is no migration, no drift, and no self-hoster has to take a schema change to
+follow a vocabulary change. If a later migration ever renames the columns for real, it
+can — nothing above the data layer knows the old name any more.
+
+**"Me dump" is not a phrase, so the raw text became the background.** "Notes" was the
+natural English and was rejected: `Note` is already a model with its own tools, and
+`append_role_notes` sitting next to `create_note` is exactly the ambiguity that makes an
+assistant pick the wrong one. Everything the field touches follows it — the card titles,
+`append_role_background`, `include_background`, `mine_role_background`.
+
+**Tools renamed, arguments included:** `search_brain` → `search_me`, `get_brain_snapshot`
+→ `get_me_snapshot`, `append_role_brain_dump` → `append_role_background`,
+`include_brain_dumps` → `include_background`, `mine_brain_dump` → `mine_role_background`,
+`brainDump` → `background`, `seedFromBrain` → `seedFromMe`. Tool names are resolved live
+from `tools/list`, so a connected client picks the new ones up on its next session — but
+a prompt somebody saved that names `search_brain` will not, which is the one real cost and
+was taken knowingly.
+
+**"Me" works as a proper noun and not as a possessive.** "Search Me", "nothing goes on a
+resume that the evidence in Me cannot back", "filling in Me" all read. "Does not expose
+anyone's Me" does not, so the privacy and admin sentences — which were listing the three
+things an admin cannot see — say **career history** instead. It is descriptive rather
+than a section name, which is what those sentences needed anyway.
+
+**`/brain` redirects permanently to `/me`, and `/brain/:path*` with it.** Claude has been
+handing out `/brain/<roleId>` links since the first release and they are in people's
+history; a 404 on somebody's own record is the worst possible outcome of a rename.
+
+**Applies to:** `prisma/schema.prisma`, `next.config.ts`, `src/lib/data/me.ts` (was
+`brain.ts`), `src/lib/data/resumes.ts`, `src/lib/mcp/{tools,handler,clients}.ts`,
+`src/server/actions.ts`, `src/app/(app)/me/` (was `brain/`), `src/components/me/` (was
+`brain/`), `tools/gen-tool-docs.mjs`, all of `docs/` (`concepts/me`, `tools/me`,
+`guides/fill-in-me` renamed), `skills/`, `site/index.html`, `README.md`, `CLAUDE.md`.
 ---
 
-## 2026-09-01 — The resume grid learns to answer, and a paste becomes a brain
+## 2026-09-01 — The resume grid learns to answer, and a paste fills in Me
 
 **The cards got the answers; the thumbnail stopped being the message.** Page count (the
 editor's own gauge), a Live badge, the actions that used to need the editor open, an
@@ -3191,7 +3233,7 @@ added — old wording beside new — rather than a similarity metric deciding wh
 "the same" bullet. `resume-diff.ts` sits next to `resume-text.ts` outside `src/lib/data/`
 for the same reason that file does: the editor computes it client-side as you type.
 
-**Import is additive or it is dangerous.** `importBrain` fills only empty profile fields
+**Import is additive or it is dangerous.** `importResume` fills only empty profile fields
 and skips any role (company+title), education (school+degree), project or certification
 (name) that already exists — so a second import of the same document is a no-op, not a
 duplicated history. Skill groups union instead, because "Languages" existing is no reason
@@ -3202,8 +3244,8 @@ said "there is no import tool" — updated, and that sentence is the kind that g
 silently: it duplicates a fact the tools array owns.
 
 **gen-tool-docs maps pages by contiguous ranges of the tools array.** `SECTIONS` pins each
-docs page to a `first`/`last` tool name; adding `import_resume` at the end of the brain
-area meant bumping brain.mdx's `last` or the generator throws. A new tool inserted at an
+docs page to a `first`/`last` tool name; adding `import_resume` at the end of the Me
+area meant bumping that page's `last` or the generator throws. A new tool inserted at an
 area boundary will hit this every time — the error message says exactly what it expected.
 
 **The README's tool count was already five stale before this batch.** It said 80/110 while
@@ -3211,7 +3253,7 @@ the generator said 85/115. Set to the generated 87/117 now. The count appears tw
 README (lines ~45 and ~214), not three times as `mcp-tool`'s skill doc remembers.
 
 **Applies to:** `prisma/schema.prisma`, `prisma/migrations/20250124000000_resume_lineage/`,
-`src/lib/data/{resumes,brain}.ts`, `src/lib/{resume-text,resume-diff}.ts`,
+`src/lib/data/{resumes,me}.ts`, `src/lib/{resume-text,resume-diff}.ts`,
 `src/lib/mcp/{tools,handler}.ts`, `src/app/(app)/resumes/`, `src/components/resume/`,
 `tools/gen-tool-docs.mjs`, `README.md`, `docs/tools/`.
 
@@ -3245,7 +3287,7 @@ byte-identical copy reported phantom bullet diffs. Matching is a two-pass pool n
 first, then company+title in order of appearance — which also pairs an entry that lost or
 gained its roleId across a copy.
 
-**idempotentHint is a promise about the whole call.** import_resume's brain half was
+**idempotentHint is a promise about the whole call.** import_resume's Me half was
 genuinely idempotent while create_base_resume minted a new "Base resume" per retry. It
 reuses an existing resume of that name now. If one branch of a handler breaks an
 annotation, the annotation is wrong, not nearly-right.
@@ -3256,7 +3298,7 @@ every-keystroke the moment search did. The flag is consumed on first open. Any f
 "open X via query param" effect on a page with a toolbar needs the same consume.
 
 **The 5s interactive-transaction default is sized for none of this.** A full-career import
-is dozens of round trips; importBrain now batches highlights per role (createMany) and
+is dozens of round trips; importResume now batches highlights per role (createMany) and
 passes timeout: 60s. Also from the pass: fractional bullet strength is rounded rather than
 rolling the whole import back; an OFFER activity counts as interview evidence (offers ⊆
 interviewed, always); deleteResumeAction only redirects from the editor, so deleting from
@@ -3265,7 +3307,38 @@ listResumes' new outcomes join; and the README carried a THIRD hand-written coun
 ~364 that both CLAUDE.md and the mcp-tool skill misremember as three-elsewhere — it is
 lines ~45, ~214 and ~364.
 
-**Applies to:** `src/lib/data/{brain,resumes}.ts`, `src/lib/resume-diff.ts`,
+**Applies to:** `src/lib/data/{me,resumes}.ts`, `src/lib/resume-diff.ts`,
 `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
 `src/components/resume/{resume-card,new-resume-dialog}.tsx`,
 `src/app/(app)/applications/`, `README.md`.
+
+---
+
+## 2026-09-01 — Merging the resume batch across the Me rename
+
+Two branches touched the same eight files: the resume-page batch and the brain→Me
+vocabulary rename. Notes from resolving it, because the same shape will recur.
+
+**A rename lands as conflicts in the diff and silence everywhere else.** Git resolved most
+files cleanly and left code that compiled against a vocabulary that no longer exists —
+`importBrain` writing `brainDump`, `create_resume` called with `seedFromBrain`, a tool
+description telling assistants to call `search_brain`. The conflict markers were the small
+half of the job; the grep for every retired term across the added code was the real one.
+`npx prisma generate` first, per the working agreement — the stale client reported
+`background` missing on Role, which reads like the merge broke the schema when it only
+meant the client predated it.
+
+**The import API took the new vocabulary, not a translation layer.** `importBrain` →
+`importResume` in `me.ts`, `BrainImport*` → `ResumeImport*`, and the role payload's
+`brainDump` argument → `background`, matching `append_role_background` and the `@map`ped
+column. The tool is `import_resume`, so the data function it calls is `importResume`: one
+name for one thing, which is the whole point of the rename it merged into.
+
+**The generated pages were regenerated, not merged.** `docs/tools/{overview,resumes}.mdx`
+conflicted; both sides were machine output. Taking main's copy and re-running
+`gen-tool-docs.mjs` is the only resolution that cannot be subtly wrong. `SECTIONS` needed
+both halves — main's renamed `me.mdx` page, this branch's `last: "import_resume"`.
+
+**Applies to:** the merge commit, `src/lib/data/me.ts`, `src/lib/mcp/{tools,handler}.ts`,
+`src/lib/data/resumes.ts`, `src/app/(app)/resumes/page.tsx`, `tools/gen-tool-docs.mjs`,
+`docs/tools/`.

@@ -18,7 +18,7 @@ keep alive. If your client insists on a header, there is a
 
 <Warning>
   **The URL is a credential.** Anyone holding it can read and write everything in your
-  workspace — your brain, your resumes, your pipeline. It cannot reach anyone else's
+  workspace — your career history, your resumes, your pipeline. It cannot reach anyone else's
   data on the instance, but it can reach all of yours. Treat it like a password: never
   paste one into a chat, a ticket, a screenshot or a repository. If one gets out,
   **Rotate** the connection and the old address dies immediately.
@@ -65,7 +65,7 @@ tokens; creating and rotating do, because handing you the URL is the point of th
         Name it `Hired` and paste your connection URL where it asks for the server URL.
       </Step>
       <Step title="Save">
-        Claude can now read and write your brain, resumes and pipeline.
+        Claude can now read and write your career history, resumes and pipeline.
       </Step>
     </Steps>
 
@@ -256,7 +256,7 @@ else.
 Before it sees a tool, every connecting client receives a briefing generated for your
 account. Some of it is always there: that the connection URL is a credential that must
 never be repeated where it will be stored, and the standing rules — never invent
-experience, employers, dates or metrics; use `append_role_brain_dump` rather than
+experience, employers, dates or metrics; use `append_role_background` rather than
 `update_role` for new material; `update_resume` and `update_role` replace what you send,
 so read first and write back whole.
 
@@ -271,9 +271,9 @@ The rest depends on whether you have written anything yet.
     you a form. The pipeline and the CRM are not explained at all until a role exists,
     because none of it does anything yet.
   </Card>
-  <Card title="A workspace with something in it" icon="brain">
+  <Card title="A workspace with something in it" icon="user">
     The briefing describes the four areas and which tool to reach for first in each:
-    `search_brain` for the brain, `get_resume_format` before writing a document,
+    `search_me` for everything about you, `get_resume_format` before writing a document,
     `list_schedule` when the question is about a stretch of time, `get_company` before
     writing anything about a company.
   </Card>
@@ -281,4 +281,4 @@ The rest depends on whether you have written anything yet.
 
 Any note you have saved with `kind: "GUARDRAIL"` is carried at the end of that briefing,
 so your own standing rules are in context before a single tool is called. See
-[the brain](/concepts/brain#standing-rules).
+[Me](/concepts/me#standing-rules).

@@ -1,6 +1,6 @@
 ---
 name: tailor-a-resume
-description: How to tailor a resume to a specific job posting using a connected Hired instance — reading the posting for what it actually rewards, mining the brain for real evidence, and writing bullets that survive an interview. Use when someone shares a job description and wants a resume for it, asks to tailor or adapt an existing resume, or asks which of their experience matters for a particular role.
+description: How to tailor a resume to a specific job posting using a connected Hired instance — reading the posting for what it actually rewards, mining Me for real evidence, and writing bullets that survive an interview. Use when someone shares a job description and wants a resume for it, asks to tailor or adapt an existing resume, or asks which of their experience matters for a particular role.
 ---
 
 # Tailoring a resume
@@ -27,15 +27,15 @@ Pull out 8–12 things the posting genuinely cares about, ordered by how much th
 to matter. Say what you think the real problem is — it is a claim they can correct,
 and being wrong out loud is cheap.
 
-## Mine the brain, one requirement at a time
+## Mine Me, one requirement at a time
 
-For each requirement, `search_brain` for it. Search for the *concept*, not the
-posting's phrasing — someone's brain dump says "cut the nightly job from 6h to 20m",
+For each requirement, `search_me` for it. Search for the *concept*, not the
+posting's phrasing — someone's background says "cut the nightly job from 6h to 20m",
 not "experience with performance optimisation".
 
 Three outcomes, and all three are fine:
 
-- **Strong evidence.** A highlight or a brain-dump passage with a number in it. Use it.
+- **Strong evidence.** A highlight or a passage of background with a number in it. Use it.
 - **Weak evidence.** Adjacent, real, but not the thing. Use it honestly, positioned as
   what it is. Do not upgrade it.
 - **Nothing.** Say so. Do not stretch. A gap you name is a gap they can decide about;
@@ -45,7 +45,7 @@ Report the gaps explicitly when you are done. That list is often the most useful
 of the whole exercise — it tells them what to go and learn, or which jobs to skip.
 The gap_report tool runs this check on its own, before any tailoring — reach for it when
 the question is "should I even apply" rather than "make me the resume". And every gap a
-person answers out loud belongs in the brain (append_role_brain_dump), so it is covered
+person answers out loud belongs in Me (append_role_background), so it is covered
 for every future posting, not just this one.
 
 ## Writing the bullets
@@ -66,17 +66,17 @@ Rules that hold up:
 - **Lead with the outcome, not the technology.** The stack is a detail of how.
 - **One idea per bullet.** Two ideas joined by "and" is two bullets or one weak one.
 - **Their words for their concepts, your words for your work.** If they say "platform
-  reliability" and the brain says "uptime", use "reliability" — same idea. Do not
+  reliability" and the background says "uptime", use "reliability" — same idea. Do not
   import a verb the evidence does not support.
-- **Never a metric that is not in the brain.** If a number is not on file, the bullet
+- **Never a metric that is not in Me.** If a number is not on file, the bullet
   does not get a number. Ask for it instead.
 
 ## The order of operations
 
 1. `get_resume_format` — the document shape and what the fields mean.
 2. Read the posting; state the 8–12 requirements and your read of the real problem.
-3. `search_brain` per requirement. Collect the evidence with its ids.
-4. `get_brain_snapshot` for profile, dates, education, skills.
+3. `search_me` per requirement. Collect the evidence with its ids.
+4. `get_me_snapshot` for profile, dates, education, skills.
 5. Draft. Order the experience so the most relevant role leads.
 6. `preview_resume_text` — check it lands near one page before saving anything.
 7. `create_resume`, named `"<Company> — <Role>"`, with `targetRole` and

@@ -37,7 +37,7 @@ partially-populated records render rather than crash.
 
 ## 2. Data layer
 
-Add functions to the right file in `src/lib/data/` — `brain.ts`, `resumes.ts`,
+Add functions to the right file in `src/lib/data/` — `me.ts`, `resumes.ts`,
 `pipeline.ts`, `users.ts`, `connections.ts`. New area, new file, same rules.
 
 ```ts

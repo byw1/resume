@@ -1,7 +1,7 @@
 ---
 title: "Resume tools"
 sidebarTitle: "Resumes"
-description: "Eleven tools for writing documents, checking their length before saving, publishing them to a link and exporting real PDFs."
+description: "Twelve tools for writing documents, checking their length before saving, comparing a tailored variant against its base, publishing them to a link and exporting real PDFs."
 icon: "file-lines"
 ---
 
@@ -18,6 +18,11 @@ so what you build validates the first time.
 Two dry runs are worth knowing about: `preview_resume_text` renders and estimates length
 without saving anything, and `export_resume_pdf` reports the page count measured from the
 rendered document rather than estimated.
+
+Tailoring keeps a trail. `duplicate_resume` records which resume the copy came from, so
+`compare_resumes` can say exactly what a variant changed — bullets added, dropped and
+reworded, sections hidden — and `list_resumes` carries each resume's track record: how many
+applications went out with it, how many reached an interview, how many reached an offer.
 
 [The document contract →](/concepts/resumes) · [Publishing and exporting →](/guides/publish-and-export)
 
@@ -60,7 +65,7 @@ Fetch one resume: its settings, its full document JSON, and publicUrl — the sh
 
 _Create a resume_
 
-Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromBrain: true to auto-populate a first draft from the knowledge base and then refine it with update_resume.
+Create a resume. Either pass a complete `data` document you have written (call get_resume_format first), or pass seedFromMe: true to auto-populate a first draft from Me and then refine it with update_resume.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -74,9 +79,9 @@ Create a resume. Either pass a complete `data` document you have written (call g
 | `lineHeight` | number | Line height, 1.15-1.6. Default 1.2. |
 | `notes` | string | Private notes about this version — what you tailored and why |
 | `showPhoto` | boolean | Render the user's profile photo in the header. Needs a photo set (see set_profile_photo) and a template that takes one — harvard never does. |
-| `seedFromBrain` | boolean | Auto-build a first draft from the knowledge base |
+| `seedFromMe` | boolean | Auto-build a first draft from the knowledge base |
 | `baseResumeId` | string | Id of the resume this one was tailored from, if any. Records lineage so compare_resumes can show what changed. duplicate_resume sets this automatically — prefer it when the variant starts from an existing document. |
-| `data` | object | The full resume document. See get_resume_format for the exact shape. Omit if using seedFromBrain. |
+| `data` | object | The full resume document. See get_resume_format for the exact shape. Omit if using seedFromMe. |
 
 ### `update_resume`
 

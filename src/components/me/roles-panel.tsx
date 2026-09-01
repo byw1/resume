@@ -18,7 +18,7 @@ type RoleCard = {
   isCurrent: boolean;
   summary: string;
   tags: string[];
-  dumpLength: number;
+  backgroundLength: number;
   highlightCount: number;
 };
 
@@ -38,7 +38,7 @@ export function RolesPanel({ roles }: { roles: RoleCard[] }) {
       {roles.map((role) => (
         <StaggerItem key={role.id}>
           <Lift>
-            <Link href={`/brain/${role.id}`} className="block h-full">
+            <Link href={`/me/${role.id}`} className="block h-full">
               <Card className="group relative h-full overflow-hidden transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
                 <CardContent className="relative flex h-full flex-col pt-5">
                   <div className="flex items-start justify-between gap-3">
@@ -88,7 +88,7 @@ export function RolesPanel({ roles }: { roles: RoleCard[] }) {
                       <span className="text-muted-foreground">highlights</span>
                     </span>
                     <span className="text-muted-foreground tabular-nums">
-                      {formatDump(role.dumpLength)}
+                      {formatBackground(role.backgroundLength)}
                     </span>
                     <ArrowRightIcon className="text-muted-foreground ml-auto size-3.5 transition-transform group-hover:translate-x-0.5" />
                   </div>
@@ -102,8 +102,8 @@ export function RolesPanel({ roles }: { roles: RoleCard[] }) {
   );
 }
 
-function formatDump(length: number) {
-  if (length === 0) return "empty dump";
+function formatBackground(length: number) {
+  if (length === 0) return "nothing written yet";
   const words = Math.round(length / 5.5);
   if (words < 1000) return `${words} words`;
   return `${(words / 1000).toFixed(1)}k words`;

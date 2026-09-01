@@ -1,6 +1,6 @@
 import type { User } from "@prisma/client";
 import { promptsFor, promptsByName, splitLinks, toolsFor, toolsByName, type McpContext } from "@/lib/mcp/tools";
-import { brainIsEmpty, listGuardrails } from "@/lib/data/brain";
+import { meIsEmpty, listGuardrails } from "@/lib/data/me";
 import { recordSystemEvent } from "@/lib/data/system";
 import { isAdmin, type McpCaller } from "@/lib/auth";
 
@@ -28,7 +28,7 @@ const SERVER_INFO = {
  *
  * The tour below assumes four areas with something in them. A new account has
  * none, so an assistant connected to one was handed a confident description of a
- * brain, called search_brain, got an empty array back and improvised — which is
+ * populated workspace, called search_me, got an empty array back and improvised — which is
  * the exact moment this server's one real rule gets broken, because an invented
  * career is the only way left to satisfy the request in front of it.
  *
@@ -46,11 +46,11 @@ file the whole thing with ONE import_resume call — roles with their bullets, e
 profile facts — copying what it says and inventing nothing, then offer create_base_resume so they
 see a rendered resume in their first minutes. If they would rather talk, file what comes back with
 these:
-• update_profile — name, contact details, links, and their personal brain dump: what they want
+• update_profile — name, contact details, links, and their personal background: what they want
   next, what they will not take.
-• create_role — one per job, with dates. The raw material goes in its brain dump, where length is a
+• create_role — one per job, with dates. The raw material goes in its background, where length is a
   feature: keep the detail rather than summarising it away.
-• append_role_brain_dump — what they remember about a role after it already exists. It adds;
+• append_role_background — what they remember about a role after it already exists. It adds;
   update_role replaces, which is why this one is here.
 • create_highlights — polished, reusable bullets, once there is raw material to draw them from.
 • create_note — whatever belongs to no single job.
@@ -63,12 +63,12 @@ async function instructionsFor(user: User) {
   // A failed lookup must not cost someone their briefing, so an unreachable
   // database falls back to the tour rather than telling an established user
   // their workspace is empty.
-  const areas = (await brainIsEmpty(user.id).catch(() => false))
+  const areas = (await meIsEmpty(user.id).catch(() => false))
     ? EMPTY_WORKSPACE
     : `Four areas:
-• BRAIN — everything about them. Roles each hold an unlimited free-form "brain dump" of raw
+• ME — everything about them. Roles each hold an unlimited free-form "background" of raw
   material, plus polished reusable bullets called highlights. There are also notes, projects,
-  education, skills and certifications. search_brain is the fastest way in.
+  education, skills and certifications. search_me is the fastest way in.
 • RESUMES — documents assembled from that material. Call get_resume_format before writing one.
   New resumes use the Harvard OCS format by default. Any of them can be published to a public
   link with publish_resume, which is what to use when a form or a recruiter wants a URL.
@@ -99,14 +99,14 @@ ${
   isAdmin(user)
     ? `\nYou are an ${user.role === "SUPER_ADMIN" ? "instance owner" : "admin"}, so the admin_* tools are
 also available: inviting people, managing accounts and configuring email. Those act on the
-instance, never on another person's brain or resumes.\n`
+instance, never on another person's career history or resumes.\n`
     : ""
 }
 Rules of thumb:
 - Never invent experience, employers, dates or metrics. Everything on a resume must trace back to
-  something in the brain. If evidence is missing, say so and ask.
+  something in Me. If evidence is missing, say so and ask.
 - When the user tells you something new about a job they already have on file, use
-  append_role_brain_dump rather than update_role, so nothing is overwritten.
+  append_role_background rather than update_role, so nothing is overwritten.
 - update_resume and update_role replace what you send. Read first, modify, then write back whole.
 - Prefer creating a tailored copy (duplicate_resume) over editing a resume already attached to an
   application.
@@ -131,7 +131,7 @@ Rules of thumb:
  * whoever is drafting, because every upgrade maps to a stated responsibility.
  *
  * Guardrails are Note rows, so they could in principle be found with
- * search_brain. In practice nobody searches "follower count" before writing a
+ * search_me. In practice nobody searches "follower count" before writing a
  * scope bullet, so a rule that has to be looked up is a rule that is absent at
  * the moment it matters. `initialize` runs once per session in every client,
  * before any tool call — it is the only place a constraint is guaranteed to be

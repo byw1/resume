@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { ActivityType, NoteKind, Stage, UserRole } from "@prisma/client";
-import * as brain from "@/lib/data/brain";
+import * as me from "@/lib/data/me";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
@@ -467,13 +467,13 @@ export async function sendTestEmailAction(to?: string) {
 }
 
 // ---------------------------------------------------------------------------
-// Brain
+// Me
 // ---------------------------------------------------------------------------
 
-export async function saveProfileAction(patch: brain.ProfilePatch) {
+export async function saveProfileAction(patch: me.ProfilePatch) {
   const user = await requireUser();
-  await brain.updateProfile(user.id, patch);
-  revalidatePath("/brain");
+  await me.updateProfile(user.id, patch);
+  revalidatePath("/me");
   revalidatePath("/");
 }
 
@@ -487,62 +487,62 @@ export async function saveProfileAction(patch: brain.ProfilePatch) {
  */
 export async function setProfilePhotoAction(input: string) {
   const user = await requireUser();
-  const result = await brain.setProfilePhoto(user.id, input);
+  const result = await me.setProfilePhoto(user.id, input);
   revalidatePath("/settings");
-  revalidatePath("/brain");
+  revalidatePath("/me");
   revalidatePath("/resumes");
   revalidatePath("/");
   return result;
 }
 
-export async function createRoleAction(input: brain.RoleInput) {
+export async function createRoleAction(input: me.RoleInput) {
   const user = await requireUser();
-  const role = await brain.createRole(user.id, input);
-  revalidatePath("/brain");
+  const role = await me.createRole(user.id, input);
+  revalidatePath("/me");
   return role.id;
 }
 
-export async function updateRoleAction(id: string, patch: Partial<brain.RoleInput>) {
+export async function updateRoleAction(id: string, patch: Partial<me.RoleInput>) {
   const user = await requireUser();
-  await brain.updateRole(user.id, id, patch);
-  revalidatePath("/brain");
-  revalidatePath(`/brain/${id}`);
+  await me.updateRole(user.id, id, patch);
+  revalidatePath("/me");
+  revalidatePath(`/me/${id}`);
 }
 
 export async function deleteRoleAction(id: string) {
   const user = await requireUser();
-  await brain.deleteRole(user.id, id);
-  revalidatePath("/brain");
-  redirect("/brain");
+  await me.deleteRole(user.id, id);
+  revalidatePath("/me");
+  redirect("/me");
 }
 
-export async function createHighlightAction(input: brain.HighlightInput) {
+export async function createHighlightAction(input: me.HighlightInput) {
   const user = await requireUser();
-  const highlight = await brain.createHighlight(user.id, input);
-  revalidatePath("/brain");
-  if (input.roleId) revalidatePath(`/brain/${input.roleId}`);
+  const highlight = await me.createHighlight(user.id, input);
+  revalidatePath("/me");
+  if (input.roleId) revalidatePath(`/me/${input.roleId}`);
   return highlight;
 }
 
 export async function updateHighlightAction(
   id: string,
-  patch: Partial<brain.HighlightInput> & { archived?: boolean },
+  patch: Partial<me.HighlightInput> & { archived?: boolean },
 ) {
   const user = await requireUser();
-  await brain.updateHighlight(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateHighlight(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteHighlightAction(id: string) {
   const user = await requireUser();
-  await brain.deleteHighlight(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteHighlight(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createNoteAction(input: { title: string; body?: string; tags?: string[] }) {
   const user = await requireUser();
-  const note = await brain.createNote(user.id, input);
-  revalidatePath("/brain");
+  const note = await me.createNote(user.id, input);
+  revalidatePath("/me");
   return note.id;
 }
 
@@ -551,68 +551,68 @@ export async function updateNoteAction(
   patch: Partial<{ title: string; body: string; tags: string[]; pinned: boolean; kind: NoteKind }>,
 ) {
   const user = await requireUser();
-  await brain.updateNote(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateNote(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteNoteAction(id: string) {
   const user = await requireUser();
-  await brain.deleteNote(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteNote(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createEducationAction(input: { school: string }) {
   const user = await requireUser();
-  await brain.createEducation(user.id, input);
-  revalidatePath("/brain");
+  await me.createEducation(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function updateEducationAction(id: string, patch: Record<string, unknown>) {
   const user = await requireUser();
-  await brain.updateEducation(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateEducation(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteEducationAction(id: string) {
   const user = await requireUser();
-  await brain.deleteEducation(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteEducation(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createProjectAction(input: { name: string }) {
   const user = await requireUser();
-  await brain.createProject(user.id, input);
-  revalidatePath("/brain");
+  await me.createProject(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function updateProjectAction(id: string, patch: Record<string, unknown>) {
   const user = await requireUser();
-  await brain.updateProject(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateProject(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteProjectAction(id: string) {
   const user = await requireUser();
-  await brain.deleteProject(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteProject(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createSkillGroupAction(input: { name: string; skills?: string[] }) {
   const user = await requireUser();
-  await brain.createSkillGroup(user.id, input);
-  revalidatePath("/brain");
+  await me.createSkillGroup(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function updateSkillGroupAction(id: string, patch: { name?: string; skills?: string[] }) {
   const user = await requireUser();
-  await brain.updateSkillGroup(user.id, id, patch);
-  revalidatePath("/brain");
+  await me.updateSkillGroup(user.id, id, patch);
+  revalidatePath("/me");
 }
 
 export async function deleteSkillGroupAction(id: string) {
   const user = await requireUser();
-  await brain.deleteSkillGroup(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteSkillGroup(user.id, id);
+  revalidatePath("/me");
 }
 
 export async function createCertificationAction(input: {
@@ -622,21 +622,21 @@ export async function createCertificationAction(input: {
   url?: string;
 }) {
   const user = await requireUser();
-  await brain.createCertification(user.id, input);
-  revalidatePath("/brain");
+  await me.createCertification(user.id, input);
+  revalidatePath("/me");
 }
 
 export async function deleteCertificationAction(id: string) {
   const user = await requireUser();
-  await brain.deleteCertification(user.id, id);
-  revalidatePath("/brain");
+  await me.deleteCertification(user.id, id);
+  revalidatePath("/me");
 }
 
 // ---------------------------------------------------------------------------
 // Resumes
 // ---------------------------------------------------------------------------
 
-export async function createResumeAction(input: resumes.ResumeMeta & { seedFromBrain?: boolean }) {
+export async function createResumeAction(input: resumes.ResumeMeta & { seedFromMe?: boolean }) {
   const user = await requireUser();
   const resume = await resumes.createResume(user.id, input);
   revalidatePath("/resumes");

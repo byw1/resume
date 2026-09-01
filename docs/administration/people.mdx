@@ -35,7 +35,7 @@ would let hold the owner's own connection URL.
 
 <Note>
   **Admins manage accounts, not content.** There is no path — through the app or through
-  an assistant — from an admin to another person's brain, resumes or applications. Admin
+  an assistant — from an admin to another person's career history, resumes or applications. Admin
   tools return counts of what is in a workspace, never its contents.
   [How that is enforced →](/reference/security)
 </Note>
@@ -74,7 +74,7 @@ account, and anything the instance recorded against their address — a bounced 
 tool call that threw.
 
 That one page tells you whether the problem is the account or the email, which decides
-what you do next. There is no route from it into their brain, resumes or applications.
+what you do next. There is no route from it into their career history, resumes or applications.
 
 ### Resetting a password
 
@@ -90,7 +90,7 @@ reset is written to the audit log; the password itself never is.
 both their login and their MCP connections immediately. **Their data is kept.** Setting it
 back to true restores everything.
 
-`admin_delete_user` is permanent and removes the account with everything it owns — brain,
+`admin_delete_user` is permanent and removes the account with everything it owns — career history,
 resumes, applications. Confirm before calling it.
 
 <Warning>
@@ -111,7 +111,7 @@ Narrow it by `group` — `accounts`, `invites`, `passwords`, `billing`, `setting
 `search`, which matches **either side** of a row: the admin who acted, or the account acted
 on. Page with `offset`; default 100 entries, maximum 500.
 
-Nothing in it touches anyone's brain, resumes or applications, and a secret is recorded as
+Nothing in it touches anyone's career history, resumes or applications, and a secret is recorded as
 having been set, never as its value.
 
 > Who changed the Resend key?

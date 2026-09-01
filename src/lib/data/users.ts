@@ -106,7 +106,7 @@ export async function countUsers() {
  *
  * Note what is counted and what is read. Counts of roles, resumes and
  * applications tell you whether a workspace is in use; they are not its
- * contents, and nothing here selects a single word of anyone's brain. The
+ * contents, and nothing here selects a single word of anyone's own material. The
  * token on a connection is excluded for the same reason it is only shown once
  * to its owner: it is a credential, and an admin has no use for it.
  *

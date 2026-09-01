@@ -9,7 +9,7 @@ import { createInvite, type InviteResult } from "@/lib/data/users";
  * instance is invite-only.
  *
  * Note the shape of this file against the rest of `src/lib/data/`. Everything
- * in brain.ts, resumes.ts and pipeline.ts takes `userId` first because it
+ * in me.ts, resumes.ts and pipeline.ts takes `userId` first because it
  * touches one person's content and the compiler has to reject a call site that
  * forgets. Nothing here is anyone's content — a signup is instance-level, like
  * Setting and Invite — so these follow users.ts instead: an `actor` where the

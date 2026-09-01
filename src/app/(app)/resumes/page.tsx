@@ -91,8 +91,8 @@ export default async function ResumesPage({
       <PageHeader
         eyebrow="Documents"
         title="Resumes"
-        description="One base resume, then a tailored variant per job. Ask Claude to build them from your brain — it will save them straight here."
-        actions={<NewResumeDialog hasBrain={roleCount > 0} />}
+        description="One base resume, then a tailored variant per job. Ask Claude to build them from what is in Me — it will save them straight here."
+        actions={<NewResumeDialog hasMaterial={roleCount > 0} />}
       />
 
       {(resumes.length > 0 || q) && (
@@ -110,18 +110,18 @@ export default async function ResumesPage({
           title="No resumes yet"
           description={
             roleCount > 0
-              ? "Build one from your brain in a click, or ask Claude to tailor one to a job posting."
-              : "Already have a resume? Paste it to Claude and say \"import this\" — it becomes a populated brain and a first draft in one move. Or add a role to your brain by hand first."
+              ? "Build one from Me in a click, or ask Claude to tailor one to a job posting."
+              : "Already have a resume? Paste it to Claude and say \"import this\" — it fills in Me and drafts a resume in one move. Or add a role under Me by hand first."
           }
           action={
             roleCount > 0 ? (
-              <NewResumeDialog hasBrain />
+              <NewResumeDialog hasMaterial />
             ) : (
               <div className="flex flex-wrap items-center justify-center gap-2">
                 <Button asChild variant="default" size="sm">
                   <Link href="/settings?tab=connections">Connect an assistant</Link>
                 </Button>
-                <NewResumeDialog hasBrain={false} />
+                <NewResumeDialog hasMaterial={false} />
               </div>
             )
           }

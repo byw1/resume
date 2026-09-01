@@ -1,7 +1,7 @@
 import { headers } from "next/headers";
 import { notFound } from "next/navigation";
 import { getResume } from "@/lib/data/resumes";
-import { getProfile } from "@/lib/data/brain";
+import { getProfile } from "@/lib/data/me";
 import { requireUser } from "@/lib/auth";
 import { ResumeEditor } from "@/components/resume/resume-editor";
 

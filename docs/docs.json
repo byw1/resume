@@ -2,7 +2,7 @@
   "$schema": "https://mintlify.com/docs.json",
   "theme": "mint",
   "name": "Hired",
-  "description": "Hired is a career operating system you host yourself: a brain of everything you have done, a resume builder that assembles documents from it, and a pipeline for the search \u2014 all of it reachable from the assistant you already talk to.",
+  "description": "Hired is a career operating system you host yourself: a record of everything you have done, a resume builder that assembles documents from it, and a pipeline for the search \u2014 all of it reachable from the assistant you already talk to.",
   "colors": {
     "primary": "#0c71d1",
     "light": "#2e91f2",
@@ -95,7 +95,7 @@
             "group": "The four areas",
             "pages": [
               "concepts/how-it-fits",
-              "concepts/brain",
+              "concepts/me",
               "concepts/resumes",
               "concepts/pipeline",
               "concepts/crm"
@@ -104,7 +104,7 @@
           {
             "group": "Doing the work",
             "pages": [
-              "guides/fill-the-brain",
+              "guides/fill-in-me",
               "guides/tailor-a-resume",
               "guides/publish-and-export",
               "guides/run-the-search",
@@ -132,7 +132,7 @@
             "group": "Tools",
             "pages": [
               "tools/overview",
-              "tools/brain",
+              "tools/me",
               "tools/resumes",
               "tools/pipeline",
               "tools/crm",

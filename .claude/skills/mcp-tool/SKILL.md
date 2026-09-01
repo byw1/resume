@@ -12,12 +12,12 @@ written by whatever an assistant infers from these strings.
 
 ```ts
 {
-  name: "append_role_brain_dump",
-  title: "Append to a role's brain dump",
+  name: "append_role_background",
+  title: "Append to a role's background",
   description: "...",
   inputSchema: object({ role_id: str("..."), text: str("...") }, ["role_id", "text"]),
   adminOnly: false,
-  handler: async (args, ctx) => brain.appendRoleBrainDump(ctx.userId, required(args, "role_id"), ...),
+  handler: async (args, ctx) => me.appendToRoleBackground(ctx.userId, required(args, "role_id"), ...),
 }
 ```
 
@@ -41,10 +41,10 @@ doesn't fit the pattern means the tool is doing too much.
 A description has four jobs, in order:
 
 1. **When to reach for this.** The most valuable sentence in the file is in
-   `search_brain`: *"This is the FIRST tool to call when tailoring a resume or answering a
+   `search_me`: *"This is the FIRST tool to call when tailoring a resume or answering a
    question about their experience."* That is routing information no schema can convey.
    Write the equivalent for every tool.
-2. **What it does**, in the user's terms — "roles", "brain dump", "highlights",
+2. **What it does**, in the user's terms — "roles", "background", "highlights",
    "applications", "stages" — not the table names.
 3. **What comes back** and what to do with it: ids, kinds, whether anything was saved.
 4. **The trap.** Every destructive or surprising semantic, stated bluntly.
@@ -52,24 +52,24 @@ A description has four jobs, in order:
 Traps that must be restated wherever they apply:
 
 - **Replace vs append.** `update_resume` and `update_role` replace what you send. Say
-  "read first, modify, then write back whole." `append_role_brain_dump` exists precisely
+  "read first, modify, then write back whole." `append_role_background` exists precisely
   because assistants kept overwriting people's notes with `update_role`.
 - **Saved vs not.** `preview_resume_text` renders and estimates page count without saving.
   Any tool with a dry-run twin should point at it.
 - **Prefer a copy.** Tailoring should say to `duplicate_resume` rather than edit a resume
   already attached to an application.
 - **No fabrication.** Any tool that writes resume content restates the rule: never invent
-  experience, employers, dates or metrics; if the brain has no evidence, say so and ask.
+  experience, employers, dates or metrics; if Me has no evidence, say so and ask.
 
 Write descriptions for an assistant that has never seen this codebase and will not read
 the source. Verbose beats ambiguous.
 
 ## Prompts, not mega-tools
 
-A sequence — read a posting, mine the brain, draft, save, report gaps — is a `prompts`
+A sequence — read a posting, mine Me, draft, save, report gaps — is a `prompts`
 entry at the bottom of `tools.ts` composing existing tools. Those surface as slash
 commands or prompt shortcuts depending on the client. Existing ones: `tailor_resume`,
-`mine_brain_dump`, `pipeline_review`, `log_my_week`, `onboard_teammate` (admin). If a new
+`mine_role_background`, `pipeline_review`, `log_my_week`, `onboard_teammate` (admin). If a new
 tool's description needs the word "then" twice, it is a prompt.
 
 ## Server instructions
