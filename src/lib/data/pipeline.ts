@@ -1,7 +1,7 @@
 import { ActivityType, Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
-import { DAY, STALE_AFTER } from "@/lib/quiet";
+import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
 /** Like brain.ts: userId is the required first argument on every query. */
@@ -782,10 +782,28 @@ const applicationInclude = {
   },
 } satisfies Prisma.ApplicationInclude;
 
+/**
+ * When each of these applications last had anything happen to it, in one
+ * query rather than one per card. Postgres answers it off the existing
+ * (applicationId, occurredAt) index.
+ */
+async function lastActivityByApplication(userId: string, ids: string[]) {
+  const found = new Map<string, Date>();
+  if (ids.length === 0) return found;
+  const rows = await db.activity.groupBy({
+    by: ["applicationId"],
+    where: { userId, applicationId: { in: ids } },
+    _max: { occurredAt: true },
+  });
+  for (const row of rows) {
+    if (row.applicationId && row._max.occurredAt) found.set(row.applicationId, row._max.occurredAt);
+  }
+  return found;
+}
 
 export async function listApplications(
   userId: string,
-  options?: { stage?: Stage; includeClosed?: boolean; search?: string },
+  options?: { stage?: Stage; includeClosed?: boolean; search?: string; quietForDays?: number },
 ) {
   const where: Prisma.ApplicationWhereInput = { userId };
   if (options?.stage) where.stage = options.stage;
@@ -802,17 +820,36 @@ export async function listApplications(
     orderBy: [{ sortOrder: "asc" }, { updatedAt: "desc" }],
     include: applicationInclude,
   });
-  // The take-1 transition row is plumbing for the date below, not something a
+  // The take-1 transition row is plumbing for the dates below, not something a
   // caller — or an assistant reading a tool result — should have to interpret.
-  const now = Date.now();
-  return rows.map(({ activities, ...application }) => {
+  const touched = await lastActivityByApplication(userId, rows.map((row) => row.id));
+  const now = new Date();
+  const mapped = rows.map(({ activities, ...application }) => {
     const since = activities[0]?.occurredAt ?? application.createdAt;
+    const subject = {
+      stage: application.stage,
+      createdAt: application.createdAt,
+      appliedAt: application.appliedAt,
+      lastActivityAt: touched.get(application.id) ?? null,
+      lastStageChangeAt: activities[0]?.occurredAt ?? null,
+    };
     return {
       ...flattenSources(application),
       stageSince: since,
-      daysInStage: Math.floor((now - since.getTime()) / 86_400_000),
+      daysInStage: Math.floor((now.getTime() - since.getTime()) / DAY),
+      // Two questions, and confusing them is why the board could answer
+      // neither: daysInStage is how long it has sat where it is, quietDays is
+      // how long since ANYTHING happened. A logged call resets the second and
+      // leaves the first alone.
+      lastTouchAt: lastTouchAt(subject),
+      quietDays: quietDaysFor(subject, now),
     };
   });
+  // Filtered here rather than in the query: the number is computed, so
+  // Postgres cannot answer it without the same read.
+  return options?.quietForDays === undefined
+    ? mapped
+    : mapped.filter((row) => row.quietDays >= options.quietForDays!);
 }
 
 export async function getApplication(userId: string, id: string) {
@@ -827,7 +864,22 @@ export async function getApplication(userId: string, id: string) {
       tasks: { orderBy: [{ done: "asc" }, { dueAt: "asc" }] },
     },
   });
-  return application ? flattenSources(application) : null;
+  if (!application) return null;
+  // The timeline is already here in full, newest first, so the same two dates
+  // the list computes cost nothing extra here.
+  const subject = {
+    stage: application.stage,
+    createdAt: application.createdAt,
+    appliedAt: application.appliedAt,
+    lastActivityAt: application.activities[0]?.occurredAt ?? null,
+    lastStageChangeAt:
+      application.activities.find((activity) => activity.toStage !== null)?.occurredAt ?? null,
+  };
+  return {
+    ...flattenSources(application),
+    lastTouchAt: lastTouchAt(subject),
+    quietDays: quietDaysFor(subject, new Date()),
+  };
 }
 
 /**
@@ -1640,6 +1692,7 @@ export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {
         stage: true,
         roleTitle: true,
         appliedAt: true,
+        createdAt: true,
         updatedAt: true,
         resumeId: true,
         company: { select: { name: true } },
@@ -1727,20 +1780,30 @@ export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {
   });
 
   // --- what has gone quiet ---------------------------------------------------
-  const lastTouch = (id: string, fallback: Date) => {
-    const list = byApplication.get(id);
-    return list && list.length > 0 ? list[list.length - 1].occurredAt : fallback;
-  };
+  // The same rule the board draws on a card, from src/lib/quiet.ts. It used to
+  // be a closure here that read stage transitions only and fell back to
+  // updatedAt — so logging a call left an application "stalled", and dragging
+  // a card past another one (which writes a sort order) made a dead thread
+  // look alive.
+  const touched = await lastActivityByApplication(userId, applications.map((row) => row.id));
   const stalled = applications
-    .filter((application) => !TERMINAL_STAGES.includes(application.stage))
     .map((application) => ({
       id: application.id,
       company: application.company.name,
       roleTitle: application.roleTitle,
       stage: application.stage,
-      days: Math.floor((now.getTime() - lastTouch(application.id, application.updatedAt).getTime()) / DAY),
+      days: quietDaysFor(
+        {
+          stage: application.stage,
+          createdAt: application.createdAt,
+          appliedAt: application.appliedAt,
+          lastActivityAt: touched.get(application.id) ?? null,
+          lastStageChangeAt: byApplication.get(application.id)?.at(-1)?.occurredAt ?? null,
+        },
+        now,
+      ),
     }))
-    .filter((row) => row.days >= (STALE_AFTER[row.stage] ?? Infinity))
+    .filter((row) => hasGoneQuiet(row.stage, row.days, TERMINAL_STAGES))
     .sort((a, b) => b.days - a.days);
 
   // --- which resume is actually working --------------------------------------

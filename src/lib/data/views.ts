@@ -18,7 +18,7 @@ export function normaliseQuery(raw: string): string {
   if (!trimmed) return "";
   // APPEND only, never reorder: a saved view is compared to the current URL as
   // a string, so moving a key rewrites every stored view's identity at once.
-  const allowed = ["view", "f", "src", "co", "cv", "w", "x", "sort", "dir", "q", "month"];
+  const allowed = ["view", "f", "src", "co", "cv", "w", "qd", "x", "sort", "dir", "q", "month"];
   const source = new URLSearchParams(trimmed);
   const out = new URLSearchParams();
   // Fixed key order so the same view saved twice is the same string, and so a

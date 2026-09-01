@@ -24,10 +24,12 @@ import {
   FlameIcon,
   MapPinIcon,
   MessageSquareIcon,
+  MoonIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
+import { SHOW_QUIET_AFTER, hasGoneQuiet } from "@/lib/quiet";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
 import { cn, relativeDay } from "@/lib/utils";
@@ -47,6 +49,10 @@ export type Card = {
   nextFollowUpAt: string | null;
   resumeName: string | null;
   activityCount: number;
+  /** Days since anything at all happened here. */
+  quietDays: number;
+  /** The posting, for the card's own actions. Empty when there never was one. */
+  jobUrl: string;
   /** Null when logos are off, or no domain could be worked out. */
   domain: string | null;
 };
@@ -425,6 +431,24 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
           >
             <CalendarClockIcon className="size-2.5" />
             {relativeDay(new Date(card.nextFollowUpAt))}
+          </span>
+        )}
+        {/* How long since anything happened, which is the question the board
+            existed to answer and could not. Below a week it is noise, so it
+            says nothing; past the stage's own threshold it turns the colour
+            of the diagnosis that agrees with it. */}
+        {card.quietDays >= SHOW_QUIET_AFTER && !TERMINAL_STAGES.includes(card.stage) && (
+          <span
+            className={cn(
+              "flex items-center gap-1 text-[11px]",
+              hasGoneQuiet(card.stage, card.quietDays, TERMINAL_STAGES)
+                ? "text-[var(--warning)] font-medium"
+                : "text-muted-foreground",
+            )}
+            title={`Nothing logged for ${card.quietDays} days`}
+          >
+            <MoonIcon className="size-2.5" />
+            {card.quietDays}d quiet
           </span>
         )}
         <div className="text-muted-foreground ml-auto flex items-center gap-2 text-[11px]">

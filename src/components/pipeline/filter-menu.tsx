@@ -68,6 +68,7 @@ export function FilterMenu({
     filters.companies.length +
     filters.resumes.length +
     (filters.waiting !== null ? 1 : 0) +
+    (filters.quiet !== null ? 1 : 0) +
     (filters.excitement !== null ? 1 : 0);
 
   return (
@@ -163,6 +164,21 @@ export function FilterMenu({
               ))}
             </CommandGroup>
 
+            {/* Sitting still is about the stage; quiet is about you. An
+                application can be three days into Screening and three weeks
+                since anyone said anything. */}
+            <CommandGroup heading="Nothing logged for">
+              {WAITING.map((days) => (
+                <Row
+                  key={days}
+                  id={`qd-${days}`}
+                  label={`${days} days or more`}
+                  on={filters.quiet === days}
+                  onPick={() => go({ ...filters, quiet: filters.quiet === days ? null : days })}
+                />
+              ))}
+            </CommandGroup>
+
             <CommandGroup heading="Want it at least">
               {EXCITEMENT.map((score) => (
                 <Row
@@ -190,6 +206,7 @@ export function FilterMenu({
                         companies: [],
                         resumes: [],
                         waiting: null,
+                        quiet: null,
                         excitement: null,
                       })
                     }

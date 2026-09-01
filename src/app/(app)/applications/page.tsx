@@ -273,6 +273,8 @@ export default async function ApplicationsPage({
       activityCount: application._count.activities,
       updatedAt: application.updatedAt.toISOString(),
       daysInStage: application.daysInStage,
+      quietDays: application.quietDays,
+      jobUrl: application.jobUrl,
       domain: domainFor(application),
     }));
     const sort = parseSort(one("sort"));
@@ -291,6 +293,8 @@ export default async function ApplicationsPage({
     nextFollowUpAt: application.nextFollowUpAt ? application.nextFollowUpAt.toISOString() : null,
     resumeName: application.resume?.name ?? null,
     activityCount: application._count.activities,
+    quietDays: application.quietDays,
+    jobUrl: application.jobUrl,
     domain: domainFor(application),
   });
 

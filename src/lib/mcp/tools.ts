@@ -1378,11 +1378,12 @@ export const tools: McpTool[] = [
     name: "list_applications",
     title: "List applications",
     description:
-      "List job applications. By default the closed ones (accepted, rejected, withdrawn, ghosted) are excluded. Every row carries daysInStage — how long it has sat where it is, measured from the last stage change rather than the last edit — which is the field to sort on when someone asks what has gone quiet or what needs chasing.",
+      "List job applications. By default the closed ones (accepted, rejected, withdrawn, ghosted) are excluded. Every row carries two different numbers and they answer different questions: daysInStage is how long it has sat where it is, measured from the last stage change; quietDays is how long since ANYTHING happened to it — a logged call, an email, a stage move. 'What has gone quiet' is quietDays, and lastTouchAt is the date it counts from. Pass quietForDays to return only the ones past that many silent days, which is the fastest way to answer 'what needs chasing'.",
     inputSchema: object({
       stage: { type: "string", enum: STAGE_VALUES, description: "Only this stage" },
       includeClosed: bool("Include accepted / rejected / withdrawn"),
       search: str("Filter by company, role title or notes"),
+      quietForDays: num("Only those with no activity for at least this many days"),
     }),
     annotations: {
       readOnlyHint: true,
@@ -1395,13 +1396,14 @@ export const tools: McpTool[] = [
         stage: s(args, "stage") as Stage | undefined,
         includeClosed: b(args, "includeClosed"),
         search: s(args, "search"),
+        quietForDays: n(args, "quietForDays"),
       }),
   },
   {
     name: "get_application",
     title: "Get an application",
     description:
-      "Full detail for one application including the job description, the complete activity timeline, contacts and tasks.",
+      "Full detail for one application including the job description, the complete activity timeline, contacts and tasks. Also carries quietDays and lastTouchAt — how long since anything happened, and when.",
     inputSchema: object({ id: str("Application id") }, ["id"]),
     annotations: {
       readOnlyHint: true,
@@ -1900,7 +1902,7 @@ export const tools: McpTool[] = [
     name: "save_view",
     title: "Save a pipeline view under a name",
     description:
-      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated source ids from list_application_sources); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); x (minimum excitement, 1-5); sort and dir; q (search across company, role, notes, location, work mode, the posting text and source names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&w=14&sort=waiting&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.",
+      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated source ids from list_application_sources); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); x (minimum excitement, 1-5); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and source names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.",
     inputSchema: object(
       {
         name: str("What to call it, e.g. 'Chasing'"),

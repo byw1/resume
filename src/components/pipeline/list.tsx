@@ -7,6 +7,7 @@ import { ArrowDownIcon, ArrowUpIcon, FlameIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
+import { hasGoneQuiet } from "@/lib/quiet";
 import type { ListRow, ListSort } from "@/lib/pipeline-list";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
@@ -39,6 +40,7 @@ const COLUMNS: { key: ListSort | null; label: string; className: string }[] = [
   { key: "stage", label: "Stage", className: "w-32 shrink-0" },
   { key: "followUp", label: "Follow-up", className: "w-28 shrink-0" },
   { key: "waiting", label: "Waiting", className: "w-20 shrink-0 text-right" },
+  { key: "quiet", label: "Quiet", className: "w-20 shrink-0 text-right hidden md:block" },
   { key: "salary", label: "Salary", className: "w-32 shrink-0 hidden lg:block" },
   { key: null, label: "Location", className: "w-32 shrink-0 hidden xl:block" },
   { key: null, label: "Log", className: "w-10 shrink-0 text-right hidden sm:block" },
@@ -257,6 +259,20 @@ function Row({
         title={closed ? undefined : `In ${STAGE_LABEL[values.stage]} for ${row.daysInStage} days`}
       >
         {closed ? "—" : `${row.daysInStage}d`}
+      </div>
+
+      {/* The other measurement, and the one chasing is decided on: days since
+          anything at all happened, not days since it last moved. */}
+      <div
+        className={cn(
+          "nums hidden w-20 shrink-0 text-right text-[12px] md:block",
+          !closed && hasGoneQuiet(values.stage, row.quietDays, TERMINAL_STAGES)
+            ? "text-[var(--warning)] font-medium"
+            : "text-faint",
+        )}
+        title={closed ? undefined : `Nothing logged for ${row.quietDays} days`}
+      >
+        {closed ? "—" : `${row.quietDays}d`}
       </div>
 
       <div className="hidden w-32 shrink-0 lg:block">

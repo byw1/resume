@@ -22,6 +22,8 @@ export type PipelineFilters = {
   resumes: string[];
   /** Minimum days sitting in the current stage. */
   waiting: number | null;
+  /** Minimum days since ANYTHING happened. Not the same question as waiting. */
+  quiet: number | null;
   /** Minimum excitement, 1-5. */
   excitement: number | null;
   search: string;
@@ -34,6 +36,7 @@ export const EMPTY_FILTERS: PipelineFilters = {
   companies: [],
   resumes: [],
   waiting: null,
+  quiet: null,
   excitement: null,
   search: "",
 };
@@ -71,6 +74,7 @@ export function parsePipelineFilters(
     companies: list(one("co")),
     resumes: list(one("cv")),
     waiting: positive(one("w")),
+    quiet: positive(one("qd")),
     excitement: positive(one("x")),
     search: one("q")?.trim() ?? "",
   };
@@ -85,6 +89,7 @@ export function hasAnyFilter(filters: PipelineFilters): boolean {
     filters.companies.length > 0 ||
     filters.resumes.length > 0 ||
     filters.waiting !== null ||
+    filters.quiet !== null ||
     filters.excitement !== null ||
     Boolean(filters.search)
   );
@@ -98,6 +103,7 @@ export type FilterableApplication = {
   resumeId: string | null;
   excitement: number;
   daysInStage: number;
+  quietDays: number;
   sources: { id: string; name: string }[];
   roleTitle: string;
   notes: string;
@@ -142,6 +148,7 @@ export function matchesFilters(
     if (!filters.resumes.includes(value)) return false;
   }
   if (filters.waiting !== null && application.daysInStage < filters.waiting) return false;
+  if (filters.quiet !== null && application.quietDays < filters.quiet) return false;
   if (filters.excitement !== null && application.excitement < filters.excitement) return false;
 
   if (filters.search) {
@@ -181,6 +188,7 @@ export function buildPipelineQuery(input: {
   if (filters.companies.length > 0) params.set("co", filters.companies.join(","));
   if (filters.resumes.length > 0) params.set("cv", filters.resumes.join(","));
   if (filters.waiting !== null) params.set("w", String(filters.waiting));
+  if (filters.quiet !== null) params.set("qd", String(filters.quiet));
   if (filters.excitement !== null) params.set("x", String(filters.excitement));
   if (filters.search) params.set("q", filters.search);
   if (input.sort) params.set("sort", input.sort);
