@@ -339,3 +339,19 @@ Remove an item from one of the supporting collections.
 | --- | --- | --- |
 | `kind` | enum | **required** — Which collection the item is in  `education` · `projects` · `skills` · `certifications` |
 | `id` | string | **required** — Item id |
+
+### `import_resume`
+
+_Import a resume into the brain_
+
+Turn an existing resume, LinkedIn export or any pasted career history into a populated brain in ONE call. This is the first tool to reach for when the workspace is empty and the user has a document — it is the difference between starting from their real history and starting from nothing, so offer it before asking them to talk through their life. You do the reading: parse the pasted text yourself into the structured payload — profile facts, one entry per role with its bullets, education, projects, skills, certifications. Copy what the document actually says and NEVER invent, upgrade or round anything: no employers, titles, dates or metrics the text does not state, and a field the document is silent on stays absent. Everything is additive and re-import is safe: profile fields fill only where currently empty; a role with the same company+title, an education entry with the same school+degree, or a project/certification with the same name is SKIPPED, never overwritten; a skill group with an existing name has its skills unioned in. Each role's bullets are saved as highlights and land in its brain dump for search_brain to mine. Returns exactly what was created and what was skipped — report that to the user, and for skipped roles add new material with append_role_brain_dump instead. Pass create_base_resume: true to also build their first draft resume from the imported brain; offer it, since a resume is usually why they pasted one.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `profile` | object | Contact and identity facts from the document. Only fills fields that are currently empty. |
+| `roles` | object[] | One entry per job in the document, newest first. |
+| `education` | object[] | Education entries. |
+| `projects` | object[] | Side or portfolio projects the document lists. |
+| `skillGroups` | object[] | Skills grouped the way the document groups them, e.g. {name: 'Languages', skills: ['Go','TypeScript']}. Use one group named 'Skills' when it is a flat list. |
+| `certifications` | object[] | Certifications and licences. |
+| `create_base_resume` | boolean | Also build a first draft resume from the imported brain, named 'Base resume'. Offer this — it is usually why they pasted a resume. |

@@ -1,5 +1,7 @@
 import { headers } from "next/headers";
+import Link from "next/link";
 import { FileTextIcon } from "lucide-react";
+import { Button } from "@/components/ui/button";
 import { PageHeader, PageShell, EmptyState, SectionEmpty } from "@/components/page-header";
 import { Stagger, StaggerItem, Lift } from "@/components/motion";
 import { SearchBox } from "@/components/crm/search-box";
@@ -109,9 +111,20 @@ export default async function ResumesPage({
           description={
             roleCount > 0
               ? "Build one from your brain in a click, or ask Claude to tailor one to a job posting."
-              : "Add a role to your brain first, then build a resume from it."
+              : "Already have a resume? Paste it to Claude and say \"import this\" — it becomes a populated brain and a first draft in one move. Or add a role to your brain by hand first."
           }
-          action={<NewResumeDialog hasBrain={roleCount > 0} />}
+          action={
+            roleCount > 0 ? (
+              <NewResumeDialog hasBrain />
+            ) : (
+              <div className="flex flex-wrap items-center justify-center gap-2">
+                <Button asChild variant="default" size="sm">
+                  <Link href="/settings?tab=connections">Connect an assistant</Link>
+                </Button>
+                <NewResumeDialog hasBrain={false} />
+              </div>
+            )
+          }
         />
       ) : (
         <Stagger className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4">

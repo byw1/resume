@@ -967,6 +967,218 @@ export const tools: McpTool[] = [
       }
     },
   },
+  {
+    name: "import_resume",
+    title: "Import a resume into the brain",
+    description:
+      "Turn an existing resume, LinkedIn export or any pasted career history into a populated brain in ONE call. This is the first tool to reach for when the workspace is empty and the user has a document — it is the difference between starting from their real history and starting from nothing, so offer it before asking them to talk through their life. You do the reading: parse the pasted text yourself into the structured payload — profile facts, one entry per role with its bullets, education, projects, skills, certifications. Copy what the document actually says and NEVER invent, upgrade or round anything: no employers, titles, dates or metrics the text does not state, and a field the document is silent on stays absent. Everything is additive and re-import is safe: profile fields fill only where currently empty; a role with the same company+title, an education entry with the same school+degree, or a project/certification with the same name is SKIPPED, never overwritten; a skill group with an existing name has its skills unioned in. Each role's bullets are saved as highlights and land in its brain dump for search_brain to mine. Returns exactly what was created and what was skipped — report that to the user, and for skipped roles add new material with append_role_brain_dump instead. Pass create_base_resume: true to also build their first draft resume from the imported brain; offer it, since a resume is usually why they pasted one.",
+    inputSchema: object(
+      {
+        profile: {
+          type: "object",
+          description:
+            "Contact and identity facts from the document. Only fills fields that are currently empty.",
+          properties: {
+            fullName: str("Their name as the document states it"),
+            headline: str("Professional headline / current title line"),
+            email: str("Email address"),
+            phone: str("Phone number"),
+            location: str("City / region"),
+            website: str("Personal site URL"),
+            linkedin: str("LinkedIn URL"),
+            github: str("GitHub URL"),
+            summary: str("The document's own summary or objective paragraph, verbatim or lightly cleaned"),
+          },
+          additionalProperties: false,
+        },
+        roles: {
+          type: "array",
+          description: "One entry per job in the document, newest first.",
+          items: object(
+            {
+              company: str("Employer name"),
+              title: str("Job title"),
+              employmentType: str("Full-time (default) | Part-time | Contract | Freelance | Internship"),
+              location: str("Where, if stated"),
+              startDate: str("YYYY-MM if stated"),
+              endDate: str("YYYY-MM, empty if current"),
+              isCurrent: bool("True when the document marks it as current"),
+              summary: str("The role's one-line scope, if the document has one"),
+              brainDump: str(
+                "Raw text about this role beyond the bullets — the section as pasted is fine. Omit to auto-fill from the bullets.",
+              ),
+              bullets: {
+                type: "array",
+                description: "The role's bullet points, one per bullet, wording kept.",
+                items: object(
+                  {
+                    text: str("The bullet as the document states it"),
+                    impact: str("Its quantified outcome, only if not already inside text"),
+                    tags: strArray("Tags for retrieval, e.g. ['leadership','cost']"),
+                    strength: num("1-5 how strong the bullet reads. Default 3."),
+                  },
+                  ["text"],
+                ),
+              },
+            },
+            ["company", "title"],
+          ),
+        },
+        education: {
+          type: "array",
+          description: "Education entries.",
+          items: object(
+            {
+              school: str("Institution"),
+              degree: str("Degree, e.g. 'BSc'"),
+              field: str("Field of study"),
+              location: str("Where, if stated"),
+              startDate: str("YYYY-MM if stated"),
+              endDate: str("YYYY-MM if stated"),
+              gpa: str("GPA / grade, only if stated"),
+              details: str("Honours, coursework, anything else the entry lists"),
+            },
+            ["school"],
+          ),
+        },
+        projects: {
+          type: "array",
+          description: "Side or portfolio projects the document lists.",
+          items: object(
+            {
+              name: str("Project name"),
+              role: str("Their part in it"),
+              url: str("Link, if stated"),
+              description: str("What it is, from the document"),
+              startDate: str("YYYY-MM if stated"),
+              endDate: str("YYYY-MM if stated"),
+              tags: strArray("Tags for retrieval"),
+            },
+            ["name"],
+          ),
+        },
+        skillGroups: {
+          type: "array",
+          description:
+            "Skills grouped the way the document groups them, e.g. {name: 'Languages', skills: ['Go','TypeScript']}. Use one group named 'Skills' when it is a flat list.",
+          items: object(
+            { name: str("Group label"), skills: strArray("The skills in it") },
+            ["name"],
+          ),
+        },
+        certifications: {
+          type: "array",
+          description: "Certifications and licences.",
+          items: object(
+            {
+              name: str("Certification name"),
+              issuer: str("Who issued it"),
+              date: str("When, as the document states it"),
+              url: str("Verification link, if stated"),
+            },
+            ["name"],
+          ),
+        },
+        create_base_resume: bool(
+          "Also build a first draft resume from the imported brain, named 'Base resume'. Offer this — it is usually why they pasted a resume.",
+        ),
+      },
+      [],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const roles = Array.isArray(args.roles) ? (args.roles as Json[]) : [];
+      const education = Array.isArray(args.education) ? (args.education as Json[]) : [];
+      const projects = Array.isArray(args.projects) ? (args.projects as Json[]) : [];
+      const skillGroups = Array.isArray(args.skillGroups) ? (args.skillGroups as Json[]) : [];
+      const certifications = Array.isArray(args.certifications) ? (args.certifications as Json[]) : [];
+      const profile = (args.profile ?? {}) as Json;
+
+      const result = await brain.importBrain(ctx.userId, {
+        profile: defined({
+          fullName: s(profile, "fullName"),
+          headline: s(profile, "headline"),
+          email: s(profile, "email"),
+          phone: s(profile, "phone"),
+          location: s(profile, "location"),
+          website: s(profile, "website"),
+          linkedin: s(profile, "linkedin"),
+          github: s(profile, "github"),
+          summary: s(profile, "summary"),
+        }),
+        roles: roles.map((role) => ({
+          company: required(role, "company"),
+          title: required(role, "title"),
+          ...defined({
+            employmentType: s(role, "employmentType"),
+            location: s(role, "location"),
+            startDate: s(role, "startDate"),
+            endDate: s(role, "endDate"),
+            isCurrent: b(role, "isCurrent"),
+            summary: s(role, "summary"),
+            brainDump: s(role, "brainDump"),
+          }),
+          bullets: (Array.isArray(role.bullets) ? (role.bullets as Json[]) : []).map((bullet) => ({
+            text: required(bullet, "text"),
+            ...defined({
+              impact: s(bullet, "impact"),
+              tags: a(bullet, "tags"),
+              strength: n(bullet, "strength"),
+            }),
+          })),
+        })),
+        education: education.map((entry) => ({
+          school: required(entry, "school"),
+          ...defined({
+            degree: s(entry, "degree"),
+            field: s(entry, "field"),
+            location: s(entry, "location"),
+            startDate: s(entry, "startDate"),
+            endDate: s(entry, "endDate"),
+            gpa: s(entry, "gpa"),
+            details: s(entry, "details"),
+          }),
+        })),
+        projects: projects.map((entry) => ({
+          name: required(entry, "name"),
+          ...defined({
+            role: s(entry, "role"),
+            url: s(entry, "url"),
+            description: s(entry, "description"),
+            startDate: s(entry, "startDate"),
+            endDate: s(entry, "endDate"),
+            tags: a(entry, "tags"),
+          }),
+        })),
+        skillGroups: skillGroups.map((group) => ({
+          name: required(group, "name"),
+          ...defined({ skills: a(group, "skills") }),
+        })),
+        certifications: certifications.map((entry) => ({
+          name: required(entry, "name"),
+          ...defined({
+            issuer: s(entry, "issuer"),
+            date: s(entry, "date"),
+            url: s(entry, "url"),
+          }),
+        })),
+      });
+
+      if (b(args, "create_base_resume")) {
+        const created = await resumes.createResume(ctx.userId, {
+          name: "Base resume",
+          seedFromBrain: true,
+        });
+        return { ...result, baseResume: { id: created.id, name: created.name } };
+      }
+      return result;
+    },
+  },
 
   // -------------------------------------------------------------------------
   // RESUMES

@@ -42,9 +42,9 @@ const CHECK = process.argv.includes("--check");
  * the manual.
  */
 const SECTIONS = [
-  { file: "brain.mdx", first: "search_brain", last: "delete_extra",
+  { file: "brain.mdx", first: "search_brain", last: "import_resume",
     title: "Brain", icon: "brain",
-    blurb: "roles, brain dumps, highlights, notes, standing rules, and the four supporting collections." },
+    blurb: "roles, brain dumps, highlights, notes, standing rules, the four supporting collections, and importing an existing resume." },
   { file: "resumes.mdx", first: "get_resume_format", last: "preview_resume_text",
     title: "Resumes", icon: "file-lines",
     blurb: "writing documents, previewing them, publishing, exporting." },

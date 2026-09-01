@@ -674,3 +674,235 @@ export async function brainIsEmpty(userId: string) {
 export function clamp(value: number, min: number, max: number) {
   return Math.max(min, Math.min(max, value));
 }
+
+// ---------------------------------------------------------------------------
+// Import — a pasted resume becomes a populated brain in one call
+// ---------------------------------------------------------------------------
+
+export type BrainImportBullet = {
+  text: string;
+  impact?: string;
+  tags?: string[];
+  strength?: number;
+};
+
+export type BrainImportRole = RoleInput & { bullets?: BrainImportBullet[] };
+
+export type BrainImport = {
+  profile?: ProfilePatch;
+  roles?: BrainImportRole[];
+  education?: {
+    school: string;
+    degree?: string;
+    field?: string;
+    location?: string;
+    startDate?: string;
+    endDate?: string;
+    gpa?: string;
+    details?: string;
+  }[];
+  projects?: {
+    name: string;
+    role?: string;
+    url?: string;
+    description?: string;
+    brainDump?: string;
+    tags?: string[];
+    startDate?: string;
+    endDate?: string;
+  }[];
+  skillGroups?: { name: string; skills?: string[] }[];
+  certifications?: { name: string; issuer?: string; date?: string; url?: string }[];
+};
+
+const normalised = (value: string) => value.trim().toLowerCase();
+
+/**
+ * Populate the brain from a parsed resume, additively and in one transaction.
+ *
+ * The caller (an assistant reading a pasted document) does the parsing; this
+ * does the filing, and its one promise is that nothing already here is lost:
+ *
+ *   - profile fields fill only where they are currently empty;
+ *   - a role is skipped when the same company+title already exists, an
+ *     education entry when the same school+degree does, a project or
+ *     certification when the same name does — skipped, never merged into,
+ *     so re-importing the same document is a no-op rather than a duplicate
+ *     of someone's history;
+ *   - a skill group with an existing name has its skills unioned in.
+ *
+ * Each created role gets its bullets saved as highlights, and the raw
+ * material lands in the role's brain dump so search_brain can mine it.
+ * The summary says exactly what was created and what was skipped.
+ */
+export async function importBrain(userId: string, input: BrainImport) {
+  return db.$transaction(async (tx) => {
+    // Profile: fill the blanks, leave everything a person already wrote.
+    const profileFieldsFilled: string[] = [];
+    if (input.profile) {
+      const current =
+        (await tx.profile.findUnique({ where: { userId } })) ??
+        (await tx.profile.create({ data: { userId } }));
+      const patch: Record<string, string> = {};
+      for (const key of Object.keys(input.profile) as (keyof ProfilePatch)[]) {
+        const incoming = input.profile[key]?.trim();
+        if (!incoming) continue;
+        if ((current[key] ?? "").trim()) continue;
+        patch[key] = incoming;
+        profileFieldsFilled.push(key);
+      }
+      if (Object.keys(patch).length) {
+        await tx.profile.update({ where: { userId }, data: patch });
+      }
+    }
+
+    // Roles, and their bullets as highlights.
+    const rolesCreated: { id: string; company: string; title: string }[] = [];
+    const rolesSkipped: { company: string; title: string }[] = [];
+    let highlightsCreated = 0;
+    if (input.roles?.length) {
+      const existing = await tx.role.findMany({
+        where: { userId },
+        select: { company: true, title: true },
+      });
+      const seen = new Set(existing.map((role) => `${normalised(role.company)}|${normalised(role.title)}`));
+      let sortOrder = await tx.role.count({ where: { userId } });
+      for (const role of input.roles) {
+        const key = `${normalised(role.company)}|${normalised(role.title)}`;
+        if (seen.has(key)) {
+          rolesSkipped.push({ company: role.company, title: role.title });
+          continue;
+        }
+        seen.add(key);
+        const bullets = (role.bullets ?? []).filter((bullet) => bullet.text?.trim());
+        // The dump is what search_brain mines; the resume's own lines are the
+        // person's claims, so they belong there even before richer material.
+        const dump =
+          role.brainDump?.trim() ||
+          (bullets.length
+            ? `## Imported from resume\n\n${bullets
+                .map((bullet) => `- ${bullet.text}${bullet.impact ? ` (${bullet.impact})` : ""}`)
+                .join("\n")}`
+            : "");
+        const created = await tx.role.create({
+          data: {
+            userId,
+            company: role.company,
+            title: role.title,
+            employmentType: role.employmentType ?? "Full-time",
+            location: role.location ?? "",
+            startDate: role.startDate ?? "",
+            endDate: role.endDate ?? "",
+            isCurrent: role.isCurrent ?? false,
+            summary: role.summary ?? "",
+            brainDump: dump,
+            tags: role.tags ?? [],
+            sortOrder: sortOrder++,
+          },
+        });
+        rolesCreated.push({ id: created.id, company: created.company, title: created.title });
+        for (const bullet of bullets) {
+          await tx.highlight.create({
+            data: {
+              userId,
+              roleId: created.id,
+              text: bullet.text,
+              impact: bullet.impact ?? "",
+              tags: bullet.tags ?? [],
+              strength: clamp(bullet.strength ?? 3, 1, 5),
+            },
+          });
+          highlightsCreated += 1;
+        }
+      }
+    }
+
+    // Education, projects, certifications: create what is new, skip the rest.
+    const education = { created: 0, skipped: 0 };
+    if (input.education?.length) {
+      const existing = await tx.education.findMany({
+        where: { userId },
+        select: { school: true, degree: true },
+      });
+      const seen = new Set(existing.map((e) => `${normalised(e.school)}|${normalised(e.degree)}`));
+      let sortOrder = await tx.education.count({ where: { userId } });
+      for (const entry of input.education) {
+        const key = `${normalised(entry.school)}|${normalised(entry.degree ?? "")}`;
+        if (seen.has(key)) {
+          education.skipped += 1;
+          continue;
+        }
+        seen.add(key);
+        await tx.education.create({ data: { ...entry, userId, sortOrder: sortOrder++ } });
+        education.created += 1;
+      }
+    }
+
+    const projects = { created: 0, skipped: 0 };
+    if (input.projects?.length) {
+      const existing = await tx.project.findMany({ where: { userId }, select: { name: true } });
+      const seen = new Set(existing.map((p) => normalised(p.name)));
+      let sortOrder = await tx.project.count({ where: { userId } });
+      for (const entry of input.projects) {
+        if (seen.has(normalised(entry.name))) {
+          projects.skipped += 1;
+          continue;
+        }
+        seen.add(normalised(entry.name));
+        await tx.project.create({
+          data: { ...entry, userId, tags: entry.tags ?? [], sortOrder: sortOrder++ },
+        });
+        projects.created += 1;
+      }
+    }
+
+    // Skill groups merge: skills are a set, and "Languages" existing already
+    // is not a reason to drop the three new ones the resume lists.
+    const skillGroups = { created: 0, merged: 0 };
+    if (input.skillGroups?.length) {
+      const existing = await tx.skillGroup.findMany({ where: { userId } });
+      let sortOrder = existing.length;
+      for (const group of input.skillGroups) {
+        const match = existing.find((g) => normalised(g.name) === normalised(group.name));
+        if (match) {
+          const merged = [...new Set([...match.skills, ...(group.skills ?? [])])];
+          if (merged.length > match.skills.length) {
+            await tx.skillGroup.update({ where: { id: match.id }, data: { skills: merged } });
+            skillGroups.merged += 1;
+          }
+          continue;
+        }
+        await tx.skillGroup.create({
+          data: { userId, name: group.name, skills: group.skills ?? [], sortOrder: sortOrder++ },
+        });
+        skillGroups.created += 1;
+      }
+    }
+
+    const certifications = { created: 0, skipped: 0 };
+    if (input.certifications?.length) {
+      const existing = await tx.certification.findMany({ where: { userId }, select: { name: true } });
+      const seen = new Set(existing.map((c) => normalised(c.name)));
+      let sortOrder = await tx.certification.count({ where: { userId } });
+      for (const entry of input.certifications) {
+        if (seen.has(normalised(entry.name))) {
+          certifications.skipped += 1;
+          continue;
+        }
+        seen.add(normalised(entry.name));
+        await tx.certification.create({ data: { ...entry, userId, sortOrder: sortOrder++ } });
+        certifications.created += 1;
+      }
+    }
+
+    return {
+      profileFieldsFilled,
+      roles: { created: rolesCreated, skipped: rolesSkipped },
+      highlightsCreated,
+      education,
+      projects,
+      skillGroups,
+      certifications,
+    };
+  });
+}

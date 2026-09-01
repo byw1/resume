@@ -32,18 +32,20 @@ const SERVER_INFO = {
  * the exact moment this server's one real rule gets broken, because an invented
  * career is the only way left to satisfy the request in front of it.
  *
- * Naming the tools that get material IN is the whole point. There is no import
- * tool yet, so the honest instruction is to take whatever shape the person
- * already has their history in and file it by hand.
+ * Naming the tools that get material IN is the whole point. import_resume is
+ * the front door for anyone holding a document; the hand-filing tools remain
+ * for the person who would rather talk it through.
  */
 const EMPTY_WORKSPACE = `This workspace is EMPTY: no roles, no highlights, no notes, no projects.
 Every read tool will come back with nothing, and that is the state of the account rather than a
 failed call. Say so plainly instead of closing the gap with something plausible.
 
 Ask one thing before anything else: "Do you have a resume or a LinkedIn export you can paste, or
-would you rather talk me through your last job?" Take whatever comes back — a pasted document, an
-old job description, what they remember out loud — and file it yourself. There is no import tool;
-filing is you reading it and calling these:
+would you rather talk me through your last job?" If they paste a document, parse it yourself and
+file the whole thing with ONE import_resume call — roles with their bullets, education, skills,
+profile facts — copying what it says and inventing nothing, then offer create_base_resume so they
+see a rendered resume in their first minutes. If they would rather talk, file what comes back with
+these:
 • update_profile — name, contact details, links, and their personal brain dump: what they want
   next, what they will not take.
 • create_role — one per job, with dates. The raw material goes in its brain dump, where length is a
