@@ -180,7 +180,7 @@ in sequence, it is a prompt composed of four tools.
 
 ---
 
-## Current focus: a new user's first ten minutes
+## Current focus: nothing, and that is the point
 
 The original focus list — delete the reasons to leave the app for resume.lol — is mostly
 done. Shipped and live: a published resume has an unlisted URL at `/r/[slug]`
@@ -190,16 +190,26 @@ a posting is captured in one move (`capture_job_posting`), and a pipeline can be
 read-only at `/p/[slug]`. Do not rebuild any of these; the decision log records how each
 landed.
 
-What remains, in order:
+Both of the items that stood here are now shipped, and neither should be rebuilt:
 
-**1. Import, so friends can start.** Paste a resume, a PDF or a LinkedIn export and get a
-populated brain: `import_resume`. Right now a new user faces an empty workspace and has
-to type their life story before the product does anything. This is the adoption blocker,
-not a feature.
+**Import.** `import_resume` takes what an assistant read off a resume and populates a
+brain in one call — additive, idempotent, `dryRun` for a preview. The app has a paste-and-
+correct dialog on `/brain` for someone who has not connected anything yet, backed by a
+heuristic parser in `src/lib/resume-parse.ts`. It reads headings, so it is a draft a person
+fixes; the conversational path is better and the dialog says so. PDFs are deliberately not
+parsed: a two-column layout comes out interleaved.
 
-**2. Tailoring becomes traceable.** `Resume.baseResumeId` plus a diff view: what changed
-between the base and the tailored copy, and which brain evidence backed each new bullet.
-`duplicate_resume` already does the mechanical part; this makes it reviewable.
+**Traceable tailoring.** `Resume.baseResumeId`, a pure diff in `src/lib/resume-diff.ts`,
+and the Changes panel in the resume editor: what moved against the base, which brain
+material backs each bullet, and which jobs the document was sent to. `diff_resume`,
+`trace_resume_evidence` and `set_resume_base` are the same thing over MCP. The evidence is
+derived by comparing text rather than recorded when a document is written — read the
+decision log before changing that.
+
+What is worth doing next is unglamorous: the six `docs/tools/*.mdx` frontmatter counts are
+still hand-written and drift every time a tool is added (the generator owns the tables and
+the overview's figures, nothing else), and `.claude/DECISIONS.md` is now long enough that
+its own advice — read from the end — is doing real work.
 
 **Parked, deliberately:** first-class interview rounds and questions (today they are
 `Activity` rows of type `INTERVIEW` with free-text bodies), and any sharing that involves

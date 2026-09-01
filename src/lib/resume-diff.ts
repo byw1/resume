@@ -250,8 +250,22 @@ function countBullets(entries: EntryDiff[], status: ChangeStatus): number {
   );
 }
 
-/** One row of a section, reduced to the three things a diff needs. */
-type Entry = { key: string; label: string; fields: [string, string][]; bullets: string[] };
+/**
+ * One row of a section, reduced to what a diff needs.
+ *
+ * Two keys, because a document's ids are not a given: RESUME_DOC_SHAPE never
+ * mentions them, so everything an assistant writes has empty ids on every
+ * entry. `key` is the strongest identity available and `fallback` is what the
+ * row looks like — pairing on `key` alone reported a base with ids against a
+ * copy without as 100% churn.
+ */
+type Entry = {
+  key: string;
+  fallback: string;
+  label: string;
+  fields: [string, string][];
+  bullets: string[];
+};
 
 function listEntries(section: ResumeSection): Entry[] {
   const fold = (value: string) => value.trim().toLowerCase();
@@ -259,6 +273,12 @@ function listEntries(section: ResumeSection): Entry[] {
     case "experience":
       return section.experience.map((item: ExperienceItem) => ({
         key: item.id || item.roleId || fold(`${item.company}|${item.title}`),
+        // Two stints at one employer under one title are two entries, and
+        // only the dates tell them apart. Kept beside the key rather than
+        // inside it so a copy that edited the dates still pairs.
+        fallback: fold(
+          `${item.company}|${item.title}|${item.startDate}|${item.isCurrent ? "current" : item.endDate}`,
+        ),
         label: [item.title, item.company].filter(Boolean).join(" — ") || "Role",
         fields: [
           ["Company", item.company],
@@ -272,6 +292,7 @@ function listEntries(section: ResumeSection): Entry[] {
     case "education":
       return section.education.map((item: EducationItem) => ({
         key: item.id || fold(`${item.school}|${item.degree}|${item.field}`),
+        fallback: fold(`${item.school}|${item.degree}|${item.field}`),
         label: item.school || "School",
         fields: [
           ["Degree", item.degree],
@@ -283,6 +304,7 @@ function listEntries(section: ResumeSection): Entry[] {
     case "projects":
       return section.projects.map((item: ProjectItem) => ({
         key: item.id || fold(item.name),
+        fallback: fold(item.name),
         label: item.name || "Project",
         fields: [
           ["Role", item.role],
@@ -294,6 +316,7 @@ function listEntries(section: ResumeSection): Entry[] {
     case "skills":
       return section.skills.map((group) => ({
         key: fold(group.name),
+        fallback: fold(group.name),
         label: group.name || "Skills",
         fields: [] as [string, string][],
         bullets: group.skills,
@@ -301,6 +324,7 @@ function listEntries(section: ResumeSection): Entry[] {
     case "certifications":
       return section.certifications.map((item) => ({
         key: fold(`${item.name}|${item.issuer}`),
+        fallback: fold(`${item.name}|${item.issuer}`),
         label: item.name || "Certification",
         fields: [
           ["Issuer", item.issuer],
@@ -311,6 +335,7 @@ function listEntries(section: ResumeSection): Entry[] {
     case "custom":
       return section.items.map((item: CustomItem) => ({
         key: fold(`${item.title}|${item.subtitle}`),
+        fallback: fold(`${item.title}|${item.subtitle}`),
         label: item.title || "Item",
         fields: [
           ["Subtitle", item.subtitle],
@@ -331,7 +356,16 @@ function diffEntries(base: ResumeSection, tailored: ResumeSection): EntryDiff[] 
   const out: EntryDiff[] = [];
 
   for (const entry of right) {
-    const index = unmatched.findIndex((other) => other.key === entry.key);
+    // Three passes, same shape as pairSections: the strong key, then what the
+    // row looks like, then position within the section.
+    let index = unmatched.findIndex((other) => other.key === entry.key);
+    if (index === -1) index = unmatched.findIndex((other) => other.fallback === entry.fallback);
+    if (index === -1) {
+      const loose = unmatched.findIndex(
+        (other) => other.label.toLowerCase() === entry.label.toLowerCase(),
+      );
+      index = loose;
+    }
     if (index === -1) {
       out.push({
         label: entry.label,

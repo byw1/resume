@@ -65,18 +65,33 @@ const CONTRACT = /\b(intern(ship)?|contract(or)?|freelance|consultant|part[-\s]?
 function normalise(text: string): string[] {
   return text
     .replace(/\r/g, "")
-    // LinkedIn's PDF export stamps every page; so do plenty of resume templates.
-    .replace(/^\s*page \d+( of \d+)?\s*$/gim, "")
     .split("\n")
+    // LinkedIn's PDF export stamps every page and so do plenty of templates.
+    // Dropped rather than blanked: a blank line separates entries here, so
+    // blanking one mid-role cut the bullets below it off from their job.
+    .filter((line) => !/^\s*page \d+( of \d+)?\s*$/i.test(line))
     .map((line) => line.replace(/\s+$/g, ""))
     .filter((line, index, all) => line.trim() !== "" || (all[index - 1] ?? "").trim() !== "");
 }
 
+/**
+ * A heading is a line that says one word and stops.
+ *
+ * "Skills" is a heading. "Tools: Postgres, Kafka, Terraform" under a job is
+ * not — and reading it as one swallowed every job below it into the skills
+ * section. So the line has to be the heading and nothing else: no comma-
+ * separated tail, no sentence hanging off it.
+ */
 function headingOf(line: string): Section | null {
-  const clean = line.trim().replace(/[:•]+$/, "");
+  const clean = line.trim().replace(/[:•·]+$/, "").trim();
   if (!clean || clean.length > 40) return null;
+  if (BULLET.test(line)) return null;
   for (const [pattern, section] of SECTION_ALIASES) {
-    if (pattern.test(clean)) return section;
+    const match = clean.match(pattern);
+    if (!match) continue;
+    // Whatever follows the word the alias matched. A heading has nothing.
+    const rest = clean.slice(match[0].length).trim();
+    if (rest === "" || /^(and\s+\w+|&\s+\w+)$/i.test(rest)) return section;
   }
   return null;
 }
@@ -242,10 +257,16 @@ function groupEntries(lines: string[]): string[][] {
       current = [];
       continue;
     }
-    const startsEntry = !BULLET.test(line) && DATE_RANGE.test(line) && current.some((row) => BULLET.test(row));
-    if (startsEntry) {
-      entries.push(current);
-      current = [line];
+    // A dated line after another dated line is the next job, whether or not
+    // the one before it had bullets — plenty of resumes list three stints at
+    // one company with no bullets at all, and they were collapsing into one.
+    const lastDated = current.findLastIndex((row) => DATE_RANGE.test(row));
+    if (!BULLET.test(line) && DATE_RANGE.test(line) && lastDated !== -1) {
+      // The title line already read belongs to the entry this date opens, not
+      // to the one it closes: a header is usually "Title" then "Dates".
+      const carried = current.slice(lastDated + 1);
+      entries.push(current.slice(0, lastDated + 1));
+      current = [...carried, line];
       continue;
     }
     current.push(line);

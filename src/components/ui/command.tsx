@@ -23,17 +23,25 @@ function CommandDialog({
   open,
   onOpenChange,
   onKeyDown,
+  onEscapeKeyDown,
 }: {
   children: React.ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
   /** Reaches the cmdk root, so a palette with pages can step back out of one. */
   onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
+  /**
+   * Radix closes on Escape from its own capture-phase listener, before a
+   * bubbled keydown can see it — so stepping back out of a page needs this
+   * rather than onKeyDown.
+   */
+  onEscapeKeyDown?: (event: KeyboardEvent) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent
         showClose={false}
+        onEscapeKeyDown={onEscapeKeyDown}
         className="top-[16%] max-w-xl translate-y-0 gap-0 overflow-hidden p-0"
       >
         <Command

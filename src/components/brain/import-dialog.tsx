@@ -80,7 +80,7 @@ export function ImportDialog() {
         const matched = report.roles.length - created;
         toast.success(
           matched > 0
-            ? `Brought in ${created} job${created === 1 ? "" : "s"}; ${matched} were already here`
+            ? `Brought in ${created} job${created === 1 ? "" : "s"}; ${matched} ${matched === 1 ? "was" : "were"} already here`
             : `Brought in ${created} job${created === 1 ? "" : "s"}`,
         );
         setOpen(false);

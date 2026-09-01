@@ -681,7 +681,9 @@ export async function paletteIndexAction() {
   const [roles, resumeList, applications, companies, contacts] = await Promise.all([
     brain.listRoles(user.id),
     resumes.listResumes(user.id),
-    pipeline.listApplications(user.id),
+    // includeClosed, because the layout's version had no stage filter and
+    // "what did that rejected Stripe role pay" is a thing people look up.
+    pipeline.listApplications(user.id, { includeClosed: true }),
     pipeline.listCompanies(user.id),
     pipeline.listContacts(user.id),
   ]);
@@ -696,17 +698,20 @@ export async function paletteIndexAction() {
       label: resume.name,
       sub: resume.targetCompany || resume.targetRole || "",
     })),
-    applications: applications.slice(0, 60).map((application) => ({
-      id: application.id,
-      label: `${application.company.name} · ${application.roleTitle}`,
-      // STAGE_LABEL, not stage.toLowerCase(): the palette was the one surface
-      // that said "screen" where everything else says "Screening".
-      sub: STAGE_LABEL[application.stage],
-      stage: application.stage,
-      company: application.company.name,
-      roleTitle: application.roleTitle,
-      jobUrl: application.jobUrl,
-    })),
+    applications: [...applications]
+      .sort((a, b) => b.updatedAt.getTime() - a.updatedAt.getTime())
+      .slice(0, 60)
+      .map((application) => ({
+        id: application.id,
+        label: `${application.company.name} · ${application.roleTitle}`,
+        // STAGE_LABEL, not stage.toLowerCase(): the palette was the one
+        // surface that said "screen" where everything else says "Screening".
+        sub: STAGE_LABEL[application.stage],
+        stage: application.stage,
+        company: application.company.name,
+        roleTitle: application.roleTitle,
+        jobUrl: application.jobUrl,
+      })),
     companies: companies.slice(0, 60).map((company) => ({
       id: company.id,
       label: company.name,

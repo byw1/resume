@@ -120,9 +120,17 @@ export function CommandPalette({
       onOpenChange={onOpenChange}
       // Backspace on an empty box steps back out of an application's verbs,
       // the way a path does. Escape does the same before it closes.
+      // Escape steps out of an application's verbs before it closes anything.
+      // Radix handles Escape in its own capture-phase listener, so this cannot
+      // be done from the bubbled keydown below.
+      onEscapeKeyDown={(event) => {
+        if (!target) return;
+        event.preventDefault();
+        setTarget(null);
+      }}
       onKeyDown={(event) => {
         if (target) {
-          if (event.key === "Escape" || (event.key === "Backspace" && query === "")) {
+          if (event.key === "Backspace" && query === "") {
             event.preventDefault();
             setTarget(null);
           }

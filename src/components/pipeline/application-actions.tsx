@@ -110,15 +110,29 @@ export function ApplicationActions({
             size="icon-sm"
             aria-label={`Actions for ${application.company}`}
             className={cn("text-faint hover:text-foreground", className)}
-            // Keeps a press on the menu from starting a drag, and from
-            // reaching the card's own click handler underneath.
+            // The board's sensors are MouseSensor and TouchSensor, which
+            // listen for mousedown and touchstart — not pointerdown — so
+            // stopping only the pointer event let a press on the menu start a
+            // drag. Stopped rather than prevented: Radix skips its own trigger
+            // handler when the event is already defaultPrevented, and the
+            // menu would silently never open.
             onPointerDown={(event) => event.stopPropagation()}
+            onMouseDown={(event) => event.stopPropagation()}
+            onTouchStart={(event) => event.stopPropagation()}
             onClick={(event) => event.stopPropagation()}
           >
             <MoreVerticalIcon />
           </Button>
         </DropdownMenuTrigger>
-        <DropdownMenuContent align="end" onClick={(event) => event.stopPropagation()}>
+        {/* The menu and the dialog portal out of the card, but React's
+            synthetic events still bubble through the React tree — so a press
+            inside either would reach the draggable that rendered them. */}
+        <DropdownMenuContent
+          align="end"
+          onClick={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+        >
           <DropdownMenuSub>
             <DropdownMenuSubTrigger>Move to</DropdownMenuSubTrigger>
             <DropdownMenuSubContent>
@@ -198,7 +212,12 @@ export function ApplicationActions({
       </DropdownMenu>
 
       <Dialog open={logging} onOpenChange={setLogging}>
-        <DialogContent className="max-w-lg">
+        <DialogContent
+          className="max-w-lg"
+          onClick={(event) => event.stopPropagation()}
+          onMouseDown={(event) => event.stopPropagation()}
+          onTouchStart={(event) => event.stopPropagation()}
+        >
           <DialogHeader>
             <DialogTitle>Log what happened</DialogTitle>
             <DialogDescription>

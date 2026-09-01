@@ -20,8 +20,9 @@ just *talk* to it.
   but only the overdue ones", "everything from a referral that has sat a fortnight". Stage
   chips are the fast lane and the rest live behind one button, counted against what the
   other filters left. A cut worth keeping gets saved under a name. The table edits in place: stage,
-  follow-up, salary and location are the cells themselves, a Waiting column counts the days
-  since anything last moved, and selecting rows closes a batch out in one action.
+  follow-up, salary and location are the cells themselves, a Waiting column counts days in
+  the current stage and a Quiet column counts days since anything was logged — the second
+  is the one to chase on — and selecting rows closes a batch out in one action.
   Applications end as accepted, rejected, withdrawn or ghosted — silence is the most common
   ending, and filing it as a rejection makes the funnel lie about what went wrong. An
   application knows where it came from — several sources at once, because a job board

@@ -781,6 +781,11 @@ function text(value: string | undefined, limit: number = IMPORT_LIMITS.textChars
   return (value ?? "").trim().slice(0, limit);
 }
 
+/** True when text() would have cut something, so the caller can say so. */
+function wasCut(value: string | undefined, limit: number = IMPORT_LIMITS.textChars): boolean {
+  return (value ?? "").trim().length > limit;
+}
+
 /**
  * Everything a person has already written down, from a document they wrote
  * once. This is the adoption blocker made small: without it a new workspace is
@@ -871,6 +876,7 @@ export async function importIntoBrain(
   );
 
   const roleOutcomes: ImportOutcome[] = [];
+  const bulletsSeen = new Map<string, Set<string>>();
   for (const role of roles) {
     const company = text(role.company, 200);
     const title = text(role.title, 200);
@@ -883,6 +889,11 @@ export async function importIntoBrain(
       .slice(0, IMPORT_LIMITS.bulletsPerRole);
 
     if (!role.startDate) warnings.push(`${label} came with no dates.`);
+    if (wasCut(role.brainDump)) {
+      warnings.push(
+        `The raw text for ${label} was cut at ${IMPORT_LIMITS.textChars} characters. Add the rest with append_role_brain_dump.`,
+      );
+    }
     for (const bullet of bullets) {
       if (bullet.length > 400) {
         warnings.push(`A very long bullet on ${label} may be a paragraph read as one line.`);
@@ -898,7 +909,10 @@ export async function importIntoBrain(
       const created = await createRole(userId, {
         company,
         title,
-        employmentType: role.employmentType ? text(role.employmentType, 60) : undefined,
+        // Explicitly empty rather than undefined: createRole defaults a
+        // missing type to "Full-time", which would be this import stating a
+        // fact the document never did.
+        employmentType: role.employmentType ? text(role.employmentType, 60) : "",
         location: text(role.location, 200),
         startDate: text(role.startDate, 40),
         endDate: text(role.endDate, 40),
@@ -910,17 +924,28 @@ export async function importIntoBrain(
       roleId = created.id;
       roleIndex.set(key, created.id);
     }
+    // The preview has to remember what it would have created, or a document
+    // that lists the same employer twice reports two creates and performs one.
+    // The empty string is a placeholder id: outcomes on a dry run report null.
+    if (!matched && dryRun) roleIndex.set(key, "");
 
     let added = 0;
     let skipped = 0;
     if (bullets.length > 0) {
-      const existing = roleId
-        ? await db.highlight.findMany({
-            where: { userId, roleId, archived: false },
-            select: { text: true },
-          })
-        : [];
-      const seen = new Set(existing.map((highlight) => importKey(highlight.text)));
+      // Kept per role key rather than per loop iteration, so a document that
+      // lists the same employer twice dedupes its bullets the same way on a
+      // preview as on the write — the preview has no ids to read back.
+      let seen = bulletsSeen.get(key);
+      if (!seen) {
+        const existing = roleId
+          ? await db.highlight.findMany({
+              where: { userId, roleId, archived: false },
+              select: { text: true },
+            })
+          : [];
+        seen = new Set(existing.map((highlight) => importKey(highlight.text)));
+        bulletsSeen.set(key, seen);
+      }
       for (const bullet of bullets) {
         const bulletKey = importKey(bullet);
         if (seen.has(bulletKey)) {
@@ -976,6 +1001,8 @@ export async function importIntoBrain(
       });
       id = created.id;
       educationIndex.set(key, created.id);
+    } else {
+      educationIndex.set(key, "");
     }
     educationOutcomes.push({ label: school, action: "created", id });
   }
@@ -1005,6 +1032,8 @@ export async function importIntoBrain(
       });
       id = created.id;
       projectIndex.set(importKey(name), created.id);
+    } else {
+      projectIndex.set(importKey(name), "");
     }
     projectOutcomes.push({ label: name, action: "created", id });
   }
@@ -1036,6 +1065,8 @@ export async function importIntoBrain(
       });
       id = created.id;
       certIndex.set(key, created.id);
+    } else {
+      certIndex.set(key, "");
     }
     certOutcomes.push({ label: name, action: "created", id });
   }
@@ -1061,6 +1092,8 @@ export async function importIntoBrain(
         const created = await createSkillGroup(userId, { name, skills: incoming });
         id = created.id;
         storedGroups.push({ id: created.id, name, skills: incoming });
+      } else {
+        storedGroups.push({ id: "", name, skills: incoming });
       }
       skillOutcomes.push({ label: name, action: "created", id, skillsAdded: incoming.length });
       continue;

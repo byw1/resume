@@ -1,5 +1,6 @@
 import type { Stage } from "@prisma/client";
 import { TERMINAL_STAGES } from "@/lib/data/pipeline";
+import { STALE_AFTER } from "@/lib/quiet";
 
 /**
  * What the pipeline is currently showing.
@@ -148,7 +149,14 @@ export function matchesFilters(
     if (!filters.resumes.includes(value)) return false;
   }
   if (filters.waiting !== null && application.daysInStage < filters.waiting) return false;
-  if (filters.quiet !== null && application.quietDays < filters.quiet) return false;
+  if (filters.quiet !== null) {
+    // Same rule the card and the cell draw: a closed application is over and a
+    // wishlist entry was never waiting, so neither can be "gone quiet" — and
+    // closed rows have the largest quietDays in a workspace, so without this
+    // they won every filter and every sort.
+    if (STALE_AFTER[application.stage] === undefined) return false;
+    if (application.quietDays < filters.quiet) return false;
+  }
   if (filters.excitement !== null && application.excitement < filters.excitement) return false;
 
   if (filters.search) {

@@ -278,8 +278,9 @@ export function ChangesPanel({
                       <span className="text-foreground font-medium">
                         {changes.evidence.unbacked}
                       </span>{" "}
-                      of {changes.evidence.bullets.length} have nothing behind them yet — those
-                      are the lines you cannot expand on from your own material.
+                      of {changes.evidence.bullets.length}{" "}
+                      {changes.evidence.unbacked === 1 ? "has" : "have"} nothing behind them yet —
+                      those are the lines you cannot expand on from your own material.
                     </>
                   ) : (
                     <>Every bullet here traces back to something you wrote down.</>
@@ -297,6 +298,7 @@ export function ChangesPanel({
                       row.evidence.map((hit) => (
                         <div key={hit.highlightId} className="text-muted-foreground mt-0.5 text-[11.5px]">
                           {Math.round(hit.similarity * 100)}% · {hit.text}
+                          {hit.role && <span className="text-faint"> · {hit.role}</span>}
                         </div>
                       ))
                     )}

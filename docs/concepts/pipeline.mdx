@@ -207,8 +207,10 @@ counted against the rows the other filters left, so a chip never claims twelve w
 search has left one.
 
 The table edits in place: stage, follow-up, salary and location are the cells themselves,
-a **Waiting** column counts days since anything last moved, and selecting rows closes a
-batch out in one action.
+and selecting rows closes a batch out in one action. Two columns count days: **Waiting** is
+days in the current stage, **Quiet** is days since anything was logged. A call you noted
+yesterday resets Quiet and leaves Waiting alone, which is why chasing is decided on the
+second one — `qd` filters on it and `sort=quiet` orders by it.
 
 A cut worth keeping gets saved under a name. A saved view stores the pipeline URL's own
 parameters:

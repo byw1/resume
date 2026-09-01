@@ -7,7 +7,7 @@ import { ArrowDownIcon, ArrowUpIcon, FlameIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
-import { hasGoneQuiet } from "@/lib/quiet";
+import { STALE_AFTER, hasGoneQuiet } from "@/lib/quiet";
 import type { ListRow, ListSort } from "@/lib/pipeline-list";
 import { ApplicationActions } from "@/components/pipeline/application-actions";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
@@ -164,6 +164,9 @@ function Row({
   const due = values.nextFollowUpAt ? new Date(values.nextFollowUpAt) : null;
   const overdue = due ? due.getTime() < Date.now() : false;
   const closed = TERMINAL_STAGES.includes(values.stage);
+  // Null where the quiet rule has no threshold — a wishlist entry has not gone
+  // quiet because nothing was meant to happen yet, and a closed one is over.
+  const quiet = STALE_AFTER[values.stage] === undefined ? null : row.quietDays;
 
   const save = (patch: Partial<typeof values>, run: () => Promise<unknown>) => {
     const before = values;
@@ -269,13 +272,13 @@ function Row({
       <div
         className={cn(
           "nums hidden w-20 shrink-0 text-right text-[12px] md:block",
-          !closed && hasGoneQuiet(values.stage, row.quietDays, TERMINAL_STAGES)
+          hasGoneQuiet(values.stage, row.quietDays, TERMINAL_STAGES)
             ? "text-[var(--warning)] font-medium"
             : "text-faint",
         )}
-        title={closed ? undefined : `Nothing logged for ${row.quietDays} days`}
+        title={quiet === null ? undefined : `Nothing logged for ${row.quietDays} days`}
       >
-        {closed ? "—" : `${row.quietDays}d`}
+        {quiet === null ? "—" : `${quiet}d`}
       </div>
 
       <div className="hidden w-32 shrink-0 lg:block">

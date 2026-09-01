@@ -70,13 +70,19 @@ icon: "circle-question"
   </Accordion>
 
   <Accordion title="Can I import my existing resume or LinkedIn export?">
-    There is no import **tool** yet — that is the next thing being built. But there is
-    no need to wait for one, and your assistant already knows what to do.
+    Yes, and it is one call. Paste the document into your assistant and say "import
+    this": it reads the page and calls `import_resume` with what the document actually
+    says — a role per job with its bullets, education, skills, certifications, and the
+    raw text kept as a note so nothing a summary drops is lost. Ask for a dry run first
+    if you want to see what will land before it lands.
 
-    On an empty workspace the briefing tells it to ask whether you have a resume or a
-    LinkedIn export to paste, take whatever comes back, and file it itself: your profile,
-    a role per job with the raw material in its brain dump, highlights once there is
-    something to draw them from. Paste and say "file this".
+    It adds rather than overwrites. A job already on file is left exactly as it is, a
+    profile field you have filled in is kept, and skill lists merge — so importing the
+    same document twice writes nothing the second time.
+
+    If you have not connected an assistant yet, the brain page has an **Import** button
+    that takes pasted text and shows you what it read before saving anything. It guesses
+    at headings, so check it; the conversation does this properly.
 
     Treat it as a floor rather than a ceiling. A resume is the compressed version of your
     career; the point of the brain is to hold what compression threw away.

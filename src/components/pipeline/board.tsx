@@ -29,7 +29,7 @@ import {
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
-import { SHOW_QUIET_AFTER, hasGoneQuiet } from "@/lib/quiet";
+import { SHOW_QUIET_AFTER, STALE_AFTER, hasGoneQuiet } from "@/lib/quiet";
 import { ApplicationActions } from "@/components/pipeline/application-actions";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
@@ -441,7 +441,7 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
             existed to answer and could not. Below a week it is noise, so it
             says nothing; past the stage's own threshold it turns the colour
             of the diagnosis that agrees with it. */}
-        {card.quietDays >= SHOW_QUIET_AFTER && !TERMINAL_STAGES.includes(card.stage) && (
+        {card.quietDays >= SHOW_QUIET_AFTER && STALE_AFTER[card.stage] !== undefined && (
           <span
             className={cn(
               "flex items-center gap-1 text-[11px]",

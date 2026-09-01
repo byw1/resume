@@ -3153,3 +3153,100 @@ beside them to add another.
 `src/components/crm/{contact-companies,contact-detail}.tsx`,
 `src/app/(app)/crm/contacts/`, `src/app/(app)/page.tsx`, `docs/concepts/crm.mdx`,
 `skills/run-the-search/SKILL.md`.
+
+---
+
+## 2026-09-01 — Eleven improvements, and what the review found in them
+
+Both of CLAUDE.md's focus items shipped in this batch, along with nine smaller things.
+The entries below are the calls worth knowing about, not a changelog.
+
+**One rule for "gone quiet", and it is not `updatedAt`.** `diagnoseSearch` computed
+staleness privately from stage transitions, falling back to `updatedAt` — so logging a call
+left an application stalled, and dragging a card past another one (which writes a sort
+order) made a dead thread look alive. `src/lib/quiet.ts` now holds the thresholds and the
+rule, the dashboard and the board read the same numbers, and `quietDays` sits beside
+`daysInStage` on every application because they answer different questions. A stage with
+no threshold — the wishlist, the four endings — has no quiet value at all: the badge, the
+cell, the filter and the sort all agree on that, which took three separate fixes to get
+right after the review pointed out that closed rows have the largest numbers in a
+workspace and were therefore winning every sort.
+
+**Evidence is derived, never recorded.** `trace_resume_evidence` scores each resume bullet
+against the brain by word overlap rather than reading a provenance field. A field written
+when a document is seeded would be right for seeded documents and silently wrong for every
+one an assistant wrote — and a wrong provenance record is worse than none, because it is
+believed. The first version fell back to the whole brain when a bullet's own role had no
+highlights; three reviewers independently confirmed that credited a Stripe line at 100% to
+a note about another employer, with an unbacked count of zero. There is no fallback now: a
+role with nothing recorded backs nothing, which is the honest answer the unbacked list
+exists for.
+
+**Dice, not shared-over-longest.** Bullet similarity pairs "Ran the Postgres migration"
+with "Led the Postgres migration across six services" — tailoring usually makes a line
+longer, and the longest-token measure scored that pair 0.43 and reported a rewrite as an
+unrelated cut plus an unrelated addition. Dice scores it 0.55 against a 0.5 threshold.
+
+**A document's ids are not a given.** `RESUME_DOC_SHAPE` never mentions `id`, so everything
+an assistant writes has empty ids on every section and entry. Both the section pairing and
+the entry pairing need the same three-pass ladder — id, then what the row looks like, then
+position — or a base written by the app and a copy written by Claude report 100% churn.
+Two stints at one employer under one title need the dates in the fallback key.
+
+**The import adds, and the preview is the same code path.** A role already on file is left
+exactly as it is; a profile field with anything in it is kept; skill groups union. `dryRun`
+runs the reads and skips the writes, so a preview cannot disagree with what lands — except
+that it did, until the review found the in-memory indexes were only updated on the write
+path, so a document listing one employer twice previewed two creates and performed one.
+The indexes are maintained on both paths now, with an empty-string placeholder id.
+
+**`createRole` defaults `employmentType` to "Full-time", so the import writes `""`
+explicitly.** Passing `undefined` for a document that never stated a type meant the import
+asserting a fact nobody had. Worth remembering the shape of this mistake: a default that is
+sensible for a form is a fabrication when the caller is a parser.
+
+**No PDF parsing, and the paste dialog says why.** A PDF's text layer arrives in column
+order, so a two-column resume interleaves. A wrong parse of a document you cannot see the
+parse of is worse than asking for the text. The parser also learned two things from the
+review: a heading must be the whole line (a per-role "Tools: Postgres, Kafka" line was
+being read as a Skills heading and swallowing every job below it), and a stamped "Page 2 of
+3" has to be dropped rather than blanked, because a blank line separates entries and
+blanking one mid-role cut its bullets loose.
+
+**dnd-kit listens for `mousedown` and `touchstart`, not `pointerdown`.** The board's card
+actions menu stopped only the pointer event, so opening it from a card started a drag. Stop
+all three, and stop them rather than preventing them: Radix composes its own trigger
+handler after the child's and skips it entirely when the event is already
+`defaultPrevented`, so `preventDefault` opens nothing and fails silently.
+
+**Radix's menu is `role="menu"` and its select is `role="listbox"`.** The keyboard hook's
+"a modal owns the keyboard" guard only knew about `[role=dialog]`, so `j`, `n` and `?`
+fired into open dropdowns. Escape in the palette needs `onEscapeKeyDown` on the dialog
+content, not a bubbled keydown — Radix handles Escape in a capture-phase listener that runs
+first.
+
+**The palette's index came off the page-load path.** It was assembled in
+`src/app/(app)/layout.tsx`: three content queries on every navigation, for a dialog most
+navigations never open, and the only three hand-written `where: { userId }` clauses outside
+`src/lib/data/`. It fetches on open now, through the data layer, and indexes companies and
+contacts as well — and passes `includeClosed`, because `listApplications` defaults to
+hiding the endings and the layout's version had no stage filter.
+
+**No `quick_log` tool, deliberately.** The dashboard's one-line box matches a typed sentence
+against the open pipeline with a stopword table, because this app has no language model and
+self-hosting it stays one environment variable. An assistant asked the same thing resolves
+it with `list_applications` and `log_activity`, which read a pipeline better than any table
+can — so the matcher lives in the data layer and is reachable only from the box that needs
+it. Four tools for one concept would have been the worse trade.
+
+**The review paid for itself.** Eight dimensions, every finding attacked by three
+independent skeptics, then a critic pass: fifteen findings survived a majority vote and the
+critic found six more, including the wishlist badge contradicting the rule module three
+files away. Two were mine to have caught by reading (the pluralised toast, the frontmatter
+count); the rest needed either a probe or a second pair of eyes.
+
+**Applies to:** `src/lib/{quiet,quick-log,resume-diff,resume-parse}.ts`,
+`src/lib/data/{brain,resumes,pipeline,onboarding}.ts`, `src/lib/mcp/{tools,handler}.ts`,
+`src/server/actions.ts`, `src/hooks/use-keyboard-nav.ts`, `src/components/` (board, list,
+application-actions, command-palette, changes-panel, import-dialog, quick-log, setup-strip),
+`prisma/migrations/20250124000000_resume_lineage/`, and the manual.

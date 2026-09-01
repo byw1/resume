@@ -1,4 +1,5 @@
 import type { Stage } from "@prisma/client";
+import { STALE_AFTER } from "@/lib/quiet";
 
 /**
  * The list view's shape and sorting.
@@ -80,9 +81,14 @@ export function sortRows(rows: ListRow[], sort: ListSort, desc: boolean): ListRo
       case "waiting":
         return b.daysInStage - a.daysInStage;
       // Same argument, different question: what nobody has touched, rather
-      // than what has not moved.
-      case "quiet":
-        return b.quietDays - a.quietDays;
+      // than what has not moved. Rows the rule gives no threshold — closed,
+      // and the wishlist — sort last rather than first: they have the largest
+      // numbers in the workspace and none of them mean anything.
+      case "quiet": {
+        const quiet = (row: ListRow) =>
+          STALE_AFTER[row.stage] === undefined ? -1 : row.quietDays;
+        return quiet(b) - quiet(a);
+      }
       case "salary":
         // No salary sorts last either way: a blank is not "cheapest".
         return (salaryFloor(b.salaryRange) || -1) - (salaryFloor(a.salaryRange) || -1);

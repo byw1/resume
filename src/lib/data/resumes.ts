@@ -317,10 +317,14 @@ export async function traceResumeEvidence(userId: string, id: string) {
       // A bullet under a role that came from the brain is scored against that
       // role's own highlights first: crediting a Stripe line to a highlight
       // from another employer is the failure that discredits the whole thing.
-      const pool = item.roleId
+      // When the entry names a role, ONLY that role's material can back it.
+      // Falling back to the whole brain when the role has no highlights broke
+      // this in the one case the scoping exists for: a Stripe bullet credited
+      // at 100% to a note recorded against another employer, and an unbacked
+      // count of zero — the opposite of what the list is for.
+      const candidates = item.roleId
         ? highlights.filter((highlight) => highlight.roleId === item.roleId)
         : highlights;
-      const candidates = pool.length > 0 ? pool : highlights;
       for (const bullet of item.bullets) {
         const evidence = candidates
           .map((highlight) => ({

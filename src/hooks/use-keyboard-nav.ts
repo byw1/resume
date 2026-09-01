@@ -30,8 +30,13 @@ export function useKeyboardNav() {
         tag === "TEXTAREA" ||
         tag === "SELECT" ||
         target?.isContentEditable ||
-        // A dialog, a sheet or the palette owns the keyboard while it is open.
-        document.querySelector("[role=dialog], [cmdk-root]")
+        // A dialog, a sheet, a menu, a select or the palette owns the
+        // keyboard while it is open. Radix's menu is role=menu and its select
+        // is role=listbox — neither is a dialog, and neither is an input, so
+        // a guard that only knew about dialogs let j and n fire into them.
+        document.querySelector(
+          "[role=dialog],[role=menu],[role=listbox],[cmdk-root],[data-radix-popper-content-wrapper]",
+        )
       ) {
         return;
       }
