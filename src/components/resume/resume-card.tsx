@@ -50,6 +50,7 @@ export function ResumeCard({
   publicUrl,
   photoOnPublicPage,
   applications,
+  outcomes,
   isFavorite: initialFavorite,
   updatedLabel,
   children,
@@ -65,6 +66,8 @@ export function ResumeCard({
   /** True when the public page shows the owner's photo — worth a louder tooltip. */
   photoOnPublicPage: boolean;
   applications: number;
+  /** Where the applications this resume went out with actually got to. */
+  outcomes: { sent: number; interviewed: number; offers: number };
   isFavorite: boolean;
   updatedLabel: string;
   children: React.ReactNode;
@@ -227,6 +230,22 @@ export function ResumeCard({
           )}
           <span className="text-muted-foreground ml-auto text-[11px]">{updatedLabel}</span>
         </div>
+
+        {/* The track record: what actually came back from the applications
+            this document went out with. The one thing a resume tool attached
+            to a pipeline can say that a resume tool alone cannot. */}
+        {outcomes.sent > 0 && (
+          <div
+            className="text-muted-foreground mt-2 text-[11px] tabular-nums"
+            title="Counts include applications that interviewed and later closed"
+          >
+            {outcomes.sent} sent
+            {outcomes.interviewed > 0
+              ? ` · ${outcomes.interviewed} interview${outcomes.interviewed > 1 ? "s" : ""}`
+              : " · no interviews yet"}
+            {outcomes.offers > 0 && ` · ${outcomes.offers} offer${outcomes.offers > 1 ? "s" : ""}`}
+          </div>
+        )}
       </CardContent>
     </Card>
   );

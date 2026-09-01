@@ -1024,7 +1024,7 @@ export const tools: McpTool[] = [
     name: "list_resumes",
     title: "List resumes",
     description:
-      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published. Favourites come first, then most recently updated. Pass search to narrow by name, target role or target company when the user names a specific one — 'my Stripe resume' is a search, not a reason to fetch everything.",
+      "All saved resumes with their target role/company, how many applications each is attached to, and publicUrl — the shareable link, or null if that resume isn't published. Each row carries outcomes: how many applications sent with it actually went out, how many reached at least a screen, and how many reached an offer — so this is the tool that answers 'which resume is working?'. Interview and offer counts include applications that got there and later closed, not just where things stand today. Favourites come first, then most recently updated. Pass search to narrow by name, target role or target company when the user names a specific one — 'my Stripe resume' is a search, not a reason to fetch everything.",
     inputSchema: object({
       search: str("Case-insensitive filter on name, target role and target company. Omit for all."),
     }),

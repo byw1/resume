@@ -1,5 +1,5 @@
 import { randomBytes } from "node:crypto";
-import type { Prisma } from "@prisma/client";
+import type { Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 import {
@@ -37,6 +37,28 @@ export type ResumeListOpts = {
   sort?: "recent" | "name" | "used";
 };
 
+/**
+ * A resume's track record, computed from the applications it went out with.
+ *
+ * This is the question the whole product is arranged around — "which version
+ * of me gets callbacks" — and it can only be answered because the documents
+ * and the pipeline share a database. An application counts as interviewed if
+ * it sits at screen-or-later now, or if its timeline records an interview or
+ * a move to one: current stage alone would forget every application that
+ * interviewed and then closed, which is most of them.
+ */
+export type ResumeOutcomes = {
+  /** Applications that actually went out — anything past WISHLIST. */
+  sent: number;
+  /** Of those, how many reached at least a screen. */
+  interviewed: number;
+  /** How many reached an offer. */
+  offers: number;
+};
+
+const INTERVIEWED_STAGES: Stage[] = ["SCREEN", "INTERVIEW", "FINAL", "OFFER", "ACCEPTED"];
+const OFFER_STAGES: Stage[] = ["OFFER", "ACCEPTED"];
+
 export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
   const search = opts.search?.trim();
   const orderBy: Prisma.ResumeOrderByWithRelationInput[] =
@@ -45,7 +67,7 @@ export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
       : opts.sort === "used"
         ? [{ applications: { _count: "desc" } }, { updatedAt: "desc" }]
         : [{ isFavorite: "desc" }, { updatedAt: "desc" }];
-  return db.resume.findMany({
+  const rows = await db.resume.findMany({
     where: {
       userId,
       ...(search
@@ -59,7 +81,44 @@ export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
         : {}),
     },
     orderBy,
-    include: { _count: { select: { applications: true } } },
+    include: {
+      _count: { select: { applications: true } },
+      // Only what the outcome summary needs: the current stage, and the slice
+      // of the timeline that proves an interview or an offer ever happened.
+      applications: {
+        select: {
+          stage: true,
+          activities: {
+            where: {
+              OR: [
+                { type: "INTERVIEW" },
+                { type: "OFFER" },
+                { toStage: { in: INTERVIEWED_STAGES } },
+              ],
+            },
+            select: { type: true, toStage: true },
+          },
+        },
+      },
+    },
+  });
+
+  return rows.map((row) => {
+    const { applications, ...resume } = row;
+    const outcomes: ResumeOutcomes = { sent: 0, interviewed: 0, offers: 0 };
+    for (const application of applications) {
+      if (application.stage === "WISHLIST") continue;
+      outcomes.sent += 1;
+      const reached = (stages: Stage[], type: "INTERVIEW" | "OFFER") =>
+        stages.includes(application.stage) ||
+        application.activities.some(
+          (activity) =>
+            activity.type === type || (activity.toStage !== null && stages.includes(activity.toStage)),
+        );
+      if (reached(INTERVIEWED_STAGES, "INTERVIEW")) outcomes.interviewed += 1;
+      if (reached(OFFER_STAGES, "OFFER")) outcomes.offers += 1;
+    }
+    return { ...resume, outcomes };
   });
 }
 

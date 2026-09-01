@@ -91,6 +91,7 @@ export default async function ResumesPage({
                     publicUrl={resume.slug ? `${proto}://${host}/r/${resume.slug}` : null}
                     photoOnPublicPage={resume.showPhoto && Boolean(photo)}
                     applications={resume._count.applications}
+                    outcomes={resume.outcomes}
                     isFavorite={resume.isFavorite}
                     updatedLabel={resume.updatedAt.toLocaleDateString("en-US", {
                       month: "short",
