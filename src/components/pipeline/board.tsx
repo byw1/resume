@@ -303,7 +303,14 @@ function Column({
 }
 
 function DraggableCard({ card }: { card: Card }) {
-  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({ id: card.id });
+  // tabIndex -1 on the draggable, because the card inside it is already a
+  // link and therefore already focusable. Without this every card is two tab
+  // stops, the outer one announced as a draggable button that no registered
+  // sensor can actually drag — the sensors below are mouse and touch only.
+  const { attributes, listeners, setNodeRef, isDragging } = useDraggable({
+    id: card.id,
+    attributes: { tabIndex: -1 },
+  });
   // A drop is followed by a click on the element that was dragged — the
   // browser fires it on the pointerup regardless. Without this guard, filing a
   // card away would then open the panel for it. Armed during the drag, spent

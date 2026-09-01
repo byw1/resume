@@ -139,6 +139,9 @@ export async function duplicateResume(userId: string, id: string, name?: string)
       fontSize: source.fontSize,
       lineHeight: source.lineHeight,
       pageMargin: source.pageMargin,
+      // Copied like every other setting. Leaving it out meant duplicating a
+      // resume that shows your face quietly produced one that does not.
+      showPhoto: source.showPhoto,
       notes: source.notes,
       data: source.data as object,
     },

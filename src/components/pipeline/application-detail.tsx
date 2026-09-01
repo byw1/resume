@@ -59,7 +59,7 @@ import { ResumePaper, type PaperSettings } from "@/components/resume/resume-pape
 import type { ResumeDoc } from "@/lib/resume-schema";
 import { companyDomain } from "@/lib/company";
 import { useAutosave } from "@/hooks/use-autosave";
-import { ACTIVITY_LABEL, STAGES, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
+import { ACTIVITY_LABEL, ACTIVITY_OPTIONS, STAGES, STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
 import { cn, relativeDay } from "@/lib/utils";
 import {
   addActivityAction,
@@ -119,17 +119,6 @@ type Contact = {
   relationship: string;
 };
 type Task = { id: string; title: string; done: boolean; dueAt: string | null };
-
-const ACTIVITY_OPTIONS: ActivityType[] = [
-  "NOTE",
-  "OUTREACH",
-  "EMAIL_SENT",
-  "EMAIL_RECEIVED",
-  "CALL",
-  "INTERVIEW",
-  "FOLLOW_UP",
-  "REFERRAL",
-];
 
 export function ApplicationDetail({
   application,

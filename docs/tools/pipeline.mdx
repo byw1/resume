@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Twenty-seven tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Twenty-eight tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -250,6 +250,18 @@ The 'who do I need to chase today' tool. Returns two lists: applications whose f
 | Argument | Type | |
 | --- | --- | --- |
 | `withinDays` | number | Look ahead this many days. 0 = due now, 7 = due within a week. |
+
+### `snooze_follow_up`
+
+_Push a follow-up out_
+
+Move a follow-up date further out without recording anything — for a thread you have decided to leave alone a while longer. Pass an applicationId or a contactId, and days from today; the date lands at 9am so it reads as due the morning you meant to do it. This is deferral, not progress: nothing is logged and the stage does not move, so use log_follow_up instead when you actually chased it.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `applicationId` | string | The application whose follow-up moves |
+| `contactId` | string | Or the person whose ping moves |
+| `days` | number | How many days from today. 3 = the day after tomorrow but one. |
 
 ### `diagnose_search`
 

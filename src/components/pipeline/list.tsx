@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
 import { ArrowDownIcon, ArrowUpIcon, FlameIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
@@ -55,6 +55,7 @@ export function PipelineList({
   desc: boolean;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
+  const params = useSearchParams();
 
   const visibleIds = useMemo(() => rows.map((row) => row.id), [rows]);
   const chosen = useMemo(
@@ -102,7 +103,7 @@ export function PipelineList({
             <div key={column.label} className={column.className}>
               {column.key ? (
                 <Link
-                  href={sortHref(column.key, sort, desc)}
+                  href={sortHref(column.key, sort, desc, params)}
                   className="hover:text-foreground touch-target inline-flex min-h-11 items-center gap-1 transition-colors duration-150 md:min-h-0"
                 >
                   {column.label}
@@ -440,9 +441,18 @@ function BulkBar({ ids, onDone }: { ids: string[]; onDone: () => void }) {
   );
 }
 
-/** Clicking the column you're already sorted by flips the direction. */
-function sortHref(key: ListSort, sort: ListSort, desc: boolean) {
-  const params = new URLSearchParams({ view: "list", sort: key });
+/**
+ * Clicking the column you're already sorted by flips the direction.
+ *
+ * Built from the URL you are on rather than from scratch: the old version
+ * made a fresh query string, so sorting a filtered list silently threw away
+ * the filters, the search and the saved view you were looking through.
+ */
+function sortHref(key: ListSort, sort: ListSort, desc: boolean, current: URLSearchParams) {
+  const params = new URLSearchParams(current);
+  params.set("view", "list");
+  params.set("sort", key);
   if (key === sort && !desc) params.set("dir", "desc");
+  else params.delete("dir");
   return `/applications?${params}`;
 }

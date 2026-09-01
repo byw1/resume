@@ -1,6 +1,7 @@
 import { ActivityType, Prisma, Stage } from "@prisma/client";
 import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
+import { DAY, STALE_AFTER } from "@/lib/quiet";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
 /** Like brain.ts: userId is the required first argument on every query. */
@@ -78,6 +79,23 @@ export const ACTIVITY_LABEL: Record<ActivityType, string> = {
   REFERRAL: "Referral",
   OUTREACH: "Outreach",
 };
+
+/**
+ * The kinds of touch a person logs by hand, in the order a picker should
+ * offer them. The rest of ActivityType is written by the system — a stage
+ * change, an application — and offering those invites a timeline that
+ * disagrees with the board.
+ */
+export const ACTIVITY_OPTIONS: ActivityType[] = [
+  "NOTE",
+  "OUTREACH",
+  "EMAIL_SENT",
+  "EMAIL_RECEIVED",
+  "CALL",
+  "INTERVIEW",
+  "FOLLOW_UP",
+  "REFERRAL",
+];
 
 /**
  * What a brand-new workspace is offered as a one-click seed. NOT appended to
@@ -1007,10 +1025,32 @@ const FOLLOW_UP_DAYS: Partial<Record<Stage, number>> = {
 function defaultFollowUp(stage: Stage): Date | null {
   const days = FOLLOW_UP_DAYS[stage];
   if (!days) return null;
-  const d = new Date();
-  d.setDate(d.getDate() + days);
-  d.setHours(9, 0, 0, 0);
-  return d;
+  return inDays(days);
+}
+
+/**
+ * A date N days out at 9am. The hour is the whole point: a follow-up dated
+ * "now plus three days" lands mid-afternoon and reads as overdue the morning
+ * you meant to do it.
+ */
+function inDays(days: number): Date {
+  const date = new Date();
+  date.setDate(date.getDate() + days);
+  date.setHours(9, 0, 0, 0);
+  return date;
+}
+
+/**
+ * Push a follow-up out. Deferral, honestly labelled: nothing is logged and
+ * nothing moves, which is why logFollowUp exists beside it.
+ */
+export async function snoozeFollowUp(userId: string, id: string, days: number) {
+  return updateApplication(userId, id, { nextFollowUpAt: inDays(days) });
+}
+
+/** The same for a person's ping. */
+export async function snoozeContactFollowUp(userId: string, id: string, days: number) {
+  return updateContact(userId, id, { nextFollowUpAt: inDays(days) });
 }
 
 export async function moveApplicationStage(
@@ -1582,15 +1622,6 @@ export type SearchDiagnosis = {
   byResume: { id: string; name: string; sent: number; responded: number; rate: number | null }[];
 };
 
-/** How long an application can sit in a stage before it has probably died. */
-const STALE_AFTER: Partial<Record<Stage, number>> = {
-  APPLIED: 21,
-  SCREEN: 14,
-  INTERVIEW: 14,
-  FINAL: 10,
-  OFFER: 7,
-};
-
 function median(values: number[]): number | null {
   if (values.length === 0) return null;
   const sorted = [...values].sort((a, b) => a - b);
@@ -1599,8 +1630,6 @@ function median(values: number[]): number | null {
     ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
     : sorted[mid];
 }
-
-const DAY = 86_400_000;
 
 export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {
   const [applications, transitions] = await Promise.all([

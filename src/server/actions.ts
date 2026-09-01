@@ -839,20 +839,14 @@ export async function listContactsForAttachAction(applicationId: string) {
 
 export async function snoozeFollowUpAction(id: string, days: number) {
   const user = await requireUser();
-  const next = new Date();
-  next.setDate(next.getDate() + days);
-  next.setHours(9, 0, 0, 0);
-  await pipeline.updateApplication(user.id, id, { nextFollowUpAt: next });
+  await pipeline.snoozeFollowUp(user.id, id, days);
   revalidatePath("/");
   revalidatePath("/applications");
 }
 
 export async function snoozeContactFollowUpAction(id: string, days: number) {
   const user = await requireUser();
-  const next = new Date();
-  next.setDate(next.getDate() + days);
-  next.setHours(9, 0, 0, 0);
-  await pipeline.updateContact(user.id, id, { nextFollowUpAt: next });
+  await pipeline.snoozeContactFollowUp(user.id, id, days);
   revalidatePath("/");
   revalidatePath("/crm/contacts");
 }

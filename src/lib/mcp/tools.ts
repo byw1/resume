@@ -1770,6 +1770,34 @@ export const tools: McpTool[] = [
     },
   },
   {
+    name: "snooze_follow_up",
+    title: "Push a follow-up out",
+    description:
+      "Move a follow-up date further out without recording anything — for a thread you have decided to leave alone a while longer. Pass an applicationId or a contactId, and days from today; the date lands at 9am so it reads as due the morning you meant to do it. This is deferral, not progress: nothing is logged and the stage does not move, so use log_follow_up instead when you actually chased it.",
+    inputSchema: object({
+      applicationId: str("The application whose follow-up moves"),
+      contactId: str("Or the person whose ping moves"),
+      days: num("How many days from today. 3 = the day after tomorrow but one."),
+    }),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const applicationId = s(args, "applicationId");
+      const contactId = s(args, "contactId");
+      if (Boolean(applicationId) === Boolean(contactId)) {
+        throw new Error("Snooze exactly one thing: an application or a contact.");
+      }
+      const days = n(args, "days") ?? 3;
+      return applicationId
+        ? pipeline.snoozeFollowUp(ctx.userId, applicationId, days)
+        : pipeline.snoozeContactFollowUp(ctx.userId, contactId as string, days);
+    },
+  },
+  {
     name: "diagnose_search",
     title: "Diagnose the job search",
     description:
