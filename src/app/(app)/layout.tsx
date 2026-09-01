@@ -2,48 +2,28 @@ import { requireUser } from "@/lib/auth";
 import { db } from "@/lib/db";
 import { Shell } from "@/components/shell";
 import { followUpsDue } from "@/lib/data/pipeline";
-import { dateRange } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
 
+/**
+ * The chrome, and as little else as possible.
+ *
+ * This used to assemble the command palette's index too — three content
+ * queries on every single navigation, for a dialog most navigations never
+ * open, and three hand-written `where: { userId }` clauses outside
+ * src/lib/data/. The palette fetches its own index when it opens now.
+ */
 export default async function AppLayout({ children }: { children: React.ReactNode }) {
   const user = await requireUser();
 
-  const [roles, resumes, applications, followUps, profile] = await Promise.all([
-    db.role.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 30 }),
-    db.resume.findMany({ where: { userId: user.id }, orderBy: { updatedAt: "desc" }, take: 30 }),
-    db.application.findMany({
-      where: { userId: user.id },
-      orderBy: { updatedAt: "desc" },
-      take: 40,
-      include: { company: true },
-    }),
+  const [followUps, profile] = await Promise.all([
     followUpsDue(user.id, 0),
     db.profile.findUnique({ where: { userId: user.id }, select: { photo: true } }),
   ]);
 
-  const index = {
-    roles: roles.map((role) => ({
-      id: role.id,
-      label: `${role.title} · ${role.company}`,
-      sub: dateRange(role.startDate, role.endDate, role.isCurrent),
-    })),
-    resumes: resumes.map((resume) => ({
-      id: resume.id,
-      label: resume.name,
-      sub: resume.targetCompany || resume.targetRole || "",
-    })),
-    applications: applications.map((application) => ({
-      id: application.id,
-      label: `${application.company.name} · ${application.roleTitle}`,
-      sub: application.stage.toLowerCase(),
-    })),
-  };
-
   return (
     <>
       <Shell
-        index={index}
         followUpCount={followUps.length}
         user={{
           name: user.name,

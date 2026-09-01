@@ -9,6 +9,7 @@ import type { Stage } from "@prisma/client";
 import { STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
 import { hasGoneQuiet } from "@/lib/quiet";
 import type { ListRow, ListSort } from "@/lib/pipeline-list";
+import { ApplicationActions } from "@/components/pipeline/application-actions";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
 import { Button } from "@/components/ui/button";
@@ -45,6 +46,7 @@ const COLUMNS: { key: ListSort | null; label: string; className: string }[] = [
   { key: null, label: "Location", className: "w-32 shrink-0 hidden xl:block" },
   { key: null, label: "Log", className: "w-10 shrink-0 text-right hidden sm:block" },
   { key: "updated", label: "Touched", className: "w-20 shrink-0 text-right hidden sm:block" },
+  { key: null, label: "", className: "w-8 shrink-0" },
 ];
 
 export function PipelineList({
@@ -194,6 +196,7 @@ function Row({
       {/* The one cell that still navigates. */}
       <Link
         href={`/applications/${row.id}`}
+        data-nav-item
         onClick={(event) => {
           if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
           event.preventDefault();
@@ -302,6 +305,20 @@ function Row({
 
       <div className="nums text-faint hidden w-20 shrink-0 text-right text-[12px] sm:block">
         {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+      </div>
+
+      {/* The same verbs the board card offers. Two views of one pipeline
+          should not disagree about what you can do to a row. */}
+      <div className="flex w-8 shrink-0 justify-end">
+        <ApplicationActions
+          application={{
+            id: row.id,
+            company: row.company,
+            roleTitle: row.roleTitle,
+            stage: values.stage,
+            jobUrl: row.jobUrl,
+          }}
+        />
       </div>
     </li>
   );

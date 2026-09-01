@@ -125,7 +125,7 @@ export function NewApplicationDialog({
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">
+        <Button variant="default" data-new-button>
           <PlusIcon /> Track a job
         </Button>
       </DialogTrigger>

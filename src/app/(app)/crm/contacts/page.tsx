@@ -177,6 +177,7 @@ export default async function ContactsPage({
                       clickable in their own right. */}
                   <Link
                     href={`/crm/contacts/${contact.id}`}
+                    data-nav-item
                     className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 pl-4 before:absolute before:inset-0"
                   >
                     <CompanyAvatar name={contact.name} domain={null} size={26} />

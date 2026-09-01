@@ -64,7 +64,7 @@ export function NewRoleDialog() {
   return (
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
-        <Button variant="default">
+        <Button variant="default" data-new-button>
           <PlusIcon /> Add role
         </Button>
       </DialogTrigger>

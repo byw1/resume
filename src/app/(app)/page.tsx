@@ -5,9 +5,7 @@ import {
   CircleUserRoundIcon,
   CalendarClockIcon,
   CheckCircle2Icon,
-  FileTextIcon,
   FlameIcon,
-  PlugZapIcon,
   SparklesIcon,
   TargetIcon,
   TrendingUpIcon,
@@ -39,13 +37,15 @@ import { relativeDay, truncate } from "@/lib/utils";
 import { TaskList } from "@/components/dashboard/task-list";
 import { FollowUpList } from "@/components/dashboard/follow-up-list";
 import { DiagnosisCard } from "@/components/dashboard/diagnosis";
+import { SetupStrip } from "@/components/dashboard/setup-strip";
+import { setupStatus } from "@/lib/data/onboarding";
 import { QuickLog } from "@/components/dashboard/quick-log";
 
 export const dynamic = "force-dynamic";
 
 export default async function DashboardPage() {
   const user = await requireUser();
-  const [stats, diagnosis, followUps, contactPings, tasks, activities, profile, counts] =
+  const [stats, diagnosis, followUps, contactPings, tasks, activities, profile, setup, counts] =
     await Promise.all([
     pipelineStats(user.id),
     diagnoseSearch(user.id),
@@ -54,6 +54,7 @@ export default async function DashboardPage() {
     listTasks(user.id, { done: false, limit: 8 }),
     listActivities(user.id, undefined, 8),
     getProfile(user.id),
+    setupStatus(user.id),
     Promise.all([
       db.role.count({ where: { userId: user.id } }),
       db.resume.count({ where: { userId: user.id } }),
@@ -110,9 +111,9 @@ export default async function DashboardPage() {
         }
       />
 
-      {isEmpty ? (
-        <Onboarding />
-      ) : (
+      {setup.outstanding && <SetupStrip status={setup} />}
+
+      {isEmpty ? null : (
         <div className="space-y-4">
           {/* Above the numbers, because reporting what happened is the thing
               you came here to do; the numbers are what you read afterwards. */}
@@ -321,59 +322,6 @@ function StatCard({
   );
 }
 
-function Onboarding() {
-  const steps = [
-    {
-      icon: PlugZapIcon,
-      title: "Connect Claude",
-      body: "Copy your private connection URL from Settings and add it to Claude as a custom connector. Claude can then read and write everything here.",
-      href: "/settings",
-      cta: "Get my URL",
-    },
-    {
-      icon: BrainIcon,
-      title: "Dump your brain",
-      body: "Add each role and paste in everything — projects, numbers, stories, praise, failures. Length is a feature. Or just tell Claude and let it file things for you.",
-      href: "/brain",
-      cta: "Start dumping",
-    },
-    {
-      icon: FileTextIcon,
-      title: "Build a resume",
-      body: "Ask Claude to tailor a resume to a job posting. It mines your brain for real evidence, writes the bullets and saves it here, print-ready.",
-      href: "/resumes",
-      cta: "See resumes",
-    },
-  ];
-
-  return (
-    <Stagger className="grid gap-4 md:grid-cols-3">
-      {steps.map((step, i) => (
-        <StaggerItem key={step.title}>
-          <Card className="group h-full transition-shadow duration-200 ease-[var(--ease-settle)] hover:shadow-raised">
-            <CardContent className="flex h-full flex-col pt-6">
-              <div className="bg-primary-tint text-primary mb-4 flex size-10 items-center justify-center rounded-xl">
-                <step.icon className="size-[18px]" />
-              </div>
-              <div className="text-muted-foreground mb-1 text-[11px] font-semibold tracking-[0.14em] uppercase">
-                Step {i + 1}
-              </div>
-              <h3 className="text-[15px] font-semibold">{step.title}</h3>
-              <p className="text-muted-foreground mt-2 flex-1 text-sm leading-relaxed">
-                {step.body}
-              </p>
-              <Button asChild variant="outline" size="sm" className="mt-5 w-fit">
-                <Link href={step.href}>
-                  {step.cta} <ArrowRightIcon />
-                </Link>
-              </Button>
-            </CardContent>
-          </Card>
-        </StaggerItem>
-      ))}
-    </Stagger>
-  );
-}
 
 function greeting() {
   const hour = new Date().getHours();

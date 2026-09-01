@@ -7,6 +7,7 @@ import type { ActivityType, NoteKind, Stage, UserRole } from "@prisma/client";
 import * as brain from "@/lib/data/brain";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import { STAGE_LABEL } from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
 import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
@@ -27,6 +28,7 @@ import { unlinkGoogleFromUser } from "@/lib/google";
 import { sendEmail, testEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
 import { loadPosting } from "@/lib/posting";
+import { dateRange } from "@/lib/utils";
 import {
   checkLoginAllowed,
   clearLoginFailures,
@@ -665,6 +667,59 @@ export async function updateResumeAction(id: string, patch: resumes.ResumeMeta &
  * sanitises and caps every field, so a hand-edited draft is no more trusted
  * than a parsed one.
  */
+/**
+ * Everything the command palette can jump to or act on.
+ *
+ * Fetched when the palette opens rather than shipped with every page. It used
+ * to be assembled in src/app/(app)/layout.tsx, which meant three content
+ * queries on every single navigation — and, worse, three hand-written
+ * `where: { userId }` clauses outside src/lib/data/, the one place in the app
+ * that bypassed the compile-time tenant guarantee.
+ */
+export async function paletteIndexAction() {
+  const user = await requireUser();
+  const [roles, resumeList, applications, companies, contacts] = await Promise.all([
+    brain.listRoles(user.id),
+    resumes.listResumes(user.id),
+    pipeline.listApplications(user.id),
+    pipeline.listCompanies(user.id),
+    pipeline.listContacts(user.id),
+  ]);
+  return {
+    roles: roles.slice(0, 40).map((role) => ({
+      id: role.id,
+      label: `${role.title} · ${role.company}`,
+      sub: dateRange(role.startDate, role.endDate, role.isCurrent),
+    })),
+    resumes: resumeList.slice(0, 40).map((resume) => ({
+      id: resume.id,
+      label: resume.name,
+      sub: resume.targetCompany || resume.targetRole || "",
+    })),
+    applications: applications.slice(0, 60).map((application) => ({
+      id: application.id,
+      label: `${application.company.name} · ${application.roleTitle}`,
+      // STAGE_LABEL, not stage.toLowerCase(): the palette was the one surface
+      // that said "screen" where everything else says "Screening".
+      sub: STAGE_LABEL[application.stage],
+      stage: application.stage,
+      company: application.company.name,
+      roleTitle: application.roleTitle,
+      jobUrl: application.jobUrl,
+    })),
+    companies: companies.slice(0, 60).map((company) => ({
+      id: company.id,
+      label: company.name,
+      sub: company.industry || company.location || "",
+    })),
+    contacts: contacts.slice(0, 60).map((contact) => ({
+      id: contact.id,
+      label: contact.name,
+      sub: [contact.title, contact.companies[0]?.name].filter(Boolean).join(" · "),
+    })),
+  };
+}
+
 export async function importBrainAction(draft: brain.BrainImport, dryRun = false) {
   const user = await requireUser();
   const report = await brain.importIntoBrain(user.id, draft, { dryRun });

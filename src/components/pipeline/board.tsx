@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
 import { SHOW_QUIET_AFTER, hasGoneQuiet } from "@/lib/quiet";
+import { ApplicationActions } from "@/components/pipeline/application-actions";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
 import { cn, relativeDay } from "@/lib/utils";
@@ -379,10 +380,13 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
   // opens the page in a new tab, and a press that moves 6px is still a drag —
   // the sensors' activation thresholds are what keep the two gestures apart.
   const className = cn(
-    "group bg-card relative block overflow-hidden rounded-card p-3 pl-3.5 transition-shadow duration-200 ease-[var(--ease-settle)]",
+    "group bg-card relative block overflow-hidden rounded-card p-3 pr-8 pl-3.5 transition-shadow duration-200 ease-[var(--ease-settle)]",
     // A stripe of the stage's colour down the edge, so a column reads as
     // one thing at a glance and a mis-dropped card is obvious.
     "before:absolute before:inset-y-0 before:left-0 before:w-[3px] before:bg-[var(--tone)]",
+    // The link is a transparent overlay, so the focus ring has to be drawn by
+    // the card around it or keyboard focus would be invisible.
+    "has-[a:focus-visible]:ring-2 has-[a:focus-visible]:ring-[var(--ring)] has-[a:focus-visible]:outline-none",
     overlay
       ? "shadow-overlay"
       : "shadow-card hover:shadow-raised cursor-pointer active:cursor-grabbing",
@@ -473,22 +477,40 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
     );
   }
 
+  // The card is a div with a stretched link inside rather than a link wrapping
+  // everything, because the actions menu is a button and a button inside an
+  // anchor is invalid — the same arrangement the contacts list uses. The
+  // overlay keeps the whole surface clickable; the menu is positioned, so it
+  // paints above the overlay and stays clickable in its own right.
   return (
-    <Link
-      href={`/applications/${card.id}`}
-      // An anchor is natively draggable, and the browser's link-drag would
-      // wrestle dnd-kit for the gesture.
-      draggable={false}
-      onClick={(event) => {
-        if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
-        event.preventDefault();
-        openPanel(card.id);
-      }}
-      style={tone}
-      className={className}
-    >
-      {body}
-    </Link>
+    <div style={tone} className={className}>
+      <Link
+        href={`/applications/${card.id}`}
+        // An anchor is natively draggable, and the browser's link-drag would
+        // wrestle dnd-kit for the gesture.
+        draggable={false}
+        data-nav-item
+        aria-label={`${card.company} — ${card.roleTitle}`}
+        onClick={(event) => {
+          if (!openPanel || event.metaKey || event.ctrlKey || event.shiftKey) return;
+          event.preventDefault();
+          openPanel(card.id);
+        }}
+        className="absolute inset-0 z-0"
+      />
+      <div className="pointer-events-none relative">{body}</div>
+      <div className="absolute top-1.5 right-1.5 opacity-0 transition-opacity group-hover:opacity-100 focus-within:opacity-100 max-md:opacity-100">
+        <ApplicationActions
+          application={{
+            id: card.id,
+            company: card.company,
+            roleTitle: card.roleTitle,
+            stage: card.stage,
+            jobUrl: card.jobUrl,
+          }}
+        />
+      </div>
+    </div>
   );
 }
 

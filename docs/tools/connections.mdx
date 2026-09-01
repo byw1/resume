@@ -1,7 +1,7 @@
 ---
 title: "Account and connection tools"
 sidebarTitle: "Your account"
-description: "Six tools for finding out who a connection belongs to, and for managing the wiring itself without opening a browser."
+description: "Seven tools for finding out who a connection belongs to, and for managing the wiring itself without opening a browser."
 icon: "plug"
 ---
 
@@ -34,6 +34,14 @@ is a useful way to see whether anyone actually pasted it.
 _Who am I connected as_
 
 The account this connection belongs to: name, email, role, and whether it can administer the instance. Every other tool acts as this person and can only see their data.
+
+No arguments.
+
+### `get_setup_status`
+
+_How far into setup this workspace is_
+
+Three things a workspace needs before it does anything: something connected over MCP, some career material in the brain, and one job in the pipeline. Returns which are done and what each is waiting for. Worth calling when someone new asks what to do first, or when a read comes back empty and you are deciding whether that is an empty account or a wrong query — an empty brain with nothing tracked is a workspace nobody has filled yet, not a failure.
 
 No arguments.
 

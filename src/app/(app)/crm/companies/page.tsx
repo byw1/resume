@@ -172,6 +172,7 @@ export default async function CompaniesPage({
               <li key={company.id}>
                 <Link
                   href={`/crm/companies/${company.id}`}
+                  data-nav-item
                   className="hover:bg-accent/50 flex items-center gap-3 px-4 py-2.5 transition-colors duration-150"
                 >
                   <div className="flex min-w-0 flex-1 items-center gap-2.5">

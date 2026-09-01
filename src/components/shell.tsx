@@ -32,7 +32,15 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { Sheet, SheetContent, SheetTitle } from "@/components/ui/sheet";
-import { CommandPalette, type PaletteIndex } from "@/components/command-palette";
+import { CommandPalette } from "@/components/command-palette";
+import { SHORTCUTS, useKeyboardNav } from "@/hooks/use-keyboard-nav";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 import { HiredMark } from "@/components/hired-mark";
 import { UserAvatar } from "@/components/user-avatar";
 import { logoutAction } from "@/server/actions";
@@ -82,18 +90,19 @@ export type ShellUser = { name: string; email: string; role: string; photo: stri
 
 export function Shell({
   children,
-  index,
   followUpCount,
   user,
 }: {
   children: React.ReactNode;
-  index: PaletteIndex;
   followUpCount: number;
   user: ShellUser;
 }) {
   const canAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
   const pathname = usePathname();
   const [paletteOpen, setPaletteOpen] = useState(false);
+  // j/k through a list, / to search, n to create, ? for the sheet. One
+  // implementation for every screen: a row opts in by tagging its link.
+  const { showHelp, setShowHelp } = useKeyboardNav();
   const [drawerOpen, setDrawerOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [openBranches, setOpenBranches] = useState<string[]>([]);
@@ -394,7 +403,28 @@ export function Shell({
         <main className="min-w-0 flex-1">{children}</main>
       </div>
 
-      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} index={index} />
+      <CommandPalette open={paletteOpen} onOpenChange={setPaletteOpen} />
+
+      <Dialog open={showHelp} onOpenChange={setShowHelp}>
+        <DialogContent className="max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Keyboard</DialogTitle>
+            <DialogDescription className="sr-only">
+              The keys this app answers to.
+            </DialogDescription>
+          </DialogHeader>
+          <ul className="space-y-2">
+            {SHORTCUTS.map((shortcut) => (
+              <li key={shortcut.keys} className="flex items-center gap-3 text-[13px]">
+                <kbd className="bg-inset rounded-control min-w-14 px-1.5 py-0.5 text-center font-mono text-[11.5px]">
+                  {shortcut.keys}
+                </kbd>
+                <span className="text-muted-foreground">{shortcut.what}</span>
+              </li>
+            ))}
+          </ul>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

@@ -9,6 +9,7 @@ import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
+import * as onboarding from "@/lib/data/onboarding";
 import {
   getSettings,
   updateSettings,
@@ -2681,6 +2682,20 @@ export const tools: McpTool[] = [
       isAdmin: isAdmin(ctx.user),
       memberSince: ctx.user.createdAt,
     }),
+  },
+  {
+    name: "get_setup_status",
+    title: "How far into setup this workspace is",
+    description:
+      "Three things a workspace needs before it does anything: something connected over MCP, some career material in the brain, and one job in the pipeline. Returns which are done and what each is waiting for. Worth calling when someone new asks what to do first, or when a read comes back empty and you are deciding whether that is an empty account or a wrong query — an empty brain with nothing tracked is a workspace nobody has filled yet, not a failure.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => onboarding.setupStatus(ctx.userId),
   },
   {
     name: "list_connections",

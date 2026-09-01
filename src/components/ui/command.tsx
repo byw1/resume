@@ -22,10 +22,13 @@ function CommandDialog({
   children,
   open,
   onOpenChange,
+  onKeyDown,
 }: {
   children: React.ReactNode;
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** Reaches the cmdk root, so a palette with pages can step back out of one. */
+  onKeyDown?: (event: React.KeyboardEvent<HTMLDivElement>) => void;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -35,6 +38,7 @@ function CommandDialog({
       >
         <Command
           className="[&_[cmdk-group-heading]]:text-muted-foreground [&_[cmdk-group-heading]]:px-3 [&_[cmdk-group-heading]]:py-1.5 [&_[cmdk-group-heading]]:text-xs [&_[cmdk-group-heading]]:font-medium [&_[cmdk-item]]:px-3 [&_[cmdk-item]]:py-2.5 [&_[cmdk-item]_svg]:size-4"
+          onKeyDown={onKeyDown}
           loop
         >
           {children}
