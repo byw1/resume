@@ -103,6 +103,11 @@ function hostOf(value: string): string | null {
   }
 }
 
+/** Does this hostname belong to one of these? Subdomains count. */
+function hostMatches(host: string, hosts: string[]): boolean {
+  return hosts.some((candidate) => host === candidate || host.endsWith(`.${candidate}`));
+}
+
 /**
  * Which platform a pasted link belongs to, or null when it is not a link at
  * all. Anything that IS a link but matches no known host is a website.
@@ -110,10 +115,81 @@ function hostOf(value: string): string | null {
 export function detectPlatform(value: string): PlatformKey | null {
   const host = hostOf(value);
   if (!host) return null;
-  const match = PLATFORMS.find((platform) =>
-    platform.hosts.some((candidate) => host === candidate || host.endsWith(`.${candidate}`)),
-  );
+  const match = PLATFORMS.find((platform) => hostMatches(host, platform.hosts));
   return match?.key ?? "website";
+}
+
+/**
+ * The mark to print beside a link.
+ *
+ * Wider than PLATFORMS on purpose. A contact has columns for five platforms,
+ * so those are what the picker offers — but a link filed under "other" is
+ * still somebody's YouTube or Twitch, and a chain-link icon on every one of
+ * them says nothing. This list is read only for the icon: it never changes
+ * where a link is stored or which slot it lands in.
+ *
+ * Only platforms whose mark is genuinely recognisable are listed. A Bluesky
+ * link staying a chain link is better than one wearing a bird that isn't
+ * theirs.
+ */
+export type BrandKey =
+  | PlatformKey
+  | "youtube"
+  | "facebook"
+  | "twitch"
+  | "dribbble"
+  | "figma"
+  | "slack";
+
+const BRAND_HOSTS: { key: BrandKey; hosts: string[] }[] = [
+  ...PLATFORMS.filter((platform) => platform.hosts.length > 0).map((platform) => ({
+    key: platform.key as BrandKey,
+    hosts: platform.hosts,
+  })),
+  { key: "youtube", hosts: ["youtube.com", "youtu.be"] },
+  { key: "facebook", hosts: ["facebook.com", "fb.com"] },
+  { key: "twitch", hosts: ["twitch.tv"] },
+  { key: "dribbble", hosts: ["dribbble.com"] },
+  { key: "figma", hosts: ["figma.com"] },
+  { key: "slack", hosts: ["slack.com"] },
+];
+
+export const BRAND_LABEL: Record<BrandKey, string> = {
+  ...PLATFORM_LABEL,
+  youtube: "YouTube",
+  facebook: "Facebook",
+  twitch: "Twitch",
+  dribbble: "Dribbble",
+  figma: "Figma",
+  slack: "Slack",
+};
+
+/**
+ * Which mark a stored link wears. Never null: something that is not a link at
+ * all still has to render as something, and that something is a chain link.
+ */
+export function brandOf(value: string): BrandKey {
+  const host = hostOf(value);
+  if (!host) return "other";
+  const match = BRAND_HOSTS.find((brand) => hostMatches(host, brand.hosts));
+  return match?.key ?? "website";
+}
+
+/**
+ * The platform to SHOW for a stored link.
+ *
+ * What the host says, mostly — a YouTube URL sitting in the website column is
+ * still a YouTube link. The column it is filed under only gets a say when the
+ * host said nothing useful, which is what an untidy stored value ("@will",
+ * typed before there was a picker) reduces to.
+ */
+export function brandFor(value: string, filedAs?: PlatformKey): BrandKey {
+  const detected = brandOf(value);
+  if (detected !== "other" && detected !== "website") return detected;
+  if (filedAs && filedAs !== "other" && filedAs !== "website") return filedAs;
+  // A real URL nothing recognises is a website, not a chain link, whatever
+  // slot it happens to be filed in.
+  return detected;
 }
 
 /**

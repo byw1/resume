@@ -5,7 +5,9 @@ import { CrmTabs } from "@/components/crm/tabs";
 import { SearchBox } from "@/components/crm/search-box";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { NewCompanyDialog } from "@/components/crm/new-company-dialog";
+import { TagChip } from "@/components/tags/tag-chip";
 import { listCompanies, type CompanyFilter } from "@/lib/data/pipeline";
+import { tagsOfKind } from "@/lib/data/tags";
 import { requireUser } from "@/lib/auth";
 import { companyDomain } from "@/lib/company";
 import { getSettings } from "@/lib/settings";
@@ -192,12 +194,8 @@ export default async function CompaniesPage({
                       </div>
                     </div>
                   </div>
-                  <div className="text-muted-foreground hidden w-36 shrink-0 truncate text-[12px] md:block">
-                    {company.industry || "—"}
-                  </div>
-                  <div className="text-faint hidden w-36 shrink-0 truncate text-[12px] xl:block">
-                    {company.location || "—"}
-                  </div>
+                  <TagCell tags={tagsOfKind(company.tags, "INDUSTRY")} className="md:flex" />
+                  <TagCell tags={tagsOfKind(company.tags, "LOCATION")} className="xl:flex" />
                   <div className="nums text-muted-foreground hidden w-24 shrink-0 text-right text-[12px] sm:block">
                     {company.lastAppliedAt ? agoDay(company.lastAppliedAt) : "never"}
                   </div>
@@ -224,5 +222,24 @@ export default async function CompaniesPage({
         </p>
       )}
     </PageShell>
+  );
+}
+
+/**
+ * One column of tags, clipped to the width the header reserved.
+ *
+ * Industry and location were single strings and are lists now, so a cell that
+ * truncated text has to wrap chips instead — and stay one line, because the row
+ * next to it is a fixed-height link.
+ */
+function TagCell({ tags, className }: { tags: { id: string; name: string; color: string }[]; className?: string }) {
+  return (
+    <div className={cn("hidden w-36 shrink-0 items-center gap-1 overflow-hidden", className)}>
+      {tags.length === 0 ? (
+        <span className="text-faint text-[12px]">—</span>
+      ) : (
+        tags.map((tag) => <TagChip key={tag.id} tag={tag} className="shrink-0" />)
+      )}
+    </div>
   );
 }

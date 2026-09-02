@@ -4,7 +4,8 @@ import { ArrowLeftIcon } from "lucide-react";
 import { PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
-import { getApplication, listCompanies, listSources } from "@/lib/data/pipeline";
+import { getApplication, listCompanies } from "@/lib/data/pipeline";
+import { listTags } from "@/lib/data/tags";
 import { getResume, listResumeNames } from "@/lib/data/resumes";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
@@ -15,10 +16,10 @@ export const dynamic = "force-dynamic";
 export default async function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [application, resumes, sourceOptions, companies, { companyLogos }] = await Promise.all([
+  const [application, resumes, tagOptions, companies, { companyLogos }] = await Promise.all([
     getApplication(user.id, id),
     listResumeNames(user.id),
-    listSources(user.id),
+    listTags(user.id, "APPLICATION"),
     listCompanies(user.id),
     getSettings(),
   ]);
@@ -49,7 +50,7 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             location: application.location,
             workMode: application.workMode,
             salaryRange: application.salaryRange,
-            sources: application.sources,
+            tags: application.tags,
             excitement: application.excitement,
             fit: application.fit,
             notes: application.notes,
@@ -78,7 +79,12 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
             dueAt: task.dueAt?.toISOString() ?? null,
           }))}
           resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
-          sourceOptions={sourceOptions.map((source) => ({ id: source.id, name: source.name, color: source.color, applications: source._count.applications }))}
+          tagOptions={tagOptions.map((tag) => ({
+                id: tag.id,
+                name: tag.name,
+                color: tag.color,
+                count: tag._count.applications + tag._count.companies + tag._count.contacts,
+              }))}
           company={{
             id: application.companyId,
             name: application.company.name,

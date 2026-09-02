@@ -65,7 +65,7 @@ rotation, because they mean something other than progress.
     `capture_job_posting` fetches the page server-side, reads the structured posting data
     most job boards publish, and creates the application in one move — company matched or
     created with its own website, role title, full description, location, compensation
-    and source, starting on the wishlist.
+    and where it came from, starting on the wishlist.
   </Card>
   <Card title="By hand" icon="pen-to-square">
     `create_application` needs only `company` and `roleTitle`. The company is created
@@ -85,28 +85,33 @@ because an employer guessed from a URL is worse than an employer you were asked 
 ### A listing is optional
 
 A role you are chasing through a LinkedIn DM with no posting at all is still an
-application. Track it with just company and role title, put `Cold outreach` in `sources`,
+application. Track it with just company and role title, put `Cold outreach` in `tags`,
 and attach the person you messaged as a contact.
 
-### Where it came from
+### Tags
 
-`sources` is a list, because a job board posting, a referral and a LinkedIn message are
-often the same job.
+`tags` is a list, because a job board posting, a referral and a LinkedIn message are often
+the same job. It is where an application came from, and anything else you want to file it
+under.
 
-Sources are categories you own, not free text: each one is a record with a name and a
-colour, and `create_source`, `update_source` and `delete_source` manage them. Deleting one
-takes it off every application that carried it and leaves those applications otherwise
-untouched — unlike `delete_company`, which refuses. A label you cannot remove is worse than
-one you delete by mistake.
+Tags are records you own, not free text: each one is a name and a colour, and `list_tags`,
+`create_tag`, `update_tag` and `delete_tag` manage them. The same table holds the labels on
+companies and people — `kind` says which list a tag belongs to, so a location called
+`Remote` never collides with a way of working called `Remote`. Deleting a tag takes it off
+everything that carried it and leaves those records otherwise untouched — unlike
+`delete_company`, which refuses. A label you cannot remove is worse than one you delete by
+mistake.
 
-Write them by `sourceIds` when you have them, or by name in `sources`. Names are matched
+Write them by `tagIds` when you have them, or by name in `tags`. Names are matched
 case-insensitively against what exists — `linkedin` lands on your existing `LinkedIn` — and
-a category is created only when nothing matches. Call `list_application_sources` first
-either way.
+a tag is created only when nothing matches. Call `list_tags` first either way.
 
 <Note>
-  Both `sourceIds` and `sources` REPLACE the whole set on an application, like every other
-  array in this API. Read the current one with `get_application` before writing it back.
+  Both `tagIds` and `tags` REPLACE the whole set on an application, like every other array
+  in this API. Read the current one with `get_application` before writing it back.
+
+  `sources`, `sourceIds` and `source` still work: tags were called sources until they grew
+  to cover companies and people too. `tags` wins wherever both are passed.
 </Note>
 
 A new workspace is offered LinkedIn, Job board, Company site, Referral, Recruiter reached
@@ -153,7 +158,7 @@ Moving out of `WISHLIST` for the first time also stamps the applied date, if it 
 already set.
 
 Contacts have their own version: `nextFollowUpAt` on a person is where "ping Sarah in two
-weeks" lives.
+weeks" lives. In the app, both land on **Tasks**.
 
 ### Three ways to ask what is due
 
@@ -168,6 +173,7 @@ weeks" lives.
   </Card>
   <Card title="list_tasks" icon="square-check">
     To-dos, with or without a due date, optionally attached to an application.
+    `update_task` moves one, `complete_task` ticks it off, `delete_task` removes it.
   </Card>
 </CardGroup>
 
@@ -201,7 +207,7 @@ a month **calendar** of everything with a date on it — plus the stage filter a
 Filters combine — all of them, with each other. "Screening and interviewing" is one view
 rather than two trips, and so are "screening but only the overdue ones" and "closed, but
 only the ghostings". The stage chips are the fast lane; everything unbounded lives behind
-the **Filter** button beside the search: the source it came from, the company, which resume
+the **Filter** button beside the search: its tags, the company, which resume
 went out, how long it has sat still, and how much you want it. Every count you see is
 counted against the rows the other filters left, so a chip never claims twelve when the
 search has left one.
@@ -223,13 +229,13 @@ view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc
 | --- | --- |
 | `view` | `board`, `list`, `calendar` |
 | `f` | Comma-separated stages, plus `overdue` as a flag. `closed` expands to the four endings. |
-| `src` | Comma-separated source ids |
+| `src` | Comma-separated tag ids. Spelled `src` because tags were called sources when saved views started storing them, and renaming it would break every view already saved. |
 | `co` | Comma-separated company ids |
 | `cv` | Comma-separated resume ids, or `none` for the ones with no resume attached |
 | `w` | Minimum days sitting in the current stage |
 | `x` | Minimum excitement, 1-5 |
 | `sort`, `dir` | Column and direction |
-| `q` | Search text — company, role, notes, location, work mode, the posting, and source names |
+| `q` | Search text — company, role, notes, location, work mode, the posting, and tag names |
 | `month` | `YYYY-MM`, for the calendar view |
 
 Saving under a name that already exists replaces that view, which is how you edit one.
@@ -268,5 +274,13 @@ The dashboard leads with what is due and what has gone quiet. **Pipeline** is th
 table and calendar. Opening an application slides it in from the right, so you keep your
 place on the board — posting, timeline, contacts, tasks and the resume you attached, all
 on one panel.
+
+**Tasks** is the page you clear the list from, and the dashboard's five-line version links
+to it. Two columns, deliberately not merged: the things you wrote down, grouped by overdue,
+today, the next seven days, later and undated — each one rewordable, re-datable and
+attachable to a role in place — and beside them the chase list, the follow-ups and pings
+whose dates have come round, where the verbs are "logged it" and "push it out three days".
+Ticking a task and logging a chase mean different things, so they do not share a column.
+Scheduling a new ping lives there too.
 
 Everything here is reachable by conversation — see [the pipeline tools](/tools/pipeline).

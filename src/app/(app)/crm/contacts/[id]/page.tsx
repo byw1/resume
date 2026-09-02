@@ -45,10 +45,8 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
             otherLinks: contact.otherLinks,
             relationship: contact.relationship,
             notes: contact.notes,
-            nextFollowUpAt: contact.nextFollowUpAt
-              ? contact.nextFollowUpAt.toISOString().slice(0, 10)
-              : "",
           }}
+          tags={contact.tags}
           touches={contact.activities.map((activity) => ({
             id: activity.id,
             type: activity.type,

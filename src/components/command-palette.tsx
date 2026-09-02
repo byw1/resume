@@ -11,6 +11,7 @@ import {
   CircleUserRoundIcon,
   FileTextIcon,
   KanbanIcon,
+  ListChecksIcon,
   LayoutDashboardIcon,
   PlusIcon,
   SettingsIcon,
@@ -228,6 +229,9 @@ export function CommandPalette({
               </CommandItem>
               <CommandItem value="go-pipeline" onSelect={() => go("/applications")}>
                 <KanbanIcon /> Pipeline
+              </CommandItem>
+              <CommandItem value="go-tasks" onSelect={() => go("/tasks")}>
+                <ListChecksIcon /> Tasks
               </CommandItem>
               <CommandItem value="go-companies" onSelect={() => go("/crm/companies")}>
                 <BuildingIcon /> Companies

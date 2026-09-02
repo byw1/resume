@@ -77,7 +77,7 @@ model User {
   activities     Activity[]
   tasks          Task[]
   savedViews     SavedView[]
-  sources        Source[]
+  tags           Tag[]
   pipelineShare  PipelineShare?
 
   @@index([role])
@@ -570,15 +570,16 @@ model Company {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
   name      String
   website   String   @default("")
-  industry  String   @default("")
-  size      String   @default("")
-  location  String   @default("")
   notes     String   @default("")
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 
   applications Application[]
   contacts     ContactCompany[]
+  /// Industry, size, location and free tags, all as rows the person owns. They
+  /// were three String columns, which meant one value each, no way to correct
+  /// a typo everywhere at once, and no way to ask "who else is fintech".
+  tags         CompanyTag[]
 
   @@unique([userId, name])
   @@index([userId])
@@ -598,11 +599,11 @@ model Application {
   location       String    @default("")
   workMode       String    @default("")
   salaryRange    String    @default("")
-  /// Where this one came from. Rows the person owns rather than free strings,
-  /// so a channel can be renamed, recoloured and — the point — deleted. The
-  /// field name stays `sources`: the data layer flattens the join rows back to
-  /// { id, name, color } before anything else sees them.
-  sources        ApplicationSource[]
+  /// Where this one came from, and anything else worth labelling it with.
+  /// Rows the person owns rather than free strings, so a label can be renamed,
+  /// recoloured and — the point — deleted. The data layer flattens the join
+  /// rows back to { id, name, color } before anything else sees them.
+  tags           ApplicationTag[]
   /// 1-5 how much you want this
   excitement     Int       @default(3)
   /// 1-5 how strong a fit you are
@@ -633,10 +634,26 @@ model Application {
 /// renamed, recoloured and deleted; deleting takes it off the applications
 /// that carried it and leaves them otherwise untouched, because a label that
 /// refuses to die is the bug this replaces.
-model Source {
-  id     String @id @default(cuid())
+/// What a tag labels. One table rather than six, because everything about a
+/// tag — the name, the colour, renaming it everywhere, deleting it — is the
+/// same code whatever it labels, and a person who learns the picker once has
+/// learned all of them.
+enum TagKind {
+  /// Where an application came from. These were the old Source rows.
+  APPLICATION
+  COMPANY
+  CONTACT
+  /// The three that used to be String columns on Company.
+  INDUSTRY
+  SIZE
+  LOCATION
+}
+
+model Tag {
+  id     String  @id @default(cuid())
   userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user   User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind   TagKind @default(APPLICATION)
   name   String
   /// lower(trim(name)). Case-insensitive uniqueness is the whole point —
   /// "LinkedIn" and "linkedin" are one channel — and Prisma cannot express a
@@ -646,26 +663,51 @@ model Source {
   /// is right in exactly one theme.
   color  String @default("slate")
 
-  applications ApplicationSource[]
+  applications ApplicationTag[]
+  companies    CompanyTag[]
+  contacts     ContactTag[]
   createdAt    DateTime @default(now())
   updatedAt    DateTime @default(now()) @updatedAt
 
-  @@unique([userId, key])
-  @@index([userId, name])
+  /// Per kind, so "Remote" can be a location and a tag without colliding.
+  @@unique([userId, kind, key])
+  @@index([userId, kind, name])
 }
 
-/// The join. Explicit rather than Prisma's implicit m2m because the migration
-/// has to write these rows in raw SQL, and an implicit table's name and its
+/// The joins. Explicit rather than Prisma's implicit m2m because the migrations
+/// have to write these rows in raw SQL, and an implicit table's name and its
 /// "A"/"B" columns are a convention of Prisma's rather than a contract.
-model ApplicationSource {
+model ApplicationTag {
   applicationId String
   application   Application @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  sourceId      String
-  source        Source      @relation(fields: [sourceId], references: [id], onDelete: Cascade)
+  tagId         String
+  tag           Tag         @relation(fields: [tagId], references: [id], onDelete: Cascade)
   createdAt     DateTime    @default(now())
 
-  @@id([applicationId, sourceId])
-  @@index([sourceId])
+  @@id([applicationId, tagId])
+  @@index([tagId])
+}
+
+model CompanyTag {
+  companyId String
+  company   Company  @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([companyId, tagId])
+  @@index([tagId])
+}
+
+model ContactTag {
+  contactId String
+  contact   Contact  @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  tagId     String
+  tag       Tag      @relation(fields: [tagId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@id([contactId, tagId])
+  @@index([tagId])
 }
 
 model Contact {
@@ -701,6 +743,8 @@ model Contact {
   applicationId String?
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
   activities    Activity[]
+  /// How this person is filed: "recruiter", "warm intro", "ex-colleague".
+  tags          ContactTag[]
   createdAt     DateTime     @default(now())
   updatedAt     DateTime     @default(now()) @updatedAt
 
@@ -708,7 +752,7 @@ model Contact {
   @@index([userId, updatedAt])
 }
 
-/// The join, explicit for the same reason ApplicationSource is: the migration
+/// The join, explicit for the same reason ApplicationTag is: the migration
 /// backfills these rows in raw SQL from the old Contact.companyId column, and
 /// an implicit table's name and its "A"/"B" columns are Prisma's convention
 /// rather than a contract. Cascades on both sides — deleting a company drops

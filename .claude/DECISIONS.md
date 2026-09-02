@@ -3452,3 +3452,69 @@ so there is still one filing path. Two lessons worth the space: a migration dire
 is a shared namespace, and the file has to match the one already applied byte for byte;
 and when two branches solve the same problem, the one that shipped wins even when the other
 is more thorough, because the diff nobody can review is the one that breaks.
+
+
+---
+
+## 2026-09-02 — One catalogue for every label, and a page to work the list from
+
+Six asks, one shape underneath: industry, size and location should be multi-select and
+editable; applications' "sources" should be called tags; companies and people should have
+tags of their own; the ping date should leave the CRM record; there should be a tasks page;
+and a contact's links should look like the platforms they point at.
+
+**`Source` became `Tag`, keyed by `kind`.** One table, one picker, one set of tools. The
+enum is APPLICATION, COMPANY, CONTACT, INDUSTRY, SIZE, LOCATION, uniqueness is
+`(userId, kind, key)` on a case-folded key, and three join tables hang off it. The
+alternative — a table per list — would have been five more migrations, five more pickers
+and five more sets of CRUD tools for one idea. The migration renames in place rather than
+creating and copying, so tag ids survive; that matters because the pipeline's saved views
+store them, and a view is a URL a person may have pasted somewhere.
+
+**The URL still says `src`.** `PipelineFilters.sources` is now `.tags` and the filter menu
+says Tags, but the query parameter stays `src` — every saved view already contains it, and
+renaming a parameter for tidiness breaks views nobody can get back. The comment on the
+field says so, because the next person to see `src` will want to fix it.
+
+**Industry, size and location as three lists in one join.** A company's four tag sets share
+`CompanyTag`, which means a naive replace-the-set write takes the other three with it.
+`writeCompanyTags` deletes only the kind being written, and a set the patch is silent about
+is left alone. The probe that proved it is the one worth keeping in mind: set all four,
+clear one, check the other three are still there.
+
+**Two bugs the probe caught that typecheck could not.** `writeCompanyTags` was written and
+never called, so company tags were silently dropped; and `updateCompany` decided "no such
+company" from `updateMany`'s count, which is zero for a patch that touches no columns — so
+saving only tags threw. Both are the same lesson: a write path with no round trip through a
+real database is a write path nobody has run.
+
+**Contact pings moved to `/tasks`.** The date box on a contact record was in the wrong
+place — you are reading about a person, not planning a week — but deleting it would have
+left no way to schedule one at all. So the tasks page has the picker: who, and when. The
+page keeps two columns rather than merging them, because ticking a task and logging a chase
+are different acts with different consequences; a merged list would make "logged it" and
+"done" look interchangeable.
+
+**Tasks became editable.** They were write-once and tick-once: `updateTask`, `update_task`
+and `delete_task` exist now because a page that lists a stale task with no way to move it
+is worse than no page.
+
+**Link icons are read off the URL, not the column.** `brandFor(value, filedAs)` prefers
+what the host says and falls back to the field only when the host says nothing useful —
+so a YouTube link in the website slot wears YouTube's mark, and an "@will" typed before
+there was a picker still wears X's. The brand list is deliberately wider than `PLATFORMS`
+(which drives the five named columns) and deliberately shorter than "every platform":
+a Bluesky link staying a chain link is better than one wearing a bird that is not theirs.
+The X mark is hand-drawn in `platform-icon.tsx` because lucide's `TwitterIcon` is still
+the old bird and one glyph is not worth a dependency.
+
+**The generator now owns the frontmatter counts.** They had drifted on two pages —
+pipeline said twenty-nine when it had thirty-two — for exactly the reason CLAUDE.md
+predicted: they sit above the first "### `" heading, so nothing owned them. Twenty lines
+in `gen-tool-docs.mjs` spell the count and rewrite the first word of each `description:`.
+`--check` catches it now.
+
+**Applies to:** `prisma/schema.prisma` + `20250125000000_tags`, `src/lib/data/tags.ts`,
+`src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/lib/social.ts`, `src/lib/pipeline-filters.ts`, `src/components/tags/`,
+`src/components/tasks/`, `src/components/crm/`, `src/app/(app)/tasks/`, and the manual.

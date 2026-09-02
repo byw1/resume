@@ -2,6 +2,8 @@ import type { ActivityType, NoteKind, Stage, User, UserRole } from "@prisma/clie
 import * as me from "@/lib/data/me";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import * as tags from "@/lib/data/tags";
+import type { TagKind } from "@prisma/client";
 import * as views from "@/lib/data/views";
 import * as audit from "@/lib/data/audit";
 import * as system from "@/lib/data/system";
@@ -193,7 +195,8 @@ function enumArg<T extends string>(args: Json, key: string, allowed: readonly T[
   throw new Error(`Unknown ${key} "${value}". Use one of: ${allowed.join(", ")}.`);
 }
 
-const SOURCE_COLOR_VALUES = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"] as const;
+const TAG_COLORS = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"] as const;
+const TAG_KINDS = ["APPLICATION", "COMPANY", "CONTACT", "INDUSTRY", "SIZE", "LOCATION"] as const;
 const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"] as const;
 const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"] as const;
 
@@ -1757,34 +1760,33 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => pipeline.captureJobPosting(ctx.userId, required(args, "url")),
   },
   {
-    name: "list_application_sources",
-    title: "List the source categories on file",
+    name: "list_tags",
+    title: "List the tags on file",
     description:
-      "The channels this person has, as records they own: id, name, colour and how many applications carry each. Call it before writing sources on create_application or update_application — passing an existing id is exact, and passing a name that already exists matches it case-insensitively rather than creating a twin. Read-only.",
-    inputSchema: object({}),
+      "Every label this person owns, as records rather than free strings: id, kind, name, colour, and how many applications, companies and contacts wear each. Six kinds, and they are separate lists that never collide — APPLICATION (where a job came from: LinkedIn, a referral, cold outreach), COMPANY, CONTACT (how a person is filed: recruiter, ex-colleague), INDUSTRY, SIZE and LOCATION (the three that used to be free-text fields on a company). Call this before writing tags anywhere: passing an existing id is exact, and passing a name that already exists matches it case-insensitively rather than creating a twin. Read-only.",
+    inputSchema: object({
+      kind: { type: "string", enum: [...TAG_KINDS], description: "Only this kind. Omit for all of them." },
+    }),
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (_args, ctx) => pipeline.listSources(ctx.userId),
+    handler: async (args, ctx) => tags.listTags(ctx.userId, enumArg(args, "kind", TAG_KINDS) as TagKind | undefined),
   },
   {
-    name: "create_source",
-    title: "Create a source category",
+    name: "create_tag",
+    title: "Create a tag",
     description:
-      "Add a channel applications can be filed under — 'LinkedIn', 'Referral', 'Cold outreach', or whatever this person actually uses. Names are unique per person and case-insensitive, so creating one that exists in any casing is an error rather than a silent duplicate. You rarely need this: passing a new name to create_application or update_application creates it. Reach for it when someone is setting their categories up deliberately, or wants one in a particular colour.",
+      "Add a label of one kind. Usually unnecessary — writing a name that does not exist on an application, company or contact creates it — so reach for this when someone is setting up their vocabulary deliberately, or wants a specific colour. Colours are palette names, not hex: slate, blue, teal, green, amber, red, violet or pink. Refuses a name that already exists in that kind, case-insensitively, and says which one it clashed with.",
     inputSchema: object(
       {
-        name: str("What to call it, e.g. 'Referral'"),
-        color: {
-          type: "string",
-          enum: SOURCE_COLOR_VALUES,
-          description: "Swatch for its chip. Defaults to slate.",
-        },
+        kind: { type: "string", enum: [...TAG_KINDS], description: "What this labels" },
+        name: str("What it is called, e.g. 'Fintech', 'Referral', 'Remote'"),
+        color: { type: "string", enum: [...TAG_COLORS], description: "Palette name. Default slate." },
       },
-      ["name"],
+      ["kind", "name"],
     ),
     annotations: {
       readOnlyHint: false,
@@ -1793,25 +1795,22 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      pipeline.createSource(ctx.userId, {
+      tags.createTag(ctx.userId, {
+        kind: required(args, "kind") as TagKind,
         name: required(args, "name"),
         ...defined({ color: s(args, "color") }),
       }),
   },
   {
-    name: "update_source",
-    title: "Rename or recolour a source",
+    name: "update_tag",
+    title: "Rename or recolour a tag",
     description:
-      "Change a source category's name or colour. Renaming updates it everywhere at once, because applications carry the row rather than a copy of its text — which is the point of these being records. A name that collides with another source, in any casing, is refused.",
+      "Change a tag's name or colour in one place, and everything wearing it follows — which is the whole reason these are rows rather than strings. Renaming 'Fintech' to 'Financial services' updates every company at once. The kind cannot be changed: a location is not an industry, and moving one would silently reclassify everything wearing it.",
     inputSchema: object(
       {
-        id: str("Source id"),
+        id: str("Tag id from list_tags"),
         name: str("New name"),
-        color: {
-          type: "string",
-          enum: SOURCE_COLOR_VALUES,
-          description: "New swatch",
-        },
+        color: { type: "string", enum: [...TAG_COLORS], description: "New palette colour" },
       },
       ["id"],
     ),
@@ -1822,25 +1821,40 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      pipeline.updateSource(
-        ctx.userId,
-        required(args, "id"),
-        defined({ name: s(args, "name"), color: s(args, "color") }),
-      ),
+      tags.updateTag(ctx.userId, required(args, "id"), {
+        ...defined({ name: s(args, "name"), color: s(args, "color") }),
+      }),
   },
   {
-    name: "delete_source",
-    title: "Delete a source category",
+    name: "delete_tag",
+    title: "Delete a tag",
     description:
-      "Remove a channel. Unlike delete_company this never refuses: it comes off every application carrying it and those applications are otherwise untouched — a label you cannot remove is worse than one you delete by mistake, and re-adding it is one call. Returns detachedFrom, how many applications stopped wearing it, so you can say what happened.",
-    inputSchema: object({ id: str("Source id") }, ["id"]),
+      "Remove a label for good. It comes off everything that wore it and nothing else changes — no application, company or contact is deleted, they simply stop carrying that label. Returns how many things it was taken off, which is worth reporting back before someone assumes it was unused. This is the tool for tidying up a list that has filled with near-duplicates.",
+    inputSchema: object({ id: str("Tag id from list_tags") }, ["id"]),
     annotations: {
       readOnlyHint: false,
       destructiveHint: true,
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => pipeline.deleteSource(ctx.userId, required(args, "id")),
+    handler: async (args, ctx) => tags.deleteTag(ctx.userId, required(args, "id")),
+  },
+  {
+    name: "seed_tags",
+    title: "Offer the starter tags for a kind",
+    description:
+      "Create the handful of obvious labels for one kind, skipping any the person already has: the usual channels for APPLICATION, the usual relationships for CONTACT, and a set of headcount bands for SIZE. Nothing is imposed — these become ordinary rows they can rename, recolour or delete. Returns the whole list for that kind afterwards. There is nothing sensible to seed for COMPANY, INDUSTRY or LOCATION, and asking for those returns what is already there.",
+    inputSchema: object(
+      { kind: { type: "string", enum: [...TAG_KINDS], description: "Which list to seed" } },
+      ["kind"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => tags.seedTags(ctx.userId, required(args, "kind") as TagKind),
   },
   {
     name: "create_application",
@@ -1858,11 +1872,12 @@ export const tools: McpTool[] = [
         location: str("Job location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Advertised or expected compensation"),
-        sourceIds: strArray("Source ids from list_application_sources. Exact; wins over sources."),
-        sources: strArray(
-          "Where it came from by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the categories that exist and created only when nothing matches, so call list_application_sources first.",
+        tagIds: strArray("Tag ids from list_tags, kind APPLICATION. Exact; wins over tags."),
+        tags: strArray(
+          "How to file it, by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the tags that exist and created only when nothing matches, so call list_tags first.",
         ),
-        source: str("Legacy single-source spelling. Prefer sources; ignored when sources is passed."),
+        sources: strArray("What tags used to be called. Still works; tags wins."),
+        source: str("The old single-value spelling. Ignored when tags or sources is passed."),
         excitement: num("1-5 how much they want this"),
         fit: num("1-5 how strong a fit they are"),
         notes: str("Any notes"),
@@ -1890,7 +1905,8 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
-          sourceIds: a(args, "sourceIds"),
+          tagIds: a(args, "tagIds"),
+          tags: a(args, "tags"),
           sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
@@ -1919,10 +1935,11 @@ export const tools: McpTool[] = [
         location: str("Location"),
         workMode: str("Remote | Hybrid | On-site"),
         salaryRange: str("Compensation"),
-        sourceIds: strArray("Source ids. Exact; wins over sources. REPLACES the whole set."),
-        sources: strArray("Source names — REPLACES the whole set, matched or created as above"),
+        tagIds: strArray("Tag ids. Exact; wins over tags. REPLACES the whole set."),
+        tags: strArray("Tag names — REPLACES the whole set, matched or created as above"),
+        sources: strArray("What tags used to be called. REPLACES the whole set; tags wins."),
         source: str(
-          "Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed.",
+          "The old single-value spelling. WARNING: this also REPLACES the entire set with just this one value — read the current list from get_application first, or use tags to write the full list. Ignored when tags or sources is passed.",
         ),
         excitement: num("1-5"),
         fit: num("1-5"),
@@ -1951,7 +1968,8 @@ export const tools: McpTool[] = [
           location: s(args, "location"),
           workMode: s(args, "workMode"),
           salaryRange: s(args, "salaryRange"),
-          sourceIds: a(args, "sourceIds"),
+          tagIds: a(args, "tagIds"),
+          tags: a(args, "tags"),
           sources: a(args, "sources"),
           source: s(args, "source"),
           excitement: n(args, "excitement"),
@@ -2256,7 +2274,7 @@ export const tools: McpTool[] = [
     name: "save_view",
     title: "Save a pipeline view under a name",
     description:
-      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated source ids from list_application_sources); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); x (minimum excitement, 1-5); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and source names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.",
+      "Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated tag ids from list_tags); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); x (minimum excitement, 1-5); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and tag names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.",
     inputSchema: object(
       {
         name: str("What to call it, e.g. 'Chasing'"),
@@ -2311,15 +2329,20 @@ export const tools: McpTool[] = [
   {
     name: "list_tasks",
     title: "List tasks",
-    description: "To-dos, optionally attached to an application.",
-    inputSchema: object({ done: bool("Filter by completion state. Omit for all.") }),
+    description:
+      "To-dos, each optionally attached to an application and with a due date. Open ones first, soonest due first. This is what someone means by 'what do I need to do' — pair it with list_follow_ups, which covers the chasing this list deliberately does not: an application's follow-up date and a person's ping are not tasks and never appear here.",
+    inputSchema: object({
+      done: bool("Filter by completion state. Omit for all."),
+      limit: num("How many at most. Default 100."),
+    }),
     annotations: {
       readOnlyHint: true,
       destructiveHint: false,
       idempotentHint: true,
       openWorldHint: false,
     },
-    handler: async (args, ctx) => pipeline.listTasks(ctx.userId, { done: b(args, "done") }),
+    handler: async (args, ctx) =>
+      pipeline.listTasks(ctx.userId, { done: b(args, "done"), limit: n(args, "limit") }),
   },
   {
     name: "create_task",
@@ -2363,14 +2386,62 @@ export const tools: McpTool[] = [
     },
     handler: async (args, ctx) => pipeline.setTaskDone(ctx.userId, required(args, "id"), b(args, "done") ?? true),
   },
+  {
+    name: "update_task",
+    title: "Update a task",
+    description:
+      "Reword a task, move its due date, or hook it to a different application. Only the fields you pass change; each REPLACES what was there. Pass an empty string for dueAt to clear the date, or for applicationId to unhook it. Use complete_task to tick it off — done is not settable here.",
+    inputSchema: object(
+      {
+        id: str("Task id"),
+        title: str("What needs doing"),
+        detail: str("Any extra detail — replaces what is there"),
+        dueAt: str("ISO date it is due, or empty string to clear it"),
+        applicationId: str("Application to attach to, or empty string to unhook"),
+      },
+      ["id"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.updateTask(
+        ctx.userId,
+        required(args, "id"),
+        defined({
+          title: s(args, "title"),
+          detail: s(args, "detail"),
+          dueAt: s(args, "dueAt"),
+          applicationId: s(args, "applicationId"),
+        }),
+      ),
+  },
+  {
+    name: "delete_task",
+    title: "Delete a task",
+    description:
+      "Remove a task outright. Use complete_task instead when it actually got done — a finished task is worth keeping, and this is not undoable.",
+    inputSchema: object({ id: str("Task id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => pipeline.deleteTask(ctx.userId, required(args, "id")),
+  },
   // --- CRM: companies and the people at them -------------------------------
   {
     name: "list_companies",
     title: "List companies",
     description:
-      "Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.",
+      "Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Every row carries its tags: industry, size, location and anything else, all as labels rather than the single strings they used to be. Pass search to match on name, notes or a tag; pass tagIds to cut to the ones wearing a particular label; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.",
     inputSchema: object({
-      search: str("Match name, industry, location or notes"),
+      search: str("Match name, notes or any tag — industry and location included"),
+      tagIds: strArray("Only companies wearing one of these tags. Ids from list_tags."),
       filter: {
         type: "string",
         enum: [...COMPANY_FILTERS],
@@ -2386,6 +2457,7 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) =>
       pipeline.listCompanies(ctx.userId, {
         search: s(args, "search"),
+        tagIds: a(args, "tagIds"),
         filter: enumArg(args, "filter", COMPANY_FILTERS),
       }),
   },
@@ -2418,9 +2490,14 @@ export const tools: McpTool[] = [
       {
         name: str("Company name"),
         website: str("Their own site, e.g. stripe.com. This is what the logo comes from."),
-        industry: str("e.g. 'Fintech', 'Developer tools'"),
-        size: str("e.g. '200-500', 'Series B'"),
-        location: str("Headquarters or main office"),
+        industry: strArray("What they do, one or more: 'Fintech', 'Developer tools'. Tags — REPLACES the set."),
+        industryIds: strArray("Industry tag ids from list_tags. Exact; wins over industry."),
+        size: strArray("Headcount or stage: '200-500', 'Series B'. Tags — REPLACES the set."),
+        sizeIds: strArray("Size tag ids. Exact; wins over size."),
+        location: strArray("Where they are, one or more. Tags — REPLACES the set."),
+        locationIds: strArray("Location tag ids. Exact; wins over location."),
+        tags: strArray("Anything else worth filing them under. REPLACES the set."),
+        tagIds: strArray("Company tag ids. Exact; wins over tags."),
         notes: str("Anything you have learned about them"),
       },
       ["name"],
@@ -2436,9 +2513,14 @@ export const tools: McpTool[] = [
         name: required(args, "name"),
         ...defined({
           website: s(args, "website"),
-          industry: s(args, "industry"),
-          size: s(args, "size"),
-          location: s(args, "location"),
+          industry: a(args, "industry"),
+          industryIds: a(args, "industryIds"),
+          size: a(args, "size"),
+          sizeIds: a(args, "sizeIds"),
+          location: a(args, "location"),
+          locationIds: a(args, "locationIds"),
+          tags: a(args, "tags"),
+          tagIds: a(args, "tagIds"),
           notes: s(args, "notes"),
         }),
       }),
@@ -2447,15 +2529,20 @@ export const tools: McpTool[] = [
     name: "update_company",
     title: "Update a company",
     description:
-      "Change what you know about a company. Only the fields you pass are touched, but each one REPLACES what was there — notes especially, so call get_company first and write back the whole thing if you are adding to research rather than replacing it. Setting website is the single thing that makes their logo show in the pipeline; a job board URL is not their website.",
+      "Change what you know about a company. Only the fields you pass are touched, but each one REPLACES what was there — notes especially, so call get_company first and write back the whole thing if you are adding to research rather than replacing it. Industry, size, location and tags are lists of labels now rather than single strings: a company can be fintech AND developer tools, and in three offices. Each list replaces its own set and leaves the other three alone. Setting website is the single thing that makes their logo show in the pipeline; a job board URL is not their website.",
     inputSchema: object(
       {
         id: str("Company id"),
         name: str("Company name"),
         website: str("Their own site, e.g. stripe.com"),
-        industry: str("Industry"),
-        size: str("Headcount or funding stage"),
-        location: str("Headquarters"),
+        industry: strArray("What they do, one or more. REPLACES the set; an empty list clears it."),
+        industryIds: strArray("Industry tag ids from list_tags. Exact; wins over industry."),
+        size: strArray("Headcount or stage. REPLACES the set."),
+        sizeIds: strArray("Size tag ids. Exact; wins over size."),
+        location: strArray("Where they are, one or more. REPLACES the set."),
+        locationIds: strArray("Location tag ids. Exact; wins over location."),
+        tags: strArray("Anything else worth filing them under. REPLACES the set."),
+        tagIds: strArray("Company tag ids. Exact; wins over tags."),
         notes: str("Research notes — replaces what is there"),
       },
       ["id"],
@@ -2473,9 +2560,14 @@ export const tools: McpTool[] = [
         defined({
           name: s(args, "name"),
           website: s(args, "website"),
-          industry: s(args, "industry"),
-          size: s(args, "size"),
-          location: s(args, "location"),
+          industry: a(args, "industry"),
+          industryIds: a(args, "industryIds"),
+          size: a(args, "size"),
+          sizeIds: a(args, "sizeIds"),
+          location: a(args, "location"),
+          locationIds: a(args, "locationIds"),
+          tags: a(args, "tags"),
+          tagIds: a(args, "tagIds"),
           notes: s(args, "notes"),
         }),
       ),
@@ -2540,11 +2632,12 @@ export const tools: McpTool[] = [
     name: "list_contacts",
     title: "List contacts",
     description:
-      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.",
+      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, relationship, email, notes, employer and tags, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — their `tags`, and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.",
     inputSchema: object({
       applicationId: str("Limit to one application"),
       companyId: str("Limit to people linked to one company"),
-      search: str("Match name, title, email, notes or company"),
+      search: str("Match name, title, relationship, email, notes, company or tag"),
+      tagIds: strArray("Only people wearing one of these tags. Ids from list_tags, kind CONTACT."),
       filter: {
         type: "string",
         enum: [...CONTACT_FILTERS],
@@ -2563,6 +2656,7 @@ export const tools: McpTool[] = [
           applicationId: s(args, "applicationId"),
           companyId: s(args, "companyId"),
           search: s(args, "search"),
+          tagIds: a(args, "tagIds"),
           filter: enumArg(args, "filter", CONTACT_FILTERS),
         }),
       }),
@@ -2589,7 +2683,7 @@ export const tools: McpTool[] = [
     name: "update_contact",
     title: "Update a contact",
     description:
-      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes, otherLinks or companies rather than replacing them. A person can represent several companies at once, so `companies` is a list and REPLACES the whole set: to add one, read the current list, append, and pass it all back. An empty list detaches them from every company. applicationId works the same way, with an empty string to detach.",
+      "Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes, otherLinks, companies or tags rather than replacing them. A person can represent several companies at once, so `companies` is a list and REPLACES the whole set: to add one, read the current list, append, and pass it all back. An empty list detaches them from every company. `tags` behaves the same way. applicationId works the same way too, with an empty string to detach.",
     inputSchema: object(
       {
         id: str("Contact id"),
@@ -2613,6 +2707,10 @@ export const tools: McpTool[] = [
         ),
         company: str(
           "Legacy single-company spelling. WARNING: this also REPLACES the whole set with just this one — read the current list from get_contact first, or use companies. Empty string detaches every company. Ignored when companies is passed.",
+        ),
+        tagIds: strArray("Tag ids, kind CONTACT. Exact; wins over tags. REPLACES the whole set."),
+        tags: strArray(
+          "Tag names — how they are filed. REPLACES the whole set; a name nothing matches is created. Empty list clears them.",
         ),
         applicationId: str("Application to attach to, or empty string to detach"),
         nextFollowUpAt: str("ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard."),
@@ -2645,6 +2743,8 @@ export const tools: McpTool[] = [
           companyIds: a(args, "companyIds"),
           companies: a(args, "companies"),
           company: s(args, "company"),
+          tagIds: a(args, "tagIds"),
+          tags: a(args, "tags"),
           applicationId: s(args, "applicationId"),
           nextFollowUpAt: s(args, "nextFollowUpAt"),
         }),
@@ -2668,7 +2768,7 @@ export const tools: McpTool[] = [
     name: "create_contact",
     title: "Create a contact",
     description:
-      "Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row. Pass `companies` for everywhere they represent, not just their day job: an angel who also advises two of your targets is three links, and each one is created if it does not exist yet.",
+      "Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row. Pass `companies` for everywhere they represent, not just their day job: an angel who also advises two of your targets is three links, and each one is created if it does not exist yet. `tags` files them alongside everyone else you have labelled the same way.",
     inputSchema: object(
       {
         name: str("Their name"),
@@ -2690,6 +2790,10 @@ export const tools: McpTool[] = [
           "Every company they represent, by name. Any that do not exist yet are created.",
         ),
         company: str("Legacy single-company spelling. Ignored when companies is passed."),
+        tagIds: strArray("Tag ids from list_tags, kind CONTACT. Exact; wins over tags."),
+        tags: strArray(
+          "How they are filed — 'referral', 'warm intro', 'ex-colleague'. Names; any that do not exist yet are created.",
+        ),
         applicationId: str("Attach to this application"),
       },
       ["name"],
@@ -2718,6 +2822,8 @@ export const tools: McpTool[] = [
           companyIds: a(args, "companyIds"),
           companies: a(args, "companies"),
           company: s(args, "company"),
+          tagIds: a(args, "tagIds"),
+          tags: a(args, "tags"),
           applicationId: s(args, "applicationId"),
         }),
       }),

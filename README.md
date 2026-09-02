@@ -25,25 +25,39 @@ just *talk* to it.
   is the one to chase on — and selecting rows closes a batch out in one action.
   Applications end as accepted, rejected, withdrawn or ghosted — silence is the most common
   ending, and filing it as a rejection makes the funnel lie about what went wrong. An
-  application knows where it came from — several sources at once, because a job board
-  posting, a referral and a LinkedIn message are often the same job — and a listing is
-  optional: a role you're only chasing through a DM is still worth a card. Opening
+  application carries tags — several at once, because a job board posting, a referral and a
+  LinkedIn message are often the same job — and a listing is optional: a role you're only
+  chasing through a DM is still worth a card. Opening
   an application slides it in from the right, so you keep your place on the board. A
   read-only link shares the board with whoever is helping you — a friend, a coach, a former
   manager — showing companies, roles, stages and follow-up dates, and never your salaries,
   notes, contacts or job descriptions.
+- **Tasks** — everything you owe on one page. The things you wrote down, grouped by overdue,
+  today, the next seven days, later and no date, each rewordable and re-datable in place and
+  attachable to the role it's about; and beside them the chase list, the follow-ups and pings
+  whose dates have come round, where the verbs are "logged it" and "push it out three days".
+  Ticking a task and logging a chase mean different things, so they don't share a column.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
-  their website, industry, size and whatever you have learned about them, alongside every
-  application and every contact you have there. The website is what puts their logo on the
-  pipeline. Their roles read as job listings, each one a click from the posting it came
-  from. The company list says when you last applied and what's still live, and both
-  lists filter — to the companies where you know someone, to the people whose ping is due.
+  their website, whatever you have learned about them, and their industries, sizes and
+  locations as labels rather than text boxes — a company is plausibly both fintech and
+  infrastructure, and hiring in two cities — alongside every application and every contact
+  you have there. The website is what puts their logo on the pipeline. Their roles read as
+  job listings, each one a click from the posting it came from. The company list says when
+  you last applied and what's still live, and both lists filter — to the companies where you
+  know someone, to the people whose ping is due — while the search box matches any label.
   Contacts attach to applications straight from the CRM rather than being retyped, and
   removing one from an application never deletes the person. A person keeps every way you
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
-  paste — because the address that matters is whichever one they actually answer on.
+  paste — each wearing its own platform's mark, because the address that matters is
+  whichever one they actually answer on.
+- **Tags** — one catalogue behind all of it. A tag is a name and a colour you own, and every
+  list that used to be free text is one: where an application came from, a company's
+  industry, size and location, how you know a person. Tick to attach, type to create,
+  recolour from the swatch row, delete outright — deleting says how many things it comes off
+  before it does it. Names fold case, so `linkedin` lands on the `LinkedIn` you already
+  have rather than minting a twin.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  93 tools any MCP client can call (123 if you're an admin). Claude, Claude Code, ChatGPT,
+  96 tools any MCP client can call (126 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's career history, resumes or applications. Admin lives
@@ -212,7 +226,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 93, or 123 if you're an admin.
+would, then tells you how many tools answered — 96, or 126 if you're an admin.
 
 #### One connection per client
 
@@ -362,7 +376,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-93 tools. Eighty-six of them are the data tools across the four areas and your account;
+96 tools. Eighty-nine of them are the data tools across the four areas and your account;
 the other seven are the workflows below, published as tools as well as prompts, because
 prompt support is optional in MCP clients and tool support isn't. Call one and it hands back
 a step-by-step plan that it then follows. Admins get 30 more — 29 data tools and an eighth
@@ -426,7 +440,8 @@ applications it went out with, how many reached an interview, how many reached a
 
 **Pipeline** — `capture_job_posting` turns a posting URL into a tracked application in one
 move, company and description included. Then applications and stages, an activity timeline,
-tasks, `list_follow_ups` for
+tasks — `list_tasks`, `create_task`, `update_task`, `complete_task`, `delete_task` —
+`list_follow_ups` for
 what's overdue, `list_schedule` for a whole window of dated work at once, `pipeline_stats` for
 the shape of your search, and `diagnose_search`, which reads the funnel and tells you which
 step is losing people rather than handing you six numbers to interpret.
@@ -436,6 +451,12 @@ step is losing people rather than handing you six numbers to interpret.
 `delete_contact` for the people at them, each carrying every way to reach them rather than
 just a LinkedIn URL. A company's `website` is what puts their logo on your
 pipeline. Deleting one refuses while applications still point at it.
+
+**Tags** — `list_tags`, `create_tag`, `update_tag`, `delete_tag` and `seed_tags` manage the
+one catalogue behind all of it. A tag's `kind` says which list it belongs to — where an
+application came from, a company's industry, size or location, how you know a person — so a
+location called `Remote` never collides with a way of working called `Remote`. Every writer
+takes names or ids: names fold case and are created only when nothing matches.
 
 **Your account** — `whoami` says who this connection belongs to. `list_connections`,
 `create_connection`, `rename_connection`, `rotate_connection` and `delete_connection` manage

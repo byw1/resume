@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Twenty-nine tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Thirty-two tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -76,48 +76,61 @@ The FIRST tool to call when someone shares a link to a job posting. Fetches the 
 | --- | --- | --- |
 | `url` | string | **required** — The posting's URL, e.g. a Greenhouse, Lever, Ashby, Workday or LinkedIn job link |
 
-### `list_application_sources`
+### `list_tags`
 
-_List the source categories on file_
+_List the tags on file_
 
-The channels this person has, as records they own: id, name, colour and how many applications carry each. Call it before writing sources on create_application or update_application — passing an existing id is exact, and passing a name that already exists matches it case-insensitively rather than creating a twin. Read-only.
-
-No arguments.
-
-### `create_source`
-
-_Create a source category_
-
-Add a channel applications can be filed under — 'LinkedIn', 'Referral', 'Cold outreach', or whatever this person actually uses. Names are unique per person and case-insensitive, so creating one that exists in any casing is an error rather than a silent duplicate. You rarely need this: passing a new name to create_application or update_application creates it. Reach for it when someone is setting their categories up deliberately, or wants one in a particular colour.
+Every label this person owns, as records rather than free strings: id, kind, name, colour, and how many applications, companies and contacts wear each. Six kinds, and they are separate lists that never collide — APPLICATION (where a job came from: LinkedIn, a referral, cold outreach), COMPANY, CONTACT (how a person is filed: recruiter, ex-colleague), INDUSTRY, SIZE and LOCATION (the three that used to be free-text fields on a company). Call this before writing tags anywhere: passing an existing id is exact, and passing a name that already exists matches it case-insensitively rather than creating a twin. Read-only.
 
 | Argument | Type | |
 | --- | --- | --- |
-| `name` | string | **required** — What to call it, e.g. 'Referral' |
-| `color` | enum | Swatch for its chip. Defaults to slate.  `slate` · `blue` · `teal` · `green` · `amber` · `red` · `violet` · `pink` |
+| `kind` | enum | Only this kind. Omit for all of them.  `APPLICATION` · `COMPANY` · `CONTACT` · `INDUSTRY` · `SIZE` · `LOCATION` |
 
-### `update_source`
+### `create_tag`
 
-_Rename or recolour a source_
+_Create a tag_
 
-Change a source category's name or colour. Renaming updates it everywhere at once, because applications carry the row rather than a copy of its text — which is the point of these being records. A name that collides with another source, in any casing, is refused.
+Add a label of one kind. Usually unnecessary — writing a name that does not exist on an application, company or contact creates it — so reach for this when someone is setting up their vocabulary deliberately, or wants a specific colour. Colours are palette names, not hex: slate, blue, teal, green, amber, red, violet or pink. Refuses a name that already exists in that kind, case-insensitively, and says which one it clashed with.
 
 | Argument | Type | |
 | --- | --- | --- |
-| `id` | string | **required** — Source id |
+| `kind` | enum | **required** — What this labels  `APPLICATION` · `COMPANY` · `CONTACT` · `INDUSTRY` · `SIZE` · `LOCATION` |
+| `name` | string | **required** — What it is called, e.g. 'Fintech', 'Referral', 'Remote' |
+| `color` | enum | Palette name. Default slate.  `slate` · `blue` · `teal` · `green` · `amber` · `red` · `violet` · `pink` |
+
+### `update_tag`
+
+_Rename or recolour a tag_
+
+Change a tag's name or colour in one place, and everything wearing it follows — which is the whole reason these are rows rather than strings. Renaming 'Fintech' to 'Financial services' updates every company at once. The kind cannot be changed: a location is not an industry, and moving one would silently reclassify everything wearing it.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Tag id from list_tags |
 | `name` | string | New name |
-| `color` | enum | New swatch  `slate` · `blue` · `teal` · `green` · `amber` · `red` · `violet` · `pink` |
+| `color` | enum | New palette colour  `slate` · `blue` · `teal` · `green` · `amber` · `red` · `violet` · `pink` |
 
-### `delete_source`
+### `delete_tag`
 
-_Delete a source category_
+_Delete a tag_
 
-Remove a channel. Unlike delete_company this never refuses: it comes off every application carrying it and those applications are otherwise untouched — a label you cannot remove is worse than one you delete by mistake, and re-adding it is one call. Returns detachedFrom, how many applications stopped wearing it, so you can say what happened.
+Remove a label for good. It comes off everything that wore it and nothing else changes — no application, company or contact is deleted, they simply stop carrying that label. Returns how many things it was taken off, which is worth reporting back before someone assumes it was unused. This is the tool for tidying up a list that has filled with near-duplicates.
 
 **Overwrites or deletes.**
 
 | Argument | Type | |
 | --- | --- | --- |
-| `id` | string | **required** — Source id |
+| `id` | string | **required** — Tag id from list_tags |
+
+### `seed_tags`
+
+_Offer the starter tags for a kind_
+
+Create the handful of obvious labels for one kind, skipping any the person already has: the usual channels for APPLICATION, the usual relationships for CONTACT, and a set of headcount bands for SIZE. Nothing is imposed — these become ordinary rows they can rename, recolour or delete. Returns the whole list for that kind afterwards. There is nothing sensible to seed for COMPANY, INDUSTRY or LOCATION, and asking for those returns what is already there.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `kind` | enum | **required** — Which list to seed  `APPLICATION` · `COMPANY` · `CONTACT` · `INDUSTRY` · `SIZE` · `LOCATION` |
 
 ### `create_application`
 
@@ -138,9 +151,10 @@ Track a new job. Paste the full posting into jobDescription — it is what you w
 | `location` | string | Job location |
 | `workMode` | string | Remote \| Hybrid \| On-site |
 | `salaryRange` | string | Advertised or expected compensation |
-| `sourceIds` | string[] | Source ids from list_application_sources. Exact; wins over sources. |
-| `sources` | string[] | Where it came from by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the categories that exist and created only when nothing matches, so call list_application_sources first. |
-| `source` | string | Legacy single-source spelling. Prefer sources; ignored when sources is passed. |
+| `tagIds` | string[] | Tag ids from list_tags, kind APPLICATION. Exact; wins over tags. |
+| `tags` | string[] | How to file it, by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the tags that exist and created only when nothing matches, so call list_tags first. |
+| `sources` | string[] | What tags used to be called. Still works; tags wins. |
+| `source` | string | The old single-value spelling. Ignored when tags or sources is passed. |
 | `excitement` | number | 1-5 how much they want this |
 | `fit` | number | 1-5 how strong a fit they are |
 | `notes` | string | Any notes |
@@ -168,9 +182,10 @@ Update fields on an application. Changing `stage` here also writes a timeline en
 | `location` | string | Location |
 | `workMode` | string | Remote \| Hybrid \| On-site |
 | `salaryRange` | string | Compensation |
-| `sourceIds` | string[] | Source ids. Exact; wins over sources. REPLACES the whole set. |
-| `sources` | string[] | Source names — REPLACES the whole set, matched or created as above |
-| `source` | string | Legacy single-source spelling. WARNING: this also REPLACES the entire sources list with just this one value — read the current list from get_application first, or use sources to write the full list. Ignored when sources is passed. |
+| `tagIds` | string[] | Tag ids. Exact; wins over tags. REPLACES the whole set. |
+| `tags` | string[] | Tag names — REPLACES the whole set, matched or created as above |
+| `sources` | string[] | What tags used to be called. REPLACES the whole set; tags wins. |
+| `source` | string | The old single-value spelling. WARNING: this also REPLACES the entire set with just this one value — read the current list from get_application first, or use tags to write the full list. Ignored when tags or sources is passed. |
 | `excitement` | number | 1-5 |
 | `fit` | number | 1-5 |
 | `notes` | string | Notes |
@@ -326,7 +341,7 @@ No arguments.
 
 _Save a pipeline view under a name_
 
-Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated source ids from list_application_sources); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); x (minimum excitement, 1-5); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and source names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.
+Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated tag ids from list_tags); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); x (minimum excitement, 1-5); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and tag names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.
 
 **Overwrites or deletes.**
 
@@ -362,11 +377,12 @@ Everything with a date attached between two dates, merged into one list sorted e
 
 _List tasks_
 
-To-dos, optionally attached to an application.
+To-dos, each optionally attached to an application and with a due date. Open ones first, soonest due first. This is what someone means by 'what do I need to do' — pair it with list_follow_ups, which covers the chasing this list deliberately does not: an application's follow-up date and a person's ping are not tasks and never appear here.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `done` | boolean | Filter by completion state. Omit for all. |
+| `limit` | number | How many at most. Default 100. |
 
 ### `create_task`
 
@@ -393,3 +409,29 @@ Mark a task done, or reopen it with done: false.
 | --- | --- | --- |
 | `id` | string | **required** — Task id |
 | `done` | boolean | Default true |
+
+### `update_task`
+
+_Update a task_
+
+Reword a task, move its due date, or hook it to a different application. Only the fields you pass change; each REPLACES what was there. Pass an empty string for dueAt to clear the date, or for applicationId to unhook it. Use complete_task to tick it off — done is not settable here.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Task id |
+| `title` | string | What needs doing |
+| `detail` | string | Any extra detail — replaces what is there |
+| `dueAt` | string | ISO date it is due, or empty string to clear it |
+| `applicationId` | string | Application to attach to, or empty string to unhook |
+
+### `delete_task`
+
+_Delete a task_
+
+Remove a task outright. Use complete_task instead when it actually got done — a finished task is worth keeping, and this is not undoable.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `id` | string | **required** — Task id |

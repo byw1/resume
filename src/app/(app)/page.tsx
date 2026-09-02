@@ -185,11 +185,18 @@ export default async function DashboardPage() {
 
             <FadeIn delay={0.15}>
               <Card className="h-full">
-                <CardHeader>
+                <CardHeader className="flex-row items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-[15px]">
                     <CheckCircle2Icon className="text-muted-foreground size-4" />
                     Tasks
                   </CardTitle>
+                  {/* The glance is eight rows. The whole list, with dates and
+                      roles you can change, is its own page. */}
+                  <Button asChild variant="ghost" size="xs" className="text-muted-foreground">
+                    <Link href="/tasks">
+                      All tasks <ArrowRightIcon />
+                    </Link>
+                  </Button>
                 </CardHeader>
                 <CardContent>
                   <TaskList

@@ -20,6 +20,8 @@ import {
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { ContactCompanies, type CompanyRef } from "@/components/crm/contact-companies";
 import { ContactLinks } from "@/components/crm/contact-links";
+import { TagPicker } from "@/components/tags/tag-picker";
+import type { TagValue } from "@/components/tags/tag-chip";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { addActivityAction, deleteCrmContactAction, saveContactAction } from "@/server/actions";
@@ -52,8 +54,6 @@ export type ContactFields = {
   otherLinks: string[];
   relationship: string;
   notes: string;
-  /** ISO date (yyyy-mm-dd) or empty — when to next get in touch. */
-  nextFollowUpAt: string;
 };
 
 /** The job this person is attached to, as much of it as a card should show. */
@@ -76,6 +76,7 @@ export type ContactTouch = {
 
 export function ContactDetail({
   contact,
+  tags,
   companies,
   companyOptions,
   application,
@@ -83,6 +84,8 @@ export function ContactDetail({
   logos,
 }: {
   contact: ContactFields;
+  /** How they are filed. Free-form, shared with everyone else's labels. */
+  tags: TagValue[];
   /** Everywhere they represent. Empty means nobody has said yet. */
   companies: CompanyRef[];
   /** Every company on file, for the picker. */
@@ -92,6 +95,7 @@ export function ContactDetail({
   logos: boolean;
 }) {
   const [values, setValues] = useState(contact);
+  const [tagValues, setTagValues] = useState(tags);
   const [state, setState] = useState<SaveState>("idle");
   const [note, setNote] = useState("");
   const [noteType, setNoteType] = useState<ActivityType>("NOTE");
@@ -134,14 +138,23 @@ export function ContactDetail({
 
   const set = (patch: Partial<ContactFields>) => setValues((prev) => ({ ...prev, ...patch }));
 
-  // One click for "in two weeks" instead of arithmetic in a date picker.
-  const pingIn = (days: number | null) => {
-    const next =
-      days === null
-        ? ""
-        : new Date(Date.now() + days * 86400000).toISOString().slice(0, 10);
-    set({ nextFollowUpAt: next });
-    commit({ nextFollowUpAt: next });
+  // Tags save on the tick rather than on blur: a popover has no blur a person
+  // reads as "done".
+  const saveTags = (next: TagValue[]) => {
+    const previous = tagValues;
+    setTagValues(next);
+    setState("saving");
+    startTransition(async () => {
+      try {
+        await saveContactAction(contact.id, { tagIds: next.map((tag) => tag.id) });
+        setState("saved");
+        router.refresh();
+      } catch (error) {
+        setState("idle");
+        toast.error(error instanceof Error ? error.message : "Could not save that.");
+        setTagValues(previous);
+      }
+    });
   };
 
   const remove = () => {
@@ -298,41 +311,18 @@ export function ContactDetail({
               <Field label="Relationship" value={values.relationship} placeholder="Recruiter" onChange={(relationship) => set({ relationship })} onCommit={() => commit({ relationship: values.relationship })} />
               <Field label="Email" value={values.email} placeholder="name@company.com" onChange={(email) => set({ email })} onCommit={() => commit({ email: values.email })} />
               <Field label="Phone" value={values.phone} placeholder="+1 555 0100" onChange={(phone) => set({ phone })} onCommit={() => commit({ phone: values.phone })} />
+              {/* When to next get in touch is not set here any more. It is a
+                  thing to do on a date, so it is scheduled where the rest of
+                  them are — /tasks — rather than as a date box halfway down a
+                  record you opened to read. */}
               <div className="space-y-1.5">
-                <Label htmlFor="contact-ping">Ping them next</Label>
-                <Input
-                  id="contact-ping"
-                  type="date"
-                  value={values.nextFollowUpAt}
-                  onChange={(event) => set({ nextFollowUpAt: event.target.value })}
-                  onBlur={() => commit({ nextFollowUpAt: values.nextFollowUpAt })}
+                <Label>Tags</Label>
+                <TagPicker
+                  kind="CONTACT"
+                  value={tagValues}
+                  placeholder="Referral, warm intro, ex-colleague…"
+                  onChange={saveTags}
                 />
-                <div className="flex flex-wrap gap-1">
-                  {(
-                    [
-                      ["1w", 7],
-                      ["2w", 14],
-                      ["1m", 30],
-                    ] as const
-                  ).map(([label, days]) => (
-                    <Button key={label} variant="outline" size="xs" onClick={() => pingIn(days)}>
-                      {label}
-                    </Button>
-                  ))}
-                  {values.nextFollowUpAt && (
-                    <Button
-                      variant="ghost"
-                      size="xs"
-                      className="text-muted-foreground"
-                      onClick={() => pingIn(null)}
-                    >
-                      Clear
-                    </Button>
-                  )}
-                </div>
-                <p className="text-faint text-xs leading-snug">
-                  Shows up with your follow-ups on the dashboard and the calendar.
-                </p>
               </div>
             </CardContent>
           </Card>

@@ -3,10 +3,11 @@
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-import type { ActivityType, NoteKind, Stage, UserRole } from "@prisma/client";
+import type { ActivityType, NoteKind, Stage, TagKind, UserRole } from "@prisma/client";
 import * as me from "@/lib/data/me";
 import * as resumes from "@/lib/data/resumes";
 import * as pipeline from "@/lib/data/pipeline";
+import * as tags from "@/lib/data/tags";
 import { STAGE_LABEL } from "@/lib/data/pipeline";
 import * as views from "@/lib/data/views";
 import * as pipelineShare from "@/lib/data/pipeline-share";
@@ -700,7 +701,13 @@ export async function paletteIndexAction() {
     companies: companies.slice(0, 60).map((company) => ({
       id: company.id,
       label: company.name,
-      sub: company.industry || company.location || "",
+      // Industry and location are tags now, so the subtitle reads whichever
+      // of them the company actually wears rather than two named columns.
+      sub: company.tags
+        .filter((tag) => tag.kind === "INDUSTRY" || tag.kind === "LOCATION")
+        .map((tag) => tag.name)
+        .slice(0, 2)
+        .join(" · "),
     })),
     contacts: contacts.slice(0, 60).map((contact) => ({
       id: contact.id,
@@ -799,39 +806,63 @@ export async function duplicateResumeAction(id: string, name?: string) {
 // Pipeline
 // ---------------------------------------------------------------------------
 
-// --- source categories ------------------------------------------------------
+// --- tags -------------------------------------------------------------------
 
-export async function seedSourcesAction() {
-  const user = await requireUser();
-  const sources = await pipeline.seedSources(user.id);
-  revalidatePath("/applications");
-  return sources.map((source) => ({
-    id: source.id,
-    name: source.name,
-    color: source.color,
-    applications: source._count.applications,
-  }));
-}
-
-export async function createSourceAction(input: { name: string; color?: string }) {
-  const user = await requireUser();
-  const source = await pipeline.createSource(user.id, input);
-  revalidatePath("/applications");
-  return { id: source.id, name: source.name, color: source.color };
-}
-
-export async function updateSourceAction(id: string, patch: { name?: string; color?: string }) {
-  const user = await requireUser();
-  await pipeline.updateSource(user.id, id, patch);
+/**
+ * The four screens a tag can show on. A tag is a label, and a label the person
+ * just renamed should not still read the old way on the page they came from.
+ */
+function revalidateTags() {
   revalidatePath("/applications");
   revalidatePath("/crm/companies");
+  revalidatePath("/crm/contacts");
+  revalidatePath("/tasks");
 }
 
-export async function deleteSourceAction(id: string) {
+const asOption = (tag: {
+  id: string;
+  name: string;
+  color: string;
+  kind: TagKind;
+  _count: { applications: number; companies: number; contacts: number };
+}) => ({
+  id: tag.id,
+  name: tag.name,
+  color: tag.color,
+  kind: tag.kind,
+  count: tag._count.applications + tag._count.companies + tag._count.contacts,
+});
+
+export async function listTagsAction(kind: TagKind) {
   const user = await requireUser();
-  const result = await pipeline.deleteSource(user.id, id);
-  revalidatePath("/applications");
-  revalidatePath("/crm/companies");
+  return (await tags.listTags(user.id, kind)).map(asOption);
+}
+
+export async function seedTagsAction(kind: TagKind) {
+  const user = await requireUser();
+  const seeded = await tags.seedTags(user.id, kind);
+  revalidateTags();
+  return seeded.map(asOption);
+}
+
+export async function createTagAction(input: { kind: TagKind; name: string; color?: string }) {
+  const user = await requireUser();
+  const tag = await tags.createTag(user.id, input);
+  revalidateTags();
+  return asOption(tag);
+}
+
+export async function updateTagAction(id: string, patch: { name?: string; color?: string }) {
+  const user = await requireUser();
+  const tag = await tags.updateTag(user.id, id, patch);
+  revalidateTags();
+  return asOption(tag);
+}
+
+export async function deleteTagAction(id: string) {
+  const user = await requireUser();
+  const result = await tags.deleteTag(user.id, id);
+  revalidateTags();
   return result;
 }
 
@@ -899,13 +930,25 @@ export async function createTaskAction(input: {
   const user = await requireUser();
   await pipeline.createTask(user.id, input);
   revalidatePath("/");
+  revalidatePath("/tasks");
   if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
+}
+
+export async function updateTaskAction(
+  id: string,
+  patch: { title?: string; detail?: string; dueAt?: string | null; applicationId?: string | null },
+) {
+  const user = await requireUser();
+  await pipeline.updateTask(user.id, id, patch);
+  revalidatePath("/");
+  revalidatePath("/tasks");
 }
 
 export async function toggleTaskAction(id: string, done: boolean) {
   const user = await requireUser();
   await pipeline.setTaskDone(user.id, id, done);
   revalidatePath("/");
+  revalidatePath("/tasks");
   revalidatePath("/applications");
 }
 
@@ -913,6 +956,23 @@ export async function deleteTaskAction(id: string) {
   const user = await requireUser();
   await pipeline.deleteTask(user.id, id);
   revalidatePath("/");
+  revalidatePath("/tasks");
+}
+
+/**
+ * When to next get in touch with someone.
+ *
+ * Lives here rather than on the contact record, which is where it used to be:
+ * a date box halfway down a page you opened to read is not where you schedule
+ * anything. Empty string clears it.
+ */
+export async function scheduleContactPingAction(id: string, date: string) {
+  const user = await requireUser();
+  await pipeline.updateContact(user.id, id, { nextFollowUpAt: date || null });
+  revalidatePath("/");
+  revalidatePath("/tasks");
+  revalidatePath("/crm/contacts");
+  revalidatePath(`/crm/contacts/${id}`);
 }
 
 export async function createContactAction(input: {
@@ -1047,10 +1107,15 @@ export async function saveCompanyAction(
   patch: {
     name?: string;
     website?: string;
-    industry?: string;
-    size?: string;
-    location?: string;
     notes?: string;
+    industry?: string[];
+    industryIds?: string[];
+    size?: string[];
+    sizeIds?: string[];
+    location?: string[];
+    locationIds?: string[];
+    tags?: string[];
+    tagIds?: string[];
   },
 ) {
   const user = await requireUser();
@@ -1108,6 +1173,8 @@ export async function saveContactAction(
     otherLinks?: string[];
     relationship?: string;
     notes?: string;
+    /** Replaces the whole set. Ids, because the picker has already made them. */
+    tagIds?: string[];
     /** "yyyy-mm-dd" from a date input; empty string clears the date. */
     nextFollowUpAt?: string;
   },
@@ -1165,10 +1232,10 @@ export async function deleteCrmContactAction(id: string) {
  */
 export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
-  const [application, resumeList, sourceOptions, companies, settings] = await Promise.all([
+  const [application, resumeList, tagOptions, companies, settings] = await Promise.all([
     pipeline.getApplication(user.id, id),
     resumes.listResumeNames(user.id),
-    pipeline.listSources(user.id),
+    tags.listTags(user.id, "APPLICATION"),
     pipeline.listCompanies(user.id),
     getSettings(),
   ]);
@@ -1190,7 +1257,7 @@ export async function getApplicationForPanelAction(id: string) {
       location: application.location,
       workMode: application.workMode,
       salaryRange: application.salaryRange,
-      sources: application.sources,
+      tags: application.tags,
       excitement: application.excitement,
       fit: application.fit,
       notes: application.notes,
@@ -1219,12 +1286,7 @@ export async function getApplicationForPanelAction(id: string) {
       dueAt: task.dueAt?.toISOString() ?? null,
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
-    sourceOptions: sourceOptions.map((source) => ({
-      id: source.id,
-      name: source.name,
-      color: source.color,
-      applications: source._count.applications,
-    })),
+    tagOptions: tagOptions.map(asOption),
     company: {
       id: application.companyId,
       name: application.company.name,

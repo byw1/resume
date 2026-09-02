@@ -31,11 +31,12 @@ learn it.
 
 _List companies_
 
-Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Pass search to match on name, industry, location or notes; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.
+Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Every row carries its tags: industry, size, location and anything else, all as labels rather than the single strings they used to be. Pass search to match on name, notes or a tag; pass tagIds to cut to the ones wearing a particular label; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.
 
 | Argument | Type | |
 | --- | --- | --- |
-| `search` | string | Match name, industry, location or notes |
+| `search` | string | Match name, notes or any tag — industry and location included |
+| `tagIds` | string[] | Only companies wearing one of these tags. Ids from list_tags. |
 | `filter` | enum | Cut the list: active \| applied \| never-applied \| with-contacts  `active` · `applied` · `never-applied` · `with-contacts` |
 
 ### `get_company`
@@ -58,16 +59,21 @@ Add a company before you have applied to them — somewhere to keep research whi
 | --- | --- | --- |
 | `name` | string | **required** — Company name |
 | `website` | string | Their own site, e.g. stripe.com. This is what the logo comes from. |
-| `industry` | string | e.g. 'Fintech', 'Developer tools' |
-| `size` | string | e.g. '200-500', 'Series B' |
-| `location` | string | Headquarters or main office |
+| `industry` | string[] | What they do, one or more: 'Fintech', 'Developer tools'. Tags — REPLACES the set. |
+| `industryIds` | string[] | Industry tag ids from list_tags. Exact; wins over industry. |
+| `size` | string[] | Headcount or stage: '200-500', 'Series B'. Tags — REPLACES the set. |
+| `sizeIds` | string[] | Size tag ids. Exact; wins over size. |
+| `location` | string[] | Where they are, one or more. Tags — REPLACES the set. |
+| `locationIds` | string[] | Location tag ids. Exact; wins over location. |
+| `tags` | string[] | Anything else worth filing them under. REPLACES the set. |
+| `tagIds` | string[] | Company tag ids. Exact; wins over tags. |
 | `notes` | string | Anything you have learned about them |
 
 ### `update_company`
 
 _Update a company_
 
-Change what you know about a company. Only the fields you pass are touched, but each one REPLACES what was there — notes especially, so call get_company first and write back the whole thing if you are adding to research rather than replacing it. Setting website is the single thing that makes their logo show in the pipeline; a job board URL is not their website.
+Change what you know about a company. Only the fields you pass are touched, but each one REPLACES what was there — notes especially, so call get_company first and write back the whole thing if you are adding to research rather than replacing it. Industry, size, location and tags are lists of labels now rather than single strings: a company can be fintech AND developer tools, and in three offices. Each list replaces its own set and leaves the other three alone. Setting website is the single thing that makes their logo show in the pipeline; a job board URL is not their website.
 
 **Overwrites or deletes.**
 
@@ -76,9 +82,14 @@ Change what you know about a company. Only the fields you pass are touched, but 
 | `id` | string | **required** — Company id |
 | `name` | string | Company name |
 | `website` | string | Their own site, e.g. stripe.com |
-| `industry` | string | Industry |
-| `size` | string | Headcount or funding stage |
-| `location` | string | Headquarters |
+| `industry` | string[] | What they do, one or more. REPLACES the set; an empty list clears it. |
+| `industryIds` | string[] | Industry tag ids from list_tags. Exact; wins over industry. |
+| `size` | string[] | Headcount or stage. REPLACES the set. |
+| `sizeIds` | string[] | Size tag ids. Exact; wins over size. |
+| `location` | string[] | Where they are, one or more. REPLACES the set. |
+| `locationIds` | string[] | Location tag ids. Exact; wins over location. |
+| `tags` | string[] | Anything else worth filing them under. REPLACES the set. |
+| `tagIds` | string[] | Company tag ids. Exact; wins over tags. |
 | `notes` | string | Research notes — replaces what is there |
 
 ### `delete_company`
@@ -121,13 +132,14 @@ Fix the same employer being on file twice — 'Stripe', 'Stripe, Inc.' and 'stri
 
 _List contacts_
 
-Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, email, notes and employer, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.
+Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, relationship, email, notes, employer and tags, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — their `tags`, and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `applicationId` | string | Limit to one application |
 | `companyId` | string | Limit to people linked to one company |
-| `search` | string | Match name, title, email, notes or company |
+| `search` | string | Match name, title, relationship, email, notes, company or tag |
+| `tagIds` | string[] | Only people wearing one of these tags. Ids from list_tags, kind CONTACT. |
 | `filter` | enum | Cut the list: ping-due \| with-application \| no-company  `ping-due` · `with-application` · `no-company` |
 
 ### `get_contact`
@@ -144,7 +156,7 @@ One person in full, with every company they represent (`companies`) and the appl
 
 _Update a contact_
 
-Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes, otherLinks or companies rather than replacing them. A person can represent several companies at once, so `companies` is a list and REPLACES the whole set: to add one, read the current list, append, and pass it all back. An empty list detaches them from every company. applicationId works the same way, with an empty string to detach.
+Change a person's details. Only the fields you pass are touched, and each REPLACES what was there — read first with get_contact if you are adding to notes, otherLinks, companies or tags rather than replacing them. A person can represent several companies at once, so `companies` is a list and REPLACES the whole set: to add one, read the current list, append, and pass it all back. An empty list detaches them from every company. `tags` behaves the same way. applicationId works the same way too, with an empty string to detach.
 
 **Overwrites or deletes.**
 
@@ -166,6 +178,8 @@ Change a person's details. Only the fields you pass are touched, and each REPLAC
 | `companyIds` | string[] | Company ids. Exact; wins over companies. REPLACES the whole set. |
 | `companies` | string[] | Company names — everywhere this person represents. REPLACES the whole set; a name nothing matches is created. |
 | `company` | string | Legacy single-company spelling. WARNING: this also REPLACES the whole set with just this one — read the current list from get_contact first, or use companies. Empty string detaches every company. Ignored when companies is passed. |
+| `tagIds` | string[] | Tag ids, kind CONTACT. Exact; wins over tags. REPLACES the whole set. |
+| `tags` | string[] | Tag names — how they are filed. REPLACES the whole set; a name nothing matches is created. Empty list clears them. |
 | `applicationId` | string | Application to attach to, or empty string to detach |
 | `nextFollowUpAt` | string | ISO date to next get in touch — 'ping Sarah in two weeks' lives here. Empty string clears it. Due pings surface in list_follow_ups and on the dashboard. |
 
@@ -185,7 +199,7 @@ Remove a person. The companies they represented and any application they were at
 
 _Create a contact_
 
-Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row. Pass `companies` for everywhere they represent, not just their day job: an angel who also advises two of your targets is three links, and each one is created if it does not exist yet.
+Save a person: recruiter, hiring manager, referral, friend at the company. Record every way you can reach them — linkedin, twitter, instagram, github, website, and otherLinks for anything else — because the one that matters is whichever they actually answer on, and a name with no way to contact it is a dead row. Pass `companies` for everywhere they represent, not just their day job: an angel who also advises two of your targets is three links, and each one is created if it does not exist yet. `tags` files them alongside everyone else you have labelled the same way.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -204,4 +218,6 @@ Save a person: recruiter, hiring manager, referral, friend at the company. Recor
 | `companyIds` | string[] | Company ids, when you already have them. Wins over companies. |
 | `companies` | string[] | Every company they represent, by name. Any that do not exist yet are created. |
 | `company` | string | Legacy single-company spelling. Ignored when companies is passed. |
+| `tagIds` | string[] | Tag ids from list_tags, kind CONTACT. Exact; wins over tags. |
+| `tags` | string[] | How they are filed — 'referral', 'warm intro', 'ex-colleague'. Names; any that do not exist yet are created. |
 | `applicationId` | string | Attach to this application |

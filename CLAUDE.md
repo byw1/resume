@@ -108,8 +108,8 @@ src/lib/resume-schema.ts      The resume document contract (zod).
 src/lib/pdf.ts                Server-side PDF rendering. Needs a Chromium on the host;
                               degrades to the print page where there isn't one.
 src/server/actions.ts         Server actions for the UI. Never accepts a userId.
-src/app/(app)/                The app: dashboard, me, resumes, applications, crm, docs,
-                              settings (admin lives under it).
+src/app/(app)/                The app: dashboard, me, resumes, applications, tasks, crm,
+                              docs, settings (admin lives under it).
 src/app/api/mcp/[token]/      The connection URL. /api/mcp also accepts a bearer header.
 src/app/r/[slug]/             Published resume, no auth. With /p/[slug] (shared pipeline),
                               the only unauthenticated pages in the app — unlisted slugs
@@ -134,17 +134,19 @@ docs/                         The manual, published by Mintlify at docs.hired.to
 tools/gen-tool-docs.mjs       Rewrites docs/tools/*.mdx from the tools array by evaluating
                               each inputSchema expression, and owns every tool count the
                               manual states — the table and the area cards on
-                              docs/tools/overview.mdx sit between generated: markers, and
-                              no other page repeats a figure. Run it after changing a tool;
+                              docs/tools/overview.mdx sit between generated: markers, each
+                              page's frontmatter opens with a count it rewrites, and no
+                              other page repeats a figure. Run it after changing a tool;
                               --check fails when a page is stale. Everything above the
-                              first "### `" heading on each page is yours to write.
+                              first "### `" heading is yours to write except that count.
 ```
 
 Data areas map cleanly onto tool prefixes: me (`search_me`, `list_roles`,
 `append_role_background`, …), resumes (`get_resume_format`, `create_resume`,
 `preview_resume_text`, …), pipeline (`list_applications`, `move_application_stage`,
 `list_follow_ups`, …), CRM (`list_companies`, `create_contact`, …), admin (`admin_*`,
-hidden from members' `tools/list` entirely — not merely refused). Don't trust any
+hidden from members' `tools/list` entirely — not merely refused), and tags (`list_tags`,
+`create_tag`, …) cutting across all of them. Don't trust any
 hand-written tool count you find, including in old decision-log entries: the authoritative
 number is generated live on the /docs page, and the README hand-carries it in three
 places that must be bumped whenever the array changes.
@@ -207,9 +209,15 @@ the other half — which of a person's own material stands behind each bullet, a
 bullets nothing does. That is derived by comparing text rather than recorded when a
 document is written; read the decision log before changing it.
 
-What is worth doing next is unglamorous: the six `docs/tools/*.mdx` frontmatter counts are
-still hand-written and drift every time a tool is added (the generator owns the tables and
-the overview's figures, nothing else), and `.claude/DECISIONS.md` is now long enough that
+There is also one catalogue behind every label in the product: `src/lib/data/tags.ts` and
+the `Tag` table, keyed by `kind`. Where an application came from, a company's industry,
+size and location, how you know a person — all of it is tags, all of it multi-select, all
+of it managed from one picker (`src/components/tags/tag-picker.tsx`) and one set of
+`*_tag` tools. `sources` on an application is the old spelling and still works; the
+pipeline's saved views still spell the filter `src` in the URL, deliberately, because
+renaming it would break every view already saved. Don't add a second labelling mechanism.
+
+What is worth doing next is unglamorous: `.claude/DECISIONS.md` is now long enough that
 its own advice — read from the end — is doing real work.
 
 **Parked, deliberately:** first-class interview rounds and questions (today they are

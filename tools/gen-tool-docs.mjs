@@ -48,7 +48,7 @@ const SECTIONS = [
   { file: "resumes.mdx", first: "get_resume_format", last: "preview_resume_text",
     title: "Resumes", icon: "file-lines",
     blurb: "writing documents, previewing them, publishing, exporting." },
-  { file: "pipeline.mdx", first: "pipeline_stats", last: "complete_task",
+  { file: "pipeline.mdx", first: "pipeline_stats", last: "delete_task",
     title: "Pipeline", icon: "list-check",
     blurb: "applications, stages, timeline, tasks, follow-ups, views, sharing, diagnosis." },
   { file: "crm.mdx", first: "list_companies", last: "create_contact",
@@ -135,13 +135,15 @@ const ACTIVITY_VALUES = [
 ];
 const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"];
 const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"];
-const SOURCE_COLOR_VALUES = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"];
+const TAG_COLORS = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"];
+const TAG_KINDS = ["APPLICATION", "COMPANY", "CONTACT", "INDUSTRY", "SIZE", "LOCATION"];
 
 for (const [name, values] of [
   ["ACTIVITY_VALUES", ACTIVITY_VALUES],
   ["COMPANY_FILTERS", COMPANY_FILTERS],
   ["CONTACT_FILTERS", CONTACT_FILTERS],
-  ["SOURCE_COLOR_VALUES", SOURCE_COLOR_VALUES],
+  ["TAG_COLORS", TAG_COLORS],
+  ["TAG_KINDS", TAG_KINDS],
 ]) {
   const declared = new RegExp(`${name}[^=]*=\\s*\\[([\\s\\S]*?)\\]`).exec(src);
   if (!declared) throw new Error(`tools.ts no longer declares ${name}`);
@@ -162,7 +164,7 @@ for (const [name, values] of [
 
 const scope = {
   str, num, bool, strArray, object,
-  STAGE_VALUES, ACTIVITY_VALUES, COMPANY_FILTERS, CONTACT_FILTERS, SOURCE_COLOR_VALUES,
+  STAGE_VALUES, ACTIVITY_VALUES, COMPANY_FILTERS, CONTACT_FILTERS, TAG_COLORS, TAG_KINDS,
 };
 const scopeKeys = Object.keys(scope);
 const scopeValues = Object.values(scope);
@@ -233,6 +235,31 @@ function render(tool) {
   return [...lines, ""].join("\n");
 }
 
+/**
+ * The count each page's frontmatter opens with — "Twelve tools over…".
+ *
+ * Written as a word because that is how the prose reads, and taken back by the
+ * generator because all six of them had drifted: the frontmatter sits above
+ * the first "### `" heading, so it was the one number on these pages nothing
+ * owned. Only the leading word moves. The rest of the sentence stays yours.
+ */
+const ONES = [
+  "zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine",
+  "ten", "eleven", "twelve", "thirteen", "fourteen", "fifteen", "sixteen",
+  "seventeen", "eighteen", "nineteen",
+];
+const TENS = ["", "", "twenty", "thirty", "forty", "fifty", "sixty", "seventy", "eighty", "ninety"];
+
+function spell(n) {
+  if (n < 0 || n > 99) throw new Error(`No spelling for ${n} — this generator counts tools, not stars`);
+  if (n < 20) return ONES[n];
+  const tens = TENS[Math.floor(n / 10)];
+  const ones = n % 10;
+  return ones ? `${tens}-${ONES[ones]}` : tens;
+}
+
+const COUNT_WORD = /^(description: ")[A-Za-z-]+( tools?\b)/m;
+
 let stale = 0;
 let cursor = 0;
 
@@ -252,7 +279,16 @@ for (const section of SECTIONS) {
   const marker = page.indexOf("### `");
   if (marker < 0) throw new Error(`${section.file} has no generated section to replace`);
 
-  const next = page.slice(0, marker) + owned.map(render).join("\n");
+  if (!COUNT_WORD.test(page)) {
+    throw new Error(`${section.file}'s frontmatter no longer opens with a spelled-out tool count`);
+  }
+  const head = page
+    .slice(0, marker)
+    .replace(COUNT_WORD, (_, before, after) => {
+      const word = spell(owned.length);
+      return `${before}${word[0].toUpperCase()}${word.slice(1)}${after}`;
+    });
+  const next = head + owned.map(render).join("\n");
   if (next === page) {
     console.log(`  ${relative(ROOT, path)}  ${owned.length} tools, unchanged`);
     continue;

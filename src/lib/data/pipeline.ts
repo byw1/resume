@@ -3,6 +3,7 @@ import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
 import { readQuickLog } from "@/lib/quick-log";
+import { TagKind, type TagRef, flattenTags, resolveTagIds, tagInclude } from "@/lib/data/tags";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
 /** Like me.ts: userId is the required first argument on every query. */
@@ -98,245 +99,6 @@ export const ACTIVITY_OPTIONS: ActivityType[] = [
   "REFERRAL",
 ];
 
-/**
- * What a brand-new workspace is offered as a one-click seed. NOT appended to
- * anybody's list forever — that was the old behaviour and the reason the picker
- * filled with options nobody could remove. Accepting these creates real rows
- * the person owns and can rename, recolour or delete.
- */
-export const SOURCE_SUGGESTIONS = [
-  "LinkedIn",
-  "Job board",
-  "Company site",
-  "Referral",
-  "Recruiter reached out",
-  "Cold outreach",
-] as const;
-
-/** The swatches a source can wear. Token names, resolved through SOURCE_TONE. */
-export const SOURCE_COLORS = [
-  "slate",
-  "blue",
-  "teal",
-  "green",
-  "amber",
-  "red",
-  "violet",
-  "pink",
-] as const;
-
-export type SourceColor = (typeof SOURCE_COLORS)[number];
-
-/**
- * Same argument as STAGE_TONE: a CSS variable follows the theme and a stored
- * hex is right in exactly one of them. See --tag-* in globals.css for why a
- * source wears its colour as a dot rather than as ink and wash.
- */
-export const SOURCE_TONE: Record<SourceColor, string> = {
-  slate: "var(--tag-slate)",
-  blue: "var(--tag-blue)",
-  teal: "var(--tag-teal)",
-  green: "var(--tag-green)",
-  amber: "var(--tag-amber)",
-  red: "var(--tag-red)",
-  violet: "var(--tag-violet)",
-  pink: "var(--tag-pink)",
-};
-
-/** Anything unrecognised renders slate rather than throwing at paint time. */
-export function sourceTone(color: string): string {
-  return SOURCE_TONE[color as SourceColor] ?? SOURCE_TONE.slate;
-}
-
-function sourceKey(name: string): string {
-  return name.trim().toLowerCase();
-}
-
-function assertColor(color: string): SourceColor {
-  if (!(SOURCE_COLORS as readonly string[]).includes(color)) {
-    throw new Error(`Unknown colour "${color}". Use one of: ${SOURCE_COLORS.join(", ")}.`);
-  }
-  return color as SourceColor;
-}
-
-// ---------------------------------------------------------------------------
-// Sources — the channels an application came from
-// ---------------------------------------------------------------------------
-
-const sourceCounts = { _count: { select: { applications: true } } } as const;
-
-export async function listSources(userId: string) {
-  return db.source.findMany({
-    where: { userId },
-    orderBy: { name: "asc" },
-    include: sourceCounts,
-  });
-}
-
-/**
- * The starter set, offered rather than imposed.
- *
- * These used to be appended to everyone's picker in code, which made them
- * permanent and un-deletable — half of the reason the list "filled with random
- * source forms". Accepting them creates real rows the person owns. Skips any
- * name they already have, so pressing it twice is harmless.
- */
-export async function seedSources(userId: string) {
-  const existing = await db.source.findMany({ where: { userId }, select: { key: true } });
-  const have = new Set(existing.map((row) => row.key));
-  const wanted = SOURCE_SUGGESTIONS.filter((name) => !have.has(sourceKey(name)));
-  await db.source.createMany({
-    data: wanted.map((name, index) => ({
-      userId,
-      name,
-      key: sourceKey(name),
-      color: SOURCE_COLORS[index % SOURCE_COLORS.length],
-    })),
-  });
-  return listSources(userId);
-}
-
-export async function createSource(
-  userId: string,
-  input: { name: string; color?: string },
-) {
-  const name = input.name.trim();
-  if (!name) throw new Error("A source needs a name");
-  const key = sourceKey(name);
-  const existing = await db.source.findFirst({ where: { userId, key } });
-  if (existing) throw new Error(`You already have a source called "${existing.name}"`);
-  return db.source.create({
-    data: { userId, name, key, color: input.color ? assertColor(input.color) : "slate" },
-    include: sourceCounts,
-  });
-}
-
-export async function updateSource(
-  userId: string,
-  id: string,
-  patch: { name?: string; color?: string },
-) {
-  const data: Prisma.SourceUpdateInput = {};
-  if (patch.color !== undefined) data.color = assertColor(patch.color);
-  if (patch.name !== undefined) {
-    const name = patch.name.trim();
-    if (!name) throw new Error("A source needs a name");
-    // `key` is derived, so it is assigned here rather than picked off the
-    // patch — otherwise a rename leaves the old key and the case-insensitive
-    // uniqueness quietly stops meaning anything.
-    const key = sourceKey(name);
-    const clash = await db.source.findFirst({ where: { userId, key, id: { not: id } } });
-    if (clash) throw new Error(`You already have a source called "${clash.name}"`);
-    data.name = name;
-    data.key = key;
-  }
-  const { count } = await db.source.updateMany({ where: { id, userId }, data: data as Prisma.SourceUpdateManyMutationInput });
-  if (count === 0) throw new Error(`No source with id ${id}`);
-  return db.source.findFirstOrThrow({ where: { id, userId }, include: sourceCounts });
-}
-
-/**
- * Deleting a source takes it off every application and succeeds.
- *
- * Deliberately unlike deleteCompany, which refuses while applications point at
- * it. A company is a record with its own history and losing it loses work; a
- * source is a label, and the applications are untouched apart from no longer
- * wearing it. A label you cannot remove IS the bug this replaced.
- */
-export async function deleteSource(userId: string, id: string) {
-  const source = await db.source.findFirst({
-    where: { id, userId },
-    include: sourceCounts,
-  });
-  if (!source) throw new Error(`No source with id ${id}`);
-  await db.source.delete({ where: { id } });
-  return { id, name: source.name, detachedFrom: source._count.applications };
-}
-
-/**
- * Names and ids in, ids out — creating a source only for a name nothing
- * matches. Matching is on the case-folded key, so "linkedin" lands on the
- * existing "LinkedIn" rather than minting a twin.
- */
-async function resolveSourceIds(
-  userId: string,
-  input: { sourceIds?: string[]; sources?: string[]; source?: string },
-): Promise<string[] | undefined> {
-  if (input.sourceIds !== undefined) {
-    if (input.sourceIds.length === 0) return [];
-    // Every id is re-checked against this user: the join table carries no
-    // userId of its own, so this is the only thing standing between a
-    // client-supplied id and a cross-workspace link.
-    const owned = await db.source.findMany({
-      where: { id: { in: input.sourceIds }, userId },
-      select: { id: true },
-    });
-    const found = new Set(owned.map((row) => row.id));
-    const missing = input.sourceIds.filter((id) => !found.has(id));
-    if (missing.length > 0) throw new Error(`No source with id ${missing[0]}`);
-    return [...found];
-  }
-
-  const names =
-    input.sources !== undefined
-      ? input.sources
-      : input.source !== undefined
-        ? [input.source]
-        : undefined;
-  if (names === undefined) return undefined;
-
-  const wanted = new Map<string, string>();
-  for (const raw of names) {
-    const name = raw.trim();
-    if (name) wanted.set(sourceKey(name), name);
-  }
-  if (wanted.size === 0) return [];
-
-  const existing = await db.source.findMany({
-    where: { userId, key: { in: [...wanted.keys()] } },
-  });
-  const ids = existing.map((row) => row.id);
-  const have = new Set(existing.map((row) => row.key));
-  for (const [key, name] of wanted) {
-    if (have.has(key)) continue;
-    const created = await db.source.create({
-      data: {
-        userId,
-        name,
-        key,
-        // Spread the palette rather than making every new source slate.
-        color: SOURCE_COLORS[Math.abs(hashKey(key)) % SOURCE_COLORS.length],
-      },
-    });
-    ids.push(created.id);
-  }
-  return ids;
-}
-
-/** Small stable hash, only ever used to pick a default swatch. */
-function hashKey(value: string): number {
-  let hash = 0;
-  for (let i = 0; i < value.length; i++) hash = (hash * 31 + value.charCodeAt(i)) | 0;
-  return hash;
-}
-
-/** A source as every caller wants it: the row, not the link to it. */
-export type SourceRef = { id: string; name: string; color: string };
-
-/**
- * The join rows a caller never wants to see, flattened to what they meant.
- *
- * The return type is spelled out with Omit rather than left to inference: a
- * spread over a generic keeps the original `sources` in the resulting type, so
- * without this every caller still sees join rows through the compiler even
- * though the value is right.
- */
-function flattenSources<T extends { sources: { source: SourceRef }[] }>(
-  row: T,
-): Omit<T, "sources"> & { sources: SourceRef[] } {
-  return { ...row, sources: row.sources.map((link) => link.source) };
-}
-
 export const TERMINAL_STAGES: Stage[] = ["ACCEPTED", "REJECTED", "WITHDRAWN", "GHOSTED"];
 
 /**
@@ -356,14 +118,56 @@ const companyCounts = { _count: { select: { applications: true, contacts: true }
 export type CompanyInput = {
   name: string;
   website?: string;
-  industry?: string;
-  size?: string;
-  location?: string;
   notes?: string;
+  /**
+   * The four tag sets a company wears. Names or ids; ids win. Each REPLACES
+   * its own set and leaves the other three alone, so setting an industry does
+   * not clear where the company is.
+   */
+  industry?: string[];
+  industryIds?: string[];
+  size?: string[];
+  sizeIds?: string[];
+  location?: string[];
+  locationIds?: string[];
+  tags?: string[];
+  tagIds?: string[];
 };
 
+/** Which kind each of a company's four tag sets holds. */
+const COMPANY_TAG_FIELDS = [
+  ["industry", "industryIds", TagKind.INDUSTRY],
+  ["size", "sizeIds", TagKind.SIZE],
+  ["location", "locationIds", TagKind.LOCATION],
+  ["tags", "tagIds", TagKind.COMPANY],
+] as const;
+
+/**
+ * Write whichever of a company's four tag sets the patch mentions.
+ *
+ * One set at a time, and only the kind being replaced is cleared: all four
+ * share one join table, so a blanket delete would take the other three with
+ * it. A set the patch is silent about is left exactly as it is.
+ */
+async function writeCompanyTags(userId: string, companyId: string, patch: Partial<CompanyInput>) {
+  for (const [names, ids, kind] of COMPANY_TAG_FIELDS) {
+    const resolved = await resolveTagIds(userId, kind, {
+      tagIds: patch[ids],
+      tags: patch[names],
+    });
+    if (resolved === undefined) continue;
+    await db.companyTag.deleteMany({ where: { companyId, tag: { kind, userId } } });
+    if (resolved.length > 0) {
+      await db.companyTag.createMany({
+        data: resolved.map((tagId) => ({ companyId, tagId })),
+        skipDuplicates: true,
+      });
+    }
+  }
+}
+
 /** Columns a caller may write. Anything else in the patch is dropped. */
-const COMPANY_COLUMNS = ["name", "website", "industry", "size", "location", "notes"] as const;
+const COMPANY_COLUMNS = ["name", "website", "notes"] as const;
 const CONTACT_COLUMNS = [
   "name",
   "title",
@@ -383,16 +187,20 @@ export type CompanyFilter = "active" | "applied" | "never-applied" | "with-conta
 
 export async function listCompanies(
   userId: string,
-  options?: { search?: string; filter?: CompanyFilter },
+  options?: { search?: string; filter?: CompanyFilter; tagIds?: string[] },
 ) {
   const where: Prisma.CompanyWhereInput = { userId };
   if (options?.search) {
     where.OR = [
       { name: { contains: options.search, mode: "insensitive" } },
-      { industry: { contains: options.search, mode: "insensitive" } },
-      { location: { contains: options.search, mode: "insensitive" } },
       { notes: { contains: options.search, mode: "insensitive" } },
+      // Industry and location were columns and are tags now, so searching for
+      // "fintech" has to reach through the join to keep working.
+      { tags: { some: { tag: { name: { contains: options.search, mode: "insensitive" } } } } },
     ];
+  }
+  if (options?.tagIds && options.tagIds.length > 0) {
+    where.tags = { some: { tagId: { in: options.tagIds } } };
   }
   if (options?.filter === "active") where.applications = { some: { stage: { notIn: TERMINAL_STAGES } } };
   if (options?.filter === "applied") where.applications = { some: { appliedAt: { not: null } } };
@@ -404,6 +212,7 @@ export async function listCompanies(
     orderBy: { name: "asc" },
     include: {
       ...companyCounts,
+      ...tagInclude,
       // Plumbing for the two derived fields below, not part of the result.
       applications: { select: { appliedAt: true, stage: true } },
     },
@@ -412,7 +221,7 @@ export async function listCompanies(
   // questions a company list gets asked; answer them on every row rather than
   // making callers fetch each company.
   return rows.map(({ applications, ...company }) => ({
-    ...company,
+    ...flattenTags(company),
     lastAppliedAt: applications.reduce<Date | null>(
       (latest, application) =>
         application.appliedAt && (!latest || application.appliedAt > latest)
@@ -440,22 +249,32 @@ export async function getCompany(userId: string, id: string) {
           workMode: true,
           salaryRange: true,
           jobUrl: true,
-          sources: { include: { source: true }, orderBy: { source: { name: "asc" as const } } },
+          tags: { include: { tag: true }, orderBy: { tag: { name: "asc" as const } } },
           appliedAt: true,
           nextFollowUpAt: true,
           updatedAt: true,
         },
       },
       contacts: { orderBy: { createdAt: "asc" }, include: { contact: true } },
+      ...tagInclude,
     },
   });
   if (!company) return null;
   return {
-    ...company,
-    applications: company.applications.map(flattenSources),
+    ...flattenTags(company),
+    applications: company.applications.map(flattenTags),
     // Callers want the people, not the rows that link them here.
     contacts: company.contacts.map((link) => link.contact),
   };
+}
+
+/** One company as every writer hands it back: counts, and flat tags. */
+async function readCompany(userId: string, id: string) {
+  const company = await db.company.findFirstOrThrow({
+    where: { id, userId },
+    include: { ...companyCounts, ...tagInclude },
+  });
+  return flattenTags(company);
 }
 
 export async function createCompany(userId: string, input: CompanyInput) {
@@ -463,13 +282,20 @@ export async function createCompany(userId: string, input: CompanyInput) {
   if (!name) throw new Error("A company needs a name");
   const existing = await db.company.findFirst({ where: { userId, name } });
   if (existing) throw new Error(`You already have a company called "${name}"`);
-  return db.company.create({
+  const company = await db.company.create({
     data: { userId, ...pick({ ...input, name }, COMPANY_COLUMNS) },
-    include: companyCounts,
   });
+  await writeCompanyTags(userId, company.id, input);
+  return readCompany(userId, company.id);
 }
 
 export async function updateCompany(userId: string, id: string, patch: Partial<CompanyInput>) {
+  // Read first rather than leaning on updateMany's count: a patch that only
+  // moves tags has no columns in it, and an empty update reports nothing
+  // changed — which used to come back as "no company with id".
+  const current = await db.company.findFirst({ where: { id, userId } });
+  if (!current) throw new Error(`No company with id ${id}`);
+
   const data = pick(patch, COMPANY_COLUMNS);
   if (data.name !== undefined) {
     data.name = data.name.trim();
@@ -479,9 +305,9 @@ export async function updateCompany(userId: string, id: string, patch: Partial<C
     });
     if (clash) throw new Error(`You already have a company called "${data.name}"`);
   }
-  const { count } = await db.company.updateMany({ where: { id, userId }, data });
-  if (count === 0) throw new Error(`No company with id ${id}`);
-  return db.company.findFirstOrThrow({ where: { id, userId }, include: companyCounts });
+  if (Object.keys(data).length > 0) await db.company.update({ where: { id }, data });
+  await writeCompanyTags(userId, id, patch);
+  return readCompany(userId, id);
 }
 
 /**
@@ -539,7 +365,13 @@ export async function deleteCompany(userId: string, id: string) {
  */
 
 /** Scalars a merge may fill in on the survivor. `name` is deliberately absent. */
-const MERGE_FILL_COLUMNS = ["website", "industry", "size", "location"] as const;
+/**
+ * The only column left worth filling from a duplicate. Industry, size and
+ * location used to be here; they are tags now and merge as a union instead,
+ * which is strictly better — a duplicate can contribute a location even when
+ * the survivor already has one.
+ */
+const MERGE_FILL_COLUMNS = ["website"] as const;
 
 export type CompanyMergePlan = {
   keep: { id: string; name: string };
@@ -547,6 +379,8 @@ export type CompanyMergePlan = {
   /** How many rows change owner. */
   applications: number;
   contacts: number;
+  /** Tags the survivor gains — industry, size, location and the rest. */
+  tags: number;
   /** Which blank fields on the survivor get filled, and with what. */
   fills: { field: string; value: string }[];
   /** Whether the duplicate's notes will be appended to the survivor's. */
@@ -563,6 +397,7 @@ async function planCompanyMerge(userId: string, keepId: string, mergeId: string)
       include: {
         applications: { select: { roleTitle: true } },
         contacts: { select: { contactId: true } },
+        tags: { select: { tagId: true } },
       },
     }),
     db.company.findFirst({
@@ -570,6 +405,7 @@ async function planCompanyMerge(userId: string, keepId: string, mergeId: string)
       include: {
         applications: { select: { roleTitle: true } },
         contacts: { select: { contactId: true } },
+        tags: { select: { tagId: true } },
       },
     }),
   ]);
@@ -588,6 +424,11 @@ async function planCompanyMerge(userId: string, keepId: string, mergeId: string)
   // Someone can already represent both, and that link is dropped rather than
   // moved — the pair is the join's primary key — so it is not a person the
   // survivor gains.
+  // Tags are a set, so the survivor ends up wearing the union — the duplicate's
+  // industry and location are exactly the kind of thing worth keeping.
+  const keptTags = new Set(keep.tags.map((link) => link.tagId));
+  const movingTags = merge.tags.filter((link) => !keptTags.has(link.tagId));
+
   const alreadyKept = new Set(keep.contacts.map((link) => link.contactId));
   const movingContacts = merge.contacts.filter((link) => !alreadyKept.has(link.contactId));
 
@@ -596,6 +437,7 @@ async function planCompanyMerge(userId: string, keepId: string, mergeId: string)
     merge: { id: merge.id, name: merge.name },
     applications: merge.applications.length,
     contacts: movingContacts.length,
+    tags: movingTags.length,
     fills,
     notesAppended,
     movingRoles: merge.applications.map((application) => application.roleTitle),
@@ -642,6 +484,19 @@ export async function mergeCompanies(userId: string, keepId: string, mergeId: st
       where: { companyId: mergeId, contact: { userId } },
       data: { companyId: keepId },
     });
+    // The survivor wears the union of both tag sets: an industry or a location
+    // recorded on only one of a duplicated pair is worth keeping.
+    await tx.companyTag.deleteMany({
+      where: {
+        companyId: mergeId,
+        tag: { userId },
+        tagId: { in: keep.tags.map((link) => link.tagId) },
+      },
+    });
+    await tx.companyTag.updateMany({
+      where: { companyId: mergeId, tag: { userId } },
+      data: { companyId: keepId },
+    });
     await tx.company.update({
       where: { id: keepId },
       data: {
@@ -682,9 +537,24 @@ export type CompanyRef = { id: string; name: string; website: string };
 
 /**
  * The join rows a caller never wants to see, flattened. Spelled out with Omit
- * for the same reason flattenSources is: a spread over a generic keeps the
+ * for the same reason flattenTags is: a spread over a generic keeps the
  * original `companies` in the resulting type.
  */
+/**
+ * A contact's two join sets, flattened where they are read.
+ *
+ * Written at each call site rather than as one generic helper: a generic whose
+ * constraint names both join shapes collapses to that constraint when the
+ * argument is Prisma's intersection type, and every other field on a contact
+ * silently disappears from the result type while the value stays right.
+ */
+const contactShape = <T extends { companies: { company: CompanyRef }[]; tags: { tag: TagRef }[] }>(
+  row: T,
+) => ({
+  companies: row.companies.map((link) => link.company),
+  tags: row.tags.map((link) => link.tag),
+});
+
 function flattenCompanies<T extends { companies: { company: CompanyRef }[] }>(
   row: T,
 ): Omit<T, "companies"> & { companies: CompanyRef[] } {
@@ -749,11 +619,13 @@ export type ApplicationInput = {
   location?: string;
   workMode?: string;
   salaryRange?: string;
-  /** Source ids, when you already have them. Wins over `sources`. */
+  /** Tag ids, when you already have them. Wins over `tags`. */
+  tagIds?: string[];
+  /** Tag names — resolved against what exists, created only when nothing matches. */
+  tags?: string[];
+  /** Legacy spellings from when these were called sources. Lowest precedence. */
   sourceIds?: string[];
-  /** Source names — resolved against what exists, created only when nothing matches. */
   sources?: string[];
-  /** Legacy single-source spelling. `sourceIds` and `sources` both win over it. */
   source?: string;
   excitement?: number;
   fit?: number;
@@ -763,13 +635,33 @@ export type ApplicationInput = {
   resumeId?: string | null;
 };
 
-const applicationSourceInclude = {
-  sources: { include: { source: true }, orderBy: { source: { name: "asc" as const } } },
+/**
+ * Tags used to be called sources, and `sources` on an application is a spelling
+ * plenty of saved prompts and scripts still use. One translation here rather
+ * than a second code path: the new names win, the old ones still work.
+ */
+function tagArgs(input: {
+  tagIds?: string[];
+  tags?: string[];
+  tag?: string;
+  sourceIds?: string[];
+  sources?: string[];
+  source?: string;
+}) {
+  return {
+    tagIds: input.tagIds ?? input.sourceIds,
+    tags: input.tags ?? input.sources,
+    tag: input.tag ?? input.source,
+  };
+}
+
+const applicationTagInclude = {
+  tags: { include: { tag: true }, orderBy: { tag: { name: "asc" as const } } },
 } satisfies Prisma.ApplicationInclude;
 
 const applicationInclude = {
   company: true,
-  ...applicationSourceInclude,
+  ...applicationTagInclude,
   resume: { select: { id: true, name: true } },
   _count: { select: { activities: true, tasks: true, contacts: true } },
   // The moment this application last changed stage, for "how long has it been
@@ -835,7 +727,7 @@ export async function listApplications(
       lastStageChangeAt: activities[0]?.occurredAt ?? null,
     };
     return {
-      ...flattenSources(application),
+      ...flattenTags(application),
       stageSince: since,
       daysInStage: Math.floor((now.getTime() - since.getTime()) / DAY),
       // Two questions, and confusing them is why the board could answer
@@ -858,7 +750,7 @@ export async function getApplication(userId: string, id: string) {
     where: { id, userId },
     include: {
       company: true,
-      ...applicationSourceInclude,
+      ...applicationTagInclude,
       resume: { select: { id: true, name: true } },
       activities: { orderBy: { occurredAt: "desc" } },
       contacts: { orderBy: { createdAt: "asc" } },
@@ -877,7 +769,7 @@ export async function getApplication(userId: string, id: string) {
       application.activities.find((activity) => activity.toStage !== null)?.occurredAt ?? null,
   };
   return {
-    ...flattenSources(application),
+    ...flattenTags(application),
     lastTouchAt: lastTouchAt(subject),
     quietDays: quietDaysFor(subject, new Date()),
   };
@@ -936,7 +828,11 @@ export async function createApplication(userId: string, input: ApplicationInput)
       location: input.location ?? "",
       workMode: input.workMode ?? "",
       salaryRange: input.salaryRange ?? "",
-      sources: { create: (await resolveSourceIds(userId, input) ?? []).map((sourceId) => ({ sourceId })) },
+      tags: {
+        create: ((await resolveTagIds(userId, TagKind.APPLICATION, tagArgs(input))) ?? []).map(
+          (tagId) => ({ tagId }),
+        ),
+      },
       excitement: clamp(input.excitement ?? 3, 1, 5),
       fit: clamp(input.fit ?? 3, 1, 5),
       notes: input.notes ?? "",
@@ -956,7 +852,7 @@ export async function createApplication(userId: string, input: ApplicationInput)
     },
   });
 
-  return flattenSources(application);
+  return flattenTags(application);
 }
 
 export type CaptureResult =
@@ -1024,9 +920,9 @@ export async function updateApplication(
   if (patch.workMode !== undefined) data.workMode = patch.workMode;
   if (patch.salaryRange !== undefined) data.salaryRange = patch.salaryRange;
   // Replaces the whole set, like every other array in this layer.
-  const sourceIds = await resolveSourceIds(userId, patch);
-  if (sourceIds !== undefined) {
-    data.sources = { deleteMany: {}, create: sourceIds.map((sourceId) => ({ sourceId })) };
+  const tagIds = await resolveTagIds(userId, TagKind.APPLICATION, tagArgs(patch));
+  if (tagIds !== undefined) {
+    data.tags = { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) };
   }
   if (patch.notes !== undefined) data.notes = patch.notes;
   if (patch.excitement !== undefined) data.excitement = clamp(patch.excitement, 1, 5);
@@ -1061,7 +957,7 @@ export async function updateApplication(
     await db.application.update({ where: { id }, data });
     return moveApplicationStage(userId, id, patch.stage);
   }
-  return flattenSources(
+  return flattenTags(
     await db.application.update({ where: { id }, data, include: applicationInclude }),
   );
 }
@@ -1162,7 +1058,7 @@ export async function moveApplicationStage(
     data.nextFollowUpAt = defaultFollowUp(stage);
   }
 
-  const updated = flattenSources(
+  const updated = flattenTags(
     await db.application.update({ where: { id }, data, include: applicationInclude }),
   );
 
@@ -1343,6 +1239,55 @@ export async function listTasks(userId: string, options?: { done?: boolean; limi
   });
 }
 
+/**
+ * Change a task in place.
+ *
+ * Only what the patch mentions moves: `dueAt: null` clears the date,
+ * `applicationId: null` unhooks it from the role, and a key that is absent is
+ * left exactly as it was. `done` goes through setTaskDone instead, which keeps
+ * doneAt honest.
+ */
+export async function updateTask(
+  userId: string,
+  id: string,
+  patch: {
+    title?: string;
+    detail?: string;
+    dueAt?: Date | string | null;
+    applicationId?: string | null;
+  },
+) {
+  // Read first, write by id: the same shape as updateContact, and the only way
+  // to write a relation — updateMany cannot connect one.
+  const current = await db.task.findFirst({ where: { id, userId } });
+  if (!current) throw new Error(`No task with id ${id}`);
+
+  const data: Prisma.TaskUpdateInput = {};
+  if (patch.title !== undefined) {
+    const title = patch.title.trim();
+    if (!title) throw new Error("A task needs a title");
+    data.title = title;
+  }
+  if (patch.detail !== undefined) data.detail = patch.detail;
+  if (patch.dueAt !== undefined) data.dueAt = toDate(patch.dueAt);
+  if (patch.applicationId !== undefined) {
+    if (patch.applicationId) {
+      const application = await db.application.findFirst({
+        where: { id: patch.applicationId, userId },
+      });
+      if (!application) throw new Error(`No application with id ${patch.applicationId}`);
+      data.application = { connect: { id: patch.applicationId } };
+    } else {
+      data.application = { disconnect: true };
+    }
+  }
+  return db.task.update({
+    where: { id },
+    data,
+    include: { application: { include: { company: true } } },
+  });
+}
+
 export async function setTaskDone(userId: string, id: string, done: boolean) {
   const { count } = await db.task.updateMany({
     where: { id, userId },
@@ -1379,6 +1324,10 @@ export async function createContact(
     companies?: string[];
     /** Legacy single-company spelling. `companyIds` and `companies` both win over it. */
     company?: string;
+    /** Tag ids, when you already have them. Wins over `tags`. */
+    tagIds?: string[];
+    /** Tag names — the ones that do not exist yet are created. */
+    tags?: string[];
     applicationId?: string | null;
   },
 ) {
@@ -1389,6 +1338,7 @@ export async function createContact(
     if (!application) throw new Error(`No application with id ${input.applicationId}`);
   }
   const companyIds = (await resolveCompanyIds(userId, input)) ?? [];
+  const tagIds = (await resolveTagIds(userId, TagKind.CONTACT, input)) ?? [];
   const contact = await db.contact.create({
     data: {
       userId,
@@ -1405,17 +1355,19 @@ export async function createContact(
       relationship: input.relationship ?? "",
       notes: input.notes ?? "",
       companies: { create: companyIds.map((companyId) => ({ companyId })) },
+      tags: { create: tagIds.map((tagId) => ({ tagId })) },
       applicationId: input.applicationId ?? null,
     },
     include: contactInclude,
   });
-  return flattenCompanies(contact);
+  return { ...contact, ...contactShape(contact) };
 }
 
 const contactInclude = {
   // Ordered by when the link was made, so the first chip is the one a compact
   // list shows and it does not move about between renders.
   companies: { include: { company: true }, orderBy: { createdAt: "asc" as const } },
+  ...tagInclude,
   application: {
     select: {
       id: true,
@@ -1439,11 +1391,15 @@ export async function listContacts(
     companyId?: string;
     search?: string;
     filter?: ContactFilter;
+    tagIds?: string[];
   },
 ) {
   const where: Prisma.ContactWhereInput = { userId };
   if (options?.applicationId) where.applicationId = options.applicationId;
   if (options?.companyId) where.companies = { some: { companyId: options.companyId } };
+  if (options?.tagIds && options.tagIds.length > 0) {
+    where.tags = { some: { tagId: { in: options.tagIds } } };
+  }
   if (options?.filter === "ping-due") where.nextFollowUpAt = { lte: new Date() };
   if (options?.filter === "with-application") where.applicationId = { not: null };
   if (options?.filter === "no-company") where.companies = { none: {} };
@@ -1452,12 +1408,16 @@ export async function listContacts(
       { name: { contains: options.search, mode: "insensitive" } },
       { title: { contains: options.search, mode: "insensitive" } },
       { email: { contains: options.search, mode: "insensitive" } },
+      { relationship: { contains: options.search, mode: "insensitive" } },
       { notes: { contains: options.search, mode: "insensitive" } },
       {
         companies: {
           some: { company: { name: { contains: options.search, mode: "insensitive" } } },
         },
       },
+      // Same as companies: a tag is a word you filed someone under, so it has
+      // to be a word you can find them by.
+      { tags: { some: { tag: { name: { contains: options.search, mode: "insensitive" } } } } },
     ];
   }
   const contacts = await db.contact.findMany({
@@ -1469,7 +1429,7 @@ export async function listContacts(
       activities: { select: { occurredAt: true }, orderBy: { occurredAt: "desc" as const }, take: 1 },
     },
   });
-  return contacts.map(flattenCompanies);
+  return contacts.map((contact) => ({ ...contact, ...contactShape(contact) }));
 }
 
 export async function getContact(userId: string, id: string) {
@@ -1477,7 +1437,7 @@ export async function getContact(userId: string, id: string) {
     where: { id, userId },
     include: { ...contactInclude, activities: { orderBy: { occurredAt: "desc" as const } } },
   });
-  return contact ? flattenCompanies(contact) : null;
+  return contact ? { ...contact, ...contactShape(contact) } : null;
 }
 
 export async function updateContact(
@@ -1502,6 +1462,10 @@ export async function updateContact(
     companies: string[];
     /** Legacy single-company spelling. Both of the above win over it. */
     company: string;
+    /** Tag ids. REPLACES the whole set. Wins over `tags`. */
+    tagIds: string[];
+    /** Tag names. REPLACES the whole set; unknown names are created. */
+    tags: string[];
     applicationId: string | null;
     nextFollowUpAt: Date | string | null;
   }>,
@@ -1522,6 +1486,13 @@ export async function updateContact(
     // want, not a delta.
     data.companies = { deleteMany: {}, create: companyIds.map((companyId) => ({ companyId })) };
   }
+  // Tags replace too, and a contact's join carries only CONTACT tags — so
+  // unlike a company's, where four lists share one table, a blanket delete
+  // here takes nothing it shouldn't.
+  const tagIds = await resolveTagIds(userId, TagKind.CONTACT, patch);
+  if (tagIds !== undefined) {
+    data.tags = { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) };
+  }
   if (patch.applicationId !== undefined) {
     if (patch.applicationId) {
       const application = await db.application.findFirst({
@@ -1533,7 +1504,8 @@ export async function updateContact(
       data.application = { disconnect: true };
     }
   }
-  return flattenCompanies(await db.contact.update({ where: { id }, data, include: contactInclude }));
+  const contact = await db.contact.update({ where: { id }, data, include: contactInclude });
+  return { ...contact, ...contactShape(contact) };
 }
 
 export async function deleteContact(userId: string, id: string) {
