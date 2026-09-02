@@ -163,7 +163,7 @@ export async function publishResumeAction(id: string) {
   const user = await requireUser();
   const resume = await resumes.publishResume(user.id, id);
   revalidatePath(`/resumes/${id}`);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   return { url: `${await currentBaseUrl()}/r/${resume.slug}` };
 }
 
@@ -171,7 +171,7 @@ export async function unpublishResumeAction(id: string) {
   const user = await requireUser();
   await resumes.unpublishResume(user.id, id);
   revalidatePath(`/resumes/${id}`);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
 }
 
 // ---------------------------------------------------------------------------
@@ -570,7 +570,7 @@ export async function setProfilePhotoAction(input: string) {
   const result = await me.setProfilePhoto(user.id, input);
   revalidatePath("/settings");
   revalidatePath("/me");
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath("/");
   return result;
 }
@@ -719,14 +719,14 @@ export async function deleteCertificationAction(id: string) {
 export async function createResumeAction(input: resumes.ResumeMeta & { seedFromMe?: boolean }) {
   const user = await requireUser();
   const resume = await resumes.createResume(user.id, input);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   return resume.id;
 }
 
 export async function updateResumeAction(id: string, patch: resumes.ResumeMeta & { data?: unknown }) {
   const user = await requireUser();
   await resumes.updateResume(user.id, id, patch);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath(`/resumes/${id}`);
 }
 
@@ -845,7 +845,7 @@ export async function resumeEvidenceAction(id: string) {
 export async function tailorResumeForApplicationAction(applicationId: string) {
   const user = await requireUser();
   const result = await resumes.createResumeForApplication(user.id, applicationId);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath("/applications");
   revalidatePath(`/applications/${applicationId}`);
   return {
@@ -859,23 +859,23 @@ export async function tailorResumeForApplicationAction(applicationId: string) {
 export async function setResumeBaseAction(id: string, baseId: string | null) {
   const user = await requireUser();
   await resumes.setResumeBase(user.id, id, baseId);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath(`/resumes/${id}`);
 }
 
 export async function deleteResumeAction(id: string, redirectAfter = true) {
   const user = await requireUser();
   await resumes.deleteResume(user.id, id);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   // The editor needs somewhere to go after its document is gone; the grid is
   // already standing where it wants to be, search and sort included.
-  if (redirectAfter) redirect("/resumes");
+  if (redirectAfter) redirect("/me?tab=resumes");
 }
 
 export async function duplicateResumeAction(id: string, name?: string) {
   const user = await requireUser();
   const copy = await resumes.duplicateResume(user.id, id, name);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   return copy.id;
 }
 

@@ -102,7 +102,7 @@ export default async function DashboardPage() {
               </Link>
             </Button>
             <Button asChild variant="default">
-              <Link href="/resumes?new=1">
+              <Link href="/me?tab=resumes&new=1">
                 <SparklesIcon /> New resume
               </Link>
             </Button>

@@ -2,11 +2,11 @@ import { headers } from "next/headers";
 import Link from "next/link";
 import { FileTextIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { PageHeader, PageShell, EmptyState, SectionEmpty } from "@/components/page-header";
+import { EmptyState, SectionEmpty } from "@/components/page-header";
 import { Stagger, StaggerItem, Lift } from "@/components/motion";
 import { SearchBox } from "@/components/crm/search-box";
 import { ResumeSortSelect } from "@/components/resume/resume-sort";
-import { listResumes } from "@/lib/data/resumes";
+import { listResumes, type ResumeListOpts } from "@/lib/data/resumes";
 import { parseResumeDoc } from "@/lib/resume-schema";
 import { diffResumeDocs } from "@/lib/resume-diff";
 import { estimatePages } from "@/lib/resume-text";
@@ -15,30 +15,35 @@ import { ResumeCard } from "@/components/resume/resume-card";
 import { ResumePaper } from "@/components/resume/resume-paper";
 import { PaperThumb } from "@/components/resume/paper-thumb";
 import { db } from "@/lib/db";
-import { requireUser } from "@/lib/auth";
 
-export const dynamic = "force-dynamic";
-
-export default async function ResumesPage({
-  searchParams,
+/**
+ * The resume grid, as it appears under Me → Resumes.
+ *
+ * A server component, and it has to stay one: every card draws a real
+ * ResumePaper at thumbnail scale, and that render belongs on the server for
+ * the same reason the published page's does. It loads its own data rather
+ * than taking it as props so the Me page can skip all of it — the join and a
+ * document render per resume — whenever a different tab is showing.
+ *
+ * `userId` is resolved by the page from the session cookie and passed down;
+ * it never arrives from a client.
+ */
+export async function ResumesPanel({
+  userId,
+  search,
+  sort,
+  hasMaterial,
 }: {
-  searchParams: Promise<Record<string, string | string[] | undefined>>;
+  userId: string;
+  search: string;
+  sort: NonNullable<ResumeListOpts["sort"]>;
+  /** Whether there is anything in Me to build a resume out of. */
+  hasMaterial: boolean;
 }) {
-  const user = await requireUser();
-  const params = await searchParams;
-  const one = (key: string) => {
-    const value = params[key];
-    return Array.isArray(value) ? value[0] : value;
-  };
-  const q = one("q")?.trim() ?? "";
-  const sortParam = one("sort");
-  const sort = sortParam === "name" || sortParam === "used" ? sortParam : "recent";
-
-  const [resumes, roleCount, profile, headerList] = await Promise.all([
-    listResumes(user.id, { search: q, sort }),
-    db.role.count({ where: { userId: user.id } }),
+  const [resumes, profile, headerList] = await Promise.all([
+    listResumes(userId, { search, sort }),
     // One read for the whole grid: the thumbnails all draw the same face.
-    db.profile.findUnique({ where: { userId: user.id }, select: { photo: true } }),
+    db.profile.findUnique({ where: { userId }, select: { photo: true } }),
     headers(),
   ]);
   const photo = profile?.photo ?? "";
@@ -65,7 +70,7 @@ export default async function ResumesPage({
   // sort or an active search means the person asked for a different order —
   // honour it flat.
   const ordered =
-    sort === "recent" && !q
+    sort === "recent" && !search
       ? (() => {
           const out: typeof resumes = [];
           const seen = new Set<string>();
@@ -87,34 +92,29 @@ export default async function ResumesPage({
       : resumes;
 
   return (
-    <PageShell>
-      <PageHeader
-        eyebrow="Documents"
-        title="Resumes"
-        description="One base resume, then a tailored variant per job. Ask Claude to build them from what is in Me — it will save them straight here."
-        actions={<NewResumeDialog hasMaterial={roleCount > 0} />}
-      />
-
-      {(resumes.length > 0 || q) && (
+    <>
+      {(resumes.length > 0 || search) && (
         <div className="mb-4 flex flex-wrap items-center gap-2">
           <SearchBox placeholder="Search resumes…" className="w-full sm:w-72" />
           <ResumeSortSelect className="ml-auto" />
         </div>
       )}
 
-      {resumes.length === 0 && q ? (
-        <SectionEmpty>Nothing matches “{q}”. Clear the search to see everything.</SectionEmpty>
+      {resumes.length === 0 && search ? (
+        <SectionEmpty>
+          Nothing matches “{search}”. Clear the search to see everything.
+        </SectionEmpty>
       ) : resumes.length === 0 ? (
         <EmptyState
           icon={FileTextIcon}
           title="No resumes yet"
           description={
-            roleCount > 0
+            hasMaterial
               ? "Build one from Me in a click, or ask Claude to tailor one to a job posting."
               : "Already have a resume? Paste it to Claude and say \"import this\" — it fills in Me and drafts a resume in one move. Or add a role under Me by hand first."
           }
           action={
-            roleCount > 0 ? (
+            hasMaterial ? (
               <NewResumeDialog hasMaterial />
             ) : (
               <div className="flex flex-wrap items-center justify-center gap-2">
@@ -183,6 +183,6 @@ export default async function ResumesPage({
           })}
         </Stagger>
       )}
-    </PageShell>
+    </>
   );
 }

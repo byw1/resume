@@ -180,7 +180,7 @@ export function ResumeEditor({
       {/* Toolbar */}
       <div className="glass flex shrink-0 flex-wrap items-center gap-2 border-b px-4 py-2.5 md:px-6">
         <Button asChild variant="ghost" size="icon-sm" className="text-muted-foreground">
-          <Link href="/resumes">
+          <Link href="/me?tab=resumes">
             <ArrowLeftIcon />
           </Link>
         </Button>
