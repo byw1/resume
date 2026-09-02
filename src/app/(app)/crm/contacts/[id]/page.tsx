@@ -8,16 +8,18 @@ import { ContactDetail } from "@/components/crm/contact-detail";
 import { getContact, listCompanies } from "@/lib/data/pipeline";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
+import { getGoogleConnection } from "@/lib/data/google";
 
 export const dynamic = "force-dynamic";
 
 export default async function ContactPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [contact, companies, { companyLogos }] = await Promise.all([
+  const [contact, companies, { companyLogos }, googleConnection] = await Promise.all([
     getContact(user.id, id),
     listCompanies(user.id),
     getSettings(),
+    getGoogleConnection(user.id),
   ]);
   if (!contact) notFound();
 
@@ -83,6 +85,9 @@ export default async function ContactPage({ params }: { params: Promise<{ id: st
               : null
           }
           logos={companyLogos}
+          googleAccess={
+            googleConnection ? { mail: googleConnection.mail, calendar: googleConnection.calendar } : null
+          }
         />
       </FadeIn>
     </PageShell>

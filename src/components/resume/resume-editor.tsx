@@ -61,6 +61,7 @@ import {
 import { estimateLines } from "@/lib/resume-text";
 import { ResumePaper, type PaperSettings } from "@/components/resume/resume-paper";
 import { EvidencePanel, type LinkedApplication } from "@/components/resume/evidence-panel";
+import type { CorrespondenceAccess } from "@/components/google/correspondence-card";
 import {
   deleteResumeAction,
   duplicateResumeAction,
@@ -94,6 +95,7 @@ export function ResumeEditor({
   photo,
   siblings,
   applications,
+  googleAccess,
 }: {
   id: string;
   doc: ResumeDoc;
@@ -102,6 +104,8 @@ export function ResumeEditor({
   siblings: { id: string; name: string }[];
   /** The jobs this document was actually sent to. */
   applications: LinkedApplication[];
+  /** Whether Gmail and Calendar are connected, for the mail behind those jobs. */
+  googleAccess: CorrespondenceAccess;
   /**
    * The resume this one was tailored from, or null. Drives the live
    * compare-to-base view in the toolbar; the diff recomputes as you type.
@@ -208,6 +212,7 @@ export function ResumeEditor({
             base={base ? { id: base.id, name: base.name } : null}
             siblings={siblings}
             applications={applications}
+            googleAccess={googleAccess}
             onOpen={flush}
           />
 

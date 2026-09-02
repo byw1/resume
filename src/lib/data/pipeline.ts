@@ -4,6 +4,7 @@ import { pick } from "@/lib/data/patch";
 import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
 import { readQuickLog } from "@/lib/quick-log";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
+import { listMatchedEvents } from "@/lib/data/google";
 
 /** Like me.ts: userId is the required first argument on every query. */
 
@@ -1583,7 +1584,8 @@ export async function contactFollowUpsDue(userId: string, withinDays = 0) {
  * is thinking about all three at once. Merging them here rather than in the
  * calendar component is what lets the same answer come back over MCP.
  */
-export type ScheduleKind = "FOLLOW_UP" | "TASK" | "ACTIVITY";
+/** MEETING is a Google Calendar event that involves someone on the pipeline. */
+export type ScheduleKind = "FOLLOW_UP" | "TASK" | "ACTIVITY" | "MEETING";
 
 export type ScheduleEntry = {
   kind: ScheduleKind;
@@ -1598,6 +1600,8 @@ export type ScheduleEntry = {
   stage: Stage | null;
   done: boolean | null;
   activityType: ActivityType | null;
+  /** Set on a MEETING: the event in Google Calendar. */
+  url?: string;
 };
 
 export async function listSchedule(
@@ -1609,7 +1613,7 @@ export async function listSchedule(
   const end = toDate(to) ?? new Date();
   const range = { gte: start, lte: end };
 
-  const [followUps, contactPings, tasks, activities] = await Promise.all([
+  const [followUps, contactPings, tasks, activities, meetings] = await Promise.all([
     db.application.findMany({
       where: { userId, nextFollowUpAt: range, stage: { notIn: TERMINAL_STAGES } },
       include: { company: true },
@@ -1629,9 +1633,35 @@ export async function listSchedule(
         contact: { select: { id: true, name: true } },
       },
     }),
+    // Google Calendar, when it is connected and granted: interviews and calls
+    // the person put on their real calendar, matched to the pipeline by who
+    // is invited. Empty, never an error, when there is no connection.
+    listMatchedEvents(userId, start, end).then((result) => result.events),
   ]);
 
   const entries: ScheduleEntry[] = [
+    ...meetings.map((event) => ({
+      kind: "MEETING" as const,
+      id: event.id,
+      date: event.start,
+      title: event.title,
+      detail: [
+        event.contactName,
+        event.companyName,
+        event.allDay
+          ? "All day"
+          : `${event.start.toISOString().slice(11, 16)}–${event.end.toISOString().slice(11, 16)} UTC`,
+      ]
+        .filter(Boolean)
+        .join(" · "),
+      company: event.companyName,
+      applicationId: event.applicationId,
+      contactId: event.contactId,
+      stage: null,
+      done: null,
+      activityType: null,
+      url: event.url,
+    })),
     ...followUps.map((application) => ({
       kind: "FOLLOW_UP" as const,
       id: application.id,

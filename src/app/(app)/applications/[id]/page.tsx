@@ -8,6 +8,7 @@ import { getApplication, listCompanies, listSources } from "@/lib/data/pipeline"
 import { getResume, listResumeNames } from "@/lib/data/resumes";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
+import { getGoogleConnection } from "@/lib/data/google";
 import { ApplicationDetail } from "@/components/pipeline/application-detail";
 
 export const dynamic = "force-dynamic";
@@ -15,13 +16,15 @@ export const dynamic = "force-dynamic";
 export default async function ApplicationPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [application, resumes, sourceOptions, companies, { companyLogos }] = await Promise.all([
-    getApplication(user.id, id),
-    listResumeNames(user.id),
-    listSources(user.id),
-    listCompanies(user.id),
-    getSettings(),
-  ]);
+  const [application, resumes, sourceOptions, companies, { companyLogos }, googleConnection] =
+    await Promise.all([
+      getApplication(user.id, id),
+      listResumeNames(user.id),
+      listSources(user.id),
+      listCompanies(user.id),
+      getSettings(),
+      getGoogleConnection(user.id),
+    ]);
   if (!application) notFound();
 
   // Fetched only when one is attached: the document carries the owner's photo
@@ -108,6 +111,9 @@ export default async function ApplicationPage({ params }: { params: Promise<{ id
               : null
           }
           logos={companyLogos}
+          googleAccess={
+            googleConnection ? { mail: googleConnection.mail, calendar: googleConnection.calendar } : null
+          }
         />
       </FadeIn>
     </PageShell>

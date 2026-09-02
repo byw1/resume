@@ -13,6 +13,7 @@ import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
+import * as google from "@/lib/data/google";
 import {
   authenticate,
   claimInstance,
@@ -391,6 +392,82 @@ export async function unlinkGoogleAction() {
   const result = await unlinkGoogleFromUser(user.id);
   revalidatePath("/settings");
   return result;
+}
+
+// ---------------------------------------------------------------------------
+// Gmail and Calendar
+// ---------------------------------------------------------------------------
+
+/**
+ * Connecting is a redirect through Google (/api/auth/google?data=1), not an
+ * action. Disconnecting revokes the token at Google and deletes the row.
+ */
+export async function disconnectGoogleAction() {
+  const user = await requireUser();
+  await google.disconnectGoogleAccount(user.id);
+  revalidatePath("/settings");
+  return { ok: true as const };
+}
+
+/**
+ * The panels on a contact, company, application or resume. Fetched after
+ * the page renders, because it is a round trip to Google and the page should
+ * not wait on it. Dates go out as ISO strings so the client can format them.
+ */
+export async function correspondenceAction(
+  subject: google.CorrespondenceSubject,
+): Promise<
+  | { ok: true; correspondence: ReturnType<typeof serialiseCorrespondence> }
+  | { ok: false; error: string; notConnected: boolean }
+> {
+  const user = await requireUser();
+  try {
+    const result = await google.listCorrespondence(user.id, subject);
+    return { ok: true, correspondence: serialiseCorrespondence(result) };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      notConnected: error instanceof google.GoogleNotConnectedError,
+    };
+  }
+}
+
+function serialiseCorrespondence(result: google.Correspondence) {
+  return {
+    subject: result.subject,
+    terms: result.terms,
+    notes: result.notes,
+    warnings: result.warnings,
+    mail:
+      result.mail?.map((thread) => ({
+        ...thread,
+        firstMessageAt: thread.firstMessageAt.toISOString(),
+        lastMessageAt: thread.lastMessageAt.toISOString(),
+      })) ?? null,
+    calendar:
+      result.calendar?.map((event) => ({
+        ...event,
+        start: event.start.toISOString(),
+        end: event.end.toISOString(),
+      })) ?? null,
+  };
+}
+
+export async function emailThreadAction(threadId: string) {
+  const user = await requireUser();
+  try {
+    const thread = await google.getEmailThread(user.id, threadId);
+    return {
+      ok: true as const,
+      thread: {
+        ...thread,
+        messages: thread.messages.map((message) => ({ ...message, date: message.date.toISOString() })),
+      },
+    };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : String(error) };
+  }
 }
 
 export async function saveVariablesAction(patch: Record<string, string>) {
@@ -1165,13 +1242,15 @@ export async function deleteCrmContactAction(id: string) {
  */
 export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
-  const [application, resumeList, sourceOptions, companies, settings] = await Promise.all([
-    pipeline.getApplication(user.id, id),
-    resumes.listResumeNames(user.id),
-    pipeline.listSources(user.id),
-    pipeline.listCompanies(user.id),
-    getSettings(),
-  ]);
+  const [application, resumeList, sourceOptions, companies, settings, googleConnection] =
+    await Promise.all([
+      pipeline.getApplication(user.id, id),
+      resumes.listResumeNames(user.id),
+      pipeline.listSources(user.id),
+      pipeline.listCompanies(user.id),
+      getSettings(),
+      google.getGoogleConnection(user.id),
+    ]);
   if (!application) throw new Error("That application is gone.");
   // Only when one is attached — the document carries the owner's photo as a
   // data URI, and the panel is opened far more often than a resume is read.
@@ -1252,6 +1331,9 @@ export async function getApplicationForPanelAction(id: string) {
         }
       : null,
     logos: settings.companyLogos,
+    googleAccess: googleConnection
+      ? { mail: googleConnection.mail, calendar: googleConnection.calendar }
+      : null,
   };
 }
 

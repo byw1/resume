@@ -110,6 +110,7 @@ export function ApplicationPanelProvider({ children }: { children: React.ReactNo
                 companies={data.companies}
                 resumePreview={data.resumePreview}
                 logos={data.logos}
+                googleAccess={data.googleAccess}
                 onServerChange={reload}
               />
             </>

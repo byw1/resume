@@ -9,16 +9,18 @@ import { getCompany, listCompanies } from "@/lib/data/pipeline";
 import { companyKey } from "@/lib/company";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
+import { getGoogleConnection } from "@/lib/data/google";
 
 export const dynamic = "force-dynamic";
 
 export default async function CompanyPage({ params }: { params: Promise<{ id: string }> }) {
   const user = await requireUser();
   const { id } = await params;
-  const [company, { companyLogos }, everyCompany] = await Promise.all([
+  const [company, { companyLogos }, everyCompany, googleConnection] = await Promise.all([
     getCompany(user.id, id),
     getSettings(),
     listCompanies(user.id),
+    getGoogleConnection(user.id),
   ]);
   if (!company) notFound();
 
@@ -80,6 +82,9 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
           logos={companyLogos}
           candidates={candidates}
           suggestedMergeId={suggestedMergeId}
+          googleAccess={
+            googleConnection ? { mail: googleConnection.mail, calendar: googleConnection.calendar } : null
+          }
         />
       </FadeIn>
     </PageShell>

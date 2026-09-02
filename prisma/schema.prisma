@@ -79,9 +79,45 @@ model User {
   savedViews     SavedView[]
   sources        Source[]
   pipelineShare  PipelineShare?
+  googleAccount  GoogleAccount?
 
   @@index([role])
   @@index([stripeCustomerId])
+}
+
+/// A person's own Gmail and Google Calendar, read on their behalf.
+///
+/// Separate from User.googleId on purpose: signing in with Google proves who
+/// you are, and this is permission to read your inbox — two different grants
+/// that a person may give to two different Google accounts. One row per user;
+/// connecting again replaces it.
+///
+/// The refresh token is stored as Google issues it, the way McpConnection
+/// stores its token: the database is already the trust boundary here, and an
+/// instance has no secret of its own to wrap it in without a second required
+/// environment variable. Nothing read through it is ever copied into this
+/// database — every screen and tool asks Google live and shows what came back.
+model GoogleAccount {
+  id                   String    @id @default(cuid())
+  userId               String    @unique
+  user                 User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  /// The Google address the grant is for, shown so a person can tell which
+  /// inbox they connected.
+  email                String
+  googleId             String    @default("")
+  /// What Google actually granted. The consent screen lets people untick a
+  /// scope, so the app reads this rather than assuming it got what it asked.
+  scopes               String[]  @default([])
+  refreshToken         String
+  accessToken          String    @default("")
+  accessTokenExpiresAt DateTime?
+  /// Set when Google refused a refresh — the person revoked access from their
+  /// Google account, or the instance's client changed. Cleared on reconnect.
+  lastError            String    @default("")
+  lastErrorAt          DateTime?
+  lastUsedAt           DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
 }
 
 model Session {

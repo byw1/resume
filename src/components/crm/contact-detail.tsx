@@ -20,6 +20,7 @@ import {
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { ContactCompanies, type CompanyRef } from "@/components/crm/contact-companies";
 import { ContactLinks } from "@/components/crm/contact-links";
+import { CorrespondenceCard, type CorrespondenceAccess } from "@/components/google/correspondence-card";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { addActivityAction, deleteCrmContactAction, saveContactAction } from "@/server/actions";
@@ -81,6 +82,7 @@ export function ContactDetail({
   application,
   touches,
   logos,
+  googleAccess,
 }: {
   contact: ContactFields;
   /** Everywhere they represent. Empty means nobody has said yet. */
@@ -90,6 +92,8 @@ export function ContactDetail({
   application: LinkedApplication | null;
   touches: ContactTouch[];
   logos: boolean;
+  /** Whether their Gmail and Calendar are connected, for the threads-and-meetings card. */
+  googleAccess: CorrespondenceAccess;
 }) {
   const [values, setValues] = useState(contact);
   const [state, setState] = useState<SaveState>("idle");
@@ -283,6 +287,10 @@ export function ContactDetail({
               )}
             </CardContent>
           </Card>
+
+          {/* What Google knows: the real threads and meetings with this person,
+              matched on their address. Read live, never stored. */}
+          <CorrespondenceCard subject={{ kind: "contact", id: contact.id }} access={googleAccess} />
         </div>
 
         <div className="space-y-4">
