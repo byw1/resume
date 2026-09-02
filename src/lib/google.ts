@@ -64,7 +64,7 @@ export type GoogleState = {
    */
   link?: boolean;
   /**
-   * Set when the flow was started from Settings → Google by somebody signed
+   * Set when the flow was started from Settings → Connections by somebody signed
    * in, asking for read access to their Gmail and Calendar rather than a
    * sign-in. Same cookie, same reason: the callback trusts only what it
    * signed.
@@ -229,7 +229,7 @@ export type GoogleIdentity = {
   name: string;
   picture: string;
   /**
-   * The tokens that came back with the identity. Only the Settings → Google
+   * The tokens that came back with the identity. Only the Settings → Connections
    * flow asks for anything worth keeping; for a sign-in the refresh token is
    * empty and the access token is thrown away with the response.
    */

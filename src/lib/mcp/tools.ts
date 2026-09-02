@@ -2868,7 +2868,7 @@ export const tools: McpTool[] = [
     name: "get_google_connection",
     title: "Is Gmail and Calendar connected",
     description:
-      "Whether this person has connected their Gmail and Google Calendar, which of the two was granted, which Google address it is, and whether the connection has broken and needs reconnecting. Call this first when a mail or calendar tool fails, or before promising to look something up in their inbox. Connecting cannot be done from here — it is a consent screen at Google — so when `connected` is false, tell them to open Settings → Google in the app and press Connect, then come back. Nothing in the inbox is stored on this instance: every read is live, and disconnecting deletes the only thing held, the token.",
+      "Whether this person has connected their Gmail and Google Calendar, which of the two was granted, which Google address it is, and whether the connection has broken and needs reconnecting. Call this first when a mail or calendar tool fails, or before promising to look something up in their inbox. Connecting cannot be done from here — it is a consent screen at Google — so when `connected` is false, tell them to open Settings → Connections in the app, open the Google tile and press Connect, then come back. Nothing in the inbox is stored on this instance: every read is live, and disconnecting deletes the only thing held, the token.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
@@ -2879,10 +2879,10 @@ export const tools: McpTool[] = [
     handler: async (_args, ctx) => {
       const connection = await google.getGoogleConnection(ctx.userId);
       return connection
-        ? { connected: true, ...connection, connectUrl: `${ctx.baseUrl}/settings?tab=google` }
+        ? { connected: true, ...connection, connectUrl: `${ctx.baseUrl}/settings?tab=connections` }
         : {
             connected: false,
-            howToConnect: `Open ${ctx.baseUrl}/settings?tab=google and press Connect Google. It asks for read-only access to Gmail and Calendar; either can be left unticked.`,
+            howToConnect: `Open ${ctx.baseUrl}/settings?tab=connections and open the Google tile, then press Connect Google. It asks for read-only access to Gmail and Calendar; either can be left unticked.`,
           };
     },
   },
@@ -2981,7 +2981,7 @@ export const tools: McpTool[] = [
     name: "disconnect_google",
     title: "Disconnect Gmail and Calendar",
     description:
-      "Revoke this instance's access to the person's Gmail and Google Calendar and forget the token. Every mail and calendar tool stops working immediately and the panels in the app go back to offering a Connect button; nothing else — no contact, application or logged activity — is touched, because nothing from Google was ever stored. Confirm before calling it. Reconnecting is the same consent screen as the first time, under Settings → Google.",
+      "Revoke this instance's access to the person's Gmail and Google Calendar and forget the token. Every mail and calendar tool stops working immediately and the panels in the app go back to offering a Connect button; nothing else — no contact, application or logged activity — is touched, because nothing from Google was ever stored. Confirm before calling it. Reconnecting is the same consent screen as the first time, under Settings → Connections.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: false,
@@ -4043,7 +4043,7 @@ If the research on file is thin, say so and offer to run research_company first.
     name: "inbox_review",
     title: "Inbox review: what moved in Gmail and Calendar",
     description:
-      "Go through the person's own Gmail and Google Calendar for every open application and every contact with a ping due, find what has happened that the pipeline does not know yet — a reply, a scheduled interview, a rejection, an offer — and propose the logging and stage changes that would bring the pipeline up to date. Nothing is written until they say so. Needs Gmail and Calendar connected under Settings → Google.",
+      "Go through the person's own Gmail and Google Calendar for every open application and every contact with a ping due, find what has happened that the pipeline does not know yet — a reply, a scheduled interview, a rejection, an offer — and propose the logging and stage changes that would bring the pipeline up to date. Nothing is written until they say so. Needs Gmail and Calendar connected under Settings → Connections.",
     arguments: [
       { name: "days", description: "How far back to look. Default 7." },
     ],

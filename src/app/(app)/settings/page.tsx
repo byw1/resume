@@ -3,7 +3,6 @@ import Link from "next/link";
 import {
   ArrowUpRightIcon,
   LibraryBigIcon,
-  MailIcon,
   PaletteIcon,
   PlugZapIcon,
   ShieldIcon,
@@ -26,12 +25,11 @@ import { guessClient } from "@/lib/mcp/clients";
 import { MANUAL_URL } from "@/lib/links";
 import { getSettings, googleIsConfigured } from "@/lib/settings";
 import { getGoogleConnection } from "@/lib/data/google";
-import { GooglePanel } from "@/components/settings/google-panel";
 import { isGoogleRefusal, refusalMessage } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["connections", "account", "google", "appearance"] as const;
+const TABS = ["connections", "account", "appearance"] as const;
 
 /**
  * Three tabs rather than one column of five cards.
@@ -76,7 +74,7 @@ export default async function SettingsPage({
   // the query string, for the same reason the sign-in page refuses it.
   const googleNotice =
     googleOutcome === "connected"
-      ? { ok: true, message: "Google connected. Every contact, company and application page now has its email and calendar." }
+      ? { ok: true, message: "Google connected. Every contact, company and application page now shows its email and calendar." }
       : googleOutcome && isGoogleRefusal(googleOutcome)
         ? { ok: false, message: refusalMessage(googleOutcome) }
         : null;
@@ -86,17 +84,20 @@ export default async function SettingsPage({
   const admin = isAdmin(user);
 
   // ?tab= so other screens can send someone to the right one — the resume
-  // editor points at the photo, which lives under Account.
+  // editor points at the photo, which lives under Account. `google` was a tab
+  // of its own for one release and is a tile on Connections now; the old
+  // address still lands on the right tile, opened.
   const active = TABS.includes(tab as (typeof TABS)[number])
     ? (tab as (typeof TABS)[number])
     : "connections";
+  const focusGoogle = tab === "google" || Boolean(googleOutcome);
 
   return (
     <PageShell className="max-w-4xl">
       <PageHeader
         eyebrow="Settings"
         title="You and your assistants"
-        description="Your account, how the app looks, and the URLs that let an assistant read and write your workspace. Each connection is yours alone — nobody else's data is reachable through one."
+        description="Your account, how the app looks, and everything wired to your workspace: the assistants that read and write it, and the accounts it reads on your behalf. Each connection is yours alone — nobody else's data is reachable through one."
         actions={
           admin ? (
             <Button variant="outline" size="sm" asChild>
@@ -120,9 +121,6 @@ export default async function SettingsPage({
           <TabsTrigger value="account">
             <UserRoundIcon className="hidden size-4 sm:block" /> Account
           </TabsTrigger>
-          <TabsTrigger value="google">
-            <MailIcon className="hidden size-4 sm:block" /> Google
-          </TabsTrigger>
           <TabsTrigger value="appearance">
             <PaletteIcon className="hidden size-4 sm:block" /> Appearance
           </TabsTrigger>
@@ -145,6 +143,21 @@ export default async function SettingsPage({
                 adminToolCount={visibleTools.filter((tool) => tool.adminOnly).length}
                 isAdmin={admin}
                 promptCount={visiblePrompts.length}
+                google={{
+                  connection: googleConnection
+                    ? {
+                        email: googleConnection.email,
+                        mail: googleConnection.mail,
+                        calendar: googleConnection.calendar,
+                        connectedAt: googleConnection.connectedAt.toISOString(),
+                        lastUsedAt: googleConnection.lastUsedAt?.toISOString() ?? null,
+                        lastError: googleConnection.lastError,
+                      }
+                    : null,
+                  ready: googleIsConfigured(settings),
+                  notice: googleNotice,
+                  focus: focusGoogle,
+                }}
               />
             </FadeIn>
 
@@ -189,27 +202,6 @@ export default async function SettingsPage({
                 hasPassword: Boolean(user.passwordHash),
               }}
               googleReady={googleIsConfigured(settings)}
-            />
-          </FadeIn>
-        </TabsContent>
-
-        <TabsContent value="google">
-          <FadeIn>
-            <GooglePanel
-              connection={
-                googleConnection
-                  ? {
-                      email: googleConnection.email,
-                      mail: googleConnection.mail,
-                      calendar: googleConnection.calendar,
-                      connectedAt: googleConnection.connectedAt.toISOString(),
-                      lastUsedAt: googleConnection.lastUsedAt?.toISOString() ?? null,
-                      lastError: googleConnection.lastError,
-                    }
-                  : null
-              }
-              ready={googleIsConfigured(settings)}
-              notice={googleNotice}
             />
           </FadeIn>
         </TabsContent>

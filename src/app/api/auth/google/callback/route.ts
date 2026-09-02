@@ -43,7 +43,7 @@ export async function GET(request: NextRequest) {
     // happened: the person is signed in, and the sign-in page would only
     // confuse them. Same fixed codes, looked up by the panel.
     const target = stored?.data
-      ? new URL("/settings?tab=google", request.url)
+      ? new URL("/settings?tab=connections", request.url)
       : new URL("/login", request.url);
     target.searchParams.set(stored?.data ? "google" : "error", reason);
     const response = NextResponse.redirect(target);
@@ -87,7 +87,7 @@ export async function GET(request: NextRequest) {
       nonce: stored.nonce,
     });
 
-    // Started from Settings → Google by somebody signed in: keep the tokens
+    // Started from the Google tile on Settings → Connections by somebody signed in: keep the tokens
     // against the account they are in. No account matching happens at all —
     // the inbox they connect need not be the address they sign in with.
     if (stored.data) {
@@ -114,7 +114,7 @@ export async function GET(request: NextRequest) {
         message: "Connected Gmail and Calendar",
         userEmail: user.email,
       });
-      const target = new URL("/settings?tab=google", request.url);
+      const target = new URL("/settings?tab=connections", request.url);
       target.searchParams.set("google", "connected");
       const response = NextResponse.redirect(target);
       response.cookies.delete(GOOGLE_STATE_COOKIE);
