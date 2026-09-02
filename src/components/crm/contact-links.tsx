@@ -1,17 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import {
-  ExternalLinkIcon,
-  GithubIcon,
-  GlobeIcon,
-  InstagramIcon,
-  LinkIcon,
-  LinkedinIcon,
-  PlusIcon,
-  TwitterIcon,
-  XIcon,
-} from "lucide-react";
+import { ExternalLinkIcon, PlusIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -22,10 +12,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { PlatformIcon } from "@/components/crm/platform-icon";
 import {
+  BRAND_LABEL,
   NAMED_PLATFORMS,
   PLATFORMS,
   PLATFORM_LABEL,
+  brandFor,
   detectPlatform,
   linkHref,
   linkLabel,
@@ -40,15 +33,6 @@ export type ContactLinkValues = {
   github: string;
   website: string;
   otherLinks: string[];
-};
-
-const ICON: Record<PlatformKey, typeof LinkIcon> = {
-  linkedin: LinkedinIcon,
-  twitter: TwitterIcon,
-  instagram: InstagramIcon,
-  github: GithubIcon,
-  website: GlobeIcon,
-  other: LinkIcon,
 };
 
 /**
@@ -133,11 +117,17 @@ export function ContactLinks({
       {rows.length > 0 && (
         <ul className="space-y-1">
           {rows.map((row) => {
-            const Icon = ICON[row.platform];
             const href = linkHref(row.value);
+            // What it IS, not what column it sits in: "Open their Other" was
+            // the label on every link that wasn't one of the five.
+            const what = BRAND_LABEL[brandFor(row.value, row.platform)];
             return (
               <li key={row.key} className="group flex items-center gap-2">
-                <Icon className="text-muted-foreground size-3.5 shrink-0" />
+                <PlatformIcon
+                  value={row.value}
+                  brand={row.platform}
+                  className="text-muted-foreground"
+                />
                 <span className="min-w-0 flex-1 truncate text-[13px]" title={row.value}>
                   {linkLabel(row.value)}
                 </span>
@@ -152,7 +142,7 @@ export function ContactLinks({
                       href={href}
                       target="_blank"
                       rel="noreferrer noopener"
-                      aria-label={`Open their ${PLATFORM_LABEL[row.platform]}`}
+                      aria-label={`Open their ${what}`}
                     >
                       <ExternalLinkIcon />
                     </a>
@@ -161,7 +151,7 @@ export function ContactLinks({
                 <Button
                   variant="ghost"
                   size="icon-sm"
-                  aria-label={`Remove their ${PLATFORM_LABEL[row.platform]}`}
+                  aria-label={`Remove their ${what}`}
                   className="text-faint hover:text-destructive opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100"
                   onClick={row.remove}
                 >

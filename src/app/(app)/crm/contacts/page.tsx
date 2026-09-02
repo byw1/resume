@@ -1,42 +1,20 @@
 import Link from "next/link";
-import {
-  GithubIcon,
-  GlobeIcon,
-  InstagramIcon,
-  LinkIcon,
-  LinkedinIcon,
-  MailIcon,
-  TwitterIcon,
-  UsersIcon,
-} from "lucide-react";
+import { MailIcon, UsersIcon } from "lucide-react";
 import { EmptyState, PageHeader, PageShell } from "@/components/page-header";
 import { Button } from "@/components/ui/button";
 import { CrmTabs } from "@/components/crm/tabs";
 import { SearchBox } from "@/components/crm/search-box";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { CompanyChip } from "@/components/crm/company-chip";
+import { PlatformIcon } from "@/components/crm/platform-icon";
+import { TagChip } from "@/components/tags/tag-chip";
 import { listContacts, type ContactFilter } from "@/lib/data/pipeline";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
-import {
-  NAMED_PLATFORMS,
-  PLATFORM_LABEL,
-  detectPlatform,
-  linkHref,
-  type PlatformKey,
-} from "@/lib/social";
+import { BRAND_LABEL, NAMED_PLATFORMS, brandFor, linkHref } from "@/lib/social";
 import { agoDay, cn, relativeDay } from "@/lib/utils";
 
 export const dynamic = "force-dynamic";
-
-const PLATFORM_ICON: Record<PlatformKey, typeof LinkIcon> = {
-  linkedin: LinkedinIcon,
-  twitter: TwitterIcon,
-  instagram: InstagramIcon,
-  github: GithubIcon,
-  website: GlobeIcon,
-  other: LinkIcon,
-};
 
 /**
  * The one link worth a button in a table row.
@@ -55,14 +33,11 @@ function bestLink(contact: {
 }) {
   for (const platform of NAMED_PLATFORMS) {
     const href = linkHref(contact[platform]);
-    if (href) return { href, platform, Icon: PLATFORM_ICON[platform] };
+    if (href) return { href, value: contact[platform], brand: brandFor(contact[platform], platform) };
   }
   for (const value of contact.otherLinks) {
     const href = linkHref(value);
-    if (href) {
-      const platform = detectPlatform(value) ?? "other";
-      return { href, platform, Icon: PLATFORM_ICON[platform] };
-    }
+    if (href) return { href, value, brand: brandFor(value) };
   }
   return null;
 }
@@ -183,8 +158,19 @@ export default async function ContactsPage({
                     <CompanyAvatar name={contact.name} domain={null} size={26} />
                     <div className="min-w-0">
                       <div className="truncate text-[13px] font-medium">{contact.name}</div>
-                      <div className="text-faint truncate text-[12px]">
-                        {contact.title || "No title on file"}
+                      <div className="text-faint flex items-center gap-1.5 truncate text-[12px]">
+                        <span className="truncate">{contact.title || "No title on file"}</span>
+                        {contact.tags.slice(0, 2).map((tag) => (
+                          <TagChip key={tag.id} tag={tag} className="shrink-0" />
+                        ))}
+                        {contact.tags.length > 2 && (
+                          <span
+                            className="shrink-0"
+                            title={contact.tags.map((tag) => tag.name).join(", ")}
+                          >
+                            +{contact.tags.length - 2}
+                          </span>
+                        )}
                       </div>
                     </div>
                   </Link>
@@ -248,9 +234,9 @@ export default async function ContactsPage({
                           href={best.href}
                           target="_blank"
                           rel="noreferrer noopener"
-                          aria-label={`Open ${contact.name} on ${PLATFORM_LABEL[best.platform]}`}
+                          aria-label={`Open ${contact.name} on ${BRAND_LABEL[best.brand]}`}
                         >
-                          <best.Icon />
+                          <PlatformIcon value={best.value} />
                         </a>
                       </Button>
                     )}

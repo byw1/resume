@@ -9,9 +9,14 @@ what you learned about a company and who you know there does not.
 
 ## Companies
 
-A company record holds `name`, `website`, `industry`, `size`, `location` and `notes` —
-plus, whenever you open one, every application you have there and every contact who works
-there.
+A company record holds `name`, `website` and `notes`, four lists of tags — `industry`,
+`size`, `location` and a free `tags` — plus, whenever you open one, every application you
+have there and every contact who works there.
+
+Industry, size and location were single text boxes until they were tags. One company is
+plausibly both fintech and infrastructure, and hiring in two cities; a typo in a text box
+was a value of its own forever, where a tag is a row you rename once. Each of the four
+lists replaces only itself, so setting an industry never clears where the company is.
 
 You rarely create one on purpose. Applications create their company automatically, and
 `capture_job_posting` fills in the website too when the posting names it. `create_company`
@@ -79,7 +84,8 @@ lose that one link; anywhere else they represent is untouched.
 
 ### Filters
 
-`list_companies` takes a `search` across name, industry, location and notes, and a
+`list_companies` takes a `search` across name, notes and every tag name — industry and
+location included — a `tagIds` cut to the companies wearing particular labels, and a
 `filter`:
 
 | Filter | Shows |
@@ -95,8 +101,13 @@ and what is still live" is one call.
 ## Contacts
 
 Recruiters, hiring managers, referrals, the friend who works there. A contact holds
-`name`, `title`, `email`, `phone`, `relationship`, `notes`, the companies they represent,
-optionally the application they belong to, and every way you can reach them.
+`name`, `title`, `email`, `phone`, `relationship`, `notes`, `tags`, the companies they
+represent, optionally the application they belong to, and every way you can reach them.
+
+`tags` files a person the way `industry` files a company — "referral", "warm intro",
+"ex-colleague" — and comes out of the same catalogue everyone else's labels do. It
+replaces the whole set, and `list_contacts` takes `tagIds` to cut to a label as well as
+finding one through `search`.
 
 ### Everywhere they represent
 
@@ -141,8 +152,11 @@ where it gets remembered, and "when did I last talk to them?" is answered from
 ### Pings
 
 `nextFollowUpAt` on a contact is where "ping Sarah in two weeks" actually lives. Due pings
-surface in `list_follow_ups` alongside due applications, and on the dashboard. The
-`ping-due` filter on `list_contacts` is the same question asked directly.
+surface in `list_follow_ups` alongside due applications, and on the dashboard and the
+tasks page. The `ping-due` filter on `list_contacts` is the same question asked directly.
+
+In the app it is scheduled from **Tasks** rather than from the person's own page: a date
+box halfway down a record you opened to read is not where anyone plans a week.
 
 Two other filters: `with-application` and `no-company` — `no-company` means nowhere on
 file, not "no main employer". `companyId` matches anyone linked to that company, whichever
@@ -153,7 +167,9 @@ of their hats it is.
 **CRM** splits into Companies and Contacts, each a filterable list, and both are named in
 the sidebar so neither needs finding. A company page holds its details, its research notes,
 everyone who represents it, and its roles as job listings — each one a click from the
-posting it came from. A contact page holds their details, their links and their timeline.
+posting it came from. Industry, size, location and its own tags are pickers there: tick to
+attach, type to create, recolour from the swatch row, delete outright. A contact page holds
+their details, their tags, their links and their timeline.
 
 Wherever a company is named it is drawn as a chip carrying its own favicon, and clicking it
 opens that company. Under a contact's name those chips are the control: each one has an ×
@@ -161,7 +177,10 @@ that unlinks it, and the button beside them adds another or creates a company th
 on file yet. There is no company text field, because typing into one renamed the company
 for everyone else attached to it and could only ever hold one.
 
-The contacts list shows the first company someone represents and a count of the rest.
+The contacts list shows the first company someone represents and a count of the rest, and
+each person's tags beside their title. Every link a contact has carries its platform's own
+mark, read off the URL rather than the field it is filed in — so a YouTube channel in the
+website slot still shows as YouTube.
 
 Contacts attach to applications straight from the CRM rather than being retyped.
 

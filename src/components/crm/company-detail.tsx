@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { ExternalLinkIcon, MailIcon, PlusIcon, Trash2Icon, UserPlusIcon } from "lucide-react";
 import { toast } from "sonner";
-import type { Stage } from "@prisma/client";
+import type { Stage, TagKind } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { CorrespondenceCard, type CorrespondenceAccess } from "@/components/google/correspondence-card";
@@ -14,7 +14,8 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { MergeCompaniesDialog, type MergeCandidate } from "@/components/crm/merge-companies-dialog";
-import { SourceChip } from "@/components/pipeline/source-chip";
+import { TagChip, type TagValue } from "@/components/tags/tag-chip";
+import { TagPicker } from "@/components/tags/tag-picker";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import { STAGE_LABEL, STAGE_TONE } from "@/lib/data/pipeline";
@@ -27,14 +28,32 @@ export type CompanyFields = {
   id: string;
   name: string;
   website: string;
-  industry: string;
-  size: string;
-  location: string;
   notes: string;
 };
 
+/**
+ * The four lists a company wears. Industry, size and location were single text
+ * boxes until they were tags: one company is plausibly fintech AND infra, and a
+ * typo used to be a value of its own rather than something you fix once.
+ */
+export type CompanyTags = {
+  industry: TagValue[];
+  size: TagValue[];
+  location: TagValue[];
+  tags: TagValue[];
+};
+
+/** Which patch key each list writes back through. */
+const TAG_PATCH_KEY = {
+  industry: "industryIds",
+  size: "sizeIds",
+  location: "locationIds",
+  tags: "tagIds",
+} as const;
+
 export function CompanyDetail({
   company,
+  companyTags,
   applications,
   contacts,
   logos,
@@ -43,6 +62,7 @@ export function CompanyDetail({
   googleAccess,
 }: {
   company: CompanyFields;
+  companyTags: CompanyTags;
   applications: {
     id: string;
     roleTitle: string;
@@ -52,7 +72,7 @@ export function CompanyDetail({
     salaryRange: string;
     /** The posting itself, when there is one. Plenty of roles have none. */
     jobUrl: string;
-    sources: { id: string; name: string; color: string }[];
+    tags: TagValue[];
     appliedAt: string | null;
     nextFollowUpAt: string | null;
   }[];
@@ -66,6 +86,7 @@ export function CompanyDetail({
   suggestedMergeId?: string;
 }) {
   const [values, setValues] = useState(company);
+  const [tagSets, setTagSets] = useState(companyTags);
   const [state, setState] = useState<SaveState>("idle");
   const [adding, setAdding] = useState(false);
   const [person, setPerson] = useState({ name: "", title: "", email: "", relationship: "" });
@@ -109,6 +130,27 @@ export function CompanyDetail({
   };
 
   const set = (patch: Partial<CompanyFields>) => setValues((prev) => ({ ...prev, ...patch }));
+
+  // Tag lists save the moment they change rather than on blur: ticking a name
+  // in a popover has no blur a person would recognise as "done".
+  const saveFacet = (field: keyof CompanyTags, next: TagValue[]) => {
+    const previous = tagSets[field];
+    setTagSets((prev) => ({ ...prev, [field]: next }));
+    setState("saving");
+    startTransition(async () => {
+      try {
+        await saveCompanyAction(company.id, {
+          [TAG_PATCH_KEY[field]]: next.map((tag) => tag.id),
+        });
+        setState("saved");
+        router.refresh();
+      } catch (error) {
+        setState("idle");
+        toast.error(error instanceof Error ? error.message : "Could not save that.");
+        setTagSets((prev) => ({ ...prev, [field]: previous }));
+      }
+    });
+  };
   const domain = logos ? companyDomain({ name: values.name, website: values.website }) : null;
 
   const remove = () => {
@@ -147,8 +189,8 @@ export function CompanyDetail({
             className="h-auto border-0 bg-transparent px-0 text-[22px] font-semibold tracking-tight shadow-none focus-visible:ring-0"
           />
           <div className="text-faint text-[12.5px]">
-            {values.industry || "No industry set"}
-            {values.location ? ` · ${values.location}` : ""}
+            {[...tagSets.industry, ...tagSets.location].map((tag) => tag.name).join(" · ") ||
+              "No industry set"}
           </div>
         </div>
         <div className="flex items-center gap-2">
@@ -253,26 +295,33 @@ export function CompanyDetail({
                 onChange={(website) => set({ website })}
                 onCommit={() => commit({ website: values.website })}
               />
-              <Field
+              <TagField
                 label="Industry"
-                value={values.industry}
-                placeholder="Fintech"
-                onChange={(industry) => set({ industry })}
-                onCommit={() => commit({ industry: values.industry })}
+                kind="INDUSTRY"
+                value={tagSets.industry}
+                placeholder="Fintech, infrastructure…"
+                onChange={(next) => saveFacet("industry", next)}
               />
-              <Field
+              <TagField
                 label="Size"
-                value={values.size}
+                kind="SIZE"
+                value={tagSets.size}
                 placeholder="200–500, Series C"
-                onChange={(size) => set({ size })}
-                onCommit={() => commit({ size: values.size })}
+                onChange={(next) => saveFacet("size", next)}
               />
-              <Field
+              <TagField
                 label="Location"
-                value={values.location}
-                placeholder="San Francisco"
-                onChange={(location) => set({ location })}
-                onCommit={() => commit({ location: values.location })}
+                kind="LOCATION"
+                value={tagSets.location}
+                placeholder="San Francisco, remote…"
+                onChange={(next) => saveFacet("location", next)}
+              />
+              <TagField
+                label="Tags"
+                kind="COMPANY"
+                value={tagSets.tags}
+                placeholder="Dream list, referral…"
+                onChange={(next) => saveFacet("tags", next)}
               />
             </CardContent>
           </Card>
@@ -369,7 +418,7 @@ function JobListing({
     workMode: string;
     salaryRange: string;
     jobUrl: string;
-    sources: { id: string; name: string; color: string }[];
+    tags: TagValue[];
     appliedAt: string | null;
     nextFollowUpAt: string | null;
   };
@@ -418,10 +467,10 @@ function JobListing({
         )}
       </div>
 
-      {application.sources.length > 0 && (
+      {application.tags.length > 0 && (
         <div className="mt-1.5 flex flex-wrap gap-1">
-          {application.sources.map((source) => (
-            <SourceChip key={source.id} source={source} />
+          {application.tags.map((tag) => (
+            <TagChip key={tag.id} tag={tag} />
           ))}
         </div>
       )}
@@ -458,6 +507,31 @@ function Field({
         onBlur={onCommit}
       />
       {hint && <p className="text-faint text-xs leading-snug">{hint}</p>}
+    </div>
+  );
+}
+
+/**
+ * A tag list wearing the same label-and-box furniture as the text fields
+ * beside it, so the Details card still reads as one form.
+ */
+function TagField({
+  label,
+  kind,
+  value,
+  placeholder,
+  onChange,
+}: {
+  label: string;
+  kind: TagKind;
+  value: TagValue[];
+  placeholder: string;
+  onChange: (next: TagValue[]) => void;
+}) {
+  return (
+    <div className="space-y-1.5">
+      <Label>{label}</Label>
+      <TagPicker kind={kind} value={value} placeholder={placeholder} onChange={onChange} />
     </div>
   );
 }

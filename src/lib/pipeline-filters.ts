@@ -18,7 +18,12 @@ export type PipelineFilters = {
   stages: Stage[];
   /** ANDs with everything else now. It used to replace the stage set. */
   overdue: boolean;
-  sources: string[];
+  /**
+   * Tag ids. The URL still spells it `src` — it was called "source" when
+   * saved views started storing it, and renaming the parameter would break
+   * every view anyone has already saved for the sake of tidiness.
+   */
+  tags: string[];
   companies: string[];
   resumes: string[];
   /** Minimum days sitting in the current stage. */
@@ -33,7 +38,7 @@ export type PipelineFilters = {
 export const EMPTY_FILTERS: PipelineFilters = {
   stages: [],
   overdue: false,
-  sources: [],
+  tags: [],
   companies: [],
   resumes: [],
   waiting: null,
@@ -71,7 +76,7 @@ export function parsePipelineFilters(
   return {
     stages: closed ? [...new Set([...picked, ...TERMINAL_STAGES])] : picked,
     overdue: parts.includes("overdue"),
-    sources: list(one("src")),
+    tags: list(one("src")),
     companies: list(one("co")),
     resumes: list(one("cv")),
     waiting: positive(one("w")),
@@ -86,7 +91,7 @@ export function hasAnyFilter(filters: PipelineFilters): boolean {
   return (
     filters.stages.length > 0 ||
     filters.overdue ||
-    filters.sources.length > 0 ||
+    filters.tags.length > 0 ||
     filters.companies.length > 0 ||
     filters.resumes.length > 0 ||
     filters.waiting !== null ||
@@ -105,7 +110,7 @@ export type FilterableApplication = {
   excitement: number;
   daysInStage: number;
   quietDays: number;
-  sources: { id: string; name: string }[];
+  tags: { id: string; name: string }[];
   roleTitle: string;
   notes: string;
   location: string;
@@ -136,9 +141,9 @@ export function matchesFilters(
     if (application.nextFollowUpAt.getTime() > now) return false;
   }
 
-  if (filters.sources.length > 0) {
-    const ids = new Set(application.sources.map((source) => source.id));
-    if (!filters.sources.some((id) => ids.has(id))) return false;
+  if (filters.tags.length > 0) {
+    const ids = new Set(application.tags.map((tag) => tag.id));
+    if (!filters.tags.some((id) => ids.has(id))) return false;
   }
   if (filters.companies.length > 0 && !filters.companies.includes(application.companyId)) {
     return false;
@@ -168,7 +173,7 @@ export function matchesFilters(
       application.location,
       application.workMode,
       application.jobDescription,
-      ...application.sources.map((source) => source.name),
+      ...application.tags.map((tag) => tag.name),
     ]
       .join(" ")
       .toLowerCase();
@@ -192,7 +197,7 @@ export function buildPipelineQuery(input: {
 
   const f = [...filters.stages, ...(filters.overdue ? ["overdue"] : [])];
   if (f.length > 0) params.set("f", f.join(","));
-  if (filters.sources.length > 0) params.set("src", filters.sources.join(","));
+  if (filters.tags.length > 0) params.set("src", filters.tags.join(","));
   if (filters.companies.length > 0) params.set("co", filters.companies.join(","));
   if (filters.resumes.length > 0) params.set("cv", filters.resumes.join(","));
   if (filters.waiting !== null) params.set("w", String(filters.waiting));

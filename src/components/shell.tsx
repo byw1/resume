@@ -12,6 +12,7 @@ import {
   FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
+  ListChecksIcon,
   LogOutIcon,
   MenuIcon,
   PanelLeftCloseIcon,
@@ -77,6 +78,7 @@ const NAV: NavItem[] = [
     ],
   },
   { href: "/applications", label: "Pipeline", icon: KanbanIcon },
+  { href: "/tasks", label: "Tasks", icon: ListChecksIcon },
 ];
 
 // The rail remembers whether you collapsed it. Read after mount so the server

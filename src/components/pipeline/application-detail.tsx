@@ -52,8 +52,8 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { SaveIndicator } from "@/components/save-indicator";
 import { RatingInput } from "@/components/pipeline/rating-input";
-import { SourcesInput, type SourceOption } from "@/components/pipeline/sources-input";
-import type { SourceValue } from "@/components/pipeline/source-chip";
+import { TagPicker, type TagOption } from "@/components/tags/tag-picker";
+import type { TagValue } from "@/components/tags/tag-chip";
 import { CompanyChip } from "@/components/crm/company-chip";
 import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { PaperThumb } from "@/components/resume/paper-thumb";
@@ -88,7 +88,7 @@ type Application = {
   location: string;
   workMode: string;
   salaryRange: string;
-  sources: SourceValue[];
+  tags: TagValue[];
   excitement: number;
   fit: number;
   notes: string;
@@ -129,7 +129,7 @@ export function ApplicationDetail({
   contacts,
   tasks,
   resumes,
-  sourceOptions,
+  tagOptions,
   company,
   companies,
   resumePreview,
@@ -143,7 +143,7 @@ export function ApplicationDetail({
   tasks: Task[];
   resumes: { id: string; name: string }[];
   /** Every source category on file, with usage counts. */
-  sourceOptions: SourceOption[];
+  tagOptions: TagOption[];
   /** The employer's record, for the chip. Null only if the row is mid-repair. */
   company: { id: string; name: string; website: string } | null;
   /** Every company on file, so changing employer picks one rather than typing. */
@@ -171,7 +171,7 @@ export function ApplicationDetail({
     location: application.location,
     workMode: application.workMode,
     salaryRange: application.salaryRange,
-    sources: application.sources,
+    tags: application.tags,
     excitement: application.excitement,
     fit: application.fit,
     notes: application.notes,
@@ -195,12 +195,12 @@ export function ApplicationDetail({
   // manufactures the duplicate employers you then have to merge. It is
   // committed on blur instead, when the name is a name.
   const { state, push } = useAutosave<typeof values>((next) => {
-    const { company: _company, sources, ...rest } = next;
+    const { company: _company, tags, ...rest } = next;
     return updateApplicationAction(application.id, {
       ...rest,
       // Categories are rows now, so what travels is ids — and it replaces the
       // whole set, which is what ticking one off in the picker means.
-      sourceIds: sources.map((source) => source.id),
+      tagIds: tags.map((tag) => tag.id),
       nextFollowUpAt: next.nextFollowUpAt || null,
       resumeId: next.resumeId || null,
     });
@@ -471,11 +471,13 @@ export function ApplicationDetail({
               </div>
 
               <div className="space-y-1.5">
-                <Label>Sources</Label>
-                <SourcesInput
-                  value={values.sources}
-                  options={sourceOptions}
-                  onChange={(sources) => set({ sources })}
+                <Label>Tags</Label>
+                <TagPicker
+                  kind="APPLICATION"
+                  value={values.tags}
+                  options={tagOptions}
+                  placeholder="Where did this come from?"
+                  onChange={(tags) => set({ tags })}
                   onCatalogChange={refresh}
                 />
               </div>

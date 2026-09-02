@@ -24,7 +24,8 @@ be published to a public URL.
 that schedule themselves when a stage changes.
 
 **CRM** — companies and the people at them, as records in their own right. A company
-holds their website, industry, size and whatever research has accumulated.
+holds their website, its tags — industry, size, location — and whatever research has
+accumulated.
 
 ## The rule that matters most
 

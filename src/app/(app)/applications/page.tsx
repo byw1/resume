@@ -8,9 +8,9 @@ import {
   TERMINAL_STAGES,
   listApplications,
   listSchedule,
-  listSources,
 } from "@/lib/data/pipeline";
 import { listResumeNames } from "@/lib/data/resumes";
+import { listTags } from "@/lib/data/tags";
 import { PipelineBoard } from "@/components/pipeline/board";
 import { PipelineList } from "@/components/pipeline/list";
 import { parseSort, sortRows, type ListRow } from "@/lib/pipeline-list";
@@ -78,12 +78,12 @@ export default async function ApplicationsPage({
 
   // Resolved once per request: with logos off, no domain reaches the browser
   // at all, so there is nothing for it to go and fetch.
-  const [{ companyLogos }, resumes, savedViews, sourceOptions, everyApplication] =
+  const [{ companyLogos }, resumes, savedViews, tagOptions, everyApplication] =
     await Promise.all([
       getSettings(),
       listResumeNames(user.id),
       listSavedViews(user.id),
-      listSources(user.id),
+      listTags(user.id, "APPLICATION"),
       listApplications(user.id, { includeClosed: true }),
     ]);
   const share = await getPipelineShare(user.id);
@@ -141,19 +141,19 @@ export default async function ApplicationsPage({
     for (const row of rows) for (const value of key(row)) out.set(value, (out.get(value) ?? 0) + 1);
     return out;
   };
-  const sourceTally = tally(passing("sources"), (row) => row.sources.map((s) => s.id));
+  const tagTally = tally(passing("tags"), (row) => row.tags.map((tag) => tag.id));
   const companyTally = tally(passing("companies"), (row) => [row.companyId]);
   const resumeTally = tally(passing("resumes"), (row) => [row.resumeId ?? "none"]);
 
   const facets = {
-    sources: sourceOptions
-      .map((source) => ({
-        id: source.id,
-        name: source.name,
-        color: source.color,
-        count: sourceTally.get(source.id) ?? 0,
+    tags: tagOptions
+      .map((tag) => ({
+        id: tag.id,
+        name: tag.name,
+        color: tag.color,
+        count: tagTally.get(tag.id) ?? 0,
       }))
-      .filter((source) => source.count > 0 || filters.sources.includes(source.id)),
+      .filter((tag) => tag.count > 0 || filters.tags.includes(tag.id)),
     companies: [...companyTally.entries()]
       .map(([id, count]) => ({
         id,
@@ -193,7 +193,12 @@ export default async function ApplicationsPage({
           action={
             <NewApplicationDialog
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
-              sourceOptions={sourceOptions.map((source) => ({ id: source.id, name: source.name, color: source.color, applications: source._count.applications }))}
+              tagOptions={tagOptions.map((tag) => ({
+                id: tag.id,
+                name: tag.name,
+                color: tag.color,
+                count: tag._count.applications + tag._count.companies + tag._count.contacts,
+              }))}
             />
           }
           share={

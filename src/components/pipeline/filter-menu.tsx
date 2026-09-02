@@ -13,7 +13,7 @@ import {
   CommandList,
   CommandSeparator,
 } from "@/components/ui/command";
-import { sourceTone } from "@/lib/data/pipeline";
+import { tagTone } from "@/lib/data/tags";
 import {
   buildPipelineQuery,
   toggleIn,
@@ -22,7 +22,7 @@ import {
 import { cn } from "@/lib/utils";
 
 export type FilterFacets = {
-  sources: { id: string; name: string; color: string; count: number }[];
+  tags: { id: string; name: string; color: string; count: number }[];
   companies: { id: string; name: string; count: number }[];
   resumes: { id: string; name: string; count: number }[];
 };
@@ -35,7 +35,7 @@ const EXCITEMENT = [4, 5];
  *
  * Stages stay as chips: there are six, they are colour-coded, and they are the
  * filter people use constantly. The dimensions here are unbounded — forty
- * companies, a dozen sources, five resumes — so a chip each would be a wall,
+ * companies, a dozen tags, five resumes — so a chip each would be a wall,
  * and they belong behind one control that says how many are on.
  *
  * Rows navigate through the router rather than being anchors: cmdk's
@@ -64,7 +64,7 @@ export function FilterMenu({
     router.push(buildPipelineQuery({ view, filters: next, sort, dir }));
 
   const active =
-    filters.sources.length +
+    filters.tags.length +
     filters.companies.length +
     filters.resumes.length +
     (filters.waiting !== null ? 1 : 0) +
@@ -87,7 +87,7 @@ export function FilterMenu({
       </PopoverTrigger>
       <PopoverContent align="start" className="w-72 p-0">
         <Command loop>
-          <CommandInput placeholder="Source, company, resume…" className="h-9" />
+          <CommandInput placeholder="Tag, company, resume…" className="h-9" />
           <CommandList className="max-h-[22rem]">
             <CommandEmpty>Nothing matches.</CommandEmpty>
             {limited && (
@@ -97,19 +97,17 @@ export function FilterMenu({
               </p>
             )}
 
-            {facets.sources.length > 0 && (
-              <CommandGroup heading="Source">
-                {facets.sources.map((source) => (
+            {facets.tags.length > 0 && (
+              <CommandGroup heading="Tags">
+                {facets.tags.map((tag) => (
                   <Row
-                    key={source.id}
-                    id={`src-${source.id}`}
-                    label={source.name}
-                    count={source.count}
-                    on={filters.sources.includes(source.id)}
-                    dot={sourceTone(source.color)}
-                    onPick={() =>
-                      go({ ...filters, sources: toggleIn(filters.sources, source.id) })
-                    }
+                    key={tag.id}
+                    id={`src-${tag.id}`}
+                    label={tag.name}
+                    count={tag.count}
+                    on={filters.tags.includes(tag.id)}
+                    dot={tagTone(tag.color)}
+                    onPick={() => go({ ...filters, tags: toggleIn(filters.tags, tag.id) })}
                   />
                 ))}
               </CommandGroup>
@@ -202,7 +200,7 @@ export function FilterMenu({
                     onSelect={() =>
                       go({
                         ...filters,
-                        sources: [],
+                        tags: [],
                         companies: [],
                         resumes: [],
                         waiting: null,
@@ -235,7 +233,7 @@ function Row({
 }: {
   /**
    * Unique across the whole list. cmdk keys selection on an item's `value`, so
-   * two rows sharing one — a source and a company both called "LinkedIn", which
+   * two rows sharing one — a tag and a company both called "LinkedIn", which
    * is the likely case here — would both highlight and Enter would fire
    * whichever is first in the DOM.
    */

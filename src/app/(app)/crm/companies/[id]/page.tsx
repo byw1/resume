@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button";
 import { FadeIn } from "@/components/motion";
 import { CompanyDetail } from "@/components/crm/company-detail";
 import { getCompany, listCompanies } from "@/lib/data/pipeline";
+import { tagsOfKind } from "@/lib/data/tags";
 import { companyKey } from "@/lib/company";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
@@ -55,10 +56,13 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             id: company.id,
             name: company.name,
             website: company.website,
-            industry: company.industry,
-            size: company.size,
-            location: company.location,
             notes: company.notes,
+          }}
+          companyTags={{
+            industry: tagsOfKind(company.tags, "INDUSTRY"),
+            size: tagsOfKind(company.tags, "SIZE"),
+            location: tagsOfKind(company.tags, "LOCATION"),
+            tags: tagsOfKind(company.tags, "COMPANY"),
           }}
           applications={company.applications.map((application) => ({
             id: application.id,
@@ -68,7 +72,7 @@ export default async function CompanyPage({ params }: { params: Promise<{ id: st
             workMode: application.workMode,
             salaryRange: application.salaryRange,
             jobUrl: application.jobUrl,
-            sources: application.sources,
+            tags: application.tags,
             appliedAt: application.appliedAt?.toISOString() ?? null,
             nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
           }))}

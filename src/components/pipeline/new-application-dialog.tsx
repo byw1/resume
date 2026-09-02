@@ -28,16 +28,16 @@ import { BOARD_STAGES, STAGE_LABEL } from "@/lib/data/pipeline";
 import type { Stage } from "@prisma/client";
 import { createApplicationAction, parsePostingAction } from "@/server/actions";
 import { RatingInput } from "@/components/pipeline/rating-input";
-import { SourcesInput, type SourceOption } from "@/components/pipeline/sources-input";
-import type { SourceValue } from "@/components/pipeline/source-chip";
+import { TagPicker, type TagOption } from "@/components/tags/tag-picker";
+import type { TagValue } from "@/components/tags/tag-chip";
 
 export function NewApplicationDialog({
   resumes,
-  sourceOptions,
+  tagOptions,
 }: {
   resumes: { id: string; name: string }[];
   /** Every source category on file, with usage counts. */
-  sourceOptions: SourceOption[];
+  tagOptions: TagOption[];
 }) {
   const router = useRouter();
   const params = useSearchParams();
@@ -51,7 +51,7 @@ export function NewApplicationDialog({
     jobUrl: "",
     location: "",
     salaryRange: "",
-    sources: [] as SourceValue[],
+    tags: [] as TagValue[],
     excitement: 3,
     jobDescription: "",
     resumeId: "",
@@ -85,13 +85,13 @@ export function NewApplicationDialog({
         roleTitle: current.roleTitle || parsed.roleTitle,
         location: current.location || parsed.location,
         salaryRange: current.salaryRange || parsed.salaryRange,
-        // The parser hands back a name. Only prefill it when it matches a
-        // category that already exists — a capture should not invent one from
-        // a job board's own wording.
-        sources:
-          current.sources.length > 0 || !parsed.source
-            ? current.sources
-            : sourceOptions.filter(
+        // The parser hands back a name. Only prefill it when it matches a tag
+        // that already exists — a capture should not invent one from a job
+        // board's own wording.
+        tags:
+          current.tags.length > 0 || !parsed.source
+            ? current.tags
+            : (tagOptions ?? []).filter(
                 (option) => option.name.toLowerCase() === parsed.source.toLowerCase(),
               ),
         jobDescription: current.jobDescription || parsed.jobDescription,
@@ -110,10 +110,10 @@ export function NewApplicationDialog({
       return;
     }
     startTransition(async () => {
-      const { sources, ...rest } = form;
+      const { tags, ...rest } = form;
       const id = await createApplicationAction({
         ...rest,
-        sourceIds: sources.map((source) => source.id),
+        tagIds: tags.map((tag) => tag.id),
         resumeId: form.resumeId || null,
       });
       setOpen(false);
@@ -232,11 +232,13 @@ export function NewApplicationDialog({
           </div>
 
           <div className="space-y-1.5">
-            <Label>Sources</Label>
-            <SourcesInput
-              value={form.sources}
-              options={sourceOptions}
-              onChange={(sources) => setForm({ ...form, sources })}
+            <Label>Tags</Label>
+            <TagPicker
+              kind="APPLICATION"
+              value={form.tags}
+              options={tagOptions}
+              placeholder="Where did this come from?"
+              onChange={(tags) => setForm({ ...form, tags })}
             />
           </div>
 
