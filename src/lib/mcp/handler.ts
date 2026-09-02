@@ -81,7 +81,14 @@ async function instructionsFor(user: User) {
   their logo on the pipeline, so set it whenever you learn it. People have timelines: when they
   mention talking to someone — a call, a coffee, a reply — log_activity with contactId is how it
   gets remembered, and update_contact's nextFollowUpAt is how "ping them in two weeks" actually
-  happens. list_follow_ups returns due people alongside due applications.`;
+  happens. list_follow_ups returns due people alongside due applications.
+• GMAIL AND CALENDAR — if they have connected their own Google account (get_google_connection
+  says), list_correspondence returns the real threads and meetings behind any contact, company,
+  application or resume, read live and never stored here. Call it before saying where an
+  application stands: the pipeline's timeline only knows what was logged by hand. search_email
+  and search_calendar cover questions that are not about one record. Every one of these is
+  read-only — nothing can send, accept or delete. When they are not connected, say how
+  (Settings → Google) rather than guessing at their mail.`;
 
   // Outside `areas` deliberately: this is about the connection, not about
   // content, so it is just as true of a workspace with nothing in it — and a

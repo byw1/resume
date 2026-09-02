@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import type { Stage, TagKind } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CorrespondenceCard, type CorrespondenceAccess } from "@/components/google/correspondence-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -58,6 +59,7 @@ export function CompanyDetail({
   logos,
   candidates,
   suggestedMergeId,
+  googleAccess,
 }: {
   company: CompanyFields;
   companyTags: CompanyTags;
@@ -76,6 +78,8 @@ export function CompanyDetail({
   }[];
   contacts: { id: string; name: string; title: string; email: string; relationship: string }[];
   logos: boolean;
+  /** Whether their Gmail and Calendar are connected, for the threads-and-meetings card. */
+  googleAccess: CorrespondenceAccess;
   /** Every other company on file, for folding a duplicate into this one. */
   candidates: MergeCandidate[];
   /** One of the candidates that looks like the same employer, if any. */
@@ -270,6 +274,11 @@ export function CompanyDetail({
               )}
             </CardContent>
           </Card>
+
+          {/* Everything from this company's domain, and everyone on file here.
+              The website field is what makes the domain match, which is one
+              more reason to set it. */}
+          <CorrespondenceCard subject={{ kind: "company", id: company.id }} access={googleAccess} />
         </div>
 
         <div className="space-y-4">

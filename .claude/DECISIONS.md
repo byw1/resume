@@ -3518,3 +3518,53 @@ in `gen-tool-docs.mjs` spell the count and rewrite the first word of each `descr
 `src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
 `src/lib/social.ts`, `src/lib/pipeline-filters.ts`, `src/components/tags/`,
 `src/components/tasks/`, `src/components/crm/`, `src/app/(app)/tasks/`, and the manual.
+## 2026-09-02 — Gmail and Calendar, read live
+
+**One row, no sync.** `GoogleAccount` holds a refresh token per user and nothing else from
+Google ever touches the database. Every screen and tool asks Gmail and Calendar at the
+moment it is opened. The alternative — syncing threads into a table with a background job —
+was rejected three times over: the transport is stateless and the app has no worker, a copy
+of someone's inbox on a self-hosted server is a liability the product does not need, and a
+one-person pipeline is a few dozen threads, not a few thousand. The cost is a round trip on
+every open, which is why `CorrespondenceCard` fetches after the page paints and never
+during it.
+
+**The same OAuth client, a second flow.** Sign-in and inbox access are different grants
+and people give them to different Google accounts, so `GoogleAccount` is independent of
+`User.googleId`. The flow is the existing one with a `data` flag in the signed state cookie:
+`?data=1` on the start route asks for `gmail.readonly` + `calendar.readonly`,
+`access_type=offline` and `prompt=consent` (without `consent`, a second connect from the same
+account comes back with no refresh token), and the callback stores the grant against the
+session's user — never matched by address. Failures from that flow land on
+`/settings?tab=google&google=<code>`, a fixed code from the same list the sign-in page uses,
+for the same reason it uses one.
+
+**Matching is by address and domain, done here.** Gmail is queried with
+`{from:a to:a cc:a from:acme.com …} newer_than:365d`; Calendar is fetched for a window in one
+request and filtered locally on attendee addresses, because the free-text `q` parameter's
+tokenisation of an email is undocumented and one request beats one per term. Freemail
+domains are never matched as a company. A contact is their address; a company is its
+website's domain plus its people; an application is the company domain plus the people
+attached to *that* application, not everyone at the company, because a second application
+at the same employer has its own recruiter; a resume is its applications.
+
+**`MEETING` joined `ScheduleKind`.** `listSchedule` merges matched Google events, so the
+pipeline calendar and `list_schedule` show interviews the person accepted in their real
+calendar. `listMatchedEvents` returns empty rather than throwing when nothing is connected
+or granted, because "no Google" is not an error on a calendar.
+
+**Tokens are plaintext, like McpConnection tokens.** There is no instance secret to wrap
+them in that would not be a second required env var, and encrypting with the Google client
+secret would kill every connection the day an admin rotated it. The trust boundary is the
+database; the migration says so.
+
+**No connect tool.** Consent happens in a browser. `get_google_connection` returns the URL
+and says so, and the server briefing tells assistants to point at Settings rather than guess
+at mail. `inbox_review` is a prompt, not a tool: it composes `list_correspondence`,
+`get_email_thread` and the existing write tools, and its build text insists on a yes before
+any of them.
+
+**Applies to:** `prisma/schema.prisma`, `src/lib/{google,google-api}.ts`,
+`src/lib/data/{google,pipeline,system}.ts`, `src/app/api/auth/google/`, `src/lib/mcp/{tools,handler}.ts`,
+`src/server/actions.ts`, `src/components/google/`, `src/components/settings/google-panel.tsx`,
+the four detail screens, the pipeline calendar, `tools/gen-tool-docs.mjs`, and the manual.

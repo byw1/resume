@@ -13,6 +13,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import { CorrespondenceCard, type CorrespondenceAccess } from "@/components/google/correspondence-card";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import {
   Select,
@@ -54,6 +55,7 @@ export function EvidencePanel({
   base,
   siblings,
   applications,
+  googleAccess,
   onOpen,
 }: {
   resumeId: string;
@@ -61,6 +63,8 @@ export function EvidencePanel({
   /** Every other resume, for saying which one this was tailored from. */
   siblings: { id: string; name: string }[];
   applications: LinkedApplication[];
+  /** Whether Gmail and Calendar are connected, for the mail behind those applications. */
+  googleAccess: CorrespondenceAccess;
   /** Flush the editor's autosave. The diff reads saved data, not the screen. */
   onOpen: () => Promise<void> | void;
 }) {
@@ -233,6 +237,17 @@ export function EvidencePanel({
                       </span>
                     </Link>
                   ))
+                )}
+
+                {/* The mail and meetings behind those applications — what came
+                    back after this document went out. */}
+                {applications.length > 0 && (
+                  <div className="pt-3">
+                    <p className="text-faint mb-2 text-[11.5px] font-medium tracking-wide uppercase">
+                      Email &amp; calendar
+                    </p>
+                    <CorrespondenceCard subject={{ kind: "resume", id: resumeId }} access={googleAccess} bare />
+                  </div>
                 )}
               </div>
             )}

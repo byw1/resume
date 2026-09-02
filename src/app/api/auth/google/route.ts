@@ -24,12 +24,21 @@ export async function GET(request: NextRequest) {
   const baseUrl = settings.publicUrl || baseUrlFrom(request.headers, request.url);
 
   // Linking is only on the table for somebody already signed in; asking for it
-  // while signed out is just an ordinary sign-in.
+  // while signed out is just an ordinary sign-in. The same goes for `data`,
+  // which asks for read access to their Gmail and Calendar: the grant has to
+  // land on an account, and the only account it may land on is the one in
+  // the session cookie.
   const wantsLink = request.nextUrl.searchParams.get("link") === "1";
-  const signedIn = wantsLink ? await getCurrentUser() : null;
+  const wantsData = request.nextUrl.searchParams.get("data") === "1";
+  const signedIn = wantsLink || wantsData ? await getCurrentUser() : null;
+  if (wantsData && !signedIn) {
+    return NextResponse.redirect(new URL("/login?next=/settings?tab=google", request.url));
+  }
   const state = newStateValues(
-    request.nextUrl.searchParams.get("next") ?? (signedIn ? "/settings" : null),
-    Boolean(signedIn),
+    request.nextUrl.searchParams.get("next") ??
+      (signedIn ? (wantsData ? "/settings?tab=google" : "/settings") : null),
+    Boolean(signedIn) && !wantsData,
+    Boolean(signedIn) && wantsData,
   );
 
   const response = NextResponse.redirect(

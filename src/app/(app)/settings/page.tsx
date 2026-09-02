@@ -3,6 +3,7 @@ import Link from "next/link";
 import {
   ArrowUpRightIcon,
   LibraryBigIcon,
+  MailIcon,
   PaletteIcon,
   PlugZapIcon,
   ShieldIcon,
@@ -24,10 +25,13 @@ import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
 import { MANUAL_URL } from "@/lib/links";
 import { getSettings, googleIsConfigured } from "@/lib/settings";
+import { getGoogleConnection } from "@/lib/data/google";
+import { GooglePanel } from "@/components/settings/google-panel";
+import { isGoogleRefusal, refusalMessage } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
 
-const TABS = ["connections", "account", "appearance"] as const;
+const TABS = ["connections", "account", "google", "appearance"] as const;
 
 /**
  * Three tabs rather than one column of five cards.
@@ -47,11 +51,11 @@ const TABS = ["connections", "account", "appearance"] as const;
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; google?: string }>;
 }) {
   const user = await requireUser();
   const headerList = await headers();
-  const { tab } = await searchParams;
+  const { tab, google: googleOutcome } = await searchParams;
 
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const proto =
@@ -60,12 +64,22 @@ export default async function SettingsPage({
 
   // Nobody should ever land here with nothing to copy.
   await ensureDefaultConnection(user.id);
-  const [connections, profile, skills, settings] = await Promise.all([
+  const [connections, profile, skills, settings, googleConnection] = await Promise.all([
     listConnections(user.id),
     getProfile(user.id),
     listSkills(),
     getSettings(),
+    getGoogleConnection(user.id),
   ]);
+
+  // What the consent screen came back with, as a fixed code — never text from
+  // the query string, for the same reason the sign-in page refuses it.
+  const googleNotice =
+    googleOutcome === "connected"
+      ? { ok: true, message: "Google connected. Every contact, company and application page now has its email and calendar." }
+      : googleOutcome && isGoogleRefusal(googleOutcome)
+        ? { ok: false, message: refusalMessage(googleOutcome) }
+        : null;
 
   const visibleTools = toolsFor(user);
   const visiblePrompts = promptsFor(user);
@@ -105,6 +119,9 @@ export default async function SettingsPage({
           </TabsTrigger>
           <TabsTrigger value="account">
             <UserRoundIcon className="hidden size-4 sm:block" /> Account
+          </TabsTrigger>
+          <TabsTrigger value="google">
+            <MailIcon className="hidden size-4 sm:block" /> Google
           </TabsTrigger>
           <TabsTrigger value="appearance">
             <PaletteIcon className="hidden size-4 sm:block" /> Appearance
@@ -172,6 +189,27 @@ export default async function SettingsPage({
                 hasPassword: Boolean(user.passwordHash),
               }}
               googleReady={googleIsConfigured(settings)}
+            />
+          </FadeIn>
+        </TabsContent>
+
+        <TabsContent value="google">
+          <FadeIn>
+            <GooglePanel
+              connection={
+                googleConnection
+                  ? {
+                      email: googleConnection.email,
+                      mail: googleConnection.mail,
+                      calendar: googleConnection.calendar,
+                      connectedAt: googleConnection.connectedAt.toISOString(),
+                      lastUsedAt: googleConnection.lastUsedAt?.toISOString() ?? null,
+                      lastError: googleConnection.lastError,
+                    }
+                  : null
+              }
+              ready={googleIsConfigured(settings)}
+              notice={googleNotice}
             />
           </FadeIn>
         </TabsContent>

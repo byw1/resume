@@ -12,6 +12,7 @@ import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
 import * as onboarding from "@/lib/data/onboarding";
+import * as google from "@/lib/data/google";
 import {
   getSettings,
   updateSettings,
@@ -166,6 +167,13 @@ function endOfDay(value: string) {
   return date;
 }
 
+/** The other end of endOfDay: a date that fails to parse is an error, not 1970. */
+function startOfDay(value: string) {
+  const date = new Date(value);
+  if (Number.isNaN(date.getTime())) throw new Error(`"${value}" is not a date I can read`);
+  return date;
+}
+
 /** Where a published resume lives. Null slug means it isn't published. */
 function publicResumeUrl(baseUrl: string, slug: string | null) {
   return slug ? `${baseUrl}/r/${slug}` : null;
@@ -212,6 +220,27 @@ function withoutPhotoBytes<T extends { photo: string }>(profile: T) {
   return { ...rest, hasPhoto: Boolean(photo) };
 }
 
+
+/**
+ * list_correspondence takes exactly one of four ids. Two would be a question
+ * with two answers, none is not a question.
+ */
+function correspondenceSubject(args: Json): google.CorrespondenceSubject {
+  const given = (
+    [
+      ["contact", s(args, "contactId")],
+      ["company", s(args, "companyId")],
+      ["application", s(args, "applicationId")],
+      ["resume", s(args, "resumeId")],
+    ] as const
+  ).filter((entry): entry is readonly [google.CorrespondenceSubject["kind"], string] =>
+    Boolean(entry[1]?.trim()),
+  );
+  if (given.length !== 1) {
+    throw new Error("Pass exactly one of contactId, companyId, applicationId or resumeId.");
+  }
+  return { kind: given[0][0], id: given[0][1] };
+}
 
 /** Strip undefined keys so Prisma doesn't try to write them. */
 function defined<T extends object>(input: T): Partial<T> {
@@ -2309,7 +2338,7 @@ export const tools: McpTool[] = [
     name: "list_schedule",
     title: "List everything dated in a window",
     description:
-      "Everything with a date attached between two dates, merged into one list sorted earliest first: follow-ups that come due, tasks with a due date, and activity already logged (calls, interviews, emails, stage changes). This is the tool for 'what does my week look like', 'what happened last month' or 'what is coming up' — anything where the question is about a period of time rather than about one application. Each entry says its kind (FOLLOW_UP, TASK or ACTIVITY), the date, a title, the company and the applicationId, so you can call get_application for the full picture. Reach for list_follow_ups instead when you only want what is already overdue, and list_tasks when the date does not matter. Read-only; it saves nothing.",
+      "Everything with a date attached between two dates, merged into one list sorted earliest first: follow-ups that come due, tasks with a due date, activity already logged (calls, interviews, emails, stage changes) and — when Google Calendar is connected — meetings on the person's own calendar that involve someone on the pipeline, matched by attendee. This is the tool for 'what does my week look like', 'what happened last month' or 'what is coming up' — anything where the question is about a period of time rather than about one application. Each entry says its kind (FOLLOW_UP, TASK, ACTIVITY or MEETING), the date, a title, the company and the applicationId, so you can call get_application for the full picture; a MEETING also carries its `url` in Google Calendar. Reach for list_follow_ups instead when you only want what is already overdue, and list_tasks when the date does not matter. Read-only; it saves nothing.",
     inputSchema: object(
       {
         from: str("Start of the window, ISO date (YYYY-MM-DD). Inclusive."),
@@ -2827,6 +2856,140 @@ export const tools: McpTool[] = [
           applicationId: s(args, "applicationId"),
         }),
       }),
+  },
+
+  // -------------------------------------------------------------------------
+  // GMAIL AND CALENDAR
+  //
+  // Read live from the person's own Google account, never copied here. Every
+  // tool in this section reaches Google, so openWorldHint is true throughout.
+  // -------------------------------------------------------------------------
+  {
+    name: "get_google_connection",
+    title: "Is Gmail and Calendar connected",
+    description:
+      "Whether this person has connected their Gmail and Google Calendar, which of the two was granted, which Google address it is, and whether the connection has broken and needs reconnecting. Call this first when a mail or calendar tool fails, or before promising to look something up in their inbox. Connecting cannot be done from here — it is a consent screen at Google — so when `connected` is false, tell them to open Settings → Google in the app and press Connect, then come back. Nothing in the inbox is stored on this instance: every read is live, and disconnecting deletes the only thing held, the token.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => {
+      const connection = await google.getGoogleConnection(ctx.userId);
+      return connection
+        ? { connected: true, ...connection, connectUrl: `${ctx.baseUrl}/settings?tab=google` }
+        : {
+            connected: false,
+            howToConnect: `Open ${ctx.baseUrl}/settings?tab=google and press Connect Google. It asks for read-only access to Gmail and Calendar; either can be left unticked.`,
+          };
+    },
+  },
+  {
+    name: "list_correspondence",
+    title: "Mail and meetings about one record",
+    description:
+      "Every email thread and calendar event in the person's own Google account that involves one thing on the pipeline: a contact (matched on their email address), a company (its website's domain plus everyone on file there), an application (its company's domain plus the people attached to it) or a resume (every application it was sent with). This is the tool for 'what's the latest with Stripe', 'have I heard back from Jane', 'when is my interview' and 'what did the recruiter actually say' — call it before summarising where an application stands, because the pipeline's timeline only knows what was logged by hand. Pass exactly one id. Returns `mail` (threads, newest first, with subject, snippet, participants and a link) and `calendar` (past and upcoming events, with attendees, a Meet link and a link) — either is null when that half is not granted or Google refused, with the reason in `warnings`. `notes` explains a thin result, usually a contact with no email or a company with no website; fix those with update_contact and update_company and call again. Nothing is saved. To read a thread in full, pass its id to get_email_thread; to remember what you learned, log_activity on the application or contact.",
+    inputSchema: object({
+      contactId: str("A contact id. Matches their email address."),
+      companyId: str("A company id. Matches its website's domain and the addresses of its people."),
+      applicationId: str("An application id. Matches the company's domain and the people attached to this application."),
+      resumeId: str("A resume id. Matches every application the resume is attached to."),
+      limit: num("How many threads to return at most. Default 20, maximum 50."),
+      days: num("How far back to look, in days. Default 365. Calendar events up to 120 days ahead are always included."),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (args, ctx) => {
+      const subject = correspondenceSubject(args);
+      return google.listCorrespondence(ctx.userId, subject, {
+        ...defined({ limit: n(args, "limit"), days: n(args, "days") }),
+      });
+    },
+  },
+  {
+    name: "search_email",
+    title: "Search Gmail",
+    description:
+      "Search the person's Gmail with Gmail's own query syntax — `from:jane@acme.com`, `subject:offer newer_than:7d`, `\"phone screen\"` — or plain words. Reach for this when the question is about mail that does not map to one record: 'did any rejections come in this week', 'find the email with the take-home', 'who have I emailed about referrals'. For mail about a specific contact, company or application, list_correspondence already builds the right query. Returns threads newest first with subject, Gmail's snippet of the latest message, everyone on the thread, when it last moved and a link that opens it in Gmail. Subjects and snippets only — pass a thread id to get_email_thread for the messages themselves. Read-only; nothing is saved, and this tool cannot send, archive or delete anything.",
+    inputSchema: object(
+      {
+        query: str("A Gmail search. Operators like from:, to:, subject:, newer_than:7d, has:attachment and label: all work, as do plain words."),
+        limit: num("How many threads at most. Default 20, maximum 50."),
+      },
+      ["query"],
+    ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (args, ctx) =>
+      google.searchEmail(ctx.userId, {
+        query: required(args, "query"),
+        ...defined({ limit: n(args, "limit") }),
+      }),
+  },
+  {
+    name: "get_email_thread",
+    title: "Read an email thread",
+    description:
+      "One thread in full, oldest message first: who sent each message, to whom, when, and the body as plain text (HTML mail is stripped to text; attachments are never fetched; very long messages are cut). The id comes from list_correspondence or search_email. This is how you find out what a recruiter actually wrote — the dates they proposed, the salary they named, the next step they described — before logging it with log_activity or moving the application with move_application_stage. Quote the mail when you report it; do not paraphrase a number. Read-only, and nothing about the thread changes: it is not marked read.",
+    inputSchema: object({ threadId: str("The thread id from list_correspondence or search_email.") }, ["threadId"]),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (args, ctx) => google.getEmailThread(ctx.userId, required(args, "threadId")),
+  },
+  {
+    name: "search_calendar",
+    title: "Search Google Calendar",
+    description:
+      "Events on the person's primary Google Calendar in a window, optionally filtered by a free-text search over title, description, location and attendee addresses. Use it for 'what interviews do I have this week', 'when did I last meet anyone from Acme' or 'am I free Thursday afternoon' — for a whole week of the pipeline's own dates alongside these meetings, list_schedule merges both. Defaults to thirty days back and sixty ahead. Each event has its title, start and end, whether it is all-day, the attendees with their RSVP, the organizer, a Meet link when there is one, and a link to the event. Read-only; nothing here creates, accepts or declines anything.",
+    inputSchema: object({
+      query: str("Words to match against title, description, location and attendee emails. Omit for every event in the window."),
+      from: str("Start of the window, ISO date (YYYY-MM-DD). Default: 30 days ago."),
+      to: str("End of the window, ISO date (YYYY-MM-DD), inclusive. Default: 60 days ahead."),
+      limit: num("How many events at most. Default 100."),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (args, ctx) =>
+      google.searchCalendar(ctx.userId, {
+        ...defined({
+          query: s(args, "query"),
+          from: s(args, "from") ? startOfDay(required(args, "from")) : undefined,
+          to: s(args, "to") ? endOfDay(required(args, "to")) : undefined,
+          limit: n(args, "limit"),
+        }),
+      }),
+  },
+  {
+    name: "disconnect_google",
+    title: "Disconnect Gmail and Calendar",
+    description:
+      "Revoke this instance's access to the person's Gmail and Google Calendar and forget the token. Every mail and calendar tool stops working immediately and the panels in the app go back to offering a Connect button; nothing else — no contact, application or logged activity — is touched, because nothing from Google was ever stored. Confirm before calling it. Reconnecting is the same consent screen as the first time, under Settings → Google.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: true,
+    },
+    handler: async (_args, ctx) => google.disconnectGoogleAccount(ctx.userId),
   },
 
   // -------------------------------------------------------------------------
@@ -3875,6 +4038,26 @@ Then give me:
 - Anything in the timeline I should follow up on or refer back to.
 
 If the research on file is thin, say so and offer to run research_company first.`,
+  },
+  {
+    name: "inbox_review",
+    title: "Inbox review: what moved in Gmail and Calendar",
+    description:
+      "Go through the person's own Gmail and Google Calendar for every open application and every contact with a ping due, find what has happened that the pipeline does not know yet — a reply, a scheduled interview, a rejection, an offer — and propose the logging and stage changes that would bring the pipeline up to date. Nothing is written until they say so. Needs Gmail and Calendar connected under Settings → Google.",
+    arguments: [
+      { name: "days", description: "How far back to look. Default 7." },
+    ],
+    build: (args) => `Bring my pipeline up to date from my inbox and calendar, looking back ${args.days ?? "7"} days.
+
+Work in this order:
+1. Call get_google_connection. If nothing is connected, stop and tell me how to connect; do not guess at my mail.
+2. Call list_applications (open ones) and list_follow_ups.
+3. For each open application, call list_correspondence with its applicationId and days=${args.days ?? "7"}. Where a thread looks like it changed something — a reply from the company, an interview invitation, a rejection, an offer, a take-home — call get_email_thread and read it rather than trusting the snippet.
+4. Call search_calendar for the same window forward ${args.days ?? "7"} days too, and note interviews or calls that are on the calendar but not on the pipeline.
+5. Tell me, application by application, what moved and quote the line that says so. Be specific about dates and numbers; never round a salary or a deadline.
+6. Then propose, as a list I can approve in one word each: the log_activity calls (type INTERVIEW, EMAIL_RECEIVED, REJECTION, OFFER as fits, with the date it happened), the move_application_stage calls, and any nextFollowUpAt that should change. Do NOT call any of them until I say yes.
+
+Skip newsletters, job-board digests and anything automated that does not concern a specific application. If a thread involves a person who is not a contact yet, suggest create_contact with their name and address.`,
   },
   {
     name: "onboard_teammate",
