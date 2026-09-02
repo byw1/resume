@@ -183,6 +183,9 @@ export function TagPicker({
             type="button"
             variant="outline"
             size="sm"
+            // Four of these sit in one card on a company. "Add another" reads
+            // the same on all four, so the accessible name has to say which.
+            aria-label={`Add ${label.one.toLowerCase()}`}
             className="text-muted-foreground w-full justify-start font-normal"
           >
             <PlusIcon className="size-3.5" />
