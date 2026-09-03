@@ -2198,3 +2198,493 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 .post-list h2 { font-size: 17px; letter-spacing: -0.02em; margin-bottom: 7px; }
 .post-list p { font-size: 14px; line-height: 1.6; color: var(--muted); margin-bottom: 11px; }
 .post-list .meta { font-family: var(--mono); font-size: 11.5px; color: var(--faint); }
+
+/* ===========================================================================
+   THE MARK, AS AN OBJECT
+
+   The same three bars, built out of elements on a preserve-3d stage instead of
+   drawn flat. The slab is a stack of identical rounded squares each a fraction
+   of a pixel further back — that is what gives the silhouette a milled edge
+   the corner radius survives, where four rotated walls would not, and it costs
+   no library at all. The bars float above the face and arrive shortest first,
+   which is the mark's own meaning said out loud: the record getting longer.
+
+   Progressive, and strictly so. The HTML ships the flat SVG; motion.js builds
+   the layers, and only then adds `.on`, which is what hides the picture. With
+   scripting off, or if motion.js never arrives, the mark is simply the mark.
+
+   It turns towards the pointer. That is the page's third kind of motion — no
+   duration and no direction of its own, only a reflection of where the cursor
+   is — the same category as the hero's scroll-driven tilt. It does not loop,
+   because nothing on this page loops.
+   =========================================================================== */
+
+:root {
+  --m3d-face: var(--brand-tile, var(--foreground));
+  --m3d-cut: var(--brand-cut, var(--background));
+  /* The side of the slab. Not derivable from the other two: on a near-black
+     tile the side has to be lighter than the face, on a near-white one darker,
+     and this site only has the one theme so only the one value. */
+  --m3d-edge: oklch(0.56 0.012 265);
+}
+
+.mark3d {
+  position: relative;
+  display: inline-block;
+  flex-shrink: 0;
+  width: var(--s);
+  height: var(--s);
+  perspective: calc(var(--s) * 4.2);
+}
+
+.mark3d > svg { width: var(--s); height: var(--s); }
+.mark3d.on > svg { visibility: hidden; }
+
+.m3d-stage {
+  position: absolute;
+  inset: 0;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 12deg)) rotateY(var(--ry, -23deg));
+  transition: transform 0.45s var(--settle);
+}
+
+.m3d-slab,
+.m3d-bar,
+.m3d-bar > span {
+  transform-style: preserve-3d;
+}
+
+.m3d-slab {
+  position: absolute;
+  inset: 0;
+}
+
+/* One slice. `--z` is set per slice by the builder; everything else is a
+   fraction of `--s`, so one mark scales to any size without a second rule. */
+.m3d-slab i {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--s) * 0.234);
+  transform: translateZ(calc(var(--z) * -1px));
+  background: linear-gradient(
+    163deg,
+    color-mix(in oklch, var(--m3d-edge) 84%, white) 0%,
+    var(--m3d-edge) 52%,
+    color-mix(in oklch, var(--m3d-edge) 68%, black) 100%
+  );
+}
+
+/* The face. Barely a gradient — enough that the tile reads as lit from the
+   top-left rather than printed. */
+.m3d-slab i:first-child {
+  background: linear-gradient(
+    163deg,
+    color-mix(in oklch, var(--m3d-face) 92%, white) 0%,
+    var(--m3d-face) 52%,
+    color-mix(in oklch, var(--m3d-face) 88%, var(--m3d-edge)) 100%
+  );
+}
+
+.m3d-bar {
+  position: absolute;
+  left: calc(var(--s) * 0.25);
+  top: calc(var(--s) * var(--y));
+  width: calc(var(--s) * var(--w));
+  height: calc(var(--s) * 0.109375);
+  transform: translateZ(calc(var(--s) * 0.035));
+}
+
+.m3d-bar > span {
+  display: block;
+  width: 100%;
+  height: 100%;
+  transform-origin: left center;
+}
+
+.m3d-bar i {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--s) * 0.0234);
+  transform: translateZ(calc(var(--z) * -1px));
+  background: color-mix(in oklch, var(--m3d-cut) 76%, var(--m3d-edge));
+}
+
+.m3d-bar i:first-child {
+  background: var(--m3d-cut);
+}
+
+/* Glass: one highlight that rides the tilt. Screen, so it lifts a dark face
+   and does nothing at all to a light one, which is the correct behaviour for
+   both rather than a compromise between them. */
+.m3d-glass {
+  position: absolute;
+  inset: 0;
+  border-radius: calc(var(--s) * 0.234);
+  transform: translateZ(calc(var(--s) * 0.052));
+  background: radial-gradient(
+    58% 52% at var(--gx, 34%) var(--gy, 24%),
+    oklch(1 0 0 / 0.16),
+    oklch(1 0 0 / 0.04) 40%,
+    transparent 66%
+  );
+  mix-blend-mode: screen;
+  transition: background 0.45s var(--settle);
+}
+
+/* What it stands on. Only worn by the big one — a 24px mark in the nav casts
+   nothing, and a shadow under it would read as a smudge. */
+.mark3d.cast::after {
+  content: "";
+  position: absolute;
+  inset: 16% 8% -8%;
+  z-index: -1;
+  border-radius: 50%;
+  background: radial-gradient(50% 50% at 50% 50%, oklch(0 0 0 / 0.3), transparent 72%);
+  filter: blur(calc(var(--s) * 0.1));
+}
+
+/* Arrival: the bars draw themselves out of the left edge, shortest first. Once,
+   on entry, then held — the same contract as every other animation here. */
+.mark3d.on .m3d-bar > span {
+  transform: scaleX(0);
+  opacity: 0;
+}
+
+.mark3d.on.in .m3d-bar > span {
+  transform: none;
+  opacity: 1;
+  transition:
+    transform 0.72s var(--enter),
+    opacity 0.4s var(--enter);
+  transition-delay: calc(var(--bi) * 130ms + 220ms);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .m3d-stage { transition: none; }
+  .mark3d.on .m3d-bar > span { transform: none; opacity: 1; }
+}
+
+/* ===========================================================================
+   A HEADLINE THAT ARRIVES A WORD AT A TIME
+
+   Each word is masked by its own box and pushed up out of it, so the line
+   assembles left to right rather than fading in as a block. Worth the extra
+   markup on exactly one element per page: it is the first thing read, and the
+   difference between "the page loaded" and "the page arrived" is all in it.
+
+   `.split` is added by the script after the words exist. Nothing is hidden
+   before that, so a failed script leaves a finished headline.
+   =========================================================================== */
+
+[data-words].split .w {
+  display: inline-block;
+  overflow: hidden;
+  /* Descenders live below the baseline and a clean overflow box would shave
+     them off. Pad the box, then take the padding back out of the line. */
+  padding-bottom: 0.14em;
+  margin-bottom: -0.14em;
+  vertical-align: bottom;
+}
+
+[data-words].split .w > * {
+  display: inline-block;
+  transform: translateY(108%);
+  opacity: 0;
+  filter: blur(7px);
+  transition:
+    transform 0.95s var(--enter),
+    opacity 0.65s var(--enter),
+    filter 0.65s var(--enter);
+  transition-delay: calc(var(--wi) * 62ms);
+}
+
+[data-words].split.in .w > * {
+  transform: none;
+  opacity: 1;
+  filter: blur(0);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  [data-words].split .w { overflow: visible; }
+  [data-words].split .w > * { transform: none !important; opacity: 1 !important; filter: none !important; }
+}
+
+/* ===========================================================================
+   POINTER LIGHT
+
+   A card lit from wherever the cursor is. Same category as the mark's tilt and
+   the hero's scroll tilt: it reflects an input, it has no duration of its own,
+   and it is gone the moment the pointer leaves. The tone is the card's own —
+   the stage colour it already wears — so the light says which card you are on
+   rather than adding a colour the page did not have.
+   =========================================================================== */
+
+[data-spot]::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(
+    260px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklch, var(--tone, var(--primary)) 13%, transparent),
+    transparent 68%
+  );
+  opacity: 0;
+  transition: opacity 0.32s var(--settle);
+}
+
+[data-spot]:hover::before { opacity: 1; }
+
+/* The content has to sit above its own light. `.cell` lays its children out in
+   a column; giving them a stacking position is cheaper than reordering. */
+[data-spot] > * { position: relative; z-index: 1; }
+
+/* ===========================================================================
+   THE PRIMARY ACTION
+
+   One pass of light across it on hover, and a pull towards the cursor as you
+   approach. Both are hover-only and both are input-reflections, so the page
+   still holds perfectly still while you read it.
+   =========================================================================== */
+
+.btn-primary { position: relative; overflow: hidden; }
+
+/* Deliberately over the label rather than under it: a positioned pseudo-element
+   paints above the button's own inline content, and a highlight that skips the
+   words is a highlight sliding along behind glass. */
+.btn-primary::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 34%, oklch(1 0 0 / 0.28) 50%, transparent 66%);
+  translate: -120% 0;
+}
+
+.btn-primary:hover::after,
+.btn-primary:focus-visible::after {
+  animation: btn-sheen 0.8s var(--enter) 1 both;
+}
+
+@keyframes btn-sheen {
+  from { translate: -120% 0; }
+  to { translate: 120% 0; }
+}
+
+/* Set by the script while the pointer is near. `translate` rather than
+   `transform`, so it composes with the press on :active instead of fighting it. */
+[data-magnet] { translate: var(--mgx, 0) var(--mgy, 0); transition: translate 0.28s var(--settle); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-magnet] { translate: 0 0 !important; }
+  .btn-primary::after { display: none; }
+}
+
+/* The mark over the headline. Bigger than anything else on the page that isn't
+   a screenshot, because it is the only place the object is the subject rather
+   than a label attached to the word "Hired". */
+.hero-mark { margin-bottom: 26px; }
+
+/* In the nav it is a label again, and has to sit on the same baseline as the
+   word beside it. */
+.brand .mark3d > svg { border-radius: 6px; }
+
+/* The light and the grid behind the hero drift up more slowly than the words
+   in front of them, so the hero has depth on the way past rather than only at
+   rest. Scroll-driven, like the stage tilt above: no duration, no direction of
+   its own, and it reverses exactly when you scroll back. Where scroll
+   timelines aren't supported the layers simply hold still, which is the page
+   as it was. */
+@supports (animation-timeline: scroll()) {
+  @media (prefers-reduced-motion: no-preference) {
+    .hero-glow,
+    .hero-grid {
+      animation-name: hero-parallax;
+      animation-duration: auto;
+      animation-timing-function: linear;
+      animation-fill-mode: both;
+      animation-timeline: scroll(root block);
+      animation-range: 0 100vh;
+    }
+
+    /* The grid is further back, so it moves less. */
+    .hero-grid { --drift: 34px; }
+    .hero-glow { --drift: 82px; }
+
+    @keyframes hero-parallax {
+      from { translate: 0 0; }
+      to { translate: 0 calc(var(--drift, 60px) * 1); }
+    }
+  }
+}
+
+/* ===========================================================================
+   /coming-soon/ — the signup
+
+   Generated by tools/build-site.mjs; the markup lives there and the styling
+   lives here, same as everything else on this site. It gets the hero's
+   treatment — the one light, the grid, the mark as an object — because it is
+   the page the header's primary action leads to, and arriving somewhere plainer
+   than where you clicked reads as a downgrade.
+   =========================================================================== */
+
+.signup {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  padding-block: clamp(40px, 5vw, 68px) clamp(56px, 7vw, 96px);
+}
+
+.signup-glow {
+  position: absolute;
+  inset: -80px 0 auto;
+  height: 760px;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(48% 44% at 40% 24%, color-mix(in oklch, var(--primary) 14%, transparent), transparent 72%),
+    radial-gradient(42% 44% at 74% 10%, color-mix(in oklch, var(--stage-interview) 11%, transparent), transparent 74%);
+  mask-image: linear-gradient(to bottom, black, black 44%, transparent 96%);
+  -webkit-mask-image: linear-gradient(to bottom, black, black 44%, transparent 96%);
+}
+
+.signup-grid {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 560px;
+  z-index: -2;
+  pointer-events: none;
+  background-image:
+    linear-gradient(to right, var(--grid-line) 1px, transparent 1px),
+    linear-gradient(to bottom, var(--grid-line) 1px, transparent 1px);
+  background-size: 64px 64px;
+  mask-image: radial-gradient(80% 62% at 46% 16%, black, transparent 76%);
+  -webkit-mask-image: radial-gradient(80% 62% at 46% 16%, black, transparent 76%);
+}
+
+.signup-lead { text-align: center; display: flex; flex-direction: column; align-items: center; }
+.signup-mark { margin-top: 18px; margin-bottom: 24px; }
+.signup-title { max-width: 16ch; }
+.signup .lede { margin-top: 16px; max-width: 52ch; }
+
+/* The form is a card here rather than a row: three fields, one of them a
+   textarea, and a row would put them all on one line at desktop widths and
+   make the whole thing read as a newsletter box. */
+.signup-form {
+  max-width: 520px;
+  margin: 32px auto 0;
+  background: var(--card);
+  border-radius: var(--r-panel);
+  box-shadow: var(--shadow-raised);
+  padding: 22px;
+  text-align: left;
+}
+
+.signup-form .joinform-row { flex-direction: column; gap: 15px; }
+
+.signup-form .field { display: flex; flex-direction: column; gap: 6px; }
+
+.signup-form label {
+  display: flex;
+  align-items: baseline;
+  gap: 7px;
+  font-size: 12.5px;
+  font-weight: 500;
+  color: var(--muted);
+}
+
+/* `flag`, not `req` — `.req` is already the requirement chip in the tour, and
+   two components with one class name is a bug waiting for whoever edits the
+   other one. */
+.signup-form .flag {
+  font-size: 10.5px;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--faint);
+}
+
+/* The one-line form's email input is a flex item that grows to fill its row.
+   Here the row is a column, and a growing flex item stretches to the height of
+   the card. Reset it rather than fight it. */
+.signup-form input[type="text"],
+.signup-form input[type="email"],
+.signup-form textarea {
+  flex: 0 0 auto;
+  width: 100%;
+  padding: 10px 13px;
+  border: 0;
+  border-radius: var(--r-control);
+  background: var(--background);
+  box-shadow: 0 0 0 1px var(--rim), inset 0 1px 2px oklch(0 0 0 / 0.04);
+  font: inherit;
+  font-size: 14px;
+  color: var(--foreground);
+  transition: box-shadow 0.18s var(--settle);
+}
+
+.signup-form textarea { resize: vertical; min-height: 76px; line-height: 1.55; }
+
+.signup-form input::placeholder,
+.signup-form textarea::placeholder { color: var(--faint); }
+
+.signup-form input:focus,
+.signup-form textarea:focus {
+  outline: none;
+  box-shadow:
+    0 0 0 1px var(--primary),
+    0 0 0 4px color-mix(in oklch, var(--primary) 16%, transparent),
+    0 6px 18px color-mix(in oklch, var(--primary) 10%, transparent);
+}
+
+.signup-form .hint { font-size: 12px; color: var(--faint); }
+
+.signup-form .btn-lg { justify-content: center; padding: 12px 20px; font-size: 14px; width: 100%; }
+
+.signup-form .joinform-note { margin-top: 14px; text-align: center; }
+.signup-form .joinform-said { text-align: center; }
+.signup-form.done .joinform-said { justify-content: center; text-align: left; }
+
+/* What you are actually signing up for. Three, because three is what somebody
+   reads on the way to a submit button. */
+.signup-gets {
+  list-style: none;
+  margin: 40px auto 0;
+  max-width: 640px;
+  display: grid;
+  gap: 10px;
+}
+
+.signup-gets li {
+  position: relative;
+  overflow: hidden;
+  background: var(--card);
+  border-radius: var(--r-card);
+  box-shadow: var(--shadow-card);
+  padding: 16px 18px;
+  transition: box-shadow 0.25s var(--settle);
+}
+
+.signup-gets li:hover { box-shadow: var(--shadow-raised); }
+.signup-gets h2 { font-size: 14px; font-weight: 600; letter-spacing: -0.01em; }
+.signup-gets p { margin-top: 4px; font-size: 13px; color: var(--muted); }
+
+/* One button, no argument. Anyone who would rather run it themselves knows
+   already; the manual is a better place to convince them than this page. */
+.signup-alt {
+  margin-top: 40px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+
+.signup-signin { font-size: 12.5px; color: var(--faint); }
+.signup-signin a { color: var(--muted); text-decoration: underline; text-underline-offset: 3px; }
+.signup-signin a:hover { color: var(--foreground); }
+
+@media (max-width: 620px) {
+  .signup-form { padding: 18px; }
+}

@@ -39,6 +39,180 @@
   }
 
   // -------------------------------------------------------------------------
+  // The mark, built out into an object
+  //
+  // The markup ships the flat SVG. This puts a preserve-3d stage beside it and
+  // only then adds `on`, which is what hides the picture — so the mark is the
+  // mark with scripting off, and this file failing to load costs nothing.
+  //
+  // Geometry is the same 64-unit grid the SVG uses, expressed as fractions of
+  // --s so one element scales to any size: bar height 10.9%, longest bar 50%,
+  // corner radius 23.4%, the three bars at 26.6%, 44.5% and 62.5% down.
+  // -------------------------------------------------------------------------
+
+  var BARS = [
+    { y: 0.265625, w: 0.203125 },
+    { y: 0.4453125, w: 0.3515625 },
+    { y: 0.625, w: 0.5 },
+  ];
+
+  /** Slices through the slab. Enough that the rim reads as milled, not stepped. */
+  var SLICES = 14;
+
+  function buildMark(host) {
+    var size = parseFloat(host.getAttribute("data-mark3d")) || 24;
+    host.style.setProperty("--s", size + "px");
+
+    var depth = size * 0.24;
+    var stage = document.createElement("span");
+    stage.className = "m3d-stage";
+
+    var slab = document.createElement("span");
+    slab.className = "m3d-slab";
+    for (var i = 0; i < SLICES; i++) {
+      var slice = document.createElement("i");
+      slice.style.setProperty("--z", (i * depth) / SLICES);
+      slab.appendChild(slice);
+    }
+    stage.appendChild(slab);
+
+    BARS.forEach(function (spec, index) {
+      var bar = document.createElement("span");
+      bar.className = "m3d-bar";
+      bar.style.setProperty("--y", spec.y);
+      bar.style.setProperty("--w", spec.w);
+      bar.style.setProperty("--bi", index);
+
+      var grow = document.createElement("span");
+      for (var j = 0; j < 4; j++) {
+        var slice = document.createElement("i");
+        slice.style.setProperty("--z", j * size * 0.009);
+        grow.appendChild(slice);
+      }
+      bar.appendChild(grow);
+      stage.appendChild(bar);
+    });
+
+    var glass = document.createElement("span");
+    glass.className = "m3d-glass";
+    stage.appendChild(glass);
+
+    host.appendChild(stage);
+    host.classList.add("on");
+
+    // The field is the mark's own region grown by four times its size, so the
+    // cursor is answered well before it arrives rather than only on top of the
+    // 24px target itself.
+    if (!calm) {
+      window.addEventListener(
+        "pointermove",
+        function (event) {
+          var box = host.getBoundingClientRect();
+          if (!box.width) return;
+          var reach = box.width * 4;
+          var dx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / reach));
+          var dy = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / reach));
+          stage.style.setProperty("--ry", -23 + dx * 14 + "deg");
+          stage.style.setProperty("--rx", 12 - dy * 14 + "deg");
+          glass.style.setProperty("--gx", 34 - dx * 30 + "%");
+          glass.style.setProperty("--gy", 24 - dy * 22 + "%");
+        },
+        { passive: true }
+      );
+    }
+
+    once(host, function (target) { target.classList.add("in"); });
+  }
+
+  $$("[data-mark3d]").forEach(buildMark);
+
+  // -------------------------------------------------------------------------
+  // The headline, a word at a time
+  //
+  // Each word gets a box that clips it and an inner span that rises out of the
+  // box. Element children — the accented span in the hero headline — are
+  // wrapped whole rather than taken apart, so the accent survives and any
+  // markup inside it comes along.
+  // -------------------------------------------------------------------------
+
+  $$("[data-words]").forEach(function (line) {
+    var pieces = [];
+
+    Array.prototype.slice.call(line.childNodes).forEach(function (node) {
+      if (node.nodeType === 3) {
+        node.textContent.split(/(\s+)/).forEach(function (chunk) {
+          if (!chunk.trim()) { if (chunk) pieces.push(document.createTextNode(chunk)); return; }
+          var inner = document.createElement("span");
+          inner.textContent = chunk;
+          pieces.push(inner);
+        });
+      } else if (node.nodeType === 1) {
+        pieces.push(node);
+      }
+    });
+
+    if (!pieces.length) return;
+
+    line.textContent = "";
+    var i = 0;
+    pieces.forEach(function (piece) {
+      if (piece.nodeType === 3) { line.appendChild(piece); return; }
+      var box = document.createElement("span");
+      box.className = "w";
+      box.style.setProperty("--wi", i++);
+      box.appendChild(piece);
+      line.appendChild(box);
+    });
+
+    line.classList.add("split");
+    once(line, function (target) { target.classList.add("in"); }, "0px");
+  });
+
+  // -------------------------------------------------------------------------
+  // Pointer light on a card, and the pull on the primary action
+  //
+  // Both write a custom property and stop. No layout is read on move except
+  // the one rect, and neither runs at all for anyone who asked for calm.
+  // -------------------------------------------------------------------------
+
+  if (!calm) {
+    $$("[data-spot]").forEach(function (card) {
+      card.addEventListener(
+        "pointermove",
+        function (event) {
+          var box = card.getBoundingClientRect();
+          card.style.setProperty("--mx", event.clientX - box.left + "px");
+          card.style.setProperty("--my", event.clientY - box.top + "px");
+        },
+        { passive: true }
+      );
+    });
+
+    $$("[data-magnet]").forEach(function (button) {
+      var pull = Number(button.getAttribute("data-magnet")) || 5;
+      window.addEventListener(
+        "pointermove",
+        function (event) {
+          var box = button.getBoundingClientRect();
+          if (!box.width) return;
+          var cx = box.left + box.width / 2;
+          var cy = box.top + box.height / 2;
+          var reach = box.width;
+          var dx = (event.clientX - cx) / reach;
+          var dy = (event.clientY - cy) / reach;
+          // Outside the reach it sits still. A button that leans towards a
+          // cursor on the other side of the page is a button that is never
+          // still, which is the opposite of the point.
+          var near = Math.abs(dx) < 1.1 && Math.abs(dy) < 1.6;
+          button.style.setProperty("--mgx", near ? dx * pull + "px" : "0px");
+          button.style.setProperty("--mgy", near ? dy * pull + "px" : "0px");
+        },
+        { passive: true }
+      );
+    });
+  }
+
+  // -------------------------------------------------------------------------
   // Reveals
   // -------------------------------------------------------------------------
 

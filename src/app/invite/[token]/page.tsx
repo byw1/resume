@@ -4,6 +4,7 @@ import { getSettings, googleIsConfigured } from "@/lib/settings";
 import { AuthCard } from "@/components/login-form";
 import { Button } from "@/components/ui/button";
 import { AcceptInviteForm } from "@/components/accept-invite-form";
+import { AuthShell } from "@/components/auth-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -22,20 +23,20 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           ? "This invitation has already been used. Try signing in instead."
           : "This invitation link isn't valid.";
     return (
-        <main className="flex min-h-svh items-center justify-center p-6">
+        <AuthShell>
           <AuthCard title="Invitation unavailable" subtitle={message}>
             <Button asChild variant="outline" className="w-full">
               <Link href="/login">Go to sign in</Link>
             </Button>
           </AuthCard>
-        </main>
+        </AuthShell>
   );
   }
 
   const inviter = invite.invitedBy.name || invite.invitedBy.email;
 
   return (
-      <main className="flex min-h-svh items-center justify-center p-6">
+      <AuthShell>
         <AcceptInviteForm
           token={token}
           email={invite.email}
@@ -43,6 +44,6 @@ export default async function InvitePage({ params }: { params: Promise<{ token: 
           instanceName={settings.instanceName}
           googleReady={googleIsConfigured(settings)}
         />
-      </main>
+      </AuthShell>
   );
 }

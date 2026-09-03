@@ -37,10 +37,23 @@
     var input = form.querySelector("input[type=email]");
     var busy = false;
 
+    /* What to say once it has gone through. The one-line form on the landing
+       page and the full signup on /coming-soon/ are answering different
+       questions, so the sentence is the page's to write, not this file's. */
+    var thanks =
+      form.getAttribute("data-said") ||
+      "You're on the list. I'll email you an invite from this address — it comes from a person, not a drip campaign.";
+
     function say(message, bad) {
       if (!said) return;
       said.textContent = message;
       said.classList.toggle("bad", !!bad);
+    }
+
+    /** One optional field's value, trimmed, or "" if the form hasn't got it. */
+    function field(name) {
+      var el = form.elements.namedItem(name);
+      return el && typeof el.value === "string" ? el.value.trim() : "";
     }
 
     function done(message) {
@@ -65,11 +78,21 @@
       if (button) button.disabled = true;
       say("Sending…");
 
+      /* Name and "what you're chasing" are optional everywhere and absent from
+         the short form entirely. The endpoint takes both, trims both, and an
+         address on its own has always been a complete signup.
+
+         `form.elements.namedItem` rather than `form.name`: a <form> has its own
+         `name` property — the name attribute, a string — which shadows the
+         field of the same name. `form.website` below is only safe because no
+         such property exists. */
       fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           email: email,
+          name: field("name"),
+          context: field("context"),
           website: form.website ? form.website.value : "",
         }),
       })
@@ -78,7 +101,7 @@
         })
         .then(function (body) {
           if (body && body.ok) {
-            done("You're on the list. I'll email you an invite from this address — it comes from a person, not a drip campaign.");
+            done(thanks.replace("{email}", email));
           } else {
             say((body && body.error) || "That didn't go through. Try again in a moment.", true);
             busy = false;

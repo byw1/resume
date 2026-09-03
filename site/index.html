@@ -124,12 +124,16 @@
   <div class="nav-rail">
     <div class="nav-inner">
       <a class="brand" href="/" aria-label="Hired, home">
-        <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
-          <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
-          <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-          <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-          <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
-        </svg>
+        <!-- The flat mark is what ships. motion.js builds the extruded one
+             beside it and hides this; with scripting off this is the mark. -->
+        <span class="mark3d" data-mark3d="24">
+          <svg width="24" height="24" viewBox="0 0 64 64" aria-hidden="true">
+            <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
+            <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+            <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+            <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          </svg>
+        </span>
         Hired
       </a>
 
@@ -145,7 +149,7 @@
           <svg viewBox="0 0 16 16" width="15" height="15" aria-hidden="true"><use href="#i-gh"/></svg>
         </a>
         <a class="link nav-login" href="https://app.hired.tools/login">Log in</a>
-        <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
+        <a class="btn btn-primary btn-sm" data-magnet href="/coming-soon/">Get started</a>
       </div>
 
       <!-- The small-screen menu is a <details>, so it opens, closes and takes
@@ -163,7 +167,7 @@
           <a href="https://github.com/shifulaboratories/Hired" rel="noopener">GitHub</a>
           <hr class="fold">
           <a href="https://app.hired.tools/login">Log in</a>
-          <a class="btn btn-primary btn-sm" href="/coming-soon/">Get started</a>
+          <a class="btn btn-primary btn-sm" data-magnet href="/coming-soon/">Get started</a>
         </div>
       </details>
     </div>
@@ -185,7 +189,18 @@
   <div class="hero-glow" aria-hidden="true"></div>
   <div class="wrap">
     <div class="hero-lead">
-    <h1 class="h-display hero-copy" data-reveal>
+    <div class="hero-mark" data-reveal>
+      <span class="mark3d cast" data-mark3d="76">
+        <svg width="76" height="76" viewBox="0 0 64 64" aria-hidden="true">
+          <rect width="64" height="64" rx="15" fill="var(--brand-tile, #191A1E)"/>
+          <rect x="16" y="17" width="13" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          <rect x="16" y="28.5" width="22.5" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+          <rect x="16" y="40" width="32" height="7" rx="1.5" fill="var(--brand-cut, #F9F9FA)"/>
+        </svg>
+      </span>
+    </div>
+
+    <h1 class="h-display hero-copy" data-words>
       <span class="accent">Applicant&rsquo;s</span> Tracking System
     </h1>
 
@@ -203,7 +218,7 @@
         <input id="join-hero" type="email" name="email" autocomplete="email"
                placeholder="you@example.com" required>
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <button class="btn btn-primary" type="submit">
+        <button class="btn btn-primary" data-magnet="4" type="submit">
           Request access
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
         </button>
@@ -384,7 +399,7 @@
     </div>
 
     <div class="bento" style="margin-top:36px">
-      <div class="cell" data-reveal style="--tone:var(--stage-applied); --i:1">
+      <div class="cell" data-spot data-reveal style="--tone:var(--stage-applied); --i:1">
         <div class="cell-dot" aria-hidden="true"></div>
         <h3>Me</h3>
         <p>Everything you've done, in your own words, at any length. This is the part that makes the rest work.</p>
@@ -396,7 +411,7 @@
         </ul>
       </div>
 
-      <div class="cell" data-reveal style="--tone:var(--stage-screen); --i:2">
+      <div class="cell" data-spot data-reveal style="--tone:var(--stage-screen); --i:2">
         <div class="cell-dot" aria-hidden="true"></div>
         <h3>Resumes</h3>
         <p>Built out of Me for one specific job, in the format that gets read rather than the one that looks clever.</p>
@@ -408,7 +423,7 @@
         </ul>
       </div>
 
-      <div class="cell" data-reveal style="--tone:var(--stage-final); --i:3">
+      <div class="cell" data-spot data-reveal style="--tone:var(--stage-final); --i:3">
         <div class="cell-dot" aria-hidden="true"></div>
         <h3>Pipeline</h3>
         <p>Where every application actually stands, so nothing dies quietly in an inbox.</p>
@@ -420,7 +435,7 @@
         </ul>
       </div>
 
-      <div class="cell" data-reveal style="--tone:var(--stage-offer); --i:4">
+      <div class="cell" data-spot data-reveal style="--tone:var(--stage-offer); --i:4">
         <div class="cell-dot" aria-hidden="true"></div>
         <h3>People and prep</h3>
         <p>The companies and humans behind the applications, and what to say to them next.</p>
@@ -2218,7 +2233,7 @@ docker compose logs app   <span class="c"># your sign-in details, once</span></p
         <input id="join-close" type="email" name="email" autocomplete="email"
                placeholder="you@example.com" required>
         <input class="hp" type="text" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
-        <button class="btn btn-primary" type="submit">
+        <button class="btn btn-primary" data-magnet="4" type="submit">
           Request access
           <svg width="15" height="15" viewBox="0 0 24 24" aria-hidden="true"><use href="#i-right"/></svg>
         </button>

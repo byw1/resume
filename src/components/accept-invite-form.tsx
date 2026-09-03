@@ -4,7 +4,14 @@ import { useActionState } from "react";
 import { motion } from "framer-motion";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { AuthCard, GoogleButton, SubmitButton } from "@/components/login-form";
+import {
+  AuthCard,
+  AuthError,
+  GoogleButton,
+  SubmitButton,
+  authGroup,
+  authRise,
+} from "@/components/login-form";
 import { acceptInviteAction } from "@/server/actions";
 
 export function AcceptInviteForm({
@@ -36,30 +43,30 @@ export function AcceptInviteForm({
           the same one as on the sign-in page and cannot accept an invitation
           addressed to somebody else. */}
       {googleReady && (
-        <>
+        <motion.div variants={authRise}>
           <GoogleButton label="Continue with Google" />
           <div className="my-5 flex items-center gap-3">
-            <span className="bg-border h-px flex-1" />
+            <span className="auth-rule bg-border h-px flex-1" />
             <span className="text-faint text-[11px] tracking-wide uppercase">or</span>
-            <span className="bg-border h-px flex-1" />
+            <span className="auth-rule bg-border h-px flex-1" />
           </div>
-        </>
+        </motion.div>
       )}
 
-      <form action={formAction} className="space-y-4">
+      <motion.form variants={authGroup} action={formAction} className="space-y-4">
         <input type="hidden" name="token" value={token} />
 
-        <div className="space-y-2">
+        <motion.div variants={authRise} className="space-y-2">
           <Label>Email</Label>
           <Input value={email} readOnly disabled className="opacity-70" />
-        </div>
+        </motion.div>
 
-        <div className="space-y-2">
+        <motion.div variants={authRise} className="space-y-2">
           <Label htmlFor="name">Your name</Label>
           <Input id="name" name="name" autoFocus placeholder="Ada Lovelace" />
-        </div>
+        </motion.div>
 
-        <div className="space-y-2">
+        <motion.div variants={authRise} className="space-y-2">
           <Label htmlFor="password">Choose a password</Label>
           <Input
             id="password"
@@ -68,24 +75,18 @@ export function AcceptInviteForm({
             autoComplete="new-password"
             placeholder="At least 10 characters"
           />
-        </div>
+        </motion.div>
 
-        {state?.error && (
-          <motion.p
-            initial={{ opacity: 0, x: -4 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-destructive text-sm"
-          >
-            {state.error}
-          </motion.p>
-        )}
+        <AuthError message={state?.error} />
 
-        <SubmitButton label="Create my account" pendingLabel="Creating…" />
-      </form>
+        <motion.div variants={authRise}>
+          <SubmitButton label="Create my account" pendingLabel="Creating…" />
+        </motion.div>
+      </motion.form>
 
-      <p className="text-muted-foreground mt-6 text-center text-xs">
+      <motion.p variants={authRise} className="text-muted-foreground mt-6 text-center text-xs">
         You get your own private space. Nobody else can see your career history, resumes or applications.
-      </p>
+      </motion.p>
     </AuthCard>
   );
 }

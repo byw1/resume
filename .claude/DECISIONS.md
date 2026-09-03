@@ -3626,3 +3626,90 @@ bugs in the output.
 `src/components/shell.tsx`, `src/components/command-palette.tsx`, `src/app/(app)/page.tsx`,
 `src/components/resume/resume-editor.tsx`, `src/server/actions.ts`, `docs/app.mdx`.
 >>>>>>> b9d4dfa (Move the resume grid onto Me, and make Me's tabs addresses)
+
+---
+
+## 2026-09-03 — The three pages people see before they have an account
+
+**The mark became an object, twice, without a 3D library.** `HiredMark3D`
+(`src/components/hired-mark-3d.tsx`) for the app and the `.mark3d` block in
+`site/styles.css` + `buildMark` in `site/motion.js` for the marketing site are the same
+construction in two dialects: a stack of identical rounded squares, each a fraction of a
+pixel further back on a `preserve-3d` stage, with the three bars floating above the face
+as their own small slabs. Stacked slices rather than four rotated side walls because a
+wall cannot follow the 23.4% corner radius; slices rather than three.js because this is
+eight rectangles and a library is three hundred kilobytes. Geometry is the same 64-unit
+grid the flat SVG uses, expressed as fractions, so one element scales from 24px in the
+nav to 240px without a second rule.
+
+**It has a resting tilt, and that is the whole trick.** Square-on, an extruded slab is a
+rounded rectangle with a story about depth — the walls are hidden behind the face and no
+amount of shading rescues it. `REST_Y = -24°`, `REST_X = 13°` and a depth of 0.24 × size
+put about 7% of the tile's width of wall on screen before anything moves. Pointer tilt
+adds to that rest rather than replacing it, so the mark never flattens out.
+
+**`--mark-edge` is a third token because it cannot be derived.** The flat mark needs two
+values and inverts on its own — tile is the ink, bars are cut out of it. A slab also has a
+side, and the side of a near-black tile has to be *lighter* than its face while the side
+of a near-white one has to be *darker*: the same lift, opposite directions. Two values,
+one per theme (0.56 light, 0.52 dark), landed after four passes of screenshots; the first
+three all failed the same way, with the wall washing out against the face it was meant to
+separate from.
+
+**The front door is allowed to be lit; nothing else is.** globals.css opens by saying
+colour that isn't carrying information shouldn't be there, and that rule is about a tool
+you work in for an hour. `/login`, `/setup` and `/invite/[token]` are looked at for four
+seconds and are the first thing a self-hoster sees after `docker compose up`, so they get
+`AuthShell`: a masked grid, three slow-drifting lights in the first three pipeline hues, a
+plinth and a vignette. Four elements, all CSS, all flattened by the reduced-motion block
+already at the top of the file. This is scoped to those three pages and should stay there.
+
+**One `<main>` wrapper became `AuthShell` because there were three copies of it.** Same
+reason the nav is lifted out of `index.html` by the site generator: two copies of a thing
+drift the first time one is touched.
+
+**The site's motion rules survived.** `site/motion.js` says nothing loops and nothing is
+required to read the page, and both still hold. The 3D mark, the card spotlight and the
+magnetic CTA are all pointer-reflections — no duration, no direction of their own, gone
+when the cursor leaves — which is the same third category the hero's scroll-driven tilt
+already occupied. The word-by-word headline plays once on entry and holds. And every one
+of them hides nothing until the script has already built it: `.split` and `.on` are added
+*after* the work, so a failed motion.js leaves a finished page rather than an invisible
+headline. Keying those off the `js` class instead would have been one line shorter and
+would have blanked the hero on any network that ate one file.
+
+**`.req` was already taken.** The signup form's "required"/"optional" tags were `.req` and
+`.opt` for about ten minutes, which quietly inherited the tour's requirement-chip styling
+and drew a border around the word REQUIRED. They are `.flag` now. The one-line form's
+`input[type=email]` carries `flex: 1 1 210px` for its row; the signup card's row is a
+column, so it needed `flex: 0 0 auto` or the email field stretched to the height of the
+card.
+
+**/coming-soon/ is a signup, not an explanation.** It used to lead with "Hosting isn't
+open yet" and then spend three paragraphs and a `docker compose` block talking the reader
+into self-hosting instead — on the page the header's primary action leads to. It is now
+name, address and one line about what you're chasing, posting to the same open
+`/api/waitlist` the short form uses; the endpoint has taken `name` and `context` since it
+was written and the site simply never sent them. `join.js` reads them with
+`form.elements.namedItem`, not `form.name` — a `<form>` has its own `name` property, the
+attribute, which shadows the field. Self-hosting is one ghost button to
+docs.hired.tools/self-hosting/overview, which is a better place to make that argument than
+the bottom of a signup page.
+
+**The success sentence is the page's, not join.js's.** `data-said` on the form, with
+`{email}` substituted, because the landing page's one-line form and the full signup are
+answering different questions and one hard-coded sentence cannot do both.
+
+**Generated pages animate now.** `shell()` in `tools/build-site.mjs` adds the `js` opt-in
+and loads `motion.js`, so /coming-soon/ and the resources pages get the reveals and the
+3D nav mark rather than being the one corner of the site that sits still.
+
+**Verified in browsers, not reasoned about:** the app at 1280 and 390 wide in both themes
+via Playwright against a real Postgres, the static site the same way, and the signup form
+end to end with the POST intercepted — `{email, name, context, website}` goes out, the
+answer renders, the fields are replaced. Then the same body against the live route on a
+local instance, and the row read back out of `WaitlistSignup`.
+
+**Applies to:** `src/components/{hired-mark-3d,auth-shell,login-form,setup-form,accept-invite-form}.tsx`,
+`src/app/globals.css`, `src/app/{login,setup,invite/[token]}/page.tsx`,
+`site/{index.html,styles.css,motion.js,join.js}`, `tools/build-site.mjs`.
