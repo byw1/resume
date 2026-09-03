@@ -65,7 +65,7 @@ async function instructionsFor(user: User) {
   // their workspace is empty.
   const areas = (await meIsEmpty(user.id).catch(() => false))
     ? EMPTY_WORKSPACE
-    : `Four areas:
+    : `The areas:
 • ME — everything about them. Roles each hold an unlimited free-form "background" of raw
   material, plus polished reusable bullets called highlights. There are also notes, projects,
   education, skills and certifications. search_me is the fastest way in.
@@ -88,7 +88,13 @@ async function instructionsFor(user: User) {
   application stands: the pipeline's timeline only knows what was logged by hand. search_email
   and search_calendar cover questions that are not about one record. Every one of these is
   read-only — nothing can send, accept or delete. When they are not connected, say how
-  (Settings → Connections) rather than guessing at their mail.`;
+  (Settings → Connections) rather than guessing at their mail.
+• TAGS cut across all of it. Where an application came from, a company's industry, size and
+  location, how you know a person — every one of those is a tag rather than a free-text field,
+  and they are multi-select. Call list_tags before writing any of them: passing a name that
+  already exists matches it rather than creating a near-duplicate, and the six kinds are
+  separate lists that never collide. "sources" on an application is the old spelling of its
+  tags and still works.`;
 
   // Outside `areas` deliberately: this is about the connection, not about
   // content, so it is just as true of a workspace with nothing in it — and a
