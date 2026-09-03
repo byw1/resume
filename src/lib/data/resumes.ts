@@ -414,7 +414,7 @@ export async function createResumeForApplication(
   options?: { baseId?: string; name?: string },
 ) {
   const application = await db.application.findFirst({
-    where: { id: applicationId, userId },
+    where: { id: applicationId, userId, archivedAt: null },
     include: { company: { select: { name: true } } },
   });
   if (!application) throw new Error(`No application with id ${applicationId}`);

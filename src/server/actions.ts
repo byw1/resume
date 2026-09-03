@@ -39,6 +39,8 @@ import {
 } from "@/lib/login-throttle";
 import { listAudit, recordAudit } from "@/lib/data/audit";
 import { recordSystemEvent, sweepSystemEvents } from "@/lib/data/system";
+import * as archive from "@/lib/data/archive";
+import { sweepArchive } from "@/lib/data/archive";
 
 /**
  * Every action resolves the caller from their session cookie. No action ever
@@ -99,6 +101,7 @@ export async function loginAction(_prev: { error?: string } | undefined, formDat
   // not awaited-and-blocking on failure: a failed sweep must not fail a login.
   void sweepThrottles().catch(() => {});
   void sweepSystemEvents().catch(() => {});
+  void sweepArchive().catch(() => {});
   redirect("/");
 }
 

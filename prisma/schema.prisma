@@ -26,34 +26,34 @@ enum UserRole {
 }
 
 model User {
-  id           String    @id @default(cuid())
-  email        String    @unique
-  name         String    @default("")
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String    @default("")
   /// scrypt, stored as "scrypt:N:r:p:salt:hash". Empty for someone who has
   /// only ever signed in with Google, so it is no longer on its own the test
   /// for whether an account is real — see isClaimed() in src/lib/auth.ts.
-  passwordHash String
+  passwordHash     String
   /// Google's stable subject id for this person, set the first time they sign
   /// in with Google. Nullable rather than "" so the database itself refuses to
   /// let two accounts claim one Google identity; a default of "" would collide
   /// across every password-only user.
-  googleId     String?   @unique
+  googleId         String?   @unique
   /// When this instance last had a REASON to believe this address belongs to
   /// this person: an admin addressed an invitation to it, they claimed the
   /// instance with it, or Google handed it over verified. Null means the
   /// account simply typed it into Settings, which proves nothing — and is why
   /// a Google sign-in will not silently adopt such an account. See
   /// resolveGoogleAccount in src/lib/google.ts.
-  emailProvenAt DateTime?
-  role         UserRole  @default(MEMBER)
-  isActive     Boolean   @default(true)
+  emailProvenAt    DateTime?
+  role             UserRole  @default(MEMBER)
+  isActive         Boolean   @default(true)
   /// Set when this person pays for the hosted instance through Stripe. Empty
   /// for the owner and anyone invited for free. When set, billing drives
   /// isActive: a lapsed subscription suspends, a recovered one reactivates.
-  stripeCustomerId String @default("")
-  lastLoginAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  stripeCustomerId String    @default("")
+  lastLoginAt      DateTime?
+  createdAt        DateTime  @default(now())
+  updatedAt        DateTime  @updatedAt
 
   invitedById String?
   invitedBy   User?   @relation("UserInvites", fields: [invitedById], references: [id], onDelete: SetNull)
@@ -119,23 +119,23 @@ model McpConnection {
 }
 
 model Invite {
-  id          String    @id @default(cuid())
-  email       String
-  token       String    @unique
-  role        UserRole  @default(MEMBER)
-  invitedById String
-  invitedBy   User      @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
-  expiresAt   DateTime
-  acceptedAt  DateTime?
+  id               String    @id @default(cuid())
+  email            String
+  token            String    @unique
+  role             UserRole  @default(MEMBER)
+  invitedById      String
+  invitedBy        User      @relation("InviteSender", fields: [invitedById], references: [id], onDelete: Cascade)
+  expiresAt        DateTime
+  acceptedAt       DateTime?
   /// Whether the invite email actually went out, so the UI can offer the raw link.
-  emailSent   Boolean   @default(false)
-  emailError  String    @default("")
+  emailSent        Boolean   @default(false)
+  emailError       String    @default("")
   /// Set when this invite was created by a Stripe checkout, so the customer
   /// link survives the gap between paying and accepting: acceptInvite copies
   /// it onto the new User, and billing can suspend a lapsed subscription even
   /// if no webhook fires between those two moments.
-  stripeCustomerId String @default("")
-  createdAt   DateTime  @default(now())
+  stripeCustomerId String    @default("")
+  createdAt        DateTime  @default(now())
 
   @@index([email])
   @@index([acceptedAt])
@@ -156,19 +156,19 @@ model Invite {
 /// One per person. A second link would need naming, listing and separate
 /// revocation, which is a feature nobody has asked for yet.
 model PipelineShare {
-  id     String @id @default(cuid())
-  userId String @unique
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String    @id @default(cuid())
+  userId        String    @unique
+  user          User      @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// The public URL is /p/<slug>. Unique across the instance.
-  slug   String @unique
+  slug          String    @unique
   /// Whether the closed applications appear. Off by default: the useful
   /// question for a reviewer is what is live, not what is over.
-  includeClosed Boolean @default(false)
+  includeClosed Boolean   @default(false)
   /// Answers "has anyone actually opened this". A timestamp rather than a
   /// counter, for the reason recorded against McpConnection: a throttled
   /// counter is a number that is quietly wrong.
-  lastViewedAt DateTime?
-  createdAt    DateTime  @default(now())
+  lastViewedAt  DateTime?
+  createdAt     DateTime  @default(now())
 }
 
 /// Failed sign-in counters, so a public login form cannot be guessed at forever.
@@ -181,12 +181,12 @@ model PipelineShare {
 /// write amplifier pointed at your own database by anyone with curl.
 model LoginThrottle {
   /// "email:someone@example.com" or "ip:1.2.3.4".
-  key             String   @id
-  failures        Int      @default(0)
-  windowStartedAt DateTime @default(now())
+  key             String    @id
+  failures        Int       @default(0)
+  windowStartedAt DateTime  @default(now())
   /// Set once the threshold is crossed. Null means not locked.
   lockedUntil     DateTime?
-  updatedAt       DateTime @default(now()) @updatedAt
+  updatedAt       DateTime  @default(now()) @updatedAt
 
   @@index([updatedAt])
 }
@@ -271,24 +271,24 @@ model SystemEvent {
 /// and it becomes an Invite only when an admin decides it should. Nothing here
 /// grants access, so the public endpoint that writes it can stay open.
 model WaitlistSignup {
-  id      String @id @default(cuid())
-  email   String @unique
-  name    String @default("")
+  id          String    @id @default(cuid())
+  email       String    @unique
+  name        String    @default("")
   /// What they're looking for, in their words. Optional, and never required —
   /// an email address alone is a complete signup.
-  context String @default("")
+  context     String    @default("")
   /// Which site the request came from. Set from the request's own Origin by
   /// the route, never from the body, so it can't be spoofed into a lie.
-  source  String @default("")
+  source      String    @default("")
   /// Whether the owner's notification actually went out. Mirrors Invite: a
   /// signup that nobody was told about has to be visible as one, not silently
   /// swallowed because Resend was down.
-  notified    Boolean @default(false)
-  notifyError String  @default("")
+  notified    Boolean   @default(false)
+  notifyError String    @default("")
   /// Set when an admin turned this request into an Invite. Kept rather than
   /// deleted so the list stays a record of who asked and when.
-  invitedAt DateTime?
-  createdAt DateTime  @default(now())
+  invitedAt   DateTime?
+  createdAt   DateTime  @default(now())
 
   @@index([invitedAt])
   @@index([createdAt])
@@ -299,33 +299,33 @@ model WaitlistSignup {
 // ---------------------------------------------------------------------------
 
 model Profile {
-  id        String   @id @default(cuid())
-  userId    String   @unique
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName  String   @default("")
-  headline  String   @default("")
-  email     String   @default("")
-  phone     String   @default("")
-  location  String   @default("")
-  website   String   @default("")
-  linkedin  String   @default("")
-  github    String   @default("")
-  twitter   String   @default("")
+  id         String   @id @default(cuid())
+  userId     String   @unique
+  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName   String   @default("")
+  headline   String   @default("")
+  email      String   @default("")
+  phone      String   @default("")
+  location   String   @default("")
+  website    String   @default("")
+  linkedin   String   @default("")
+  github     String   @default("")
+  twitter    String   @default("")
   /// Long-form "about me" background: values, working style, career narrative,
   /// what you want next, salary expectations, non-negotiables, etc.
   ///
   /// The column is still called brainDump — the concept was renamed to "me"
   /// and its raw text to "background", and @map keeps that rename off the
   /// database so no self-hosted instance needs a migration to follow along.
-  summary    String  @default("")
-  background String  @default("") @map("brainDump")
+  summary    String   @default("")
+  background String   @default("") @map("brainDump")
   /// A square headshot, held as a data URI ("data:image/jpeg;base64,..."). It
   /// lives in the row rather than an object store so self-hosting still needs
   /// one environment variable, and so a published resume renders the picture
   /// with no second request to fetch it. The browser downscales before upload
   /// and the server refuses anything over PHOTO_MAX_BYTES.
-  photo     String   @default("")
-  updatedAt DateTime @updatedAt
+  photo      String   @default("")
+  updatedAt  DateTime @updatedAt
 }
 
 model Role {
@@ -565,14 +565,24 @@ enum ActivityType {
 }
 
 model Company {
-  id        String   @id @default(cuid())
-  userId    String
-  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name      String
-  website   String   @default("")
-  notes     String   @default("")
-  createdAt DateTime @default(now())
-  updatedAt DateTime @default(now()) @updatedAt
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name       String
+  website    String    @default("")
+  notes      String    @default("")
+  /// Null means live. Set when somebody deletes this, which in this app means
+  /// "put it in the archive" — the row leaves every list, picker and filter and
+  /// waits out the retention window. A timestamp rather than a boolean because
+  /// the countdown to being destroyed is measured from it.
+  archivedAt DateTime?
+  /// "" while live, the row's own id once archived. Company names are unique
+  /// per person, and an archived "Stripe" must not stop you tracking a new job
+  /// at Stripe. Prisma cannot express a partial unique index, so the
+  /// discriminator is a column — the same workaround Tag.key uses.
+  archiveKey String    @default("")
+  createdAt  DateTime  @default(now())
+  updatedAt  DateTime  @default(now()) @updatedAt
 
   applications Application[]
   contacts     ContactCompany[]
@@ -581,42 +591,53 @@ model Company {
   /// a typo everywhere at once, and no way to ask "who else is fintech".
   tags         CompanyTag[]
 
-  @@unique([userId, name])
+  @@unique([userId, name, archiveKey])
   @@index([userId])
   @@index([userId, updatedAt])
+  @@index([userId, archivedAt])
 }
 
 model Application {
-  id             String    @id @default(cuid())
+  id             String           @id @default(cuid())
   userId         String
-  user           User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
   companyId      String
-  company        Company   @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  company        Company          @relation(fields: [companyId], references: [id], onDelete: Cascade)
   roleTitle      String
-  stage          Stage     @default(WISHLIST)
-  jobUrl         String    @default("")
-  jobDescription String    @default("")
-  location       String    @default("")
-  workMode       String    @default("")
-  salaryRange    String    @default("")
+  stage          Stage            @default(WISHLIST)
+  jobUrl         String           @default("")
+  jobDescription String           @default("")
+  location       String           @default("")
+  workMode       String           @default("")
+  salaryRange    String           @default("")
   /// Where this one came from, and anything else worth labelling it with.
   /// Rows the person owns rather than free strings, so a label can be renamed,
   /// recoloured and — the point — deleted. The data layer flattens the join
   /// rows back to { id, name, color } before anything else sees them.
   tags           ApplicationTag[]
   /// 1-5 how much you want this
-  excitement     Int       @default(3)
+  excitement     Int              @default(3)
   /// 1-5 how strong a fit you are
-  fit            Int       @default(3)
-  notes          String    @default("")
+  fit            Int              @default(3)
+  notes          String           @default("")
   appliedAt      DateTime?
   nextFollowUpAt DateTime?
   closedAt       DateTime?
+  /// Null means live. See Company.archivedAt. Its timeline and its tasks follow
+  /// it in and out through this column rather than carrying their own, so a
+  /// restore brings the whole thread back with no extra bookkeeping.
+  archivedAt     DateTime?
+  /// The id of the company whose archiving swept this application in. Null when
+  /// it was archived on its own — which is the difference that stops restoring
+  /// a company from dragging back an application you had already binned
+  /// separately. No relation and no foreign key: the company can be destroyed
+  /// first, and a dangling breadcrumb is harmless.
+  archivedWith   String?
   resumeId       String?
-  resume         Resume?   @relation(fields: [resumeId], references: [id], onDelete: SetNull)
-  sortOrder      Int       @default(0)
-  createdAt      DateTime  @default(now())
-  updatedAt      DateTime  @updatedAt
+  resume         Resume?          @relation(fields: [resumeId], references: [id], onDelete: SetNull)
+  sortOrder      Int              @default(0)
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @updatedAt
 
   activities Activity[]
   contacts   Contact[]
@@ -624,6 +645,7 @@ model Application {
 
   @@index([userId, stage])
   @@index([userId, nextFollowUpAt])
+  @@index([userId, archivedAt])
 }
 
 /// A channel an application came from, as something the person owns.
@@ -661,13 +683,13 @@ model Tag {
   key    String
   /// A palette token name, not a hex: see --tag-* in globals.css. A stored hex
   /// is right in exactly one theme.
-  color  String @default("slate")
+  color  String  @default("slate")
 
   applications ApplicationTag[]
   companies    CompanyTag[]
   contacts     ContactTag[]
-  createdAt    DateTime @default(now())
-  updatedAt    DateTime @default(now()) @updatedAt
+  createdAt    DateTime         @default(now())
+  updatedAt    DateTime         @default(now()) @updatedAt
 
   /// Per kind, so "Remote" can be a location and a tag without colliding.
   @@unique([userId, kind, key])
@@ -711,45 +733,49 @@ model ContactTag {
 }
 
 model Contact {
-  id            String       @id @default(cuid())
-  userId        String
-  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
-  name          String
-  title         String       @default("")
-  email         String       @default("")
-  phone         String       @default("")
-  relationship  String       @default("")
+  id             String           @id @default(cuid())
+  userId         String
+  user           User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  name           String
+  title          String           @default("")
+  email          String           @default("")
+  phone          String           @default("")
+  relationship   String           @default("")
   /// Where to find them. Named columns for the platforms people actually ask
   /// for by name, so a tool can say "their LinkedIn" and mean one field —
   /// same shape as Profile, which settled this argument already.
-  linkedin      String       @default("")
-  twitter       String       @default("")
-  instagram     String       @default("")
-  github        String       @default("")
-  website       String       @default("")
+  linkedin       String           @default("")
+  twitter        String           @default("")
+  instagram      String           @default("")
+  github         String           @default("")
+  website        String           @default("")
   /// Everything else someone is reachable at: Bluesky, Mastodon, a Substack,
   /// a personal page. A list rather than five more columns, because the tail
   /// of "other means of social media" has no end and none of it needs a name
   /// of its own to be openable.
-  otherLinks    String[]     @default([])
-  notes         String       @default("")
+  otherLinks     String[]         @default([])
+  notes          String           @default("")
   /// When to next get in touch — the date that keeps a relationship warm.
   nextFollowUpAt DateTime?
   /// Everywhere they represent. A person is a founder at one company, an
   /// advisor at another and a friend who moved to a third, and pinning them to
   /// a single employer meant picking which of those to lose. The data layer
   /// flattens the join rows to { id, name, website } under the same name.
-  companies     ContactCompany[]
-  applicationId String?
-  application   Application? @relation(fields: [applicationId], references: [id], onDelete: SetNull)
-  activities    Activity[]
+  companies      ContactCompany[]
+  applicationId  String?
+  application    Application?     @relation(fields: [applicationId], references: [id], onDelete: SetNull)
+  activities     Activity[]
   /// How this person is filed: "recruiter", "warm intro", "ex-colleague".
-  tags          ContactTag[]
-  createdAt     DateTime     @default(now())
-  updatedAt     DateTime     @default(now()) @updatedAt
+  tags           ContactTag[]
+  /// Null means live. See Company.archivedAt. Their timeline follows them in
+  /// and out through this one column rather than carrying its own.
+  archivedAt     DateTime?
+  createdAt      DateTime         @default(now())
+  updatedAt      DateTime         @default(now()) @updatedAt
 
   @@index([userId])
   @@index([userId, updatedAt])
+  @@index([userId, archivedAt])
 }
 
 /// The join, explicit for the same reason ApplicationTag is: the migration
@@ -769,9 +795,9 @@ model ContactCompany {
 }
 
 model Activity {
-  id     String @id @default(cuid())
-  userId String
-  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  id            String       @id @default(cuid())
+  userId        String
+  user          User         @relation(fields: [userId], references: [id], onDelete: Cascade)
   /// An activity belongs to exactly one thing — an application or a contact.
   /// The data layer enforces the exactly-one rule; the schema can't.
   applicationId String?
@@ -782,10 +808,10 @@ model Activity {
   body          String       @default("")
   /// Set on stage moves so the funnel can be reconstructed. Null on every other
   /// kind of activity, and on historic moves that were written with a note.
-  fromStage  Stage?
-  toStage    Stage?
-  occurredAt DateTime @default(now())
-  createdAt  DateTime @default(now())
+  fromStage     Stage?
+  toStage       Stage?
+  occurredAt    DateTime     @default(now())
+  createdAt     DateTime     @default(now())
 
   @@index([userId, occurredAt])
   @@index([applicationId, occurredAt])

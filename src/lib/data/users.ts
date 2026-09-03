@@ -425,6 +425,9 @@ export async function instanceStats() {
     db.invite.count({ where: { acceptedAt: null, expiresAt: { gt: new Date() } } }),
     db.role.count(),
     db.resume.count(),
+    // Deliberately NOT filtered on archivedAt, unlike every content read in
+    // this app. These are an operator's row counts across the instance — how
+    // much is on disk — and something in somebody's archive is still on disk.
     db.application.count(),
   ]);
   return { users, active, admins, pendingInvites, roles, resumes, applications };
