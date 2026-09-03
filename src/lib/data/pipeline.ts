@@ -5,7 +5,7 @@ import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
 import { readQuickLog } from "@/lib/quick-log";
 import { TagKind, type TagRef, flattenTags, resolveTagIds, tagInclude } from "@/lib/data/tags";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
-import { listMatchedEvents } from "@/lib/data/google";
+import { listMatchedEvents } from "@/lib/data/accounts";
 
 /** Like me.ts: userId is the required first argument on every query. */
 

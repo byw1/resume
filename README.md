@@ -57,7 +57,7 @@ just *talk* to it.
   before it does it. Names fold case, so `linkedin` lands on the `LinkedIn` you already
   have rather than minting a twin.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  104 tools any MCP client can call (134 if you're an admin). Claude, Claude Code, ChatGPT,
+  106 tools any MCP client can call (138 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's career history, resumes or applications. Admin lives
@@ -74,12 +74,14 @@ just *talk* to it.
   every migration finished, whether the last invite email actually left, and whether Stripe
   is still calling the webhook, then lists what has failed in the last thirty days. Ask an
   assistant for `admin_health` and you get the same answer without opening a browser.
-- **Your inbox and calendar, on the record** — connect your own Gmail and Google Calendar
-  under Settings → Connections and every contact, company and application shows the real threads
-  and meetings behind it, under the timeline of what you logged. Interviews you accepted in
-  Google Calendar land on the pipeline's calendar view. Read-only and live: nothing from
-  your account is copied to the server, and an assistant asked where an application stands
-  reads the recruiter's reply instead of guessing from a stage.
+- **Your inbox and calendar, on the record** — connect your own mail and calendar under
+  Settings → Connections — Google, Microsoft 365, or anything that speaks IMAP and CalDAV,
+  and more than one if recruiters write to more than one — and every contact, company and
+  application shows the real threads and meetings behind it, under the timeline of what you
+  logged. Interviews you accepted in your real calendar land on the pipeline's calendar view.
+  Read-only and live: nothing from any account is copied to the server, and an assistant
+  asked where an application stands reads the recruiter's reply instead of guessing from a
+  stage.
 - **Sign in how you like** — email and password always work, and an instance that adds a
   Google OAuth client gets a Continue with Google button as well. Google never bypasses an
   invitation: it signs in people who already have an account or an unexpired invite, and
@@ -232,7 +234,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 104, or 134 if you're an admin.
+would, then tells you how many tools answered — 106, or 138 if you're an admin.
 
 #### One connection per client
 
@@ -352,26 +354,38 @@ accounts here are matched by address, so that check is what the whole thing rest
 
 By conversation: `admin_get_google_config`, `admin_set_google_config`.
 
-### Gmail and Calendar (optional, per person)
+### Mail and calendar (optional, per person)
 
-The same OAuth client lets each person connect their own Gmail and Google Calendar under
-**Settings → Connections**. Google asks for read-only access to both; either can be left
-unticked. From then on a contact's page shows the threads with their address and the
-meetings they are invited to, a company's page shows everything from its domain, an
-application's page shows both under its timeline, and the pipeline's calendar view carries
-the interviews from the real calendar. Nothing from anyone's account is copied to the
-server: every page asks Google when it opens, and disconnecting revokes the token and
-deletes the only thing held.
+Each person can connect the accounts recruiters actually write to, under **Settings →
+Connections**, and the app reads them live: a contact's page shows the threads with their
+address and the meetings they are invited to, a company's page shows everything from its
+domain, an application's page shows both under its timeline, and the pipeline's calendar
+view carries the interviews from the real calendar. More than one account merges. Nothing
+from any account is copied to the server: every page asks the provider when it opens, and
+disconnecting revokes what can be revoked and deletes the credential.
 
-Two things in the Cloud console make it work: enable the Gmail API and the Google Calendar
-API in the project, and add the `gmail.readonly` and `calendar.readonly` scopes to the
-consent screen. Gmail's read scope is one Google calls restricted, so leave the consent
-screen in Testing and list the people who will connect as test users rather than going
-through verification for an instance you host for friends.
+Three kinds of account:
 
-By conversation: `get_google_connection`, `list_correspondence`, `search_email`,
-`get_email_thread`, `search_calendar`, `disconnect_google`, and the `inbox_review` workflow
-that reads a week of mail and proposes what to log.
+- **Google** uses the sign-in client above. Two more things in the Cloud console make it
+  work: enable the Gmail API and the Google Calendar API, and add the `gmail.readonly` and
+  `calendar.readonly` scopes to the consent screen. Gmail's read scope is one Google calls
+  restricted, so leave the consent screen in Testing and list the people who will connect as
+  test users rather than going through verification for an instance you host for friends.
+- **Microsoft 365 and Outlook.com** need an app registration in Microsoft Entra, set under
+  **Admin → Configuration → Accounts**: supported account types set to any directory plus
+  personal accounts, a Web redirect URI the screen shows you, the delegated Graph permissions
+  `Mail.Read`, `Calendars.Read`, `User.Read` and `offline_access`, and a client secret.
+- **Anything else** — Fastmail, iCloud, Yahoo, a university account, a self-hosted server —
+  connects by IMAP and CalDAV with an app password, from a form with presets for the common
+  ones. It needs nothing from an admin. Either half can be left out.
+
+The app never sends, so there is no SMTP to configure: read-only is what makes handing over
+an inbox safe, and the permissions it asks for cannot do anything else.
+
+By conversation: `list_linked_accounts`, `connect_imap_account`, `test_linked_account`,
+`disconnect_account`, `list_correspondence`, `search_email`, `get_email_thread`,
+`search_calendar`, and the `inbox_review` workflow that reads a week of mail and proposes
+what to log. Admins: `admin_get_microsoft_config`, `admin_set_microsoft_config`.
 
 ### Everything else you can change
 
@@ -403,12 +417,12 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-104 tools. Ninety-six of them are the data tools across the four areas, your Gmail and
-Calendar, and your account; the other eight are the workflows below, published as tools as
-well as prompts, because prompt support is optional in MCP clients and tool support isn't.
-Call one and it hands back a step-by-step plan that it then follows. Admins get 30 more — 29
-data tools and a ninth workflow — and members never even see those in the tool list, so
-nobody is tempted by a permission they don't have.
+106 tools. Ninety-eight of them are the data tools across the four areas, your mail and
+calendar accounts, and your own account; the other eight are the workflows below, published
+as tools as well as prompts, because prompt support is optional in MCP clients and tool
+support isn't. Call one and it hands back a step-by-step plan that it then follows. Admins
+get 32 more — 31 data tools and a ninth workflow — and members never even see those in the
+tool list, so nobody is tempted by a permission they don't have.
 
 | Workflow | What it does |
 | --- | --- |

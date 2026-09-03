@@ -137,7 +137,7 @@
               "tools/resumes",
               "tools/pipeline",
               "tools/crm",
-              "tools/google",
+              "tools/accounts",
               "tools/connections",
               "tools/admin"
             ]
@@ -162,6 +162,7 @@
               "self-hosting/configuration",
               "self-hosting/email",
               "self-hosting/google",
+              "self-hosting/microsoft",
               "self-hosting/pdf",
               "self-hosting/billing",
               "self-hosting/upgrading"
