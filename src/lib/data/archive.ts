@@ -224,7 +224,17 @@ function isUniqueViolation(error: unknown) {
   return typeof error === "object" && error !== null && "code" in error && error.code === "P2002";
 }
 
-async function restoreCompany(userId: string, id: string) {
+/**
+ * Un-archive a company row, and optionally the applications that went in with
+ * it.
+ *
+ * `withApplications` is false when this is called to make a single restored
+ * application drawable: an application under an archived company is a row no
+ * board can render, so the company has to come back — but bringing back every
+ * OTHER application that was swept in with it is not what the person asked
+ * for, and they would have no idea it had happened.
+ */
+async function restoreCompany(userId: string, id: string, withApplications = true) {
   const company = await db.company.findFirst({
     where: { id, userId, archivedAt: { not: null } },
   });
@@ -236,6 +246,7 @@ async function restoreCompany(userId: string, id: string) {
   try {
     const swept = await db.$transaction(async (tx) => {
       await tx.company.update({ where: { id }, data: { archivedAt: null, archiveKey: "" } });
+      if (!withApplications) return 0;
       const { count } = await tx.application.updateMany({
         where: { userId, archivedWith: id, archivedAt: { not: null } },
         data: { archivedAt: null, archivedWith: null },
@@ -282,7 +293,9 @@ async function restoreOne(
     if (application.company.archivedAt) {
       // Same name check, same sentence: a live application under an archived
       // company cannot be drawn anywhere, so the company has to come first.
-      const done = await restoreCompany(userId, application.companyId);
+      // The company ALONE — restoring one application must not quietly bring
+      // back every sibling that went into the archive beside it.
+      const done = await restoreCompany(userId, application.companyId, false);
       if (done) {
         also.push({
           kind: "company",
@@ -395,7 +408,13 @@ export async function listArchive(
             },
             orderBy: { archivedAt: "desc" },
             take: limit,
-            include: { _count: { select: { applications: true } } },
+            // Only the applications a restore would actually bring back:
+            // restoreCompany moves the ones it swept in, and an application the
+            // person binned separately stays where they put it. Counting all of
+            // them made the row promise more than the restore delivers.
+            include: {
+              _count: { select: { applications: { where: { archivedWith: { not: null } } } } },
+            },
           })
         : [],
       wants("contact")
@@ -581,13 +600,42 @@ export async function emptyArchive(
     ).count;
   }
   if (wants("company")) {
-    deleted.company = (
-      await db.company.deleteMany({
-        where: { userId, archivedAt: { not: null }, applications: { none: { archivedAt: null } } },
-      })
-    ).count;
+    deleted.company += await destroyArchivedCompanies(userId, { userId, archivedAt: { not: null } }, deleted);
   }
   return { deleted, total: deleted.company + deleted.contact + deleted.application };
+}
+
+/**
+ * Destroy archived companies, taking their archived applications by hand.
+ *
+ * `Application.company` is ON DELETE CASCADE at the database level, so deleting
+ * a company row destroys every application under it whether or not this code
+ * counted them. Scoped to one kind — "empty just the companies" — the cascade
+ * used to take archived applications with it and report `application: 0`, which
+ * is the one number somebody reads before agreeing to it.
+ *
+ * So the applications go first, explicitly and counted, and only then the
+ * companies. The `none: { archivedAt: null }` guard still stands: a company
+ * with a LIVE application is left alone rather than taking it down too.
+ */
+async function destroyArchivedCompanies(
+  userId: string,
+  where: { userId: string; archivedAt: { not: null } | { not: null; lte: Date } },
+  deleted: Record<ArchiveKind, number>,
+): Promise<number> {
+  const doomed = await db.company.findMany({
+    where: { ...where, applications: { none: { archivedAt: null } } },
+    select: { id: true },
+  });
+  if (doomed.length === 0) return 0;
+  const ids = doomed.map((row) => row.id);
+
+  deleted.application += (
+    await db.application.deleteMany({
+      where: { userId, companyId: { in: ids }, archivedAt: { not: null } },
+    })
+  ).count;
+  return (await db.company.deleteMany({ where: { userId, id: { in: ids } } })).count;
 }
 
 /** One person's expired rows. Same ordering and same guard as emptyArchive. */
@@ -600,14 +648,13 @@ export async function purgeExpiredFor(
   const cutoff = new Date(now.getTime() - archiveRetentionDays * 86400000);
   const expired = { userId, archivedAt: { not: null, lte: cutoff } };
 
-  const applications = (await db.application.deleteMany({ where: expired })).count;
-  const contacts = (await db.contact.deleteMany({ where: expired })).count;
-  const companies = (
-    await db.company.deleteMany({
-      where: { ...expired, applications: { none: { archivedAt: null } } },
-    })
-  ).count;
-  return { deleted: applications + contacts + companies };
+  const deleted: Record<ArchiveKind, number> = { company: 0, contact: 0, application: 0 };
+  deleted.application = (await db.application.deleteMany({ where: expired })).count;
+  deleted.contact = (await db.contact.deleteMany({ where: expired })).count;
+  // Same reason as emptyArchive: the cascade must not take an application the
+  // window has not reached yet.
+  deleted.company = await destroyArchivedCompanies(userId, expired, deleted);
+  return { deleted: deleted.application + deleted.contact + deleted.company };
 }
 
 /** How often the instance-wide sweep is allowed to run. */
@@ -642,10 +689,22 @@ export async function sweepArchive(now = new Date()): Promise<{ purged: number; 
 
   const applications = (await db.application.deleteMany({ where: expired })).count;
   const contacts = (await db.contact.deleteMany({ where: expired })).count;
-  const companies = (
-    await db.company.deleteMany({
-      where: { ...expired, applications: { none: { archivedAt: null } } },
-    })
-  ).count;
-  return { purged: applications + contacts + companies, skipped: false };
+  // The companies whose applications are all gone or archived. Anything still
+  // holding a LIVE application is left standing, because the foreign key would
+  // take it down too.
+  const doomed = await db.company.findMany({
+    where: { ...expired, applications: { none: { archivedAt: null } } },
+    select: { id: true },
+  });
+  const swept = doomed.length
+    ? (
+        await db.application.deleteMany({
+          where: { companyId: { in: doomed.map((row) => row.id) }, archivedAt: { not: null } },
+        })
+      ).count
+    : 0;
+  const companies = doomed.length
+    ? (await db.company.deleteMany({ where: { id: { in: doomed.map((row) => row.id) } } })).count
+    : 0;
+  return { purged: applications + swept + contacts + companies, skipped: false };
 }

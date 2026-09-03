@@ -118,7 +118,15 @@ export type FilterableContact = {
   relationship: string;
   notes: string;
   nextFollowUpAt: Date | null;
-  applicationId: string | null;
+  /**
+   * The LIVE application they are attached to, not the raw column.
+   *
+   * Archiving an application does not clear `Contact.applicationId`, and the
+   * relation is fetched with an archive filter — so the column can say "yes"
+   * while every screen shows no application at all. The cut has to read what
+   * the screens read.
+   */
+  application: { id: string } | null;
   createdAt: Date;
   companies: { id: string; name: string }[];
   tags: { id: string; name: string }[];
@@ -205,7 +213,7 @@ export function matchesContact(
   if (filters.cut === "ping-due") {
     if (contact.nextFollowUpAt === null || contact.nextFollowUpAt.getTime() > now) return false;
   }
-  if (filters.cut === "with-application" && contact.applicationId === null) return false;
+  if (filters.cut === "with-application" && contact.application === null) return false;
   if (filters.cut === "no-company" && contact.companies.length > 0) return false;
 
   if (filters.companies.length > 0) {

@@ -4,11 +4,15 @@
  * Pure, so the board, the table, the calendar, the menu that toggles them and
  * the tool that reads them all agree on one catalogue.
  *
- * Three things are never in a catalogue, on any view: the company, the role
- * title and the stage. Those are what a card IS — a card with no company is
- * not a shorter card, it is an unreadable one — and on the table the stage cell
- * is the inline editor the table exists for. A setting that can make a screen
- * useless is not a setting.
+ * On the board and the table, three things are never in a catalogue: the
+ * company, the role title and the stage. Those are what a card IS — a card
+ * with no company is not a shorter card, it is an unreadable one — and on the
+ * table the stage cell is the inline editor the table exists for. A setting
+ * that can make a screen useless is not a setting.
+ *
+ * The calendar is the exception, and only for stage: a chip is one line of an
+ * entry's own title, so the stage is genuinely extra there rather than
+ * identity, and it is off by default.
  *
  * An empty stored list means "the default set", not "draw nothing". That way an
  * account that has never touched this looks exactly as it always did, and a
@@ -61,8 +65,11 @@ export const LIST_FIELDS: FieldDef[] = [
  * everything else would print the same words twice.
  */
 export const CALENDAR_FIELDS: FieldDef[] = [
-  { key: "detail", label: "The role or the detail", standard: true },
-  { key: "stage", label: "Stage", standard: false },
+  // Both are wide-screen only: a chip in a month grid has no room for either
+  // below `lg`, and a toggle that appears to do nothing is worse than one that
+  // says when it applies.
+  { key: "detail", label: "The role or the detail", standard: true, wide: true },
+  { key: "stage", label: "Stage", standard: false, wide: true },
 ];
 
 export const FIELDS: Record<PipelineView, FieldDef[]> = {

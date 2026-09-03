@@ -100,8 +100,14 @@ export default async function ArchivePage({
       <FadeIn>
         <div className="mb-3 flex flex-wrap items-center gap-2">
           <SearchBox placeholder="Search the archive…" className="w-full sm:w-72" />
+          {/* The counts come from unfiltered queries, so with a search on
+              they are the whole bin rather than what is on screen. Say both
+              rather than printing the larger one where every other list on the
+              site prints the smaller. */}
           <span className="text-faint nums ml-auto text-[12px]">
-            {total} {total === 1 ? "item" : "items"}
+            {search || kind
+              ? `${rows.length} of ${total} ${total === 1 ? "item" : "items"}`
+              : `${total} ${total === 1 ? "item" : "items"}`}
           </span>
         </div>
 

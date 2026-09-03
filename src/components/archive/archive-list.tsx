@@ -95,6 +95,9 @@ export function ArchiveList({ rows, filtered }: { rows: BinRow[]; filtered: bool
           refused.push(...result.skipped.map((skip) => skip.reason));
         }
         if (back > 0) toast.success(`${back} restored`);
+        // Refusals are the only outcome worth a message when nothing came
+        // back — a silent Restore reads as a broken button.
+        if (back === 0 && refused.length === 0) toast.error("Nothing was restored.");
         for (const reason of refused.slice(0, 2)) toast.error(reason);
         setSelected(new Set());
         router.refresh();
@@ -135,9 +138,19 @@ export function ArchiveList({ rows, filtered }: { rows: BinRow[]; filtered: bool
 
   return (
     <div>
-      {selected.size > 0 && (
+      {/* The kind chips and the search can take ticked rows off screen. Say
+          what is about to happen to how many, rather than counting rows the
+          buttons will not touch. */}
+      {selected.size > chosen.length && (
+        <p className="text-faint mb-2 text-[12.5px]">
+          {selected.size - chosen.length} more selected {selected.size - chosen.length === 1 ? "is" : "are"} not on
+          this screen, and will be left alone.
+        </p>
+      )}
+
+      {chosen.length > 0 && (
         <div className="bg-card shadow-card mb-3 flex flex-wrap items-center gap-2 rounded-xl px-3 py-2">
-          <span className="nums text-[12.5px] font-medium">{selected.size} selected</span>
+          <span className="nums text-[12.5px] font-medium">{chosen.length} selected</span>
           <Button variant="outline" size="sm" disabled={pending} onClick={restore}>
             <RotateCcwIcon /> Restore
           </Button>

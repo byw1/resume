@@ -3620,3 +3620,64 @@ dropped and reported back as a success over a board that never moved.
 `src/lib/mcp/{tools,handler}.ts`, `src/server/actions.ts`, `src/components/{archive,crm,filters,pipeline}/`,
 `src/app/(app)/{archive,crm,applications}/`, `src/app/api/export/`, `tools/gen-tool-docs.mjs`,
 and the manual.
+
+## 2026-09-03 — What the adversarial pass found in the archive batch
+
+A hundred and one agents read the batch above; nineteen findings survived three independent
+skeptics each. The ones that changed the code, and why they were not obvious:
+
+**A scoped empty of the bin destroyed rows it reported as untouched.** `Application.company`
+is `ON DELETE CASCADE` at the database level. "Empty just the companies" deleted the company
+rows and let the foreign key take their archived applications, then reported
+`application: 0` — the one number somebody reads before agreeing to it. Now
+`destroyArchivedCompanies` deletes those applications explicitly and counts them first, and
+`purgeExpiredFor` and `sweepArchive` go through the same helper. The `none: { archivedAt:
+null }` guard already stopped a LIVE application riding along; what was missing was honesty
+about the archived ones.
+
+There is one edge the foreign key does not let us out of: a company past its window whose
+archived application is not yet past its own goes when the company goes. Every real path
+archives the two together, so the application's window is never the later of the pair — the
+only way to construct it is to edit `archivedAt` by hand. Measured, not assumed.
+
+**Restoring one application woke every sibling.** An application under an archived company
+cannot be drawn anywhere, so restoring one has to bring its company back too. It called the
+same `restoreCompany` the company row uses, which also un-archives everything swept in with
+it — so asking for one application back silently returned nine. `restoreCompany` now takes
+`withApplications`, false on that path.
+
+**"with 3 applications" promised more than the restore delivered.** The archive row counted
+every archived application under a company; the restore only brings back the ones it swept in
+(`archivedWith` set), leaving anything binned separately where the person put it. The count
+is now filtered to match.
+
+**A `$extends` query extension does not reach nested reads.** Measured against a real
+Postgres, not inferred: the client extension covers top-level `findMany`/`findFirst`/`count`,
+and silently does nothing for a nested `include` or a nested `_count`. That is the whole
+reason this feature filters by hand in every read rather than globally, and the reason the
+archivable set is three models — small enough to audit by hand, because nothing in the
+toolchain catches a read that forgets. Three nested reads were still wrong and are fixed:
+`listResumes` and `getResume` counted archived applications against a resume, and
+`diagnoseSearch` counted archived transitions.
+
+**Two descriptions promised behaviour the schema did not have.** `export_csv` said companies
+and contacts take the same filters as the list tools while exposing only `kind`, `ids`,
+`search` and `query` — a filtered request returned everything, which is worse than refusing.
+And `ids` intersects with the other arguments rather than replacing them; the description now
+says so, because the code's behaviour is the more predictable of the two. `get_pipeline_fields`
+said stage is always drawn, one field away from an `available` list that returns stage as
+optional on the calendar. A tool description that contradicts its own output is a bug.
+
+**The archive screen printed the whole bin's count next to a filtered list.** Every other list
+on the site prints what is on screen. With a search on, the archive printed the larger number.
+It now says both.
+
+**The row checkboxes on both CRM lists could not be clicked.** The stretched-link pattern
+(`before:absolute before:inset-0` on the `<Link>`) paints its overlay over any sibling
+earlier in DOM order — `relative` is not enough, it needs a stacking order. Found by driving a
+real browser, then confirmed with `elementFromPoint` against the compiled CSS: before the fix
+the element at the checkbox's centre is the `<a>`.
+
+**Applies to:** `src/lib/data/{archive,resumes,pipeline}.ts`, `src/lib/{crm-filters,pipeline-fields}.ts`,
+`src/lib/mcp/tools.ts`, `src/components/{archive,crm,pipeline}/`, `src/app/(app)/archive/page.tsx`,
+and the manual.

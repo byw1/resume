@@ -80,7 +80,10 @@ export function ContactsList({
           tagKind="CONTACT"
           onTag={tagContactsAction}
           onArchive={(picked) => archiveRecordsAction("contact", picked)}
-          exportHref={`${exportHref}${exportHref.includes("?") ? "&" : "?"}ids=${[...selected].join(",")}`}
+          // Only the ids, not the screen's filters: the route intersects the
+          // two, so exporting a selection whose rows the filter has since
+          // excluded would hand back an empty file while the bar counts them.
+          exportHref={`/api/export/contacts?ids=${[...selected].join(",")}`}
           onClear={() => setSelected(new Set())}
           extra={<PingSelected ids={ids} onDone={() => setSelected(new Set())} />}
         />
@@ -125,14 +128,14 @@ export function ContactsList({
               <li
                 key={contact.id}
                 className={cn(
-                  "hover:bg-accent/50 relative flex items-center transition-colors duration-150",
+                  "hover:bg-accent/50 relative flex items-center gap-3 px-4 transition-colors duration-150",
                   selected.has(contact.id) && "bg-accent/40",
                 )}
               >
                 {/* z-[1], not just relative: the stretched link's ::before
                     comes later in the DOM and would otherwise paint over the
                     checkbox and eat the click. */}
-                <div className="relative z-[1] pl-4">
+                <div className="relative z-[1]">
                   <Checkbox
                     checked={selected.has(contact.id)}
                     onCheckedChange={() => toggle(contact.id)}
@@ -151,7 +154,7 @@ export function ContactsList({
                 <Link
                   href={`/crm/contacts/${contact.id}`}
                   data-nav-item
-                  className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 pl-3 before:absolute before:inset-0"
+                  className="flex min-w-0 flex-1 items-center gap-2.5 py-2.5 before:absolute before:inset-0"
                 >
                   <CompanyAvatar name={contact.name} domain={null} size={26} />
                   <div className="min-w-0">
@@ -173,7 +176,7 @@ export function ContactsList({
                   </div>
                 </Link>
 
-                <div className="relative hidden w-44 shrink-0 items-center gap-1.5 px-3 md:flex">
+                <div className="relative hidden w-44 shrink-0 items-center gap-1.5 md:flex">
                   {contact.companies.length > 0 ? (
                     <>
                       <CompanyChip
@@ -196,24 +199,22 @@ export function ContactsList({
                   )}
                 </div>
 
-                <div className="flex shrink-0 items-center gap-3 py-2.5">
-                  <div className="text-faint hidden w-32 shrink-0 truncate text-[12px] lg:block">
-                    {contact.relationship || "—"}
-                  </div>
-                  <div
-                    className={cn(
-                      "nums hidden w-24 shrink-0 text-right text-[12px] sm:block",
-                      contact.pingDue ? "text-destructive font-medium" : "text-faint",
-                    )}
-                  >
-                    {contact.nextPing}
-                  </div>
-                  <div className="nums text-faint w-24 shrink-0 text-right text-[12px]">
-                    {contact.lastTouch}
-                  </div>
+                <div className="text-faint hidden w-32 shrink-0 truncate text-[12px] lg:block">
+                  {contact.relationship || "—"}
+                </div>
+                <div
+                  className={cn(
+                    "nums hidden w-24 shrink-0 text-right text-[12px] sm:block",
+                    contact.pingDue ? "text-destructive font-medium" : "text-faint",
+                  )}
+                >
+                  {contact.nextPing}
+                </div>
+                <div className="nums text-faint w-24 shrink-0 text-right text-[12px]">
+                  {contact.lastTouch}
                 </div>
 
-                <div className="relative hidden w-[60px] shrink-0 items-center justify-end gap-0.5 pr-3 pl-3 sm:flex">
+                <div className="relative hidden w-[60px] shrink-0 items-center justify-end gap-0.5 sm:flex">
                   {contact.email && (
                     <Button
                       asChild

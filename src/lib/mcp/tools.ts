@@ -2491,7 +2491,7 @@ export const tools: McpTool[] = [
     name: "export_csv",
     title: "Export a list as CSV",
     description:
-      "One of the three lists as a spreadsheet file, returned as CSV text you can hand straight to somebody. 'companies' and 'contacts' take the same filters, search and sort as list_companies and list_contacts, so 'export every fintech company I have never applied to' is one call; 'applications' takes the pipeline's own filters through the same query string the app puts in its URL. Every export ALWAYS includes closed applications — somebody exporting before a clear-out wants the rejections, and a file that quietly dropped them would look complete and be wrong at the only moment it mattered. Pass ids to export just those rows instead. Archived records are never included; use list_archive for those. Read-only: it writes nothing and changes nothing.",
+      "One of the three lists as a spreadsheet file, returned as CSV text you can hand straight to somebody. 'companies' and 'contacts' take the same cuts list_companies and list_contacts take, so 'export every fintech company I have never applied to' is one call: narrow it with list_companies first, then pass the same arguments here. 'applications' takes the pipeline's own filters through `query`, the same string the app puts in its URL. Every export ALWAYS includes closed applications — somebody exporting before a clear-out wants the rejections, and a file that quietly dropped them would look complete and be wrong at the only moment it mattered. `ids` narrows to particular rows, so you can export exactly what you just listed — it INTERSECTS with the other arguments rather than replacing them, so send it on its own unless you mean 'these rows, and only the ones that also match'. Archived records are never included; use list_archive for those. Read-only: it writes nothing and changes nothing.",
     inputSchema: object(
       {
         kind: {
@@ -2499,8 +2499,18 @@ export const tools: McpTool[] = [
           enum: [...EXPORT_KINDS],
           description: "companies | contacts | applications",
         },
-        ids: strArray("Only these rows, by id. Omit for everything the filters leave."),
-        search: str("For companies and contacts: the same search list_companies takes"),
+        ids: strArray("Only these rows, by id. Narrows whatever the other arguments left, so on its own it is exactly this set."),
+        search: str("For companies and contacts: the same search the list tools take"),
+        filter: str("For companies and contacts: the same one-word cut the list tools take"),
+        tagIds: strArray("For companies and contacts: tag ids, as list_companies takes them"),
+        industryIds: strArray("For companies: tag ids of kind INDUSTRY"),
+        sizeIds: strArray("For companies: tag ids of kind SIZE"),
+        locationIds: strArray("For companies: tag ids of kind LOCATION"),
+        companyIds: strArray("For contacts: only people linked to these companies"),
+        quietDays: num("For contacts: nothing logged for at least this many days"),
+        missing: strArray("The same blank-field cuts the list tools take. These AND."),
+        sort: str("The same sort key the matching list tool takes"),
+        dir: { type: "string", enum: [...SORT_DIRECTIONS], description: "asc | desc" },
         query: str(
           "For applications: a pipeline query string, e.g. \"f=SCREEN,INTERVIEW&src=<tagId>\" — the same one the app puts in its URL",
         ),
@@ -2516,16 +2526,44 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => {
       const kind = enumArg(args, "kind", EXPORT_KINDS) ?? "companies";
       const ids = a(args, "ids");
+      const dir = enumArg(args, "dir", SORT_DIRECTIONS);
       if (kind === "companies") {
         return {
           filename: exportFilename("companies"),
-          csv: await exportCompaniesCsv(ctx.userId, defined({ search: s(args, "search"), ids })),
+          csv: await exportCompaniesCsv(
+            ctx.userId,
+            defined({
+              search: s(args, "search"),
+              filter: enumArg(args, "filter", COMPANY_FILTERS),
+              tagIds: a(args, "tagIds"),
+              industryIds: a(args, "industryIds"),
+              sizeIds: a(args, "sizeIds"),
+              locationIds: a(args, "locationIds"),
+              missing: enumArrayArg(args, "missing", COMPANY_MISSING),
+              sort: enumArg(args, "sort", COMPANY_SORTS),
+              dir,
+              ids,
+            }),
+          ),
         };
       }
       if (kind === "contacts") {
         return {
           filename: exportFilename("contacts"),
-          csv: await exportContactsCsv(ctx.userId, defined({ search: s(args, "search"), ids })),
+          csv: await exportContactsCsv(
+            ctx.userId,
+            defined({
+              search: s(args, "search"),
+              filter: enumArg(args, "filter", CONTACT_FILTERS),
+              tagIds: a(args, "tagIds"),
+              companyIds: a(args, "companyIds"),
+              quietDays: n(args, "quietDays"),
+              missing: enumArrayArg(args, "missing", CONTACT_MISSING),
+              sort: enumArg(args, "sort", CONTACT_SORTS),
+              dir,
+              ids,
+            }),
+          ),
         };
       }
       const query = s(args, "query");
@@ -2550,7 +2588,7 @@ export const tools: McpTool[] = [
     name: "get_pipeline_fields",
     title: "What each pipeline view shows",
     description:
-      "Which optional fields the board, the table and the calendar draw before you open anything, and everything each one COULD draw. Reach for it when somebody asks what their board shows, says it is too busy or too bare, or wants to know why a field is not on a card. Returns one entry per view: the catalogue of fields with a label each, and which are on. Three things are never in a catalogue and are always drawn — the company, the role title and the stage — because a card without them is not shorter, it is unreadable, and on the table the stage cell is the editor the table exists for. A view whose list comes back empty is on its defaults, which is not the same as showing nothing. Read-only.",
+      "Which optional fields the board, the table and the calendar draw before you open anything, and everything each one COULD draw. Reach for it when somebody asks what their board shows, says it is too busy or too bare, or wants to know why a field is not on a card. Returns one entry per view: the catalogue of fields with a label each, and which are on. On the board and the table, three things are never in a catalogue and are always drawn — the company, the role title and the stage — because a card without them is not shorter, it is unreadable, and on the table the stage cell is the editor the table exists for. The calendar is the exception and only for stage: a chip is one line of its own title, so stage is genuinely extra there and is off by default. A view whose list comes back empty is on its defaults, which is not the same as showing nothing. Read-only.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,

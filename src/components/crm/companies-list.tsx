@@ -85,7 +85,10 @@ export function CompaniesList({
           tagKind="COMPANY"
           onTag={tagCompaniesAction}
           onArchive={(ids) => archiveRecordsAction("company", ids)}
-          exportHref={`${exportHref}${exportHref.includes("?") ? "&" : "?"}ids=${[...selected].join(",")}`}
+          // Only the ids, not the screen's filters: the route intersects the
+          // two, so exporting a selection whose rows the filter has since
+          // excluded would hand back an empty file while the bar counts them.
+          exportHref={`/api/export/companies?ids=${[...selected].join(",")}`}
           onClear={() => setSelected(new Set())}
         />
       )}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTransition } from "react";
+import { useEffect, useState, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Columns3Icon } from "lucide-react";
 import { toast } from "sonner";
@@ -35,18 +35,26 @@ export function FieldsMenu({
 }) {
   const router = useRouter();
   const [pending, startTransition] = useTransition();
-  const on = new Set(visible);
+  // Local, not derived from the prop. The prop only moves after the action and
+  // router.refresh() have both landed, so two clicks in quick succession would
+  // each compute their payload from the pre-first-click set and the second
+  // would silently undo the first. It also means the box responds on click
+  // rather than after a round trip.
+  const [on, setOn] = useState<Set<string>>(() => new Set(visible));
+  useEffect(() => setOn(new Set(visible)), [visible]);
   const catalogue = FIELDS[view];
 
   const toggle = (key: string) => {
     const next = new Set(on);
     if (next.has(key)) next.delete(key);
     else next.add(key);
+    setOn(next);
     startTransition(async () => {
       try {
         await setPipelineFieldsAction(view, storedFields(view, next));
         router.refresh();
       } catch (error) {
+        setOn(on);
         toast.error(error instanceof Error ? error.message : "Could not save that.");
       }
     });

@@ -82,13 +82,17 @@ export async function listResumes(userId: string, opts: ResumeListOpts = {}) {
     },
     orderBy,
     include: {
-      _count: { select: { applications: true } },
+      // Live applications only. A resume's track record is the case for using
+      // it again, and an application the person deleted has no place in it —
+      // the same rule pipelineStats and diagnoseSearch follow.
+      _count: { select: { applications: { where: { archivedAt: null } } } },
       // The base's name is what the lineage chip prints; one join beats a
       // per-card lookup.
       baseResume: { select: { id: true, name: true } },
       // Only what the outcome summary needs: the current stage, and the slice
       // of the timeline that proves an interview or an offer ever happened.
       applications: {
+        where: { archivedAt: null },
         select: {
           stage: true,
           activities: {
@@ -151,6 +155,9 @@ export async function getResume(userId: string, id: string) {
       // application named its resume and a resume named nothing back, so
       // "which jobs did I send this to" meant reading the pipeline.
       applications: {
+        // An archived application is a page this list would link to and the
+        // pipeline would refuse to render.
+        where: { archivedAt: null },
         orderBy: { updatedAt: "desc" },
         select: {
           id: true,

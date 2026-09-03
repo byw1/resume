@@ -225,7 +225,7 @@ export default async function ContactsPage({
         logos={companyLogos}
         header={
           <>
-            <div className="min-w-0 flex-1 pl-3">
+            <div className="min-w-0 flex-1">
               <SortHeader
                 href={sortHref("name")}
                 label="Name"
@@ -233,7 +233,7 @@ export default async function ContactsPage({
                 desc={desc}
               />
             </div>
-            <div className="hidden w-44 shrink-0 px-3 md:block">
+            <div className="hidden w-44 shrink-0 md:block">
               <SortHeader
                 href={sortHref("company")}
                 label="Company"

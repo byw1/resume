@@ -1988,7 +1988,11 @@ export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {
       },
     }),
     db.activity.findMany({
-      where: { userId, toStage: { not: null } },
+      // Through the parent, like every other activity read. Without it the
+      // funnel's conversion rates exclude archived applications while its
+      // median days in each stage still count them — one diagnosis built from
+      // two different populations.
+      where: { userId, toStage: { not: null }, application: { archivedAt: null } },
       select: { applicationId: true, fromStage: true, toStage: true, occurredAt: true },
       orderBy: { occurredAt: "asc" },
     }),
