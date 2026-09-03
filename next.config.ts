@@ -30,6 +30,13 @@ const nextConfig: NextConfig = {
        */
       { source: "/brain", destination: "/me", permanent: true },
       { source: "/brain/:path*", destination: "/me/:path*", permanent: true },
+      /**
+       * The resume grid is a tab on Me now. Only the list moves: the editor
+       * at /resumes/<id> is a full-screen document and stays where it is,
+       * which is why this matches the bare path and nothing under it. Query
+       * strings are carried across, so /resumes?new=1 still opens the dialog.
+       */
+      { source: "/resumes", destination: "/me?tab=resumes", permanent: true },
     ];
   },
 };

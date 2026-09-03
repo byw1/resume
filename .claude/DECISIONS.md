@@ -3595,3 +3595,58 @@ away. Every "Settings → Google" in tool descriptions, errors and the manual no
 **Applies to:** `src/components/settings/{connections-panel,google-panel}.tsx`,
 `src/lib/mcp/marks.ts`, `src/app/(app)/settings/page.tsx`, `src/app/api/auth/google/`,
 and the copy in `src/lib/{data/google,mcp/tools,mcp/handler}.ts` and `docs/`.
+
+---
+
+## 2026-09-02 — Resumes is a tab on Me, and the tabs became addresses
+
+**The rail is four items now: Dashboard, Me, CRM, Pipeline.** The resume grid moved to
+`/me?tab=resumes`. A resume is a view of your own record rather than a separate filing
+cabinet, and the grid was already the screen you land on expecting Me to be filled in.
+Only the list moved: `/resumes/<id>` is a full-screen document editor and stays where it
+is, so this is a list finding a better home, not a route family being rewritten.
+
+**The four-area model did not change.** ME / RESUMES / PIPELINE / CRM is the tool and
+concept model — `handler.ts`'s briefing, `docs/concepts/`, the README's areas — and it is
+untouched. What moved is one nav entry. The manual's `app.mdx` is the page that describes
+the rail, so that is the page that changed.
+
+**Me's tabs had to stop being client state.** They were `defaultValue="roles"` with no URL
+involvement, which is fine for four panels of facts and fatal the moment one of them owns
+query parameters: the resume grid writes `?q=` and `?sort=` from its search box, and a URL
+that names the query but not the tab sends the server back to Roles on the first
+keystroke. Every trigger is now a `<Link>` under a `value={active}` Radix root — the URL is
+the tab state, Back walks the tabs, and `/me?tab=notes` is linkable. Settings' `?tab=` is
+the same pattern; this one additionally validates and falls back to Roles, because a tab
+name arriving from a URL is input.
+
+**Each panel loads only its own data, which the old page did not.** Me used to fetch
+roles, notes, education, projects, skills, certifications and the profile on every visit
+regardless of which tab you were looking at. Now the page fetches three counts for the tab
+strip and the active panel fetches the rest. That is what makes the resume grid affordable
+here at all: it is a join plus a rendered ResumePaper per card, and nobody editing a role
+should pay for it. `ResumesPanel` is a server component for that reason and must stay one.
+
+**A redirect, not a route.** `/resumes` → `/me?tab=resumes` sits in `next.config.ts`
+beside the `/brain` → `/me` pair, matching the source exactly so `/resumes/<id>` is
+untouched. Next merges the incoming query into the destination's, verified against a
+running server: `/resumes?new=1` arrives as `/me?new=1&tab=resumes`, so the dashboard and
+command-palette "New resume" links still open the dialog.
+
+**`deleteResumeAction`'s redirect had to stay conditional and the revalidations moved.**
+Every `revalidatePath("/resumes")` now names `/me`, which is the route that renders the
+grid; a stale path revalidates nothing and the failure is invisible. Exercised in a real
+browser rather than reasoned about: favourite persists across a reload, duplicate opens
+the copy, and deleting from a card refreshes the grid in place while keeping `?tab` and
+`?sort`.
+
+**Both browser-test failures were the test.** Playwright's `getByRole` `name` matches
+substrings, so "Favourite" also matched the "Unfavourite" of an already-starred card and
+the assertion un-starred what it meant to star; and notes render as editable inputs, whose
+values `innerText` does not see. Worth writing down because both look exactly like product
+bugs in the output.
+
+**Applies to:** `src/app/(app)/me/page.tsx`, `src/components/resume/resumes-panel.tsx`
+(new), `src/app/(app)/resumes/page.tsx` (deleted), `next.config.ts`,
+`src/components/shell.tsx`, `src/components/command-palette.tsx`, `src/app/(app)/page.tsx`,
+`src/components/resume/resume-editor.tsx`, `src/server/actions.ts`, `docs/app.mdx`.
