@@ -8,9 +8,10 @@ Everything in Hired is reachable from a conversation. The web app is where you g
 *look* at the result, adjust it by hand, and do the two jobs a conversation is bad at:
 direct manipulation and rendering.
 
-The left rail holds Dashboard, Me, Resumes, CRM and Pipeline — the content. Docs, this
-manual, Settings and — for admins — Admin are account actions, so they live in the profile
-menu at the top right instead. `⌘K` / `Ctrl+K` opens a search palette: somewhere to go,
+The left rail holds Dashboard, Me, CRM and Pipeline — the content. Resumes are a tab on
+Me, because a resume is a view of your own record rather than a separate filing cabinet.
+Docs, this manual, Settings and — for admins — Admin are account actions, so they live in
+the profile menu at the top right instead. `⌘K` / `Ctrl+K` opens a search palette: somewhere to go,
 something to create, and every role, resume and application by name.
 
 **Your work autosaves.** Me, the resume editor, the pipeline and the CRM have no
@@ -36,6 +37,10 @@ does, laid out rather than listed.
 
 `/me` and `/me/<roleId>`
 
+Five tabs: Roles, Profile, Notes, Education & more, and Resumes. Each is an address —
+`/me?tab=notes` — so you can link straight to one, and the browser's Back button walks
+them the way you would expect.
+
 Every role with its date range and highlight count. Opening one gives you the background
 in a full-width editor beside its highlights, plus the role's own fields — company, title,
 employment type, location, dates, scope summary and tags.
@@ -51,10 +56,16 @@ free-floating notes live here too.
 
 ## Resumes
 
-`/resumes` and `/resumes/<id>`
+`/me?tab=resumes` and `/resumes/<id>`
 
-The list is every document with its target role and company, how many applications it is
-attached to, and whether it is published. Favourites pin to the top.
+The list is a tab on Me. Every document with its target role and company, its estimated
+page count, how many applications it is attached to and where those got to, and whether it
+is published. A tailored copy says what it changed from the base it came from, and sits
+under it. Favourites pin to the top; a search box and a sort control narrow the grid, and
+both live in the address so a filtered view can be linked to.
+
+Opening one goes to `/resumes/<id>` — the editor keeps its own full-screen address, and an
+old `/resumes` bookmark redirects to the tab.
 
 The editor is one of the two deliberately browser-first parts of the product. On the left,
 the document — sections you can reorder with ⌃/⌄, hide rather than delete, and rename
@@ -177,8 +188,9 @@ pasting a URL into an assistant, not changing a password.
 
 <CardGroup cols={3}>
   <Card title="Connections" icon="plug">
-    Every assistant wired to your workspace, when each last called in and from what.
-    Set up, test, rename, rotate, disconnect — and the three
+    Everything wired to your workspace, as tiles. Assistants: when each last called in,
+    and — opened — its URL, setup steps, test, rename, rotate, disconnect. Accounts:
+    your own [Gmail and Calendar](/guides/inbox-and-calendar). Plus the three
     [skills](/skills), each as a raw `SKILL.md` and as a zip.
   </Card>
   <Card title="Account" icon="user">

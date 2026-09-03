@@ -24,6 +24,8 @@ import { toolsFor, promptsFor } from "@/lib/mcp/tools";
 import { guessClient } from "@/lib/mcp/clients";
 import { MANUAL_URL } from "@/lib/links";
 import { getSettings, googleIsConfigured } from "@/lib/settings";
+import { getGoogleConnection } from "@/lib/data/google";
+import { isGoogleRefusal, refusalMessage } from "@/lib/google";
 
 export const dynamic = "force-dynamic";
 
@@ -47,11 +49,11 @@ const TABS = ["connections", "account", "appearance"] as const;
 export default async function SettingsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; google?: string }>;
 }) {
   const user = await requireUser();
   const headerList = await headers();
-  const { tab } = await searchParams;
+  const { tab, google: googleOutcome } = await searchParams;
 
   const host = headerList.get("x-forwarded-host") ?? headerList.get("host") ?? "localhost:3000";
   const proto =
@@ -60,29 +62,42 @@ export default async function SettingsPage({
 
   // Nobody should ever land here with nothing to copy.
   await ensureDefaultConnection(user.id);
-  const [connections, profile, skills, settings] = await Promise.all([
+  const [connections, profile, skills, settings, googleConnection] = await Promise.all([
     listConnections(user.id),
     getProfile(user.id),
     listSkills(),
     getSettings(),
+    getGoogleConnection(user.id),
   ]);
+
+  // What the consent screen came back with, as a fixed code — never text from
+  // the query string, for the same reason the sign-in page refuses it.
+  const googleNotice =
+    googleOutcome === "connected"
+      ? { ok: true, message: "Google connected. Every contact, company and application page now shows its email and calendar." }
+      : googleOutcome && isGoogleRefusal(googleOutcome)
+        ? { ok: false, message: refusalMessage(googleOutcome) }
+        : null;
 
   const visibleTools = toolsFor(user);
   const visiblePrompts = promptsFor(user);
   const admin = isAdmin(user);
 
   // ?tab= so other screens can send someone to the right one — the resume
-  // editor points at the photo, which lives under Account.
+  // editor points at the photo, which lives under Account. `google` was a tab
+  // of its own for one release and is a tile on Connections now; the old
+  // address still lands on the right tile, opened.
   const active = TABS.includes(tab as (typeof TABS)[number])
     ? (tab as (typeof TABS)[number])
     : "connections";
+  const focusGoogle = tab === "google" || Boolean(googleOutcome);
 
   return (
     <PageShell className="max-w-4xl">
       <PageHeader
         eyebrow="Settings"
         title="You and your assistants"
-        description="Your account, how the app looks, and the URLs that let an assistant read and write your workspace. Each connection is yours alone — nobody else's data is reachable through one."
+        description="Your account, how the app looks, and everything wired to your workspace: the assistants that read and write it, and the accounts it reads on your behalf. Each connection is yours alone — nobody else's data is reachable through one."
         actions={
           admin ? (
             <Button variant="outline" size="sm" asChild>
@@ -128,6 +143,21 @@ export default async function SettingsPage({
                 adminToolCount={visibleTools.filter((tool) => tool.adminOnly).length}
                 isAdmin={admin}
                 promptCount={visiblePrompts.length}
+                google={{
+                  connection: googleConnection
+                    ? {
+                        email: googleConnection.email,
+                        mail: googleConnection.mail,
+                        calendar: googleConnection.calendar,
+                        connectedAt: googleConnection.connectedAt.toISOString(),
+                        lastUsedAt: googleConnection.lastUsedAt?.toISOString() ?? null,
+                        lastError: googleConnection.lastError,
+                      }
+                    : null,
+                  ready: googleIsConfigured(settings),
+                  notice: googleNotice,
+                  focus: focusGoogle,
+                }}
               />
             </FadeIn>
 

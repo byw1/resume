@@ -36,6 +36,7 @@ export type SystemEventSource =
   | "billing.sync"
   | "email.send"
   | "google.signin"
+  | "google.data"
   | "mcp.tool"
   | "app";
 

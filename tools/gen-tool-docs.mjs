@@ -33,7 +33,7 @@ const DOCS = join(ROOT, "docs", "tools");
 const CHECK = process.argv.includes("--check");
 
 /**
- * The six pages, in the order tools are declared in the array.
+ * The seven pages, in the order tools are declared in the array.
  *
  * Ranges rather than name lists: the array is grouped by area already, and a
  * new tool added to a group should land on that group's page without anyone
@@ -57,6 +57,9 @@ const SECTIONS = [
   { file: "archive.mdx", first: "list_archive", last: "empty_archive",
     title: "Archive", icon: "trash-can",
     blurb: "what has been deleted, putting it back, and getting rid of it for good." },
+  { file: "google.mdx", first: "get_google_connection", last: "disconnect_google",
+    title: "Gmail & Calendar", icon: "envelope",
+    blurb: "the threads and meetings behind any record, read live from your own Google account." },
   { file: "connections.mdx", first: "whoami", last: "delete_connection",
     title: "Your account", icon: "plug",
     blurb: "who you are, and the wiring itself." },

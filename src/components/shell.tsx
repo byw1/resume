@@ -9,7 +9,6 @@ import {
   CircleUserRoundIcon,
   Building2Icon,
   ChevronDownIcon,
-  FileTextIcon,
   KanbanIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
@@ -68,7 +67,6 @@ type NavItem = {
 const NAV: NavItem[] = [
   { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
   { href: "/me", label: "Me", icon: CircleUserRoundIcon },
-  { href: "/resumes", label: "Resumes", icon: FileTextIcon },
   {
     href: "/crm",
     label: "CRM",

@@ -23,6 +23,7 @@ import { toast } from "sonner";
 import type { ActivityType, Stage } from "@prisma/client";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { CorrespondenceCard, type CorrespondenceAccess } from "@/components/google/correspondence-card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -133,6 +134,7 @@ export function ApplicationDetail({
   companies,
   resumePreview,
   logos,
+  googleAccess,
   onServerChange,
 }: {
   application: Application;
@@ -149,6 +151,8 @@ export function ApplicationDetail({
   /** The attached resume, rendered. Null when none is attached. */
   resumePreview: ResumePreview | null;
   logos: boolean;
+  /** Whether their Gmail and Calendar are connected, for the threads-and-meetings card. */
+  googleAccess: CorrespondenceAccess;
   /**
    * Re-fetch whatever server-derived props this host holds.
    *
@@ -360,6 +364,14 @@ export function ApplicationDetail({
           )}
 
           <Timeline applicationId={application.id} activities={activities} />
+
+          {/* The threads and meetings behind this application: the company's
+              domain and the people attached above. The timeline is what was
+              logged; this is what actually happened. */}
+          <CorrespondenceCard
+            subject={{ kind: "application", id: application.id }}
+            access={googleAccess}
+          />
 
           <JobDescriptionCard
             value={values.jobDescription}

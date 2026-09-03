@@ -22,6 +22,7 @@ import { ContactCompanies, type CompanyRef } from "@/components/crm/contact-comp
 import { ContactLinks } from "@/components/crm/contact-links";
 import { TagPicker } from "@/components/tags/tag-picker";
 import type { TagValue } from "@/components/tags/tag-chip";
+import { CorrespondenceCard, type CorrespondenceAccess } from "@/components/google/correspondence-card";
 import { SaveIndicator } from "@/components/save-indicator";
 import type { SaveState } from "@/hooks/use-autosave";
 import {
@@ -87,6 +88,7 @@ export function ContactDetail({
   application,
   touches,
   logos,
+  googleAccess,
 }: {
   contact: ContactFields;
   /** How they are filed. Free-form, shared with everyone else's labels. */
@@ -98,6 +100,8 @@ export function ContactDetail({
   application: LinkedApplication | null;
   touches: ContactTouch[];
   logos: boolean;
+  /** Whether their Gmail and Calendar are connected, for the threads-and-meetings card. */
+  googleAccess: CorrespondenceAccess;
 }) {
   const [values, setValues] = useState(contact);
   const [tagValues, setTagValues] = useState(tags);
@@ -313,6 +317,10 @@ export function ContactDetail({
               )}
             </CardContent>
           </Card>
+
+          {/* What Google knows: the real threads and meetings with this person,
+              matched on their address. Read live, never stored. */}
+          <CorrespondenceCard subject={{ kind: "contact", id: contact.id }} access={googleAccess} />
         </div>
 
         <div className="space-y-4">

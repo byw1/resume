@@ -4,6 +4,7 @@ import { db } from "@/lib/db";
 import { CLAIMED, ensureDefaultConnection, isClaimed } from "@/lib/auth";
 import { getSettings, googleIsConfigured, type InstanceSettings } from "@/lib/settings";
 import { recordSystemEvent } from "@/lib/data/system";
+import { GOOGLE_DATA_SCOPES, type GoogleGrant } from "@/lib/google-api";
 
 /**
  * Sign in with Google.
@@ -62,6 +63,13 @@ export type GoogleState = {
    * cannot be talked into linking by a crafted URL.
    */
   link?: boolean;
+  /**
+   * Set when the flow was started from Settings → Connections by somebody signed
+   * in, asking for read access to their Gmail and Calendar rather than a
+   * sign-in. Same cookie, same reason: the callback trusts only what it
+   * signed.
+   */
+  data?: boolean;
 };
 
 export const GOOGLE_STATE_COOKIE = "hired_google_oauth";
@@ -92,6 +100,7 @@ export function unpackState(cookie: string | undefined, secret: string): GoogleS
       nonce: parsed.nonce,
       next: safeNext(parsed.next),
       link: parsed.link === true,
+      data: parsed.data === true,
     };
   } catch {
     return null;
@@ -116,12 +125,13 @@ export function safeNext(value: string | null | undefined) {
   return value;
 }
 
-export function newStateValues(next: string | null, link = false): GoogleState {
+export function newStateValues(next: string | null, link = false, data = false): GoogleState {
   return {
     state: randomBytes(16).toString("hex"),
     nonce: randomBytes(16).toString("hex"),
     next: safeNext(next),
     link,
+    data,
   };
 }
 
@@ -190,7 +200,9 @@ export function googleAuthUrl(input: {
     client_id: input.settings.googleClientId,
     redirect_uri: input.redirectUri,
     response_type: "code",
-    scope: "openid email profile",
+    scope: input.state.data
+      ? `openid email ${GOOGLE_DATA_SCOPES.mail} ${GOOGLE_DATA_SCOPES.calendar}`
+      : "openid email profile",
     state: input.state.state,
     nonce: input.state.nonce,
     // Ask every time rather than reusing whatever account the browser is
@@ -198,6 +210,15 @@ export function googleAuthUrl(input: {
     // else's workspace is the worst possible outcome here.
     prompt: "select_account",
   });
+  if (input.state.data) {
+    // A refresh token is only issued with offline access, and only on a
+    // consent screen the person actually sees — so both are forced. Without
+    // `consent`, a second connect from the same Google account comes back
+    // with no refresh token at all and nothing to store.
+    params.set("access_type", "offline");
+    params.set("prompt", "consent select_account");
+    params.set("include_granted_scopes", "true");
+  }
   return `${AUTH_ENDPOINT}?${params.toString()}`;
 }
 
@@ -207,6 +228,12 @@ export type GoogleIdentity = {
   emailVerified: boolean;
   name: string;
   picture: string;
+  /**
+   * The tokens that came back with the identity. Only the Settings → Connections
+   * flow asks for anything worth keeping; for a sign-in the refresh token is
+   * empty and the access token is thrown away with the response.
+   */
+  grant: GoogleGrant;
 };
 
 /** Read a JWT payload without verifying it. See the note at the top. */
@@ -262,6 +289,7 @@ export async function exchangeCode(input: {
   const email = String(claims.email ?? "").trim().toLowerCase();
   if (!email) throw new Error("That Google account has no email address on it.");
 
+  const expiresIn = typeof body.expires_in === "number" ? body.expires_in : 3600;
   return {
     sub: String(claims.sub ?? ""),
     email,
@@ -270,6 +298,12 @@ export async function exchangeCode(input: {
     emailVerified: claims.email_verified === true || claims.email_verified === "true",
     name: String(claims.name ?? ""),
     picture: String(claims.picture ?? ""),
+    grant: {
+      accessToken: typeof body.access_token === "string" ? body.access_token : "",
+      refreshToken: typeof body.refresh_token === "string" ? body.refresh_token : "",
+      expiresAt: new Date(Date.now() + expiresIn * 1000),
+      scopes: typeof body.scope === "string" ? body.scope.split(/\s+/).filter(Boolean) : [],
+    },
   };
 }
 
@@ -299,6 +333,8 @@ export type GoogleRefusal =
   | "domain"
   | "expired_state"
   | "cancelled"
+  | "no_refresh_token"
+  | "no_scopes"
   | "failed";
 
 const REFUSALS: GoogleRefusal[] = [
@@ -313,6 +349,8 @@ const REFUSALS: GoogleRefusal[] = [
   "domain",
   "expired_state",
   "cancelled",
+  "no_refresh_token",
+  "no_scopes",
   "failed",
 ];
 
@@ -352,6 +390,10 @@ export function refusalMessage(reason: GoogleRefusal, detail = "") {
       return "That sign-in link has expired. Try again.";
     case "cancelled":
       return "Sign-in was cancelled.";
+    case "no_refresh_token":
+      return "Google did not hand over a lasting token. Remove Hired under your Google account's third-party access, then connect again.";
+    case "no_scopes":
+      return "Neither Gmail nor Calendar was allowed on Google's consent screen, so there is nothing to connect. Try again and tick at least one.";
     default:
       return "Google sign-in didn't work. Check Admin → Health for the reason.";
   }

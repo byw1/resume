@@ -8,6 +8,7 @@ import {
 import { getSettings, googleIsConfigured } from "@/lib/settings";
 import { isGoogleRefusal, refusalMessage } from "@/lib/google";
 import { LoginForm } from "@/components/login-form";
+import { AuthShell } from "@/components/auth-shell";
 
 export const dynamic = "force-dynamic";
 
@@ -28,7 +29,7 @@ export default async function LoginPage({
   ]);
 
   return (
-      <main className="flex min-h-svh items-center justify-center p-6">
+      <AuthShell>
         <LoginForm
           instanceName={settings.instanceName}
           googleReady={googleIsConfigured(settings)}
@@ -37,7 +38,7 @@ export default async function LoginPage({
           notice={noticeFor(params.error, settings.googleAllowedDomains)}
           signedInHint={hintDomain ? { cookie: SIGNED_IN_COOKIE, domain: hintDomain } : null}
         />
-      </main>
+      </AuthShell>
   );
 }
 

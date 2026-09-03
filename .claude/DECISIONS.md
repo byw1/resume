@@ -3518,7 +3518,529 @@ in `gen-tool-docs.mjs` spell the count and rewrite the first word of each `descr
 `src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
 `src/lib/social.ts`, `src/lib/pipeline-filters.ts`, `src/components/tags/`,
 `src/components/tasks/`, `src/components/crm/`, `src/app/(app)/tasks/`, and the manual.
+## 2026-09-02 — Gmail and Calendar, read live
 
+**One row, no sync.** `GoogleAccount` holds a refresh token per user and nothing else from
+Google ever touches the database. Every screen and tool asks Gmail and Calendar at the
+moment it is opened. The alternative — syncing threads into a table with a background job —
+was rejected three times over: the transport is stateless and the app has no worker, a copy
+of someone's inbox on a self-hosted server is a liability the product does not need, and a
+one-person pipeline is a few dozen threads, not a few thousand. The cost is a round trip on
+every open, which is why `CorrespondenceCard` fetches after the page paints and never
+during it.
+
+**The same OAuth client, a second flow.** Sign-in and inbox access are different grants
+and people give them to different Google accounts, so `GoogleAccount` is independent of
+`User.googleId`. The flow is the existing one with a `data` flag in the signed state cookie:
+`?data=1` on the start route asks for `gmail.readonly` + `calendar.readonly`,
+`access_type=offline` and `prompt=consent` (without `consent`, a second connect from the same
+account comes back with no refresh token), and the callback stores the grant against the
+session's user — never matched by address. Failures from that flow land on
+`/settings?tab=google&google=<code>`, a fixed code from the same list the sign-in page uses,
+for the same reason it uses one.
+
+**Matching is by address and domain, done here.** Gmail is queried with
+`{from:a to:a cc:a from:acme.com …} newer_than:365d`; Calendar is fetched for a window in one
+request and filtered locally on attendee addresses, because the free-text `q` parameter's
+tokenisation of an email is undocumented and one request beats one per term. Freemail
+domains are never matched as a company. A contact is their address; a company is its
+website's domain plus its people; an application is the company domain plus the people
+attached to *that* application, not everyone at the company, because a second application
+at the same employer has its own recruiter; a resume is its applications.
+
+**`MEETING` joined `ScheduleKind`.** `listSchedule` merges matched Google events, so the
+pipeline calendar and `list_schedule` show interviews the person accepted in their real
+calendar. `listMatchedEvents` returns empty rather than throwing when nothing is connected
+or granted, because "no Google" is not an error on a calendar.
+
+**Tokens are plaintext, like McpConnection tokens.** There is no instance secret to wrap
+them in that would not be a second required env var, and encrypting with the Google client
+secret would kill every connection the day an admin rotated it. The trust boundary is the
+database; the migration says so.
+
+**No connect tool.** Consent happens in a browser. `get_google_connection` returns the URL
+and says so, and the server briefing tells assistants to point at Settings rather than guess
+at mail. `inbox_review` is a prompt, not a tool: it composes `list_correspondence`,
+`get_email_thread` and the existing write tools, and its build text insists on a yes before
+any of them.
+
+**Applies to:** `prisma/schema.prisma`, `src/lib/{google,google-api}.ts`,
+`src/lib/data/{google,pipeline,system}.ts`, `src/app/api/auth/google/`, `src/lib/mcp/{tools,handler}.ts`,
+`src/server/actions.ts`, `src/components/google/`, `src/components/settings/google-panel.tsx`,
+the four detail screens, the pipeline calendar, `tools/gen-tool-docs.mjs`, and the manual.
+
+## 2026-09-02 — Google is a tile on Connections, not a tab
+
+**One screen for both directions of wiring.** Assistants read and write the workspace;
+Google is the workspace reading you. They were a tab apart for one release, and the
+question a person brings to either is the same — what is connected, is it working, how do
+I add or cut one — so they share a grid now: brand mark on a tile, a one-line status,
+the whole tile is the button. The Google "G" lives in `CLIENT_MARKS` for that reason
+even though it is not a client; a second map for one entry would be a second thing to
+keep in step.
+
+**A tile is a summary; the slide-over is the record.** The old row-with-accordion put
+the URL, the nine client chips and the setup guide inline under each connection, which
+made three connections a page of config snippets. Everything you can do to a
+connection — reveal, copy, test, rename, re-pick the client, rotate, disconnect — is in a
+Sheet opened from its tile, and picking a client to add is a Sheet too, with the marks
+and taglines rather than a dropdown of names.
+
+**Old addresses still work.** `?tab=google` is mapped to Connections with the Google
+tile opened, and the OAuth callback lands on `?tab=connections&google=<code>` with the
+tile opened the same way, so the outcome is in front of the person rather than a click
+away. Every "Settings → Google" in tool descriptions, errors and the manual now reads
+"Settings → Connections".
+
+**Applies to:** `src/components/settings/{connections-panel,google-panel}.tsx`,
+`src/lib/mcp/marks.ts`, `src/app/(app)/settings/page.tsx`, `src/app/api/auth/google/`,
+and the copy in `src/lib/{data/google,mcp/tools,mcp/handler}.ts` and `docs/`.
+
+---
+
+## 2026-09-02 — Resumes is a tab on Me, and the tabs became addresses
+
+**The rail is four items now: Dashboard, Me, CRM, Pipeline.** The resume grid moved to
+`/me?tab=resumes`. A resume is a view of your own record rather than a separate filing
+cabinet, and the grid was already the screen you land on expecting Me to be filled in.
+Only the list moved: `/resumes/<id>` is a full-screen document editor and stays where it
+is, so this is a list finding a better home, not a route family being rewritten.
+
+**The four-area model did not change.** ME / RESUMES / PIPELINE / CRM is the tool and
+concept model — `handler.ts`'s briefing, `docs/concepts/`, the README's areas — and it is
+untouched. What moved is one nav entry. The manual's `app.mdx` is the page that describes
+the rail, so that is the page that changed.
+
+**Me's tabs had to stop being client state.** They were `defaultValue="roles"` with no URL
+involvement, which is fine for four panels of facts and fatal the moment one of them owns
+query parameters: the resume grid writes `?q=` and `?sort=` from its search box, and a URL
+that names the query but not the tab sends the server back to Roles on the first
+keystroke. Every trigger is now a `<Link>` under a `value={active}` Radix root — the URL is
+the tab state, Back walks the tabs, and `/me?tab=notes` is linkable. Settings' `?tab=` is
+the same pattern; this one additionally validates and falls back to Roles, because a tab
+name arriving from a URL is input.
+
+**Each panel loads only its own data, which the old page did not.** Me used to fetch
+roles, notes, education, projects, skills, certifications and the profile on every visit
+regardless of which tab you were looking at. Now the page fetches three counts for the tab
+strip and the active panel fetches the rest. That is what makes the resume grid affordable
+here at all: it is a join plus a rendered ResumePaper per card, and nobody editing a role
+should pay for it. `ResumesPanel` is a server component for that reason and must stay one.
+
+**A redirect, not a route.** `/resumes` → `/me?tab=resumes` sits in `next.config.ts`
+beside the `/brain` → `/me` pair, matching the source exactly so `/resumes/<id>` is
+untouched. Next merges the incoming query into the destination's, verified against a
+running server: `/resumes?new=1` arrives as `/me?new=1&tab=resumes`, so the dashboard and
+command-palette "New resume" links still open the dialog.
+
+**`deleteResumeAction`'s redirect had to stay conditional and the revalidations moved.**
+Every `revalidatePath("/resumes")` now names `/me`, which is the route that renders the
+grid; a stale path revalidates nothing and the failure is invisible. Exercised in a real
+browser rather than reasoned about: favourite persists across a reload, duplicate opens
+the copy, and deleting from a card refreshes the grid in place while keeping `?tab` and
+`?sort`.
+
+**Both browser-test failures were the test.** Playwright's `getByRole` `name` matches
+substrings, so "Favourite" also matched the "Unfavourite" of an already-starred card and
+the assertion un-starred what it meant to star; and notes render as editable inputs, whose
+values `innerText` does not see. Worth writing down because both look exactly like product
+bugs in the output.
+
+**Applies to:** `src/app/(app)/me/page.tsx`, `src/components/resume/resumes-panel.tsx`
+(new), `src/app/(app)/resumes/page.tsx` (deleted), `next.config.ts`,
+`src/components/shell.tsx`, `src/components/command-palette.tsx`, `src/app/(app)/page.tsx`,
+`src/components/resume/resume-editor.tsx`, `src/server/actions.ts`, `docs/app.mdx`.
+
+---
+
+## 2026-09-03 — The three pages people see before they have an account
+
+**The mark became an object, twice, without a 3D library.** `HiredMark3D`
+(`src/components/hired-mark-3d.tsx`) for the app and the `.mark3d` block in
+`site/styles.css` + `buildMark` in `site/motion.js` for the marketing site are the same
+construction in two dialects: a stack of identical rounded squares, each a fraction of a
+pixel further back on a `preserve-3d` stage, with the three bars floating above the face
+as their own small slabs. Stacked slices rather than four rotated side walls because a
+wall cannot follow the 23.4% corner radius; slices rather than three.js because this is
+eight rectangles and a library is three hundred kilobytes. Geometry is the same 64-unit
+grid the flat SVG uses, expressed as fractions, so one element scales from 24px in the
+nav to 240px without a second rule.
+
+**It has a resting tilt, and that is the whole trick.** Square-on, an extruded slab is a
+rounded rectangle with a story about depth — the walls are hidden behind the face and no
+amount of shading rescues it. `REST_Y = -24°`, `REST_X = 13°` and a depth of 0.24 × size
+put about 7% of the tile's width of wall on screen before anything moves. Pointer tilt
+adds to that rest rather than replacing it, so the mark never flattens out.
+
+**`--mark-edge` is a third token because it cannot be derived.** The flat mark needs two
+values and inverts on its own — tile is the ink, bars are cut out of it. A slab also has a
+side, and the side of a near-black tile has to be *lighter* than its face while the side
+of a near-white one has to be *darker*: the same lift, opposite directions. Two values,
+one per theme (0.56 light, 0.52 dark), landed after four passes of screenshots; the first
+three all failed the same way, with the wall washing out against the face it was meant to
+separate from.
+
+**The front door is allowed to be lit; nothing else is.** globals.css opens by saying
+colour that isn't carrying information shouldn't be there, and that rule is about a tool
+you work in for an hour. `/login`, `/setup` and `/invite/[token]` are looked at for four
+seconds and are the first thing a self-hoster sees after `docker compose up`, so they get
+`AuthShell`: a masked grid, three slow-drifting lights in the first three pipeline hues, a
+plinth and a vignette. Four elements, all CSS, all flattened by the reduced-motion block
+already at the top of the file. This is scoped to those three pages and should stay there.
+
+**One `<main>` wrapper became `AuthShell` because there were three copies of it.** Same
+reason the nav is lifted out of `index.html` by the site generator: two copies of a thing
+drift the first time one is touched.
+
+**The site's motion rules survived.** `site/motion.js` says nothing loops and nothing is
+required to read the page, and both still hold. The 3D mark, the card spotlight and the
+magnetic CTA are all pointer-reflections — no duration, no direction of their own, gone
+when the cursor leaves — which is the same third category the hero's scroll-driven tilt
+already occupied. The word-by-word headline plays once on entry and holds. And every one
+of them hides nothing until the script has already built it: `.split` and `.on` are added
+*after* the work, so a failed motion.js leaves a finished page rather than an invisible
+headline. Keying those off the `js` class instead would have been one line shorter and
+would have blanked the hero on any network that ate one file.
+
+**`.req` was already taken.** The signup form's "required"/"optional" tags were `.req` and
+`.opt` for about ten minutes, which quietly inherited the tour's requirement-chip styling
+and drew a border around the word REQUIRED. They are `.flag` now. The one-line form's
+`input[type=email]` carries `flex: 1 1 210px` for its row; the signup card's row is a
+column, so it needed `flex: 0 0 auto` or the email field stretched to the height of the
+card.
+
+**/coming-soon/ is a signup, not an explanation.** It used to lead with "Hosting isn't
+open yet" and then spend three paragraphs and a `docker compose` block talking the reader
+into self-hosting instead — on the page the header's primary action leads to. It is now
+name, address and one line about what you're chasing, posting to the same open
+`/api/waitlist` the short form uses; the endpoint has taken `name` and `context` since it
+was written and the site simply never sent them. `join.js` reads them with
+`form.elements.namedItem`, not `form.name` — a `<form>` has its own `name` property, the
+attribute, which shadows the field. Self-hosting is one ghost button to
+docs.hired.tools/self-hosting/overview, which is a better place to make that argument than
+the bottom of a signup page.
+
+**The success sentence is the page's, not join.js's.** `data-said` on the form, with
+`{email}` substituted, because the landing page's one-line form and the full signup are
+answering different questions and one hard-coded sentence cannot do both.
+
+**Generated pages animate now.** `shell()` in `tools/build-site.mjs` adds the `js` opt-in
+and loads `motion.js`, so /coming-soon/ and the resources pages get the reveals and the
+3D nav mark rather than being the one corner of the site that sits still.
+
+**Verified in browsers, not reasoned about:** the app at 1280 and 390 wide in both themes
+via Playwright against a real Postgres, the static site the same way, and the signup form
+end to end with the POST intercepted — `{email, name, context, website}` goes out, the
+answer renders, the fields are replaced. Then the same body against the live route on a
+local instance, and the row read back out of `WaitlistSignup`.
+
+**Applies to:** `src/components/{hired-mark-3d,auth-shell,login-form,setup-form,accept-invite-form}.tsx`,
+`src/app/globals.css`, `src/app/{login,setup,invite/[token]}/page.tsx`,
+`site/{index.html,styles.css,motion.js,join.js}`, `tools/build-site.mjs`.
+
+---
+
+## 2026-09-03 — A parity and vocabulary audit after the resume batch, the rename and Gmail
+
+Ran the parity check over `src/server/actions.ts` against the tools array, and swept the
+MCP surface and the manual for anything the last few features left inconsistent.
+
+**`delete_note` did not exist, and notes are the one thing where that hurts.** Every other
+collection has its delete tool; notes had list, create and update only, so the UI could
+remove one and a conversation could not. The sharp version: a note with `kind: GUARDRAIL`
+is a standing rule injected into the briefing *every* client receives on connect, so an
+assistant could write a rule that shapes all future work and then had no way to withdraw
+it. A note has no `archived` state either, unlike a highlight, so deletion is the only
+removal — the description says so. Verified over a live connection: create a guardrail,
+see it in `initialize`'s instructions, delete it, see it gone.
+
+**The Me rename missed the `title` fields.** The merge that took the rename swept
+descriptions and left "Import a resume into the brain" as `import_resume`'s title, plus
+"the imported brain" in an argument and "career material in the brain" in
+`get_setup_status`. Titles are user-visible — clients show them in approval UI, and
+`gen-tool-docs` quotes them verbatim into the published manual, which is where they were
+found. The lesson is mechanical: a vocabulary rename is `grep -in '<old word>'` over the
+whole of `tools.ts`, not a pass over the fields you happen to be editing.
+
+**The briefing had no line about tags.** They cut across every area — where an application
+came from, a company's industry, size and location, how a person is filed — and an
+assistant that never calls `list_tags` invents near-duplicate labels. `list_tags`' own
+description is good; the briefing is what gets read *before* any tool, so the rule that
+matters ("call list_tags first; a name that exists matches rather than twinning") belongs
+there too. Its opening line also still said "Four areas:" above six bullets.
+
+**A backtick inside the briefing template literal would have ended the string.** The tags
+line was first written with `` `sources` `` in it, inside a JS template literal — caught
+before commit, but it typechecks as a *different* program rather than failing, so nothing
+downstream would have said so. Prose edited inside a template literal takes plain quotes.
+
+**Own-account writes stay UI-only, deliberately.** `updateOwnAccountAction` (name, email),
+`changeOwnPasswordAction` and unlinking a Google *sign-in* have no tools and should not:
+a connection URL is a credential with full read and write over the workspace, and letting
+it change the account's email or password turns a leaked URL into account takeover. Note
+this is a different thing from `disconnect_google`, which drops the Gmail/Calendar grant
+and does have a tool. `testConnectionAction` and the quick-log parser are also UI-only —
+the parser exists precisely because the browser has no language model, and both halves of
+what it commits are already covered by `log_activity` and `move_application_stage`.
+
+**Everything else was already in step**, which is worth recording so the next audit can
+skip it: the generated tool pages, the three hand-carried README counts (the Gmail commit
+bumped them; `delete_note` moved them again to 104/134), `docs/app.mdx` after the resumes
+move, and the product-facing `skills/` tree, which carries no retired vocabulary.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `src/lib/mcp/handler.ts`, `README.md`,
+`docs/tools/{me,connections,overview}.mdx`.
+
+---
+
+## 2026-09-03 — The landing page, second pass
+
+**The hero lost the mark it had just been given.** One page down it read as a logo asking
+to be admired rather than a headline making an argument, and it pushed the transcript —
+which is the actual evidence — below the fold on a laptop. The object stays in the nav,
+where it is a label, and on /coming-soon/, where it is the only thing above the form.
+
+**"What's in it" is one landscape card and three portrait ones, not four squares.** Two
+plus two was tried first and the problem was structural, not aesthetic: in a row of two,
+the taller card sets the height and the shorter one opens a hole under itself, and the
+hole moved around as the text rewrapped. A full-width card has no neighbour to be
+stretched by, and three cards with the same bullet count come out the same height on their
+own. Me gets the big one because the other three are built out of it.
+
+**Each card carries a diagram, animated off the card's own `.in`.** The reveal observer
+already puts that class there, so four drawings cost no JavaScript and no second observer —
+`.js .cell.in .viz i { scale: 1 1 }` is the whole mechanism. They are diagrams and not
+screenshots on purpose: the tour below has the real screens at the width the app is used
+at, and the same screenshot shrunk to 280px is illegible as a screenshot and useless as a
+diagram. The pipeline card's moving card is drawn in the column it ends up in and animated
+*from* where it was, which needs no measuring and no JS, and is the same trick the real
+board plays on a drop.
+
+**The conversation section shows a conversation, including the part where it is working.**
+A screenshot of a chat can show a question and an answer; it cannot show the four seconds
+in between, which is the only part that demonstrates anything is happening at all. So
+`playTape` grew a `data-think` phase: the step shows a working state, the tool chips land
+and go green one at a time, and only then is the reply typed.
+
+**That working state is laid over the answer, not stacked above it.** Stacked, it added
+its own height and the panel grew by eighty pixels the moment it appeared. `.answer` is
+the shared box; the skeleton sits in the space the finished reply has already reserved.
+
+**And the reply's height is now actually reserved.** `motion.js` has claimed since it was
+written that emptying a line "does not hide the layout it occupies". It did: clearing
+`textContent` collapses the box, so every tape grew a line at a time while somebody was
+reading it and everything below walked down the page. It measures the finished line, holds
+that height, then empties it — and measures again on `document.fonts.ready`, because Inter
+is wider than the fallback and a height reserved against the wrong face is the wrong
+height. Only for a tape that has not started; re-measuring one mid-type would throw away
+what it had written.
+
+**Two exceptions to "nothing loops", and both are the same exception.** The typing caret
+already blinked forever and the file said why: it indicates something in progress and it
+stops when that thing does. The thinking dots and the skeleton sweep are that, with an
+iteration count so they run out even if the script that hides them never ran.
+
+**Monthly and annual, with both figures in the markup.** The annual pair ships `hidden`
+and the control ships `hidden`, so a page with no scripting is the monthly price and no
+buttons that do nothing — the monthly figure being the one anybody comparing starts from.
+`$120` a year is two months off, said on the button rather than in a footnote, and it
+shrinks rather than disappears on a phone: a toggle with no stated benefit is a toggle
+nobody presses. The figure is a placeholder in four places now — the card, the fine print,
+the FAQ answer, and the FAQ answer again inside the FAQPage block — and they move together.
+
+**`.tier .price span` was catching the price.** It styles the "/ month" beside the figure
+at 13px and faint, and the figure had just become a span too. Ten minutes of a $12 that
+looked like a footnote.
+
+**The self-host band is gone and every link that pointed at it points at the manual.** It
+was the answer to "what happens if you lose interest", which is a real question, but it
+was a compose file three scrolls below a page whose primary action is a signup form. The
+pricing card's free column still says the whole thing out loud; the argument for it belongs
+at docs.hired.tools, which is written for someone who has already decided.
+
+**Smoothed scrolling that keeps the real scroll position.** The usual implementation
+translates a wrapper and leaves `scrollY` at zero. Three things on this page read
+`scrollY` — the sticky tour chapters, the progress bar and two scroll timelines — and a
+transformed wrapper breaks all of them, so this is `window.scrollTo` once a frame towards
+a target the wheel moves. Frame-rate independent, or 120Hz arrives twice as fast. Left
+alone: touch, because the platform's momentum is better than anything written here; a pane
+with its own scrollbar; and precision devices, which already emit a smooth stream that
+easing only adds lag to — a wheel delta under 40px in pixel mode is a trackpad and is not
+touched. Anything that moves the page other than the wheel becomes the new target, or the
+next notch yanks it back.
+
+**Verified in a browser at 1360 and 390:** one notch eases 0 → 195 → 316 → … → 399 over
+about four hundred milliseconds; a 12px delta is not intercepted and a 120px one is; the
+nav's anchors still land (they take about 1.5s for thirteen thousand pixels, which is the
+browser's own smooth scroll, not this); the billing switch swaps both the figure and the
+terms; and every in-page anchor in the file still resolves to an id that exists.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`, `tools/build-site.mjs`.
+
+---
+
+## 2026-09-03 — Why it exists, said without a filename
+
+**`final_v3` was a joke for people who name files.** It was the headline of the section
+that has to land first, and it asked the reader to already know what a version-suffixed
+filename is. The section now says the asymmetry straight: *They keep a file on you. You
+keep it all in your head.* The paragraph lost "req" for the same reason — that is recruiter
+vocabulary, and the person reading this has never been on that side of it.
+
+**The gap is now an object, because two objects at different depths is what reads as 3D.**
+Their file sits back, thick and full and shut; yours sits in front, thin and half empty,
+half of its lines never written. One `preserve-3d` stage, one card at `translateZ(-42px)`
+and one at `+28px`, and the whole thing leans towards the pointer — so moving the cursor
+slides them past each other. That parallax is the entire effect. An extrusion on a single
+flat card reads as a drop shadow no matter how many layers it has; two things moving at
+different rates read as a space with things in it, which is the thing the extruded mark
+had to work much harder for.
+
+**A card pushed towards the viewer is drawn larger.** The front file grew out of its own
+column until the stage got padding. Obvious in hindsight, invisible until a screenshot at
+1360 showed the corner clipped.
+
+**Scrolling now behaves the same whatever you are holding.** The first pass exempted
+precision devices on the theory that a trackpad is already smooth, and the result was a
+page that felt different depending on the hardware — which is worse than either behaviour
+on its own. One easing for everything, longer than before (0.115 a frame, about six hundred
+milliseconds to settle), plus the keys that scroll, so a page turned with PageDown arrives
+the way one turned with the wheel does. A field, a button or a `<summary>` keeps its own
+idea of what a key means.
+
+**The real cause of "not smooth" was probably not the easing.** A dozen elements answered
+the pointer and each one attached its own `pointermove` and read a bounding box inside it.
+A read after somebody else's write is a forced layout, so moving the mouse cost twelve of
+them per event. They share one listener and one frame now — every rect read together, then
+every style written together — which is one layout per frame however many things are
+watching. That is the fix; the easing tune is the part you notice.
+
+**The bento cards lean on `rotate`, not `transform`.** `transform` on those elements
+already belongs to the reveal, and two owners of one property is a bug waiting for whoever
+edits the other. The independent `rotate` property composes with it. The axis is
+perpendicular to the direction of the cursor, which is what makes the card lean *towards*
+it rather than pivot about an edge — and dead centre there is no direction at all, so a
+zero-length axis has to be caught or the browser normalises it to something arbitrary.
+
+**Two degrees, and an edge lit from where the cursor is.** More lean than that and a
+paragraph starts to keystone. The edge is the standard masked-ring trick — a padded
+pseudo-element, `mask-composite: exclude` — and at 1px and 62% it was invisible in a
+screenshot; 1.5px and 92% is the difference between an effect and a rumour of one.
+
+**The tool count on this page had gone stale, exactly as CLAUDE.md warns.** It said 73;
+`tools/list` returns 104 for a member. Corrected by hand, which is the same thing that will
+go wrong again — the generator owns every count in the manual but not the ones on the
+landing page.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`.
+
+---
+
+## 2026-09-03 — Half the landing page, deliberately
+
+Measured before touching anything: **twelve sections, 16,300px, eighteen screens, 3,100
+words.** A page that converts is six to eight screens and under a thousand. It now runs
+**nine sections, 8,650px, 9.6 screens, 1,490 words** — half the height, half the words.
+
+**The waste was not spread evenly; four sections said "here is what it does" four times.**
+The bento named the four areas, `#app` showed one screenshot of them, the tour showed the
+same four areas again at 4,379px and 904 words, and `#diagnosis` blew one feature up to a
+full section. Together they were 47% of the page. The tour went entirely — it was the
+single biggest thing on the page and it repeated what the section above it had just said —
+and `#app` stayed, because a product page needs one real screenshot and its frame is
+already a video slot waiting for a demo.
+
+**`#connect` was setup documentation on a sales page.** Five client tabs and a config
+blob, for a step nobody takes before signing up. The hero already says "works inside Claude
+· ChatGPT · Cursor", which is the claim; the how belongs in the manual.
+
+**The tool catalogue went, and that is the one cut worth arguing about.** Eighty tool names
+with descriptions, kept by hand, already stale against the 104 `tools/list` actually
+returns, written for whoever reads function names — which is not who this page is for. It
+was behind a `<details>` so it cost no screens, but it was 350 lines of markup that had to
+be right and never would be. One sentence and a link to the manual replaces it, and the
+manual is generated, so it stays correct on its own. This also permanently kills the
+stale-count problem the last entry predicted would come back.
+
+**"Nothing on a resume is invented" kept its argument and lost two of its four exhibits.**
+The refusal and the requirement check *show* it. The server-instructions code block and the
+guardrails card *asserted* it a third and fourth time, and one of them put `handler.ts` on
+the page.
+
+**Open source is now in pricing and one FAQ answer.** It was in 24 places across six
+sections. Gone: the "1 environment variable — DATABASE_URL" stat tile, the spec sheet at
+the foot (`AGPL-3.0 · Next.js 15 · PostgreSQL · MCP Streamable HTTP…`, which was the last
+thing a job seeker read), the "or skip the queue and run it yourself" note under the
+closing form, and the Docker/terminal copy that left with `#connect`. What is left says it
+where somebody is deciding what to pay: the free column, and the cost answer, which
+absorbed the old "what if you stop caring" question because that is the only reason the
+licence matters to somebody who will never clone it.
+
+**Nine FAQ questions became five**, in the markup and in the FAQPage block together —
+`build-site.mjs` fails the build when those disagree, which is exactly what that check is
+for and the reason this was safe to do quickly.
+
+**Dead code went with the sections.** Nine handlers in `motion.js` (`data-scene`,
+`data-chapter`, `data-move`, `data-tabs`, `data-tab`, `data-pane`, `data-copy`,
+`data-count`, `data-grow`) and about 9,000 characters of CSS for the tour, the catalogue,
+the pipeline-board mock and the funnel charts. Every remaining `$$("[data-…]")` in
+`motion.js` now matches an attribute that is still in the markup — that is the check worth
+running after a cut this size, and it caught the last two dangling footer anchors too.
+
+**The stat tiles went as a row, not one at a time.** Product-spec numbers — how many tools,
+how many env vars — in the middle of the one emotional section on the page. "104 things it
+can do on your say-so" is a sentence for somebody who has already decided.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`.
+
+---
+
+## 2026-09-03 — The four bento drawings run
+
+The drawings in "What's in it" played once on entry and then held. That made each one an
+illustration of a thing rather than the thing happening, which is the only reason they are
+on the page. They loop now: a line arrives in the record and a highlight is pulled out of
+it, a resume's body re-tailors itself and the page count holds at one, a card walks the
+four pipeline stages, and "due" moves down the three people in turn.
+
+**This reverses `motion.js`'s own "nothing loops" rule, on purpose, and the reversal is
+bounded three ways.** Written into the CSS header so the next person does not have to
+reconstruct it:
+
+1. **Every cycle starts and ends at rest** — the state the entry reveal leaves the drawing
+   in. A paused cycle, a cycle that never starts and no cycle at all are the same picture,
+   which is what makes the other two bounds cheap rather than load-bearing.
+2. **Nothing runs off screen.** One `IntersectionObserver` toggles `.live` on
+   `[data-live]`, so a phone reading the FAQ is compositing nothing. At 390px only one
+   drawing is ever live, because they stack.
+3. **`calm` never adds `.live`**, and a `prefers-reduced-motion` block is the belt to that
+   pair of braces — it also puts back the one element the loop owns outright.
+
+Everything animates `transform`, `scale` and `opacity` only, so all of it is on the
+compositor. The four periods (9s, 10s, 11s, 12s) are deliberately not multiples of each
+other, or the section falls into step with itself and starts reading as a metronome.
+
+**Three bugs worth writing down, because each cost more than the feature did:**
+
+**A property that first appears at 90% is interpolated from 0%.** `walk-the-board` set
+`opacity: 0` at 90% to fade the traveller out, and the browser correctly read that as "fade
+from 1 to 0 across the whole cycle" — a DOM probe measured 0.77, 0.32, 0.12, 0.04, 0.01. A
+keyframed property has to be pinned at the frames where it should not be moving, not only
+at the frames where it should.
+
+**`.vz-trip` was an `<i>` and `.viz i` is a rule.** It inherited `height: 5px`,
+`background: var(--rim)` and `scale: 0 1` and rendered as a thin grey line rather than a
+card. Changed to a `<span>` with `display: block`. The `.viz` drawings use bare `i` and `b`
+as their primitives, so anything added to one that is *not* a line or a label needs a
+different element, not an override.
+
+**The entry reveal and the loop fought over the same element.**
+`.js .cell.in .viz i { scale: 1 1 }` beat the loop's own resting `scale: 0 1`, so the line
+that is supposed to arrive was already there. It is now `i:not(.vz-fresh)`: an element a
+loop owns outright has to be excluded from the entry stagger rather than fixed up
+afterwards.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`.
 
 ---
 
@@ -3681,3 +4203,40 @@ the element at the checkbox's centre is the `<a>`.
 **Applies to:** `src/lib/data/{archive,resumes,pipeline}.ts`, `src/lib/{crm-filters,pipeline-fields}.ts`,
 `src/lib/mcp/tools.ts`, `src/components/{archive,crm,pipeline}/`, `src/app/(app)/archive/page.tsx`,
 and the manual.
+
+## 2026-09-03 — Merging the archive batch across Gmail, Calendar and the Me rename
+
+Main had moved a long way: Gmail and Calendar read live, the resume grid moved onto Me, and
+the landing page was rebuilt twice. Five files conflicted, and all five were the same shape —
+two branches both appending to a list.
+
+**The conflicts were all bookkeeping.** The decision log takes both sides in date order.
+`docs.json`, the generator's `SECTIONS` and the README's three hand-carried tool counts each
+needed both entries rather than a winner; the counts came from running the generator after
+the code merged, which is the only number worth trusting. `overview.mdx` took main's copy
+wholesale because everything this branch changed in it sits between `generated:` markers.
+
+**The merge's real work was the archive audit, and it found six.** Everything main added
+compiled cleanly against this branch and was wrong at runtime: `list_correspondence` would
+happily return the mail behind an archived company, person or application, and the calendar
+matched attendees against archived companies and people. A stale id an assistant is still
+holding is exactly how somebody reaches a deleted record, so these read like the bug the
+archive exists to prevent. Six reads in `src/lib/data/google.ts` now filter — three subject
+lookups, the resume's applications and their people, and both sides of the calendar match,
+each reaching through its join where there is one.
+
+This is the cost the archive was designed to have, and it landed on the first feature written
+after it: nothing in the toolchain catches a read that forgets, so every merge with new reads
+of Company, Contact or Application has to be audited by hand. A script that walks each
+`db.<model>.<op>(...)` call expression and reports the ones with no archive predicate does
+the mechanical half in a second; the seven it flags are the documented exceptions.
+
+**The audit found one this branch had left too.** A tag's count — the number beside it in
+every picker, and the "comes off N things" a person agrees to before deleting one — counted
+archived rows. Measured on a real database: two, where one thing wore it. All three relations
+are join tables, so each predicate reaches through the link. The two counts that stay
+unfiltered now say why in a comment: `instanceStats` and the admin's per-account row counts
+are an operator looking at what is on disk, and a row in somebody's archive is still on disk.
+
+**Applies to:** `src/lib/data/{google,tags,users}.ts`, `.claude/DECISIONS.md`, `README.md`,
+`docs/docs.json`, `docs/tools/overview.mdx`, `tools/gen-tool-docs.mjs`.

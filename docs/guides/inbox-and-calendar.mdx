@@ -1,0 +1,56 @@
+---
+title: "Your inbox and calendar"
+description: "Connect your own Gmail and Google Calendar, and every contact, company and application shows the real threads and meetings behind it — for you on the page, and for an assistant when you ask where something stands."
+icon: "envelope-open"
+---
+
+The pipeline records what you tell it. Your inbox records what happened. Connecting the two
+means the application page shows the recruiter's actual reply under the timeline, the
+calendar view shows the interview you accepted in Google Calendar, and an assistant asked
+"where am I with Stripe" reads the thread instead of guessing from a stage.
+
+## Connecting
+
+**Settings → Connections → Google → Connect Google.** Google asks for read-only access to Gmail and
+Calendar; you can leave either unticked and connect the other. The account you connect does
+not have to be the one you sign in with.
+
+<Note>
+  Nothing from your account is copied to the instance. Every page and every tool asks
+  Google at the moment you open it, and disconnecting deletes the only thing held — the
+  token. The app cannot send, accept, archive or delete anything; the permission it asks
+  for does not allow it.
+</Note>
+
+If the button is missing, the instance has no Google OAuth client yet. That is an admin's
+job, under Admin → Configuration → Sign-in, and it is the same client that powers
+Continue with Google — see [Google sign-in](/self-hosting/google) for the two extra
+switches Gmail and Calendar need.
+
+## What shows where
+
+- **A contact** — threads with their address, and meetings they are invited to.
+- **A company** — everything from its website's domain, plus everyone on file there. Set
+  the website and the whole company matches, not only the people you have added.
+- **An application** — the company's domain plus the people attached to that application.
+  The card sits under the timeline: the timeline is what you logged, the card is what
+  happened.
+- **A resume** — the mail behind every application it went out with, in the evidence
+  panel's "Sent to" tab.
+- **The pipeline calendar** — meetings with anyone on the pipeline appear alongside your
+  follow-ups and tasks, and `list_schedule` returns them the same way.
+
+Open a thread on any of those and it expands in place; **Open in Gmail** takes you to the
+real thing.
+
+## What to say
+
+- *"Where am I with the Acme application? Read the thread, don't guess."* —
+  `list_correspondence`, then `get_email_thread`.
+- *"Did any rejections come in this week?"* — `search_email`.
+- *"What interviews do I have next week?"* — `search_calendar`, or `list_schedule` for
+  the whole week including follow-ups.
+- *"Go through my inbox and bring the pipeline up to date."* — the `inbox_review`
+  workflow: it reads every open application's mail, tells you what moved, and proposes the
+  `log_activity` and `move_application_stage` calls for you to approve one by one. It
+  never writes without a yes.

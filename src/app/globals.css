@@ -158,6 +158,15 @@
      be mistaken for a stage or shout over one. */
   --brand-ink: var(--foreground);
   --brand-mono-eyebrow: var(--faint);
+
+  /* The extruded mark on the front door needs one value the flat one doesn't:
+     the side of the slab. It is the only part that cannot be derived from the
+     other two, because the side of a near-black tile has to be lighter than its
+     face and the side of a near-white one has to be darker — the same lift,
+     opposite directions, so the dark theme overrides it below. */
+  --mark-face: var(--brand-ink);
+  --mark-cut: var(--background);
+  --mark-edge: oklch(0.56 0.012 265);
 }
 
 /* --- Marketing ------------------------------------------------------------
@@ -210,6 +219,9 @@
   --sidebar: oklch(0.185 0.004 265);
   --sidebar-foreground: oklch(0.94 0.002 265);
   --sidebar-border: oklch(1 0 0 / 7%);
+
+  /* The slab's side, going the other way — see the light block. */
+  --mark-edge: oklch(0.52 0.012 265);
 
 
   /* In the dark the ring flips: a dark hairline on a dark surface is invisible,
@@ -708,4 +720,221 @@
     break-inside: avoid;
     page-break-inside: avoid;
   }
+}
+
+/* ---------------------------------------------------------------------------
+   THE FRONT DOOR
+
+   Sign in, claim, accept-invitation: the three pages you see before you have an
+   account, and the only three in the whole app that are allowed to be lit. The
+   rule everywhere inside — colour only where it carries information — is a rule
+   about a tool you work in for an hour at a time. These are not that. They are
+   a door, they are looked at for four seconds, and they are the first thing
+   anyone self-hosting this sees after `docker compose up`.
+
+   Everything here is one element deep and behind `prefers-reduced-motion`: the
+   block at the top of this file already flattens every duration, so the calm
+   path gets the same picture holding still.
+   --------------------------------------------------------------------------- */
+
+.auth-field {
+  position: relative;
+  isolation: isolate;
+  overflow: hidden;
+  background: var(--background);
+}
+
+/* The grid. Faint enough to read as paper texture rather than as a chart, and
+   masked to nothing well before the edges so it never meets a screen border. */
+.auth-field::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: -3;
+  background-image:
+    linear-gradient(to right, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px),
+    linear-gradient(to bottom, color-mix(in oklch, var(--foreground) 5%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  mask-image: radial-gradient(74% 58% at 50% 42%, black, transparent 78%);
+  -webkit-mask-image: radial-gradient(74% 58% at 50% 42%, black, transparent 78%);
+}
+
+/* Three lights, in the pipeline's own hues — blue, violet, pink, the first
+   three stages of the rotation. They drift on different periods so the pattern
+   never repeats visibly, and they are blurred past the point where any of them
+   is identifiable as a shape. */
+.auth-aurora {
+  position: absolute;
+  inset: -20%;
+  z-index: -3;
+  pointer-events: none;
+  filter: blur(72px);
+  opacity: 0.9;
+}
+
+.auth-aurora i {
+  position: absolute;
+  display: block;
+  border-radius: 50%;
+  will-change: transform;
+}
+
+.auth-aurora i:nth-child(1) {
+  inset: 8% auto auto 12%;
+  width: 46vmax;
+  height: 46vmax;
+  background: radial-gradient(50% 50% at 50% 50%, color-mix(in oklch, var(--primary) 42%, transparent), transparent 70%);
+  animation: auth-drift-a 34s var(--ease-drift, ease-in-out) infinite alternate;
+}
+
+.auth-aurora i:nth-child(2) {
+  inset: auto 2% 2% auto;
+  width: 48vmax;
+  height: 48vmax;
+  background: radial-gradient(50% 50% at 50% 50%, color-mix(in oklch, var(--stage-interview) 36%, transparent), transparent 70%);
+  animation: auth-drift-b 43s var(--ease-drift, ease-in-out) infinite alternate;
+}
+
+.auth-aurora i:nth-child(3) {
+  inset: 24% 18% auto auto;
+  width: 38vmax;
+  height: 38vmax;
+  background: radial-gradient(50% 50% at 50% 50%, color-mix(in oklch, var(--stage-final) 30%, transparent), transparent 70%);
+  animation: auth-drift-c 51s var(--ease-drift, ease-in-out) infinite alternate;
+}
+
+/* A light theme is paper, and paper takes far less colour before it stains. */
+:root:not(.dark) .auth-aurora {
+  opacity: 0.42;
+}
+
+@keyframes auth-drift-a {
+  from { transform: translate3d(0, 0, 0) scale(1); }
+  to { transform: translate3d(9vw, 7vh, 0) scale(1.16); }
+}
+@keyframes auth-drift-b {
+  from { transform: translate3d(0, 0, 0) scale(1.1); }
+  to { transform: translate3d(-11vw, -6vh, 0) scale(0.94); }
+}
+@keyframes auth-drift-c {
+  from { transform: translate3d(0, 0, 0) scale(0.92); }
+  to { transform: translate3d(-7vw, 9vh, 0) scale(1.2); }
+}
+
+/* Corners go down. Without this the aurora reaches the edge of the window and
+   the whole thing stops being a light and starts being a background image. */
+.auth-vignette {
+  position: absolute;
+  inset: 0;
+  z-index: -1;
+  pointer-events: none;
+  background: radial-gradient(120% 88% at 50% 34%, transparent 42%, color-mix(in oklch, var(--background) 82%, transparent) 100%);
+}
+
+/* The pool of light the card stands in, so the card reads as an object on a
+   surface rather than a rectangle floating on a gradient. */
+.auth-plinth {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: min(860px, 100vw);
+  height: min(640px, 90vh);
+  translate: -50% -50%;
+  z-index: -2;
+  pointer-events: none;
+  background: radial-gradient(50% 50% at 50% 50%, color-mix(in oklch, var(--primary) 22%, transparent), transparent 68%);
+  filter: blur(46px);
+}
+
+/* The card itself: the app's raised elevation, plus a rim that is brighter at
+   the top than the bottom. That gradient is doing the same job as `--rim` in
+   the dark theme — saying where the light is — at a size where one flat
+   hairline all the way round would look printed on. */
+.auth-card {
+  position: relative;
+  overflow: hidden;
+  border-radius: 18px;
+  background:
+    linear-gradient(to bottom, color-mix(in oklch, var(--card) 100%, transparent), var(--card));
+  box-shadow:
+    var(--shadow-overlay),
+    0 0 0 1px color-mix(in oklch, var(--foreground) 6%, transparent),
+    inset 0 1px 0 color-mix(in oklch, white 26%, transparent);
+}
+
+/* One pass of light across the card as it arrives, then never again. */
+.auth-card::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  background: linear-gradient(104deg, transparent 38%, color-mix(in oklch, white 22%, transparent) 50%, transparent 62%);
+  mask-image: linear-gradient(to bottom, black, transparent 82%);
+  -webkit-mask-image: linear-gradient(to bottom, black, transparent 82%);
+  opacity: 0;
+  animation: auth-sheen 1.5s 0.5s var(--ease-out-expo, cubic-bezier(0.16, 1, 0.3, 1)) 1 both;
+}
+
+@keyframes auth-sheen {
+  0% { opacity: 0; transform: translateX(-32%); }
+  38% { opacity: 1; }
+  100% { opacity: 0; transform: translateX(32%); }
+}
+
+/* A rule that draws itself out from the middle. Used for the "or" between
+   Google and the password form. */
+.auth-rule {
+  transform-origin: center;
+  animation: auth-rule-draw 0.9s 0.5s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+
+@keyframes auth-rule-draw {
+  from { scale: 0 1; opacity: 0; }
+  to { scale: 1 1; opacity: 1; }
+}
+
+/* The one primary action on the page, given a light that passes across it when
+   the pointer is over it. Hover only, once per hover, and it is a highlight
+   rather than a colour — the button's own colour is the accent and is already
+   saying "this is the thing to press". */
+.auth-submit {
+  position: relative;
+  overflow: hidden;
+}
+
+.auth-submit::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: linear-gradient(100deg, transparent 34%, oklch(1 0 0 / 0.3) 50%, transparent 66%);
+  translate: -110% 0;
+}
+
+.auth-submit:hover::after,
+.auth-submit:focus-visible::after {
+  animation: auth-submit-sheen 0.85s cubic-bezier(0.16, 1, 0.3, 1) 1 both;
+}
+
+@keyframes auth-submit-sheen {
+  from { translate: -110% 0; }
+  to { translate: 110% 0; }
+}
+
+/* A field the eye can find. The app's inputs already carry a focus ring; on the
+   front door they also lift, because there are only two of them and the page
+   has room to say which one you are in. */
+.auth-card input:not([type="checkbox"]) {
+  transition:
+    box-shadow 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+    border-color 0.2s cubic-bezier(0.23, 1, 0.32, 1),
+    background-color 0.2s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.auth-card input:not([type="checkbox"]):focus-visible {
+  box-shadow:
+    var(--shadow-field),
+    0 0 0 3px color-mix(in oklch, var(--primary) 18%, transparent),
+    0 6px 18px color-mix(in oklch, var(--primary) 12%, transparent);
 }

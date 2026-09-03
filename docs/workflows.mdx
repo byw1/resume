@@ -1,5 +1,5 @@
 ---
-title: "The eight workflows"
+title: "The nine workflows"
 sidebarTitle: "Workflows"
 description: "Multi-step jobs that come with every connection. Every one arrives as an ordinary tool, and as a slash command too in the clients that render MCP prompts."
 icon: "list-ol"
@@ -176,6 +176,19 @@ You ramble; it files everything where it belongs.
 Then it confirms what it filed and where, and asks about anything ambiguous.
 
 This is the one that keeps the whole system current. Ten minutes on a Friday.
+
+---
+
+## Bring the pipeline up to date from your inbox
+
+`inbox_review` · takes `days`
+
+Reads a week of your own Gmail and Google Calendar — every open application, every
+contact with a ping due — and tells you what moved that the pipeline does not know yet:
+a reply, an interview on the calendar, a rejection, an offer. Then it proposes the
+`log_activity` and `move_application_stage` calls, one line each, and waits for a yes on
+each before writing anything. Needs Gmail and Calendar connected under Settings → Connections;
+if they are not, it says how rather than guessing at your mail.
 
 ---
 

@@ -415,7 +415,7 @@ export function ConfigurationPanel({
 /** What each section is for, in one line, above its fields. */
 const GROUP_BLURB: Record<string, string> = {
   Instance: "What this instance is called and where it lives. Every invitation link, published resume and webhook URL is built from the public URL.",
-  "Sign-in": "Everyone can always sign in with an email and password. Adding a Google client turns on a Continue with Google button as well — existing members and anyone holding an invitation can use it straight away.",
+  "Sign-in": "Everyone can always sign in with an email and password. Adding a Google client turns on a Continue with Google button as well — existing members and anyone holding an invitation can use it straight away. The same client is what lets each person connect their own Gmail and Calendar under Settings → Connections.",
   Email: "Invitations go out through Resend. Everything works without it — creating an invite just gives you a link to send yourself.",
   Billing: "Optional, for hosting other people here for a fee. Someone who pays through your Stripe payment link is invited automatically; a lapsed subscription suspends them, data kept, and paying again turns them back on.",
   Custom: "Variables added by hand. Nothing in the app reads these unless something was written to look for them.",
@@ -471,6 +471,13 @@ function GoogleSetup({ redirectUri }: { redirectUri: string }) {
           </>,
           <>Add the redirect URI below under Authorised redirect URIs, exactly as shown.</>,
           <>Paste the client ID and secret in, and save.</>,
+          <>
+            Optional, for people who want their Gmail and Calendar in the app: in the same
+            project, enable the <strong>Gmail API</strong> and the{" "}
+            <strong>Google Calendar API</strong>, and add the <code>gmail.readonly</code> and{" "}
+            <code>calendar.readonly</code> scopes to the consent screen. While the consent
+            screen is in Testing, only its listed test users can connect.
+          </>,
         ].map((step, index) => (
           <li key={index} className="flex gap-3 text-sm">
             <span className="bg-muted text-muted-foreground flex size-5 shrink-0 items-center justify-center rounded-md text-[11px] font-semibold tabular-nums">

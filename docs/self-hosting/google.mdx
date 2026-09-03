@@ -30,6 +30,41 @@ changes either way, so it is a safe thing to try.
   </Step>
 </Steps>
 
+## Gmail and Calendar for members
+
+The same OAuth client lets each person connect their own Gmail and Google Calendar under
+**Settings → Connections**, so the app can show the threads and meetings behind their contacts,
+companies and applications. Two more things in the Cloud console make that work:
+
+<Steps>
+  <Step title="Enable the two APIs">
+    **APIs & Services → Library**: enable the **Gmail API** and the **Google Calendar
+    API** in the project that owns the OAuth client. Without them, a connect succeeds and
+    every read fails with Google's "API has not been used in project" message — it is
+    shown on the page and in Health, and names the project.
+  </Step>
+  <Step title="Add the scopes to the consent screen">
+    **APIs & Services → OAuth consent screen → Scopes**: add
+    `https://www.googleapis.com/auth/gmail.readonly` and
+    `https://www.googleapis.com/auth/calendar.readonly`. Both are read-only; the app never
+    asks for more, and cannot send, accept or delete anything with what it has.
+  </Step>
+</Steps>
+
+<Warning>
+  Gmail's read scope is one Google classifies as *restricted*. An app whose consent screen
+  is **In production** needs Google's verification before strangers can grant it, and for
+  a self-hosted instance that is not worth doing. Leave the consent screen in **Testing**
+  and add each person who will connect as a test user — up to a hundred — and it works
+  immediately, with a warning screen from Google that says the app is unverified. Sign-in
+  itself is unaffected either way.
+</Warning>
+
+Tokens are stored on your server as Google issues them, the same way MCP connection tokens
+are; the database is the trust boundary, and nothing read through a token is ever written
+to it. Disconnecting — from Settings, or `disconnect_google` by conversation — revokes the
+token at Google and deletes the row.
+
 ## Who it lets in
 
 The button is not a way around invitations. When somebody comes back from Google, they are

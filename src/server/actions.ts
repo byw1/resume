@@ -14,6 +14,7 @@ import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
+import * as google from "@/lib/data/google";
 import {
   authenticate,
   claimInstance,
@@ -166,7 +167,7 @@ export async function publishResumeAction(id: string) {
   const user = await requireUser();
   const resume = await resumes.publishResume(user.id, id);
   revalidatePath(`/resumes/${id}`);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   return { url: `${await currentBaseUrl()}/r/${resume.slug}` };
 }
 
@@ -174,7 +175,7 @@ export async function unpublishResumeAction(id: string) {
   const user = await requireUser();
   await resumes.unpublishResume(user.id, id);
   revalidatePath(`/resumes/${id}`);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
 }
 
 // ---------------------------------------------------------------------------
@@ -398,6 +399,82 @@ export async function unlinkGoogleAction() {
   return result;
 }
 
+// ---------------------------------------------------------------------------
+// Gmail and Calendar
+// ---------------------------------------------------------------------------
+
+/**
+ * Connecting is a redirect through Google (/api/auth/google?data=1), not an
+ * action. Disconnecting revokes the token at Google and deletes the row.
+ */
+export async function disconnectGoogleAction() {
+  const user = await requireUser();
+  await google.disconnectGoogleAccount(user.id);
+  revalidatePath("/settings");
+  return { ok: true as const };
+}
+
+/**
+ * The panels on a contact, company, application or resume. Fetched after
+ * the page renders, because it is a round trip to Google and the page should
+ * not wait on it. Dates go out as ISO strings so the client can format them.
+ */
+export async function correspondenceAction(
+  subject: google.CorrespondenceSubject,
+): Promise<
+  | { ok: true; correspondence: ReturnType<typeof serialiseCorrespondence> }
+  | { ok: false; error: string; notConnected: boolean }
+> {
+  const user = await requireUser();
+  try {
+    const result = await google.listCorrespondence(user.id, subject);
+    return { ok: true, correspondence: serialiseCorrespondence(result) };
+  } catch (error) {
+    return {
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+      notConnected: error instanceof google.GoogleNotConnectedError,
+    };
+  }
+}
+
+function serialiseCorrespondence(result: google.Correspondence) {
+  return {
+    subject: result.subject,
+    terms: result.terms,
+    notes: result.notes,
+    warnings: result.warnings,
+    mail:
+      result.mail?.map((thread) => ({
+        ...thread,
+        firstMessageAt: thread.firstMessageAt.toISOString(),
+        lastMessageAt: thread.lastMessageAt.toISOString(),
+      })) ?? null,
+    calendar:
+      result.calendar?.map((event) => ({
+        ...event,
+        start: event.start.toISOString(),
+        end: event.end.toISOString(),
+      })) ?? null,
+  };
+}
+
+export async function emailThreadAction(threadId: string) {
+  const user = await requireUser();
+  try {
+    const thread = await google.getEmailThread(user.id, threadId);
+    return {
+      ok: true as const,
+      thread: {
+        ...thread,
+        messages: thread.messages.map((message) => ({ ...message, date: message.date.toISOString() })),
+      },
+    };
+  } catch (error) {
+    return { ok: false as const, error: error instanceof Error ? error.message : String(error) };
+  }
+}
+
 export async function saveVariablesAction(patch: Record<string, string>) {
   const actor = await requireAdmin();
   try {
@@ -497,7 +574,7 @@ export async function setProfilePhotoAction(input: string) {
   const result = await me.setProfilePhoto(user.id, input);
   revalidatePath("/settings");
   revalidatePath("/me");
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath("/");
   return result;
 }
@@ -646,14 +723,14 @@ export async function deleteCertificationAction(id: string) {
 export async function createResumeAction(input: resumes.ResumeMeta & { seedFromMe?: boolean }) {
   const user = await requireUser();
   const resume = await resumes.createResume(user.id, input);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   return resume.id;
 }
 
 export async function updateResumeAction(id: string, patch: resumes.ResumeMeta & { data?: unknown }) {
   const user = await requireUser();
   await resumes.updateResume(user.id, id, patch);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath(`/resumes/${id}`);
 }
 
@@ -772,7 +849,7 @@ export async function resumeEvidenceAction(id: string) {
 export async function tailorResumeForApplicationAction(applicationId: string) {
   const user = await requireUser();
   const result = await resumes.createResumeForApplication(user.id, applicationId);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath("/applications");
   revalidatePath(`/applications/${applicationId}`);
   return {
@@ -786,23 +863,23 @@ export async function tailorResumeForApplicationAction(applicationId: string) {
 export async function setResumeBaseAction(id: string, baseId: string | null) {
   const user = await requireUser();
   await resumes.setResumeBase(user.id, id, baseId);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   revalidatePath(`/resumes/${id}`);
 }
 
 export async function deleteResumeAction(id: string, redirectAfter = true) {
   const user = await requireUser();
   await resumes.deleteResume(user.id, id);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   // The editor needs somewhere to go after its document is gone; the grid is
   // already standing where it wants to be, search and sort included.
-  if (redirectAfter) redirect("/resumes");
+  if (redirectAfter) redirect("/me?tab=resumes");
 }
 
 export async function duplicateResumeAction(id: string, name?: string) {
   const user = await requireUser();
   const copy = await resumes.duplicateResume(user.id, id, name);
-  revalidatePath("/resumes");
+  revalidatePath("/me");
   return copy.id;
 }
 
@@ -1342,13 +1419,15 @@ export async function deleteCrmContactAction(id: string) {
  */
 export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
-  const [application, resumeList, tagOptions, companies, settings] = await Promise.all([
-    pipeline.getApplication(user.id, id),
-    resumes.listResumeNames(user.id),
-    tags.listTags(user.id, "APPLICATION"),
-    pipeline.listCompanies(user.id),
-    getSettings(),
-  ]);
+  const [application, resumeList, tagOptions, companies, settings, googleConnection] =
+    await Promise.all([
+      pipeline.getApplication(user.id, id),
+      resumes.listResumeNames(user.id),
+      tags.listTags(user.id, "APPLICATION"),
+      pipeline.listCompanies(user.id),
+      getSettings(),
+      google.getGoogleConnection(user.id),
+    ]);
   if (!application) throw new Error("That application is gone.");
   // Only when one is attached — the document carries the owner's photo as a
   // data URI, and the panel is opened far more often than a resume is read.
@@ -1424,6 +1503,9 @@ export async function getApplicationForPanelAction(id: string) {
         }
       : null,
     logos: settings.companyLogos,
+    googleAccess: googleConnection
+      ? { mail: googleConnection.mail, calendar: googleConnection.calendar }
+      : null,
   };
 }
 

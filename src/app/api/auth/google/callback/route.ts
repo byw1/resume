@@ -12,6 +12,7 @@ import {
   type GoogleRefusal,
 } from "@/lib/google";
 import { recordSystemEvent } from "@/lib/data/system";
+import { connectGoogleAccount } from "@/lib/data/google";
 import { baseUrlFrom } from "@/lib/request-url";
 
 /**
@@ -32,20 +33,25 @@ export async function GET(request: NextRequest) {
    * looked up on the sign-in page, so nothing a stranger puts in a query
    * string can be made to appear there.
    */
+  const stored = unpackState(
+    request.cookies.get(GOOGLE_STATE_COOKIE)?.value,
+    settings.googleClientSecret,
+  );
+
   const fail = (reason: GoogleRefusal) => {
-    const target = new URL("/login", request.url);
-    target.searchParams.set("error", reason);
+    // A Gmail/Calendar connect started from Settings ends there, whatever
+    // happened: the person is signed in, and the sign-in page would only
+    // confuse them. Same fixed codes, looked up by the panel.
+    const target = stored?.data
+      ? new URL("/settings?tab=connections", request.url)
+      : new URL("/login", request.url);
+    target.searchParams.set(stored?.data ? "google" : "error", reason);
     const response = NextResponse.redirect(target);
     response.cookies.delete(GOOGLE_STATE_COOKIE);
     return response;
   };
 
   if (!googleIsConfigured(settings)) return fail("not_set_up");
-
-  const stored = unpackState(
-    request.cookies.get(GOOGLE_STATE_COOKIE)?.value,
-    settings.googleClientSecret,
-  );
   const returned = url.searchParams.get("state");
   if (!stored || !returned || stored.state !== returned) {
     // Either the cookie expired or this request did not start here. The same
@@ -81,6 +87,40 @@ export async function GET(request: NextRequest) {
       nonce: stored.nonce,
     });
 
+    // Started from the Google tile on Settings → Connections by somebody signed in: keep the tokens
+    // against the account they are in. No account matching happens at all —
+    // the inbox they connect need not be the address they sign in with.
+    if (stored.data) {
+      const user = await getCurrentUser();
+      if (!user) return fail("expired_state");
+      if (!identity.grant.refreshToken) return fail("no_refresh_token");
+      try {
+        await connectGoogleAccount(user.id, {
+          email: identity.email,
+          googleId: identity.sub,
+          scopes: identity.grant.scopes,
+          refreshToken: identity.grant.refreshToken,
+          accessToken: identity.grant.accessToken,
+          expiresAt: identity.grant.expiresAt,
+        });
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (/Neither Gmail nor Calendar/.test(message)) return fail("no_scopes");
+        throw error;
+      }
+      await recordSystemEvent({
+        level: "INFO",
+        source: "google.data",
+        message: "Connected Gmail and Calendar",
+        userEmail: user.email,
+      });
+      const target = new URL("/settings?tab=connections", request.url);
+      target.searchParams.set("google", "connected");
+      const response = NextResponse.redirect(target);
+      response.cookies.delete(GOOGLE_STATE_COOKIE);
+      return response;
+    }
+
     // Started from Settings by somebody already signed in: attach Google to
     // the account they are in rather than looking for one to sign them into.
     if (stored.link) {
@@ -112,8 +152,8 @@ export async function GET(request: NextRequest) {
   } catch (error) {
     await recordSystemEvent({
       level: "ERROR",
-      source: "google.signin",
-      message: "Google sign-in failed",
+      source: stored.data ? "google.data" : "google.signin",
+      message: stored.data ? "Connecting Gmail and Calendar failed" : "Google sign-in failed",
       detail: error instanceof Error ? error.message : "Unknown error",
     });
     // The visitor gets a fixed sentence; the specifics — redirect_uri_mismatch,

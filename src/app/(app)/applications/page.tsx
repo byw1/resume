@@ -54,7 +54,7 @@ export const dynamic = "force-dynamic";
 const BLURB: Record<PipelineView, string> = {
   board: "Drag a card to move it forward. Follow-up dates set themselves when the stage changes.",
   list: "Every application in one table. Click a column to sort by it, again to reverse.",
-  calendar: "Follow-ups, task deadlines and everything you have logged, by the day it lands.",
+  calendar: "Follow-ups, task deadlines, everything you have logged, and — with Google connected — the interviews on your own calendar, by the day it lands.",
 };
 
 function filterLabel(filters: PipelineFilters) {
@@ -287,6 +287,7 @@ export default async function ApplicationsPage({
       applicationId: entry.applicationId,
       contactId: entry.contactId,
       done: entry.done,
+      url: entry.url,
     }));
     return chrome(
       <PipelineCalendar

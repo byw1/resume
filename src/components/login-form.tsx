@@ -2,13 +2,58 @@
 
 import { useActionState, useEffect, useState } from "react";
 import { useFormStatus } from "react-dom";
-import { motion } from "framer-motion";
+import { AnimatePresence, motion, type Variants } from "framer-motion";
 import { EyeIcon, EyeOffIcon, LoaderCircleIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { HiredMark } from "@/components/hired-mark";
+import { HiredMark3D } from "@/components/hired-mark-3d";
 import { loginAction } from "@/server/actions";
+
+/** The deceleration the whole app settles on: fast, then coasting. */
+const EASE = [0.16, 1, 0.3, 1] as const;
+
+/**
+ * The card arrives as one object and then hands out its contents in order. The
+ * blur is what makes it read as coming into focus rather than sliding: a card
+ * that only translates looks like a slide transition, and this is a door
+ * opening.
+ */
+const card: Variants = {
+  hidden: { opacity: 0, y: 26, scale: 0.965, filter: "blur(10px)" },
+  shown: {
+    opacity: 1,
+    y: 0,
+    scale: 1,
+    filter: "blur(0px)",
+    transition: { duration: 0.85, ease: EASE, delayChildren: 0.22, staggerChildren: 0.07 },
+  },
+};
+
+/**
+ * One row of the card. Exported because the setup and invitation forms are the
+ * same door and stagger the same way — anything that is a direct child of
+ * `AuthCard` and wants its turn in the sequence wears this.
+ */
+export const authRise: Variants = {
+  hidden: { opacity: 0, y: 10, filter: "blur(5px)" },
+  shown: { opacity: 1, y: 0, filter: "blur(0px)", transition: { duration: 0.55, ease: EASE } },
+};
+
+/**
+ * A row that is itself a list of rows — the form. It rises like any other and
+ * then walks its own fields in, tighter than the card walks its sections, so
+ * the whole sequence still lands inside a second.
+ */
+export const authGroup: Variants = {
+  hidden: { opacity: 0, y: 10, filter: "blur(5px)" },
+  shown: {
+    opacity: 1,
+    y: 0,
+    filter: "blur(0px)",
+    transition: { duration: 0.55, ease: EASE, staggerChildren: 0.05 },
+  },
+};
 
 /** The signed-in flag this instance leaves on a shared domain, if it leaves one. */
 export type SignedInHint = { cookie: string; domain: string };
@@ -49,24 +94,27 @@ export function LoginForm({
   return (
     <AuthCard title={instanceName} subtitle="Sign in to your career workspace.">
       {notice && (
-        <p className="border-warning/40 bg-warning-tint text-warning mb-5 rounded-lg border px-3 py-2 text-[13px]">
+        <motion.p
+          variants={authRise}
+          className="border-warning/40 bg-warning-tint text-warning mb-5 rounded-lg border px-3 py-2 text-[13px]"
+        >
           {notice}
-        </p>
+        </motion.p>
       )}
 
       {googleReady && (
-        <>
+        <motion.div variants={authRise}>
           <GoogleButton />
           <div className="my-5 flex items-center gap-3">
-            <span className="bg-border h-px flex-1" />
+            <span className="auth-rule bg-border h-px flex-1" />
             <span className="text-faint text-[11px] tracking-wide uppercase">or</span>
-            <span className="bg-border h-px flex-1" />
+            <span className="auth-rule bg-border h-px flex-1" />
           </div>
-        </>
+        </motion.div>
       )}
 
-      <form action={formAction} className="space-y-4">
-        <div className="space-y-2">
+      <motion.form variants={authGroup} action={formAction} className="space-y-4">
+        <motion.div variants={authRise} className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input
             id="email"
@@ -77,8 +125,8 @@ export function LoginForm({
             autoComplete="username"
             placeholder="you@example.com"
           />
-        </div>
-        <div className="space-y-2">
+        </motion.div>
+        <motion.div variants={authRise} className="space-y-2">
           <Label htmlFor="password">Password</Label>
           <div className="relative">
             <Input
@@ -100,9 +148,10 @@ export function LoginForm({
               {showPassword ? <EyeOffIcon className="size-4" /> : <EyeIcon className="size-4" />}
             </button>
           </div>
-        </div>
+        </motion.div>
 
-        <label
+        <motion.label
+          variants={authRise}
           htmlFor="remember"
           className="text-muted-foreground flex w-fit cursor-pointer items-center gap-2 text-[13px] leading-none font-medium select-none"
         >
@@ -118,32 +167,26 @@ export function LoginForm({
             className="accent-primary size-4 cursor-pointer"
           />
           Keep me signed in for a month
-        </label>
+        </motion.label>
 
-        {state?.error && (
-          <motion.p
-            initial={{ opacity: 0, x: -4 }}
-            animate={{ opacity: 1, x: 0 }}
-            className="text-destructive text-sm"
-          >
-            {state.error}
-          </motion.p>
-        )}
+        <AuthError message={state?.error} />
 
-        <SubmitButton label="Sign in" pendingLabel="Signing in…" />
-      </form>
+        <motion.div variants={authRise}>
+          <SubmitButton label="Sign in" pendingLabel="Signing in…" />
+        </motion.div>
+      </motion.form>
 
       {/* The truth here changes with the sign-up setting, and getting it wrong
           in either direction wastes somebody's time: telling an invited person
           they cannot get in, or inviting a stranger to press a button that
           will refuse them. */}
-      <p className="text-muted-foreground mt-6 text-center text-xs">
+      <motion.p variants={authRise} className="text-muted-foreground mt-6 text-center text-xs">
         {!openSignup
           ? "Accounts here are invite-only. Ask an admin for an invitation, or to reset a password you’ve lost."
           : allowedDomains
             ? `Continue with Google to create an account, if your address is on ${allowedDomains}.`
             : "Continue with Google to create an account, or ask an admin for an invitation."}
-      </p>
+      </motion.p>
     </AuthCard>
   );
 }
@@ -188,6 +231,16 @@ function GoogleMark() {
   );
 }
 
+/**
+ * The card every unauthenticated page is inside.
+ *
+ * Its children are staggered rather than faded in as a block, so the eye is
+ * walked down the form in the order it will be filled in — mark, name of the
+ * instance, then each thing you have to do, arriving about seventy milliseconds
+ * apart. Anything a caller passes that is a `motion` element wearing
+ * `authRise` takes its place in that sequence; anything else simply appears
+ * with the card, which is a fine second-best and needs no coordination.
+ */
 export function AuthCard({
   title,
   subtitle,
@@ -199,20 +252,42 @@ export function AuthCard({
 }) {
   return (
     <motion.div
-      initial={{ opacity: 0, y: 18, scale: 0.98 }}
-      animate={{ opacity: 1, y: 0, scale: 1 }}
-      transition={{ duration: 0.6, ease: [0.16, 1, 0.3, 1] }}
-      className="w-full max-w-sm"
+      variants={card}
+      initial="hidden"
+      animate="shown"
+      className="auth-card w-full max-w-sm p-8"
     >
-      <div className="bg-card shadow-raised rounded-2xl p-8">
-        <div className="mb-7 flex flex-col items-center text-center">
-          <HiredMark size={40} className="mb-4" />
-          <h1 className="text-2xl font-semibold tracking-tight">{title}</h1>
-          <p className="text-muted-foreground mt-1.5 text-sm text-balance">{subtitle}</p>
-        </div>
-        {children}
-      </div>
+      <motion.div variants={authRise} className="mb-7 flex flex-col items-center text-center">
+        <HiredMark3D size={84} className="mb-5" />
+        <h1 className="text-2xl font-semibold tracking-tight text-balance">{title}</h1>
+        <p className="text-muted-foreground mt-1.5 text-sm text-balance">{subtitle}</p>
+      </motion.div>
+      {children}
     </motion.div>
+  );
+}
+
+/**
+ * A refusal, arriving and leaving rather than blinking in and out. `popLayout`
+ * so the button underneath moves once, with the message, instead of jumping the
+ * instant the text is removed.
+ */
+export function AuthError({ message }: { message?: string }) {
+  return (
+    <AnimatePresence mode="popLayout" initial={false}>
+      {message && (
+        <motion.p
+          key={message}
+          initial={{ opacity: 0, height: 0, y: -4 }}
+          animate={{ opacity: 1, height: "auto", y: 0 }}
+          exit={{ opacity: 0, height: 0, y: -4 }}
+          transition={{ duration: 0.32, ease: EASE }}
+          className="text-destructive overflow-hidden text-sm"
+        >
+          {message}
+        </motion.p>
+      )}
+    </AnimatePresence>
   );
 }
 
@@ -225,9 +300,37 @@ export function SubmitButton({
 }) {
   const { pending } = useFormStatus();
   return (
-    <Button type="submit" variant="default" size="lg" className="w-full" disabled={pending}>
-      {pending && <LoaderCircleIcon className="animate-spin" />}
-      {pending ? pendingLabel : label}
+    <Button
+      type="submit"
+      variant="default"
+      size="lg"
+      className="auth-submit w-full"
+      disabled={pending}
+    >
+      {/* Both labels are laid on top of each other and cross-faded, so the
+          button never changes width mid-submit — "Sign in" and "Signing in…"
+          are different lengths and a resizing primary action reads as a
+          glitch. The invisible one is the longer of the two, which is what
+          holds the width. */}
+      <span className="relative inline-flex items-center justify-center gap-2">
+        <span aria-hidden className="invisible flex items-center gap-2">
+          <LoaderCircleIcon className="size-4" />
+          {pendingLabel.length > label.length ? pendingLabel : label}
+        </span>
+        <AnimatePresence initial={false} mode="popLayout">
+          <motion.span
+            key={pending ? "pending" : "idle"}
+            initial={{ opacity: 0, y: 6 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -6 }}
+            transition={{ duration: 0.22, ease: EASE }}
+            className="absolute inset-0 flex items-center justify-center gap-2"
+          >
+            {pending && <LoaderCircleIcon className="size-4 animate-spin" />}
+            {pending ? pendingLabel : label}
+          </motion.span>
+        </AnimatePresence>
+      </span>
     </Button>
   );
 }

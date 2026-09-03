@@ -32,6 +32,9 @@ export async function listUsers() {
       createdAt: true,
       stripeCustomerId: true,
       invitedBy: { select: { name: true, email: true } },
+      // Deliberately NOT filtered on archivedAt, for the same reason
+      // instanceStats is not: this is an operator looking at how much an
+      // account has on disk, and a row in somebody's archive is still on disk.
       _count: {
         select: {
           roles: true,
@@ -126,6 +129,8 @@ export async function getUserDetail(actor: User, userId: string) {
       createdAt: true,
       stripeCustomerId: true,
       invitedBy: { select: { name: true, email: true } },
+      // Unfiltered on purpose, as above: row counts for an operator, not a
+      // view of anyone's pipeline.
       _count: {
         select: {
           roles: true,

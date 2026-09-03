@@ -107,9 +107,23 @@ function assertColor(color: string): TagColor {
   return color as TagColor;
 }
 
-/** How many things wear this tag, across all three kinds of thing. */
+/**
+ * How many things wear this tag, across all three kinds of thing.
+ *
+ * Archived rows are not counted. This number is read in two places that both
+ * describe what is on screen — the count beside a tag in the picker, and the
+ * "comes off N things" a person agrees to before deleting one — so counting
+ * something in the bin makes both of them lie. All three are join tables, so
+ * each predicate has to reach through the link to the record itself.
+ */
 const tagCounts = {
-  _count: { select: { applications: true, companies: true, contacts: true } },
+  _count: {
+    select: {
+      applications: { where: { application: { archivedAt: null } } },
+      companies: { where: { company: { archivedAt: null } } },
+      contacts: { where: { contact: { archivedAt: null } } },
+    },
+  },
 } as const;
 
 export type TagWithCounts = Prisma.TagGetPayload<{ include: typeof tagCounts }>;

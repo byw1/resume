@@ -225,7 +225,7 @@ export function CommandPalette({
               <CommandItem value="go-me" onSelect={() => go("/me")}>
                 <CircleUserRoundIcon /> Me
               </CommandItem>
-              <CommandItem value="go-resumes" onSelect={() => go("/resumes")}>
+              <CommandItem value="go-resumes" onSelect={() => go("/me?tab=resumes")}>
                 <FileTextIcon /> Resumes
               </CommandItem>
               <CommandItem value="go-pipeline" onSelect={() => go("/applications")}>
@@ -255,7 +255,7 @@ export function CommandPalette({
               <CommandItem value="new-role" onSelect={() => go("/me?new=role")}>
                 <PlusIcon /> New role
               </CommandItem>
-              <CommandItem value="new-resume" onSelect={() => go("/resumes?new=1")}>
+              <CommandItem value="new-resume" onSelect={() => go("/me?tab=resumes&new=1")}>
                 <PlusIcon /> New resume
               </CommandItem>
               <CommandItem value="new-application" onSelect={() => go("/applications?new=1")}>

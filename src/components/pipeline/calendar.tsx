@@ -17,6 +17,8 @@ export type CalendarEntry = {
   applicationId: string | null;
   contactId: string | null;
   done: boolean | null;
+  /** A MEETING with nothing on the pipeline to open goes to Google Calendar instead. */
+  url?: string;
 };
 
 /**
@@ -56,12 +58,14 @@ const KIND_TONE: Record<ScheduleKind, string> = {
   FOLLOW_UP: "var(--warning)",
   TASK: "var(--primary)",
   ACTIVITY: "var(--stage-3)",
+  MEETING: "var(--stage-interview)",
 };
 
 const KIND_LABEL: Record<ScheduleKind, string> = {
   FOLLOW_UP: "Follow-up due",
   TASK: "Task due",
   ACTIVITY: "Logged",
+  MEETING: "On your calendar",
 };
 
 export function PipelineCalendar({
@@ -230,6 +234,19 @@ function CalendarChip({ entry, fields }: { entry: CalendarEntry; fields: Set<str
     : entry.contactId
       ? `/crm/contacts/${entry.contactId}`
       : null;
+  if (!href && entry.url) {
+    return (
+      <a
+        href={entry.url}
+        target="_blank"
+        rel="noreferrer noopener"
+        title={entry.title}
+        className="hover:bg-accent block rounded-chip transition-colors duration-150"
+      >
+        {body}
+      </a>
+    );
+  }
   return href ? (
     <Link
       href={href}
