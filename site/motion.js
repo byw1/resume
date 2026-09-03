@@ -306,12 +306,6 @@
     once(el, function (target) { target.classList.add("in"); });
   });
 
-  // Groups whose children animate off the parent's `in` class — the funnel
-  // bars and the velocity chart both do this so the bars grow as one gesture.
-  $$("[data-grow]").forEach(function (el) {
-    once(el, function (target) { target.classList.add("in"); });
-  });
-
   // -------------------------------------------------------------------------
   // Nav and scroll progress
   // -------------------------------------------------------------------------
@@ -657,77 +651,6 @@
   });
 
   // -------------------------------------------------------------------------
-  // Numbers that count up
-  // -------------------------------------------------------------------------
-
-  $$("[data-count]").forEach(function (el) {
-    var target = Number(el.getAttribute("data-count"));
-    if (!isFinite(target)) return;
-    if (calm) return;
-    once(el, function () {
-      var start = performance.now();
-      var duration = 900;
-      (function frame(now) {
-        var t = Math.min(1, (now - start) / duration);
-        // Same deceleration as --ease-enter: fast, then coasting.
-        var eased = 1 - Math.pow(1 - t, 4);
-        el.textContent = String(Math.round(target * eased));
-        if (t < 1) requestAnimationFrame(frame);
-        else el.textContent = String(target);
-      })(start);
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // The board: one card moves a stage, once, when the board is first seen.
-  //
-  // It is the same transition the real board runs on a drop — the card lands
-  // where you put it before the server has replied.
-  // -------------------------------------------------------------------------
-
-  $$("[data-move]").forEach(function (board) {
-    if (calm) return;
-    once(board, function () {
-      var card = $("[data-card]", board);
-      var to = $('[data-drop="' + board.getAttribute("data-move") + '"]', board);
-      if (!card || !to) return;
-
-      setTimeout(function () {
-        var from = card.getBoundingClientRect();
-        to.classList.add("hot");
-        var empty = $(".col-empty", to);
-        if (empty) empty.remove();
-        to.appendChild(card);
-        var landed = card.getBoundingClientRect();
-
-        card.animate(
-          [
-            {
-              transform:
-                "translate(" + (from.left - landed.left) + "px," + (from.top - landed.top) + "px) rotate(2deg)",
-              boxShadow: "var(--shadow-overlay)",
-            },
-            { transform: "none", boxShadow: "var(--shadow-card)" },
-          ],
-          { duration: 620, easing: "cubic-bezier(0.16,1,0.3,1)" }
-        );
-
-        var chip = $("[data-chip]", card);
-        if (chip) {
-          chip.style.setProperty("--tone", "var(--stage-interview)");
-          chip.textContent = "Interviewing";
-        }
-        card.style.setProperty("--tone", "var(--stage-interview)");
-
-        setTimeout(function () {
-          to.classList.remove("hot");
-          fit();
-        }, 700);
-      }, 620);
-    });
-  });
-
-  // -------------------------------------------------------------------------
   // Product shots, drawn at a real app width and scaled to fit
   //
   // Reflowing a screenshot into a narrow column stops it being a screenshot of
@@ -780,82 +703,6 @@
   }
 
   // -------------------------------------------------------------------------
-  // The tour: which chapter is on screen
-  // -------------------------------------------------------------------------
-
-  var scenes = $$("[data-scene]");
-  var chapters = $$("[data-chapter]");
-
-  if (scenes.length && chapters.length && "IntersectionObserver" in window) {
-    var visible = {};
-    var spy = new IntersectionObserver(
-      function (entries) {
-        entries.forEach(function (entry) {
-          visible[entry.target.getAttribute("data-scene")] = entry.isIntersecting
-            ? entry.intersectionRatio
-            : 0;
-        });
-        var best = null;
-        var bestRatio = 0;
-        Object.keys(visible).forEach(function (key) {
-          if (visible[key] > bestRatio) { bestRatio = visible[key]; best = key; }
-        });
-        if (!best) return;
-        chapters.forEach(function (chapter) {
-          chapter.classList.toggle("on", chapter.getAttribute("data-chapter") === best);
-        });
-      },
-      { rootMargin: "-20% 0px -40% 0px", threshold: [0, 0.25, 0.5, 0.75, 1] }
-    );
-    scenes.forEach(function (scene) { spy.observe(scene); });
-  }
-
-  chapters.forEach(function (chapter) {
-    chapter.addEventListener("click", function () {
-      var scene = $('[data-scene="' + chapter.getAttribute("data-chapter") + '"]');
-      if (scene) scene.scrollIntoView({ behavior: calm ? "auto" : "smooth", block: "start" });
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // The tool catalogue
-  // -------------------------------------------------------------------------
-
-  var catalogue = $("[data-catalogue]");
-  if (catalogue) {
-    var tools = $$(".tool", catalogue);
-    var input = $(".search input", catalogue);
-    var count = $("[data-tools-count]", catalogue);
-    var empty = $(".tools-empty", catalogue);
-    var filters = $$(".filter", catalogue);
-    var group = "all";
-
-    function apply() {
-      var query = (input && input.value || "").trim().toLowerCase();
-      var shown = 0;
-      tools.forEach(function (tool) {
-        var inGroup = group === "all" || tool.getAttribute("data-group") === group;
-        var match = !query || tool.getAttribute("data-find").indexOf(query) > -1;
-        var show = inGroup && match;
-        tool.classList.toggle("gone", !show);
-        if (show) shown++;
-      });
-      if (count) count.textContent = String(shown);
-      if (empty) empty.classList.toggle("on", shown === 0);
-    }
-
-    filters.forEach(function (filter) {
-      filter.addEventListener("click", function () {
-        group = filter.getAttribute("data-group");
-        filters.forEach(function (f) { f.classList.toggle("on", f === filter); });
-        apply();
-      });
-    });
-    if (input) input.addEventListener("input", apply);
-    apply();
-  }
-
-  // -------------------------------------------------------------------------
   // Monthly or annual
   //
   // Both figures are in the markup and the annual one ships hidden, so the page
@@ -884,41 +731,6 @@
     buttons.forEach(function (button) {
       button.addEventListener("click", function () {
         show(button.getAttribute("data-period"));
-      });
-    });
-  });
-
-  // -------------------------------------------------------------------------
-  // Connection recipes
-  // -------------------------------------------------------------------------
-
-  $$("[data-tabs]").forEach(function (group) {
-    var tabs = $$("[data-tab]", group);
-    var panes = $$("[data-pane]", group);
-    tabs.forEach(function (tab) {
-      tab.addEventListener("click", function () {
-        var id = tab.getAttribute("data-tab");
-        tabs.forEach(function (t) {
-          var on = t === tab;
-          t.classList.toggle("on", on);
-          t.setAttribute("aria-selected", on ? "true" : "false");
-        });
-        panes.forEach(function (pane) {
-          pane.hidden = pane.getAttribute("data-pane") !== id;
-        });
-      });
-    });
-  });
-
-  // Copy buttons on the code blocks that people actually run.
-  $$("[data-copy]").forEach(function (button) {
-    button.addEventListener("click", function () {
-      var source = document.getElementById(button.getAttribute("data-copy"));
-      if (!source || !navigator.clipboard) return;
-      navigator.clipboard.writeText(source.innerText.trim()).then(function () {
-        var was = button.textContent;
-        button.textContent = "Copied";
-        setTimeout(function () { button.textContent = was; }, 1600);
       });
     });
   });

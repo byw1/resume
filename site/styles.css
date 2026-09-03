@@ -572,104 +572,6 @@ pre, code { font-family: var(--mono); }
   gap: 10px;
 }
 
-/* --- The pipeline board --------------------------------------------------- */
-
-.board-wrap { position: relative; }
-.board-wrap::after {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  right: 0;
-  width: 104px;
-  pointer-events: none;
-  background: linear-gradient(to left, var(--background) 34%, transparent);
-}
-
-.board {
-  display: flex;
-  gap: 12px;
-  overflow-x: auto;
-  padding-bottom: 6px;
-  scrollbar-width: none;
-}
-.board::-webkit-scrollbar { display: none; }
-
-.col { display: flex; flex-direction: column; width: 256px; flex-shrink: 0; }
-.col-head { display: flex; align-items: center; gap: 7px; padding: 0 4px; margin-bottom: 8px; }
-.col-head .stage-chip {
-  padding: 2px 6px;
-  border-radius: var(--r-chip);
-  font-size: 12px;
-  font-weight: 600;
-}
-.col-head .count { font-family: var(--mono); font-size: 12px; color: var(--faint); }
-.col-body {
-  background: var(--canvas);
-  border-radius: 12px;
-  box-shadow: var(--shadow-hairline);
-  padding: 8px;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  min-height: 176px;
-  flex: 1;
-  transition: background-color 0.2s var(--settle), box-shadow 0.2s var(--settle);
-}
-.col-body.hot {
-  background: var(--primary-tint);
-  box-shadow: 0 0 0 1px var(--primary);
-}
-.col-empty {
-  flex: 1;
-  display: grid;
-  place-items: center;
-  font-size: 11.5px;
-  color: var(--faint);
-}
-
-/* A stripe of the stage's colour down the edge, so a column reads as one thing
-   at a glance and a mis-dropped card is obvious. */
-.app-row {
-  position: relative;
-  background: var(--card);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-card);
-  padding: 12px 12px 12px 14px;
-  overflow: hidden;
-}
-.app-row::before {
-  content: "";
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  width: 3px;
-  background: var(--tone);
-}
-.app-row-top { display: flex; align-items: flex-start; gap: 8px; }
-.app-row .co { font-size: 13px; font-weight: 600; }
-.app-row .role { font-size: 12px; color: var(--faint); }
-.app-row-meta {
-  margin-top: 8px;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 4px 10px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.app-row-meta span { display: inline-flex; align-items: center; gap: 4px; }
-.app-row-meta svg { width: 10px; height: 10px; }
-.app-row-foot {
-  margin-top: 10px;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 11px;
-  color: var(--muted);
-}
-.app-row-foot .right { margin-left: auto; display: flex; align-items: center; gap: 7px; }
-.app-row-foot .overdue { color: var(--destructive); font-weight: 500; }
-
 /* The company monogram, with a stable hue per name — decoration under a chip
    that is doing the actual work. */
 .mono-av {
@@ -715,54 +617,6 @@ pre, code { font-family: var(--mono); }
 /* Highlight strength, as the app draws it: five marks, the lit ones in amber. */
 .stars { flex-shrink: 0; letter-spacing: 0.06em; font-size: 11px; line-height: 1.55; color: var(--warning); }
 .stars i { font-style: normal; color: var(--faint); }
-
-/* --- The funnel and the diagnosis ---------------------------------------- */
-
-.funnel-row { display: flex; align-items: center; gap: 10px; padding: 5px 7px; border-radius: var(--r-control); }
-.funnel-row .step { width: 168px; flex-shrink: 0; font-size: 12.5px; color: var(--muted); }
-.funnel-row .of { width: 62px; flex-shrink: 0; font-size: 12px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.funnel-row .rate { width: 40px; flex-shrink: 0; text-align: right; font-size: 12.5px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.funnel-row.weak .rate { font-weight: 600; color: var(--tone); }
-.funnel-row .track {
-  position: relative;
-  flex: 1;
-  min-width: 0;
-  height: 6px;
-  border-radius: 999px;
-  background: var(--inset);
-  overflow: hidden;
-}
-.funnel-row .track i {
-  position: absolute;
-  inset-block: 0;
-  left: 0;
-  border-radius: 999px;
-  background: var(--tone);
-  width: var(--w, 0%);
-  transform-origin: left;
-  transition: scale 0.9s var(--enter);
-  transition-delay: calc(var(--i, 0) * 90ms);
-}
-.js [data-grow] .funnel-row .track i { scale: 0 1; }
-.js [data-grow].in .funnel-row .track i { scale: 1 1; }
-.funnel-row .median { width: 78px; flex-shrink: 0; text-align: right; font-size: 11.5px; color: var(--faint); font-variant-numeric: tabular-nums; }
-
-/* Six weeks of volume, this week on the right. */
-.velocity { display: flex; align-items: flex-end; gap: 6px; height: 46px; max-width: 240px; }
-.velocity div { flex: 1; display: flex; flex-direction: column; align-items: center; gap: 4px; justify-content: flex-end; }
-.velocity span.n { font-size: 11px; color: var(--faint); font-variant-numeric: tabular-nums; }
-.velocity i {
-  width: 100%;
-  border-radius: 3px 3px 0 0;
-  background: var(--stage-screen);
-  height: var(--h, 4px);
-  transform-origin: bottom;
-  transition: scale 0.7s var(--enter);
-  transition-delay: calc(var(--i, 0) * 70ms);
-}
-.velocity i.now { background: var(--primary); }
-.js [data-grow] .velocity i { scale: 1 0; }
-.js [data-grow].in .velocity i { scale: 1 1; }
 
 /* Highlight strength, as the app draws it: five marks, the lit ones in amber. */
 .stars { flex-shrink: 0; letter-spacing: 0.06em; font-size: 11px; line-height: 1.5; color: var(--warning); }
@@ -1641,71 +1495,6 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 }
 
 /* ===========================================================================
-   THE TOUR — sticky chapters
-   =========================================================================== */
-
-/* One measure for the whole page, so every section starts at the same left
-   edge. The chapter list is a sticky bar rather than a rail for the same
-   reason: a 210px rail would have pushed the product shots into a column too
-   narrow to be shots of anything. */
-.tour { display: block; }
-
-.chapters {
-  position: sticky;
-  top: 54px;
-  z-index: 20;
-  display: flex;
-  gap: 4px;
-  margin-bottom: 40px;
-  padding: 8px 0;
-  background: color-mix(in oklch, var(--page) 93%, transparent);
-  backdrop-filter: saturate(180%) blur(22px);
-  -webkit-backdrop-filter: saturate(180%) blur(22px);
-  box-shadow: inset 0 -1px 0 var(--rim);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.chapters::-webkit-scrollbar { display: none; }
-
-.chapter {
-  position: relative;
-  flex: 1 1 0;
-  min-width: 168px;
-  text-align: left;
-  padding: 11px 14px 13px;
-  border-radius: var(--r-card) var(--r-card) 0 0;
-  transition: background-color 0.25s var(--settle);
-}
-.chapter::before {
-  content: "";
-  position: absolute;
-  left: 14px;
-  right: 14px;
-  bottom: 0;
-  height: 2px;
-  border-radius: 999px;
-  background: var(--tone);
-  scale: 0 1;
-  opacity: 0;
-  transform-origin: left;
-  transition: scale 0.4s var(--enter), opacity 0.25s linear;
-}
-.chapter.on { background: var(--wash); }
-.chapter.on::before { scale: 1 1; opacity: 1; }
-.chapter .ct { display: block; font-size: 14px; font-weight: 600; letter-spacing: -0.012em; color: var(--muted); transition: color 0.25s var(--settle); }
-.chapter.on .ct { color: var(--foreground); }
-.chapter p { font-size: 12.5px; color: var(--faint); margin-top: 3px; line-height: 1.45; }
-
-.scenes { display: flex; flex-direction: column; gap: clamp(56px, 8vw, 104px); min-width: 0; }
-.scene { scroll-margin-top: 46px; min-width: 0; }
-.scene-note {
-  margin-top: 14px;
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-}
-
-/* ===========================================================================
    WHAT YOU SAY
 
    The tool catalogue is the proof, not the pitch. This is the pitch: six
@@ -1779,82 +1568,6 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
 .under > summary svg { width: 13px; height: 13px; transition: transform 0.25s var(--settle); }
 .under[open] > summary svg { transform: rotate(90deg); }
 .under .inner { margin-top: 26px; }
-
-/* ===========================================================================
-   THE TOOL CATALOGUE
-   =========================================================================== */
-
-.tools-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-bottom: 18px; }
-
-.filter {
-  padding: 6px 12px;
-  border-radius: 999px;
-  font-size: 12.5px;
-  color: var(--muted);
-  box-shadow: var(--shadow-hairline);
-  transition: color 0.15s var(--settle), box-shadow 0.15s var(--settle), background-color 0.15s var(--settle);
-}
-.filter:hover { color: var(--foreground); }
-.filter.on {
-  color: var(--tone, var(--foreground));
-  background: color-mix(in oklch, var(--tone, var(--primary)) 15%, transparent);
-  box-shadow: 0 0 0 1px color-mix(in oklch, var(--tone, var(--primary)) 45%, transparent);
-}
-
-.search {
-  margin-left: auto;
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  padding: 6px 12px;
-  border-radius: 999px;
-  background: var(--inset);
-  box-shadow: var(--shadow-hairline);
-  min-width: 210px;
-}
-.search svg { width: 13px; height: 13px; color: var(--faint); flex-shrink: 0; }
-.search input {
-  flex: 1;
-  min-width: 0;
-  background: none;
-  border: 0;
-  outline: 0;
-  color: var(--foreground);
-  font-family: var(--mono);
-  font-size: 12px;
-}
-.search input::placeholder { color: var(--faint); }
-
-.tool-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(258px, 1fr));
-  gap: 8px;
-}
-.tool {
-  --tone: var(--faint);
-  background: var(--card);
-  border-radius: var(--r-card);
-  box-shadow: var(--shadow-hairline);
-  padding: 11px 13px;
-  transition: box-shadow 0.18s var(--settle), background-color 0.18s var(--settle);
-}
-.tool:hover { box-shadow: var(--shadow-card); background: var(--popover); }
-.tool.gone { display: none; }
-.tool .n {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-family: var(--mono);
-  font-size: 12px;
-  color: var(--foreground);
-}
-.tool .n i { width: 5px; height: 5px; border-radius: 50%; background: var(--tone); flex-shrink: 0; }
-.tool .d { margin-top: 5px; font-size: 12px; line-height: 1.5; color: var(--faint); }
-.tool.flow { background: var(--canvas); box-shadow: 0 0 0 1px color-mix(in oklch, var(--tone) 30%, transparent); }
-
-.tools-count { font-family: var(--mono); font-size: 12px; color: var(--faint); margin-top: 14px; }
-.tools-empty { display: none; padding: 26px 0; font-size: 13.5px; color: var(--muted); }
-.tools-empty.on { display: block; }
 
 /* ===========================================================================
    DOORS, FAQ, FOOTER
@@ -3419,4 +3132,34 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 /* A tilt needs a pointer to tilt towards. */
 @media (hover: none) {
   [data-spot]::after { display: none; }
+}
+
+/* The line that replaced the tool catalogue. The catalogue itself was eighty
+   function names kept by hand, already stale against a hundred and four, and
+   written for whoever reads function names — which is not who this page is
+   for. The manual generates the real list and keeps it right. */
+.tools-more {
+  max-width: 62ch;
+  margin-top: 30px;
+  font-size: 14px;
+  line-height: 1.65;
+  color: var(--muted);
+}
+
+.tools-more a {
+  color: var(--primary);
+  text-decoration: underline;
+  text-decoration-color: color-mix(in oklch, var(--primary) 34%, transparent);
+  text-underline-offset: 3px;
+}
+
+.tools-more a:hover { text-decoration-color: currentColor; }
+
+/* One line, said once, under the hero form. */
+.hero-who {
+  margin-top: 16px;
+  max-width: 58ch;
+  font-size: 13.5px;
+  color: var(--faint);
+  text-wrap: balance;
 }

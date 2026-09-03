@@ -3933,3 +3933,62 @@ go wrong again — the generator owns every count in the manual but not the ones
 landing page.
 
 **Applies to:** `site/{index.html,styles.css,motion.js}`.
+
+---
+
+## 2026-09-03 — Half the landing page, deliberately
+
+Measured before touching anything: **twelve sections, 16,300px, eighteen screens, 3,100
+words.** A page that converts is six to eight screens and under a thousand. It now runs
+**nine sections, 8,650px, 9.6 screens, 1,490 words** — half the height, half the words.
+
+**The waste was not spread evenly; four sections said "here is what it does" four times.**
+The bento named the four areas, `#app` showed one screenshot of them, the tour showed the
+same four areas again at 4,379px and 904 words, and `#diagnosis` blew one feature up to a
+full section. Together they were 47% of the page. The tour went entirely — it was the
+single biggest thing on the page and it repeated what the section above it had just said —
+and `#app` stayed, because a product page needs one real screenshot and its frame is
+already a video slot waiting for a demo.
+
+**`#connect` was setup documentation on a sales page.** Five client tabs and a config
+blob, for a step nobody takes before signing up. The hero already says "works inside Claude
+· ChatGPT · Cursor", which is the claim; the how belongs in the manual.
+
+**The tool catalogue went, and that is the one cut worth arguing about.** Eighty tool names
+with descriptions, kept by hand, already stale against the 104 `tools/list` actually
+returns, written for whoever reads function names — which is not who this page is for. It
+was behind a `<details>` so it cost no screens, but it was 350 lines of markup that had to
+be right and never would be. One sentence and a link to the manual replaces it, and the
+manual is generated, so it stays correct on its own. This also permanently kills the
+stale-count problem the last entry predicted would come back.
+
+**"Nothing on a resume is invented" kept its argument and lost two of its four exhibits.**
+The refusal and the requirement check *show* it. The server-instructions code block and the
+guardrails card *asserted* it a third and fourth time, and one of them put `handler.ts` on
+the page.
+
+**Open source is now in pricing and one FAQ answer.** It was in 24 places across six
+sections. Gone: the "1 environment variable — DATABASE_URL" stat tile, the spec sheet at
+the foot (`AGPL-3.0 · Next.js 15 · PostgreSQL · MCP Streamable HTTP…`, which was the last
+thing a job seeker read), the "or skip the queue and run it yourself" note under the
+closing form, and the Docker/terminal copy that left with `#connect`. What is left says it
+where somebody is deciding what to pay: the free column, and the cost answer, which
+absorbed the old "what if you stop caring" question because that is the only reason the
+licence matters to somebody who will never clone it.
+
+**Nine FAQ questions became five**, in the markup and in the FAQPage block together —
+`build-site.mjs` fails the build when those disagree, which is exactly what that check is
+for and the reason this was safe to do quickly.
+
+**Dead code went with the sections.** Nine handlers in `motion.js` (`data-scene`,
+`data-chapter`, `data-move`, `data-tabs`, `data-tab`, `data-pane`, `data-copy`,
+`data-count`, `data-grow`) and about 9,000 characters of CSS for the tour, the catalogue,
+the pipeline-board mock and the funnel charts. Every remaining `$$("[data-…]")` in
+`motion.js` now matches an attribute that is still in the markup — that is the check worth
+running after a cut this size, and it caught the last two dangling footer anchors too.
+
+**The stat tiles went as a row, not one at a time.** Product-spec numbers — how many tools,
+how many env vars — in the middle of the one emotional section on the page. "104 things it
+can do on your say-so" is a sentence for somebody who has already decided.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`.
