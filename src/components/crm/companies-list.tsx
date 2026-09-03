@@ -10,6 +10,8 @@ import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { TagChip, type TagValue } from "@/components/tags/tag-chip";
 import { SelectionBar } from "@/components/crm/selection-bar";
 import { NewCompanyDialog } from "@/components/crm/new-company-dialog";
+import { ResizableColumns, useColumnStyle } from "@/components/lists/resizable-columns";
+import type { StoredWidths } from "@/lib/column-widths";
 import { archiveRecordsAction, tagCompaniesAction } from "@/server/actions";
 import { cn } from "@/lib/utils";
 
@@ -40,13 +42,21 @@ export function CompaniesList({
   filtered,
   exportHref,
   header,
+  widths,
 }: {
   rows: CompanyRow[];
   /** Anything at all is narrowing the list, so the empty state says so. */
   filtered: boolean;
   exportHref: string;
-  /** The sortable column headings, built on the server from the URL. */
+  /**
+   * The column headings, built on the server from the URL. They are
+   * SortHeaders, which are client components, so they read their width from
+   * the provider below even though the page that composed them is a server
+   * component.
+   */
   header: React.ReactNode;
+  /** Stored column widths, already parsed and clamped by the server. */
+  widths: StoredWidths;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -122,6 +132,7 @@ export function CompaniesList({
           }
         />
       ) : (
+        <ResizableColumns list="companies" stored={widths}>
         <div className="bg-card shadow-card overflow-hidden rounded-xl">
           <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
             <Checkbox
@@ -168,26 +179,56 @@ export function CompaniesList({
                   </div>
                 </Link>
 
-                <TagCell tags={company.industry} className="md:flex" />
-                <TagCell tags={company.location} className="xl:flex" />
+                <TagCell col="industry" tags={company.industry} className="md:flex" />
+                <TagCell col="location" tags={company.location} className="xl:flex" />
 
-                <div className="nums text-muted-foreground hidden w-24 shrink-0 text-right text-[12px] sm:block">
+                <Cell
+                  col="lastApplied"
+                  className="nums text-muted-foreground hidden w-24 shrink-0 text-right text-[12px] sm:block"
+                >
                   {company.lastApplied}
-                </div>
-                <div className="nums text-muted-foreground w-24 shrink-0 text-right text-[12px]">
+                </Cell>
+                <Cell
+                  col="applications"
+                  className="nums text-muted-foreground w-24 shrink-0 text-right text-[12px]"
+                >
                   {company.applications || "—"}
                   {company.openApplications > 0 && (
                     <span className="text-faint"> · {company.openApplications} open</span>
                   )}
-                </div>
-                <div className="nums text-faint w-16 shrink-0 text-right text-[12px]">
+                </Cell>
+                <Cell col="contacts" className="nums text-faint w-16 shrink-0 text-right text-[12px]">
                   {company.contacts || "—"}
-                </div>
+                </Cell>
               </li>
             ))}
           </ul>
         </div>
+        </ResizableColumns>
       )}
+    </div>
+  );
+}
+
+/**
+ * A body cell at the dragged width.
+ *
+ * `className` keeps the Tailwind `w-*` it replaces, so the cell still has a
+ * width where nothing wraps it in a provider.
+ */
+function Cell({
+  col,
+  className,
+  children,
+}: {
+  col: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const style = useColumnStyle(col);
+  return (
+    <div className={className} style={style}>
+      {children}
     </div>
   );
 }
@@ -199,9 +240,21 @@ export function CompaniesList({
  * truncated text has to wrap chips instead — and stay one line, because the row
  * next to it is a fixed-height link.
  */
-function TagCell({ tags, className }: { tags: TagValue[]; className?: string }) {
+function TagCell({
+  col,
+  tags,
+  className,
+}: {
+  col: string;
+  tags: TagValue[];
+  className?: string;
+}) {
+  const style = useColumnStyle(col);
   return (
-    <div className={cn("hidden w-36 shrink-0 items-center gap-1 overflow-hidden", className)}>
+    <div
+      className={cn("hidden w-36 shrink-0 items-center gap-1 overflow-hidden", className)}
+      style={style}
+    >
       {tags.length === 0 ? (
         <span className="text-faint text-[12px]">—</span>
       ) : (

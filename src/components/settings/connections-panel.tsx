@@ -23,6 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Separator } from "@/components/ui/separator";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { ClientMark, ClientTile } from "@/components/client-mark";
 import { GoogleDetails, type GoogleConnectionView } from "@/components/settings/google-panel";
 import { cn } from "@/lib/utils";
@@ -189,16 +190,19 @@ function Status({ tone, children }: { tone: "live" | "idle" | "off" | "warn"; ch
 }
 
 /**
- * The tile. One brand mark, a name, one line of status, and the whole thing
- * is the button — there is nothing to do on a tile except open it.
+ * One wired-up thing, as a row.
+ *
+ * A row rather than a tile because the answer a person wants here is a column
+ * of yes/no, and a tile grid makes four connections take a screen to say what
+ * four lines say. The whole row is the button; there is nothing to do to one
+ * except open it.
  */
-function Tile({
+function WiredRow({
   mark,
   title,
   meta,
   status,
   onClick,
-  className,
 }: {
   mark: string;
   title: string;
@@ -206,46 +210,24 @@ function Tile({
   meta?: string;
   status: React.ReactNode;
   onClick: () => void;
-  className?: string;
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className={cn(
-        "bg-card hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-ring/50 group flex min-h-[7.25rem] flex-col items-start gap-3 rounded-xl border p-4 text-left transition-colors focus-visible:ring-[3px] focus-visible:outline-none",
-        className,
-      )}
+      className="bg-card hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-ring/50 group flex w-full items-center gap-3 rounded-xl border px-3 py-2.5 text-left transition-colors focus-visible:ring-[3px] focus-visible:outline-none"
     >
-      <div className="flex w-full items-start justify-between gap-2">
-        <ClientTile client={mark} size={40} />
-        <ArrowUpRightIcon className="text-faint group-hover:text-foreground size-3.5 shrink-0 transition-colors" />
-      </div>
-      <div className="min-w-0 w-full">
+      <ClientTile client={mark} size={32} />
+      <div className="min-w-0 flex-1">
         <div className="truncate text-[13.5px] font-medium">{title}</div>
-        {meta && <div className="text-faint truncate text-xs">{meta}</div>}
-        <div className="mt-1.5">{status}</div>
+        {/* The status drops under the name on a phone rather than off the row.
+            "Is it set up" is the whole question this screen answers, so it is
+            the last thing that should be hidden to save width. */}
+        <div className="text-faint truncate text-xs sm:hidden">{status}</div>
+        {meta && <div className="text-faint hidden truncate text-xs sm:block">{meta}</div>}
       </div>
-    </button>
-  );
-}
-
-function AddTile({ onClick, pending }: { onClick: () => void; pending: boolean }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={pending}
-      className="text-muted-foreground hover:border-primary/40 hover:text-foreground focus-visible:ring-ring/50 flex min-h-[7.25rem] flex-col items-center justify-center gap-2 rounded-xl border border-dashed p-4 text-center transition-colors focus-visible:ring-[3px] focus-visible:outline-none disabled:opacity-60"
-    >
-      {pending ? (
-        <LoaderCircleIcon className="size-5 animate-spin" />
-      ) : (
-        <span className="bg-muted flex size-10 items-center justify-center rounded-xl">
-          <PlusIcon className="size-[18px]" />
-        </span>
-      )}
-      <span className="text-[13px] font-medium">Connect an assistant</span>
+      <div className="hidden shrink-0 sm:block">{status}</div>
+      <ArrowUpRightIcon className="text-faint group-hover:text-foreground size-3.5 shrink-0 transition-colors" />
     </button>
   );
 }
@@ -485,49 +467,136 @@ function ConnectionSheet({
 // Picking a client
 // ---------------------------------------------------------------------------
 
-function PickerSheet({
+/**
+ * The library: everything that can be wired to this workspace, in one place.
+ *
+ * It replaced a picker that listed only the MCP clients, which quietly said
+ * that adding an assistant and connecting Google were different kinds of act.
+ * They are the same act from a person's side — "wire this thing up" — so both
+ * live here, one tab each, and the screen behind them is a status row rather
+ * than two grids of the same tiles.
+ *
+ * Everything is listed, connected or not. A row for a client you already use
+ * says so and opens it rather than making a second connection; that is
+ * deliberate, because "did I already add Cursor?" is the question this page
+ * exists to answer, and hiding what is already on makes it unanswerable.
+ */
+function LibrarySheet({
   open,
   onOpenChange,
+  connections,
   onPick,
+  onOpenConnection,
+  google,
+  onOpenGoogle,
   pending,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  connections: ConnectionRow[];
   onPick: (client: string) => void;
+  onOpenConnection: (id: string) => void;
+  google: GoogleTileProps;
+  onOpenGoogle: () => void;
   pending: boolean;
 }) {
   const products = MCP_CLIENTS.filter((entry) => entry.category !== "any");
   const generic = MCP_CLIENTS.filter((entry) => entry.category === "any");
+  const mine = new Map<string, ConnectionRow>();
+  for (const connection of connections) {
+    if (!mine.has(connection.client)) mine.set(connection.client, connection);
+  }
 
-  const option = (entry: (typeof MCP_CLIENTS)[number]) => (
-    <button
-      key={entry.id}
-      type="button"
-      disabled={pending}
-      onClick={() => onPick(entry.id)}
-      className="hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:ring-[3px] focus-visible:outline-none disabled:opacity-60"
-    >
-      <ClientTile client={entry.id} size={36} />
-      <div className="min-w-0">
-        <div className="text-[13px] font-medium">{entry.name}</div>
-        <div className="text-faint truncate text-xs">{entry.tagline}</div>
-      </div>
-    </button>
-  );
+  const option = (entry: (typeof MCP_CLIENTS)[number]) => {
+    const existing = mine.get(entry.id);
+    return (
+      <button
+        key={entry.id}
+        type="button"
+        disabled={pending}
+        onClick={() => (existing ? onOpenConnection(existing.id) : onPick(entry.id))}
+        className="hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:ring-[3px] focus-visible:outline-none disabled:opacity-60"
+      >
+        <ClientTile client={entry.id} size={36} />
+        <div className="min-w-0 flex-1">
+          <div className="text-[13px] font-medium">{entry.name}</div>
+          <div className="text-faint truncate text-xs">{entry.tagline}</div>
+        </div>
+        {existing ? (
+          <Status tone="live">Connected</Status>
+        ) : (
+          <PlusIcon className="text-faint size-4 shrink-0" />
+        )}
+      </button>
+    );
+  };
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
       <SheetContent className="w-full overflow-y-auto p-5 sm:max-w-xl sm:p-6">
-        <SheetTitle className="text-[17px] font-semibold tracking-tight">Connect an assistant</SheetTitle>
+        <SheetTitle className="text-[17px] font-semibold tracking-tight">Add to this workspace</SheetTitle>
         <SheetDescription className="mt-1 text-xs">
-          Each client gets its own URL, so one can be disconnected later without breaking the
-          rest. Pick where you are pasting it and the setup steps follow.
+          Assistants read and write your workspace over MCP. Accounts are what the workspace
+          reads on your behalf.
         </SheetDescription>
-        <div className="mt-5 grid gap-2 sm:grid-cols-2">{products.map(option)}</div>
-        <div className="text-faint mt-5 mb-2 text-[11.5px] font-medium tracking-wide uppercase">
-          Anything else
-        </div>
-        <div className="grid gap-2 sm:grid-cols-2">{generic.map(option)}</div>
+
+        <Tabs defaultValue="assistants" className="mt-5">
+          <TabsList>
+            <TabsTrigger value="assistants">
+              <ZapIcon className="hidden size-3.5 sm:block" /> Assistants
+            </TabsTrigger>
+            <TabsTrigger value="accounts">
+              <MailIcon className="hidden size-3.5 sm:block" /> Accounts
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="assistants" className="mt-4">
+            <p className="text-muted-foreground mb-3 text-xs">
+              Each client gets its own URL, so one can be cut off later without breaking the
+              rest. Pick where you are pasting it and the setup steps follow.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">{products.map(option)}</div>
+            <div className="text-faint mt-5 mb-2 text-[11.5px] font-medium tracking-wide uppercase">
+              Anything else
+            </div>
+            <div className="grid gap-2 sm:grid-cols-2">{generic.map(option)}</div>
+          </TabsContent>
+
+          <TabsContent value="accounts" className="mt-4">
+            <p className="text-muted-foreground mb-3 text-xs">
+              Live and read-only. Nothing is copied into this instance — every screen asks at
+              the moment you open it, and disconnecting deletes the only thing held.
+            </p>
+            <div className="grid gap-2 sm:grid-cols-2">
+              <button
+                type="button"
+                onClick={onOpenGoogle}
+                className="hover:border-primary/40 hover:bg-accent/40 focus-visible:ring-ring/50 flex items-center gap-3 rounded-xl border p-3 text-left transition-colors focus-visible:ring-[3px] focus-visible:outline-none"
+              >
+                <ClientTile client="google" size={36} />
+                <div className="min-w-0 flex-1">
+                  <div className="text-[13px] font-medium">Google</div>
+                  <div className="text-faint truncate text-xs">
+                    {google.connection?.email ?? "Gmail and Calendar"}
+                  </div>
+                </div>
+                {google.connection ? (
+                  <Status tone="live">Connected</Status>
+                ) : !google.ready ? (
+                  <Status tone="off">Needs an admin</Status>
+                ) : (
+                  <PlusIcon className="text-faint size-4 shrink-0" />
+                )}
+              </button>
+            </div>
+            {/* Said out loud rather than left as an empty grid: one account is
+                the whole list today, and a person who came here looking for a
+                second one should not have to wonder whether it failed to load. */}
+            <p className="text-faint mt-4 text-xs">
+              Google is the only account Hired reads from today.
+            </p>
+          </TabsContent>
+        </Tabs>
       </SheetContent>
     </Sheet>
   );
@@ -634,55 +703,56 @@ export function ConnectionsPanel({
         </div>
       )}
 
-      <section className="space-y-3">
-        <div>
-          <h3 className="text-[13px] font-semibold">Assistants</h3>
-          <p className="text-muted-foreground text-xs">
-            Read and write your workspace over MCP. Each has its own URL; open one for the
-            setup steps, to test it, or to cut it off.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          {connections.map((connection) => {
-            const label = clientName(connection.client);
-            const lastUsed = ago(connection.lastUsedAt);
-            return (
-              <Tile
-                key={connection.id}
-                mark={connection.client}
-                title={connection.name}
-                meta={label !== connection.name ? label : undefined}
-                status={
-                  lastUsed ? (
-                    <Status tone="live">used {lastUsed}</Status>
-                  ) : (
-                    <Status tone="idle">never used</Status>
-                  )
-                }
-                onClick={() => setOpenId(connection.id)}
-              />
-            );
-          })}
-          <AddTile onClick={() => setPicking(true)} pending={pending} />
-        </div>
-      </section>
+      {/* One row, not two grids.
+          What is wired up is a short list and the question about it is short
+          too — is this on, and does it need me. Two labelled grids of the same
+          tile spent most of a screen restating that an assistant and an
+          account are different kinds of thing, which is a distinction the
+          library makes when you are adding one and nobody needs while reading.
+          Adding anything is the button above; this is the answer, at a glance. */}
+      <section className="space-y-2">
+        {connections.map((connection) => {
+          const label = clientName(connection.client);
+          const lastUsed = ago(connection.lastUsedAt);
+          return (
+            <WiredRow
+              key={connection.id}
+              mark={connection.client}
+              title={connection.name}
+              meta={label !== connection.name ? label : "Assistant"}
+              status={
+                lastUsed ? (
+                  <Status tone="live">used {lastUsed}</Status>
+                ) : (
+                  <Status tone="idle">never used</Status>
+                )
+              }
+              onClick={() => setOpenId(connection.id)}
+            />
+          );
+        })}
 
-      <section className="space-y-3">
-        <div>
-          <h3 className="text-[13px] font-semibold">Accounts</h3>
-          <p className="text-muted-foreground text-xs">
-            What the workspace reads on your behalf. Live and read-only; nothing is copied here.
-          </p>
-        </div>
-        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
-          <Tile
-            mark="google"
-            title="Google"
-            meta={google.connection?.email ?? "Gmail and Calendar"}
-            status={googleStatus}
-            onClick={() => setGoogleOpen(true)}
-          />
-        </div>
+        <WiredRow
+          mark="google"
+          title="Google"
+          meta={google.connection?.email ?? "Gmail and Calendar"}
+          status={googleStatus}
+          onClick={() => setGoogleOpen(true)}
+        />
+
+        <button
+          type="button"
+          onClick={() => setPicking(true)}
+          disabled={pending}
+          className="text-muted-foreground hover:border-primary/40 hover:text-foreground focus-visible:ring-ring/50 flex w-full items-center justify-center gap-2 rounded-xl border border-dashed px-3 py-2.5 text-[13px] transition-colors focus-visible:ring-[3px] focus-visible:outline-none disabled:opacity-60"
+        >
+          {pending ? (
+            <LoaderCircleIcon className="size-3.5 animate-spin" />
+          ) : (
+            <PlusIcon className="size-3.5" />
+          )}
+          Add an assistant or an account
+        </button>
       </section>
 
       <p className="text-muted-foreground text-xs leading-relaxed">
@@ -702,7 +772,22 @@ export function ConnectionsPanel({
         />
       )}
 
-      <PickerSheet open={picking} onOpenChange={setPicking} onPick={add} pending={pending} />
+      <LibrarySheet
+        open={picking}
+        onOpenChange={setPicking}
+        connections={connections}
+        onPick={add}
+        onOpenConnection={(id) => {
+          setPicking(false);
+          setOpenId(id);
+        }}
+        google={google}
+        onOpenGoogle={() => {
+          setPicking(false);
+          setGoogleOpen(true);
+        }}
+        pending={pending}
+      />
 
       <Sheet open={googleOpen} onOpenChange={setGoogleOpen}>
         <SheetContent className="w-full overflow-y-auto p-5 sm:max-w-xl sm:p-6">

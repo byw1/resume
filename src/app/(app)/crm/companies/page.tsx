@@ -8,10 +8,13 @@ import { NewCompanyDialog } from "@/components/crm/new-company-dialog";
 import { CompanyFilterMenu, type CompanyFacets } from "@/components/crm/filter-menu";
 import { CompaniesList, type CompanyRow } from "@/components/crm/companies-list";
 import { SortHeader } from "@/components/crm/sort-header";
+import { SortMenu } from "@/components/lists/sort-menu";
 import { ArchiveNote } from "@/components/archive/archive-note";
 import { listCompanies } from "@/lib/data/pipeline";
 import { archiveCounts } from "@/lib/data/archive";
 import { listTags, tagsOfKind } from "@/lib/data/tags";
+import { getProfile } from "@/lib/data/me";
+import { parseWidths } from "@/lib/column-widths";
 import { requireUser } from "@/lib/auth";
 import { companyDomain } from "@/lib/company";
 import { getSettings } from "@/lib/settings";
@@ -62,12 +65,14 @@ export default async function CompaniesPage({
   // Everything, once. The counts below are "how many would survive if I
   // relaxed this one dimension", which only has an answer while you are
   // holding the unfiltered set.
-  const [everyCompany, tagOptions, bin, { companyLogos }] = await Promise.all([
+  const [everyCompany, tagOptions, bin, { companyLogos }, profile] = await Promise.all([
     listCompanies(user.id),
     listTags(user.id),
     archiveCounts(user.id),
     getSettings(),
+    getProfile(user.id),
   ]);
+  const widths = parseWidths(profile.columnWidths);
 
   const passing = (except: keyof CompanyFilters) =>
     everyCompany.filter((row) =>
@@ -162,6 +167,41 @@ export default async function CompaniesPage({
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <SearchBox placeholder="Search companies…" className="w-full sm:w-72" />
         <CompanyFilterMenu filters={filters} facets={facets} sort={sort} dir={one("dir")} />
+        <SortMenu
+          active={sort}
+          desc={desc}
+          ariaLabel="Sort the companies"
+          options={[
+            {
+              key: "name",
+              label: "Company",
+              href: sortHref("name"),
+              ascHref: buildCompanyQuery({ filters, sort: "name", dir: "asc" }),
+              descHref: buildCompanyQuery({ filters, sort: "name", dir: "desc" }),
+            },
+            {
+              key: "applied",
+              label: "Last applied",
+              href: sortHref("applied"),
+              ascHref: buildCompanyQuery({ filters, sort: "applied", dir: "asc" }),
+              descHref: buildCompanyQuery({ filters, sort: "applied", dir: "desc" }),
+            },
+            {
+              key: "apps",
+              label: "Applications",
+              href: sortHref("apps"),
+              ascHref: buildCompanyQuery({ filters, sort: "apps", dir: "asc" }),
+              descHref: buildCompanyQuery({ filters, sort: "apps", dir: "desc" }),
+            },
+            {
+              key: "people",
+              label: "People",
+              href: sortHref("people"),
+              ascHref: buildCompanyQuery({ filters, sort: "people", dir: "asc" }),
+              descHref: buildCompanyQuery({ filters, sort: "people", dir: "desc" }),
+            },
+          ]}
+        />
         <Button asChild variant="outline" size="sm" className="shrink-0">
           <a href={exportHref} download>
             <DownloadIcon /> Export
@@ -203,45 +243,45 @@ export default async function CompaniesPage({
         rows={rows}
         filtered={narrowed}
         exportHref={exportHref}
+        widths={widths}
         header={
           <>
-            <div className="min-w-0 flex-1">
-              <SortHeader
-                href={sortHref("name")}
-                label="Company"
-                active={sort === "name"}
-                desc={desc}
-              />
-            </div>
-            <div className="hidden w-36 shrink-0 md:block">Industry</div>
-            <div className="hidden w-36 shrink-0 xl:block">Location</div>
-            <div className="hidden w-24 shrink-0 sm:block">
-              <SortHeader
-                href={sortHref("applied")}
-                label="Last applied"
-                active={sort === "applied"}
-                desc={desc}
-                className="justify-end"
-              />
-            </div>
-            <div className="w-24 shrink-0">
-              <SortHeader
-                href={sortHref("apps")}
-                label="Applied"
-                active={sort === "apps"}
-                desc={desc}
-                className="justify-end"
-              />
-            </div>
-            <div className="w-16 shrink-0">
-              <SortHeader
-                href={sortHref("people")}
-                label="People"
-                active={sort === "people"}
-                desc={desc}
-                className="justify-end"
-              />
-            </div>
+            <SortHeader
+              className="min-w-0 flex-1"
+              href={sortHref("name")}
+              label="Company"
+              active={sort === "name"}
+              desc={desc}
+            />
+            <SortHeader col="industry" className="hidden w-36 shrink-0 md:block" label="Industry" />
+            <SortHeader col="location" className="hidden w-36 shrink-0 xl:block" label="Location" />
+            <SortHeader
+              col="lastApplied"
+              className="hidden w-24 shrink-0 sm:block"
+              href={sortHref("applied")}
+              label="Last applied"
+              active={sort === "applied"}
+              desc={desc}
+              align="right"
+            />
+            <SortHeader
+              col="applications"
+              className="w-24 shrink-0"
+              href={sortHref("apps")}
+              label="Applied"
+              active={sort === "apps"}
+              desc={desc}
+              align="right"
+            />
+            <SortHeader
+              col="contacts"
+              className="w-16 shrink-0"
+              href={sortHref("people")}
+              label="People"
+              active={sort === "people"}
+              desc={desc}
+              align="right"
+            />
           </>
         }
       />

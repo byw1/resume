@@ -7,10 +7,13 @@ import { SearchBox } from "@/components/crm/search-box";
 import { ContactFilterMenu, type ContactFacets } from "@/components/crm/filter-menu";
 import { ContactsList, type ContactRow } from "@/components/crm/contacts-list";
 import { SortHeader } from "@/components/crm/sort-header";
+import { SortMenu } from "@/components/lists/sort-menu";
 import { ArchiveNote } from "@/components/archive/archive-note";
 import { listContacts } from "@/lib/data/pipeline";
 import { archiveCounts } from "@/lib/data/archive";
 import { listTags } from "@/lib/data/tags";
+import { getProfile } from "@/lib/data/me";
+import { parseWidths } from "@/lib/column-widths";
 import { requireUser } from "@/lib/auth";
 import { getSettings } from "@/lib/settings";
 import { BRAND_LABEL, NAMED_PLATFORMS, brandFor, linkHref } from "@/lib/social";
@@ -82,12 +85,14 @@ export default async function ContactsPage({
   const sort = parseContactSort(one("sort"));
   const desc = contactDesc(sort, one("dir"));
 
-  const [everyContact, tagOptions, bin, { companyLogos }] = await Promise.all([
+  const [everyContact, tagOptions, bin, { companyLogos }, profile] = await Promise.all([
     listContacts(user.id),
     listTags(user.id, "CONTACT"),
     archiveCounts(user.id),
     getSettings(),
+    getProfile(user.id),
   ]);
+  const widths = parseWidths(profile.columnWidths);
 
   const passing = (except: keyof ContactFilters) =>
     everyContact.filter((row) =>
@@ -181,6 +186,41 @@ export default async function ContactsPage({
       <div className="mb-3 flex flex-wrap items-center gap-2">
         <SearchBox placeholder="Search people…" className="w-full sm:w-72" />
         <ContactFilterMenu filters={filters} facets={facets} sort={sort} dir={one("dir")} />
+        <SortMenu
+          active={sort}
+          desc={desc}
+          ariaLabel="Sort the people"
+          options={[
+            {
+              key: "name",
+              label: "Name",
+              href: sortHref("name"),
+              ascHref: buildContactQuery({ filters, sort: "name", dir: "asc" }),
+              descHref: buildContactQuery({ filters, sort: "name", dir: "desc" }),
+            },
+            {
+              key: "company",
+              label: "Company",
+              href: sortHref("company"),
+              ascHref: buildContactQuery({ filters, sort: "company", dir: "asc" }),
+              descHref: buildContactQuery({ filters, sort: "company", dir: "desc" }),
+            },
+            {
+              key: "ping",
+              label: "Next ping",
+              href: sortHref("ping"),
+              ascHref: buildContactQuery({ filters, sort: "ping", dir: "asc" }),
+              descHref: buildContactQuery({ filters, sort: "ping", dir: "desc" }),
+            },
+            {
+              key: "touch",
+              label: "Last touch",
+              href: sortHref("touch"),
+              ascHref: buildContactQuery({ filters, sort: "touch", dir: "asc" }),
+              descHref: buildContactQuery({ filters, sort: "touch", dir: "desc" }),
+            },
+          ]}
+        />
         <Button asChild variant="outline" size="sm" className="shrink-0">
           <a href={exportHref} download>
             <DownloadIcon /> Export
@@ -223,44 +263,48 @@ export default async function ContactsPage({
         filtered={narrowed}
         exportHref={exportHref}
         logos={companyLogos}
+        widths={widths}
         header={
           <>
-            <div className="min-w-0 flex-1">
-              <SortHeader
-                href={sortHref("name")}
-                label="Name"
-                active={sort === "name"}
-                desc={desc}
-              />
-            </div>
-            <div className="hidden w-44 shrink-0 md:block">
-              <SortHeader
-                href={sortHref("company")}
-                label="Company"
-                active={sort === "company"}
-                desc={desc}
-              />
-            </div>
-            <div className="hidden w-32 shrink-0 lg:block">Relationship</div>
-            <div className="hidden w-24 shrink-0 sm:block">
-              <SortHeader
-                href={sortHref("ping")}
-                label="Next ping"
-                active={sort === "ping"}
-                desc={desc}
-                className="justify-end"
-              />
-            </div>
-            <div className="w-24 shrink-0">
-              <SortHeader
-                href={sortHref("touch")}
-                label="Last touch"
-                active={sort === "touch"}
-                desc={desc}
-                className="justify-end"
-              />
-            </div>
-            <div className="hidden w-[60px] shrink-0 sm:block" aria-hidden="true" />
+            <SortHeader
+              className="min-w-0 flex-1"
+              href={sortHref("name")}
+              label="Name"
+              active={sort === "name"}
+              desc={desc}
+            />
+            <SortHeader
+              col="company"
+              className="hidden w-44 shrink-0 md:block"
+              href={sortHref("company")}
+              label="Company"
+              active={sort === "company"}
+              desc={desc}
+            />
+            <SortHeader
+              col="relationship"
+              className="hidden w-32 shrink-0 lg:block"
+              label="Relationship"
+            />
+            <SortHeader
+              col="ping"
+              className="hidden w-24 shrink-0 sm:block"
+              href={sortHref("ping")}
+              label="Next ping"
+              active={sort === "ping"}
+              desc={desc}
+              align="right"
+            />
+            <SortHeader
+              col="touch"
+              className="w-24 shrink-0"
+              href={sortHref("touch")}
+              label="Last touch"
+              active={sort === "touch"}
+              desc={desc}
+              align="right"
+            />
+            <SortHeader col="links" className="hidden w-[60px] shrink-0 sm:block" label="" />
           </>
         }
       />

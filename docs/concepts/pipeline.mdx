@@ -216,15 +216,25 @@ says so plainly rather than inventing a trend.
 ## Views and cuts
 
 The pipeline toolbar picks the view — a drag-and-drop **board**, a sortable **table**, or
-a month **calendar** of everything with a date on it — plus the stage filter and a search.
+a month **calendar** of everything with a date on it — plus a filter and a search.
 
 Filters combine — all of them, with each other. "Screening and interviewing" is one view
 rather than two trips, and so are "screening but only the overdue ones" and "closed, but
-only the ghostings". The stage chips are the fast lane; everything unbounded lives behind
-the **Filter** button beside the search: its tags, the company, which resume
-went out, how long it has sat still, and how much you want it. Every count you see is
-counted against the rows the other filters left, so a chip never claims twelve when the
-search has left one.
+only the ghostings".
+
+Everything lives behind the **Filter** button beside the search: the stage, its tags, the
+company, which resume went out, how long it has sat still, and how much you want it. It
+opens on the dimensions rather than on every value at once — click **Stage** and you get the
+stages, click **Company** and you get companies — and typing searches across all of them
+together, saying which dimension each match came from. Every count you see is counted
+against the rows the other filters left, so a row never claims twelve when the search has
+left one.
+
+Two chips stay above the board: **Everything**, and **Needs a nudge**. The stages used to sit
+beside them as a row you scrolled sideways, above a board whose columns are the stages;
+they are a dimension like any other and they live in the menu now. What is overdue is not —
+the dashboard leads with it and the tasks page is built around it, so it stays one click
+from anywhere.
 
 The table edits in place: stage, follow-up, salary and location are the cells themselves,
 and selecting rows closes a batch out in one action. Two columns count days: **Waiting** is
@@ -292,7 +302,14 @@ on one panel.
 Every view also decides how much it shows before you open anything. The **Fields** button
 picks per view — a board card, a table row and a calendar chip have nothing in common except
 that all three can be too busy — and the choice follows you between devices rather than
-living in the URL, because a saved view is a cut of the data and this is not. On the board
+living in the URL, because a saved view is a cut of the data and this is not. The same is
+true of how wide each column of the table is: drag the divider between two headings and the
+width is saved to your profile, so it is the same on your laptop and your phone. The company
+column takes whatever the rest leave, which is why widening one narrows it rather than
+pushing the table off the side. `get_column_widths` and `set_column_widths` are the same
+thing over MCP.
+
+On the board
 and in the table, the company, the role title and the stage are never in the list: a card
 without them is not shorter, it is unreadable, and in the table the stage cell is the editor
 the table exists for. The calendar is the exception, and only for stage — a chip is one line

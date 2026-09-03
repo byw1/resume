@@ -4282,3 +4282,76 @@ it is a display preference, and a client that has to be told about it will find 
 **Applies to:** `src/lib/mcp/handler.ts`, `skills/{hired,run-the-search}/SKILL.md`,
 `docs/concepts/{pipeline,me}.mdx`, `docs/reference/{faq,security}.mdx`,
 `docs/guides/what-to-say.mdx`, `docs/skills.mdx`.
+
+## 2026-09-03 — Resizable columns, a filter you step into, and a library behind Connect
+
+Five asks in one batch: an app library behind Connect with the settings screen reduced to a
+status row, resizable columns on the pipeline table, the stage chips out of the toolbar,
+a filter that does not make you scroll, and sorting and resizing on every list.
+
+**Column widths are stored, not local.** The Fields menu set the precedent — a display
+preference follows you between devices, a cut of the data lives in the URL — and a width you
+set on a laptop that does not apply on a phone is the same broken promise. It costs a `Json`
+column on Profile, a data function and two tools. `Json` rather than the `String[]` beside it
+because this is a map with a number in it, and a parallel array of `"key:width"` strings is
+the same thing with a parser bolted on. Prisma has no partial update for a Json column, so
+the write is read-modify-write and the merge lives in `withWidths` — where the clamping is
+too, so a tool and a drag handle cannot disagree about what 4000 means.
+
+An absent list, or an absent column inside one, means that column's catalogue width. That is
+what makes a column added later size itself, and what makes "reset" a delete rather than a
+write of every default. Widths are clamped on the way in AND on the way out: the value in the
+database was written by a client that may predate a narrower max.
+
+**Only the fixed columns resize; the name column absorbs the rest.** Giving every column a
+width means the table needs a horizontal scrollbar, which is a different design. So the
+handle sits on the LEFT edge of each fixed column and widening one narrows the name, which is
+the "divider between these two cells" a person expects.
+
+**The snap-back was only findable in a browser.** `setColumnWidthsAction` deliberately does
+not revalidate the route — the table already has the new width on screen. Clearing the local
+override when the drag ended therefore reverted the column to the stale server value the
+instant the pointer came up, and it corrected itself on the next navigation. Typecheck and
+build were both clean through all of it. The local width now stands until a genuinely
+different map arrives, compared by its serialised form because `stored` is a fresh literal
+every render. Measured with Playwright: 188 → drag → 248 → reload → 248.
+
+**The stage chips left the toolbar, which reverses an earlier entry.** They read well at five
+stages and badly at ten: the widest row on the page, scrolling sideways on a phone, above a
+board whose columns already are the stages. Stage is a dimension like tags or companies and
+it lives in the Filter menu now, with the four endings as one "Closed" row because that is
+how they are picked. Two chips stayed: Everything, and Needs a nudge — overdue is what the
+dashboard leads with and what the tasks page is built around, and burying it three clicks
+deep to tidy a row would have cost more than the row did. A line beside the chips names the
+stages the menu is holding, because a narrowed board whose only explanation is a number on a
+button is a board that looks broken.
+
+**The filter menu is two levels, and search still spans both.** One flat scroller is fine at
+three dimensions and unusable at seven — the dimensions, which are what you pick first, were
+invisible headings between walls of rows. It opens on them now. The drill-down would have
+made "I want the Fintech one and I don't care which list it is on" worse, so typing searches
+every value in every dimension at once and keeps the headings, because a company called
+Remote and a location called Remote are different rows that read identically.
+
+`CommandEmpty` had to go with it: `shouldFilter={false}` makes cmdk count every rendered item,
+and the "Clear these" row is one — so a search matching nothing showed a menu with one
+unrelated row in it and no explanation.
+
+**Sorting became a control as well as a heading.** Every one of these tables hides columns
+below `md`, so on a phone half the sort keys had no heading to click and were unreachable.
+The menu lists all of them at every width. The headings still sort; the two share one href
+builder so they cannot disagree.
+
+**The settings screen is a row, and Connect is a library.** Two labelled grids of the same
+tile spent most of a screen restating that an assistant and an account are different kinds of
+thing — a distinction that matters while you are adding one and nobody needs while reading.
+So: one row per wired thing, saying whether it is on and whether it needs you, and a library
+behind Connect with a tab each. The library lists everything, connected or not, and a row for
+a client you already have opens it rather than making a second connection: "did I already add
+Cursor?" is the question that screen exists to answer.
+
+**Applies to:** `prisma/schema.prisma` + `20250128000000_column_widths`,
+`src/lib/column-widths.ts`, `src/lib/data/me.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/lists/`, `src/components/filters/facet-menu.tsx`,
+`src/components/{pipeline,crm,settings}/`, `src/app/(app)/{applications,crm}/`,
+`tools/gen-tool-docs.mjs`, and the manual.

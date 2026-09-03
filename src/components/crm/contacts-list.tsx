@@ -13,6 +13,8 @@ import { TagChip, type TagValue } from "@/components/tags/tag-chip";
 import { SelectionBar } from "@/components/crm/selection-bar";
 import { PingSelected } from "@/components/crm/ping-selected";
 import { archiveRecordsAction, tagContactsAction } from "@/server/actions";
+import { ResizableColumns, useColumnStyle } from "@/components/lists/resizable-columns";
+import type { StoredWidths } from "@/lib/column-widths";
 import { cn } from "@/lib/utils";
 
 export type ContactRow = {
@@ -36,12 +38,21 @@ export function ContactsList({
   exportHref,
   logos,
   header,
+  widths,
 }: {
   rows: ContactRow[];
   filtered: boolean;
   exportHref: string;
   logos: boolean;
+  /**
+   * The column headings, built on the server from the URL. They are
+   * SortHeaders — client components — so they read their width from the
+   * provider below even though the page that composed them is a server
+   * component.
+   */
   header: React.ReactNode;
+  /** Stored column widths, already parsed and clamped by the server. */
+  widths: StoredWidths;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
 
@@ -113,6 +124,7 @@ export function ContactsList({
           }
         />
       ) : (
+        <ResizableColumns list="contacts" stored={widths}>
         <div className="bg-card shadow-card overflow-hidden rounded-xl">
           <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
             <Checkbox
@@ -176,7 +188,10 @@ export function ContactsList({
                   </div>
                 </Link>
 
-                <div className="relative hidden w-44 shrink-0 items-center gap-1.5 md:flex">
+                <Cell
+                  col="company"
+                  className="relative hidden w-44 shrink-0 items-center gap-1.5 md:flex"
+                >
                   {contact.companies.length > 0 ? (
                     <>
                       <CompanyChip
@@ -197,24 +212,31 @@ export function ContactsList({
                   ) : (
                     <span className="text-faint text-[12px]">—</span>
                   )}
-                </div>
+                </Cell>
 
-                <div className="text-faint hidden w-32 shrink-0 truncate text-[12px] lg:block">
+                <Cell
+                  col="relationship"
+                  className="text-faint hidden w-32 shrink-0 truncate text-[12px] lg:block"
+                >
                   {contact.relationship || "—"}
-                </div>
-                <div
+                </Cell>
+                <Cell
+                  col="ping"
                   className={cn(
                     "nums hidden w-24 shrink-0 text-right text-[12px] sm:block",
                     contact.pingDue ? "text-destructive font-medium" : "text-faint",
                   )}
                 >
                   {contact.nextPing}
-                </div>
-                <div className="nums text-faint w-24 shrink-0 text-right text-[12px]">
+                </Cell>
+                <Cell col="touch" className="nums text-faint w-24 shrink-0 text-right text-[12px]">
                   {contact.lastTouch}
-                </div>
+                </Cell>
 
-                <div className="relative hidden w-[60px] shrink-0 items-center justify-end gap-0.5 sm:flex">
+                <Cell
+                  col="links"
+                  className="relative hidden w-[60px] shrink-0 items-center justify-end gap-0.5 sm:flex"
+                >
                   {contact.email && (
                     <Button
                       asChild
@@ -244,12 +266,36 @@ export function ContactsList({
                       </a>
                     </Button>
                   )}
-                </div>
+                </Cell>
               </li>
             ))}
           </ul>
         </div>
+        </ResizableColumns>
       )}
+    </div>
+  );
+}
+
+/**
+ * A body cell at the dragged width.
+ *
+ * `className` keeps the Tailwind `w-*` it replaces, so the cell still has a
+ * width where nothing wraps it in a provider.
+ */
+function Cell({
+  col,
+  className,
+  children,
+}: {
+  col: string;
+  className?: string;
+  children: React.ReactNode;
+}) {
+  const style = useColumnStyle(col);
+  return (
+    <div className={className} style={style}>
+      {children}
     </div>
   );
 }

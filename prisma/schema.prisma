@@ -363,6 +363,19 @@ model Profile {
   boardFields    String[] @default([])
   listFields     String[] @default([])
   calendarFields String[] @default([])
+  /// How wide each resizable column is, per list, as
+  /// { "<list>": { "<column>": <pixels> } }. Json rather than the String[]
+  /// above because this is a map with a number in it and a parallel array of
+  /// "key:width" strings is the same thing with a parser bolted on.
+  ///
+  /// An absent list, or an absent column inside one, means that column's own
+  /// default width — so a column added later is sized by the catalogue rather
+  /// than by whatever was stored before it existed, and clearing a list is
+  /// "back to the defaults" rather than "every column zero". Widths are
+  /// clamped to each column's min and max on the way in AND on the way out:
+  /// a stored 4000 predates a narrower max, and nothing that renders should
+  /// trust a number a client sent months ago.
+  columnWidths   Json     @default("{}")
   /// A square headshot, held as a data URI ("data:image/jpeg;base64,..."). It
   /// lives in the row rather than an object store so self-hosting still needs
   /// one environment variable, and so a published resume renders the picture

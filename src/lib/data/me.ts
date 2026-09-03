@@ -1,6 +1,12 @@
 import type { NoteKind } from "@prisma/client";
 import { db } from "@/lib/db";
 import type { PipelineView } from "@/lib/pipeline-fields";
+import {
+  parseWidths,
+  withWidths,
+  type ColumnList,
+  type StoredWidths,
+} from "@/lib/column-widths";
 import { pick } from "@/lib/data/patch";
 import { resolvePhoto } from "@/lib/photo";
 
@@ -62,6 +68,35 @@ export async function setPipelineFields(
     listFields: profile.listFields,
     calendarFields: profile.calendarFields,
   };
+}
+
+/**
+ * How wide this person's list columns are.
+ *
+ * A read-modify-write rather than a Json merge, because Prisma has no partial
+ * update for a Json column: writing `{ pipeline: { stage: 160 } }` would
+ * replace the whole map and drop the CRM's widths with it. The merge is in
+ * `withWidths`, which is also where clamping happens, so a tool and a drag
+ * handle cannot disagree about what 4000 means.
+ *
+ * `reset` is how a list goes back to its defaults: it clears that list's own
+ * entry rather than writing every column's default width in, so a column added
+ * to the catalogue later is sized by the catalogue and not by a stored number
+ * that predates it.
+ */
+export async function setColumnWidths(
+  userId: string,
+  list: ColumnList,
+  widths: Record<string, number>,
+  options?: { reset?: boolean },
+): Promise<StoredWidths> {
+  const profile = await getProfile(userId);
+  const next = withWidths(parseWidths(profile.columnWidths), list, widths, options);
+  const saved = await db.profile.update({
+    where: { userId },
+    data: { columnWidths: next },
+  });
+  return parseWidths(saved.columnWidths);
 }
 
 export type ProfilePatch = Partial<{

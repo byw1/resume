@@ -99,11 +99,12 @@ One toolbar across the top picks the view, the cut and the search.
     than a column each.
   </Accordion>
   <Accordion title="Table" icon="table">
-    Sortable, and it edits in place — stage, follow-up, salary and location are the cells
-    themselves. Two columns count days and they answer different questions: **Waiting** is
-    how long it has sat in the stage it is in, **Quiet** is how long since anything at all
-    was logged. Quiet is the one to sort on for chasing, and it pairs with the "Nothing
-    logged for" filter. Select rows to close a batch out in one action.
+    Sortable, resizable, and it edits in place — stage, follow-up, salary and location are
+    the cells themselves. Two columns count days and they answer different questions:
+    **Waiting** is how long it has sat in the stage it is in, **Quiet** is how long since
+    anything at all was logged. Quiet is the one to sort on for chasing, and it pairs with
+    the "Nothing logged for" filter. Drag the divider between two headings to set their
+    widths, which are saved to your profile. Select rows to close a batch out in one action.
   </Accordion>
   <Accordion title="Calendar" icon="calendar-days">
     A month of everything that has a date on it — follow-ups, task deadlines, logged
@@ -111,9 +112,12 @@ One toolbar across the top picks the view, the cut and the search.
   </Accordion>
 </AccordionGroup>
 
-Filters combine — all of them, with each other. Stage chips are the fast lane; the
-**Filter** button holds the tags, the company, which resume went out, how long something
-has sat still and how much you want it. A cut worth keeping saves under a name.
+Filters combine — all of them, with each other. The **Filter** button holds every
+dimension: the stage, the tags, the company, which resume went out, how long something has
+sat still and how much you want it. It opens on the dimensions and you step into one, so a
+list of stages is a click rather than a scroll past forty companies. Two chips stay above
+the board — **Everything** and **Needs a nudge** — because what is overdue is the one cut
+worth reaching from anywhere. A cut worth keeping saves under a name.
 
 Opening an application slides it in from the right, so you keep your place on the board.
 The people you are talking to come first, then the resume you sent — drawn as the page it
@@ -164,9 +168,15 @@ matches tag names as well as everything else.
 
 Behind the Filter button is everything a chip row cannot hold: industry, size, location and
 tags on companies; tags, company and "nothing logged for" on people; and on both, the gaps
-worth fixing in one sitting — no website, no email, filed under nothing. Dimensions AND with
-each other and OR inside themselves, every count is counted against the rows the other
-filters left, and every column with an answer sorts.
+worth fixing in one sitting — no website, no email, filed under nothing. It opens on those
+dimensions rather than on every value at once, so you pick Industry and then pick an
+industry; typing searches across all of them together. Dimensions AND with each other and OR
+inside themselves, and every count is counted against the rows the other filters left.
+
+Sorting is the column headings, or the **Sort** control beside the filter, which lists every
+key — including the ones whose column is hidden on a narrow screen, where the headings are
+not there to click. Dragging the divider between two headings sets their widths; those are
+saved to your profile rather than the URL, so the list looks the same wherever you open it.
 
 Tick rows and a bar appears: tag all of them, put all of them on the chase list, export just
 those, or delete them. Each list exports on its own too, and what comes out is what you were
@@ -188,9 +198,11 @@ pasting a URL into an assistant, not changing a password.
 
 <CardGroup cols={3}>
   <Card title="Connections" icon="plug">
-    Everything wired to your workspace, as tiles. Assistants: when each last called in,
-    and — opened — its URL, setup steps, test, rename, rotate, disconnect. Accounts:
-    your own [Gmail and Calendar](/guides/inbox-and-calendar). Plus the three
+    One row per thing wired to your workspace, each saying whether it is on and whether it
+    needs you. Open one for its URL, setup steps, test, rename, rotate, disconnect —
+    or, for [Gmail and Calendar](/guides/inbox-and-calendar), to connect and revoke.
+    **Connect** opens a library of everything you can add, assistants on one tab and
+    accounts on the other, with what you already have marked as connected. Plus the three
     [skills](/skills), each as a raw `SKILL.md` and as a zip.
   </Card>
   <Card title="Account" icon="user">

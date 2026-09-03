@@ -21,6 +21,13 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  ColumnGrip,
+  ResizableColumns,
+  useColumnStyle,
+} from "@/components/lists/resizable-columns";
+import { SortMenu } from "@/components/lists/sort-menu";
+import type { StoredWidths } from "@/lib/column-widths";
 import { moveApplicationsStageAction, moveStageAction, updateApplicationAction } from "@/server/actions";
 import { cn, relativeDay } from "@/lib/utils";
 
@@ -44,56 +51,140 @@ import { cn, relativeDay } from "@/lib/utils";
  * the header comment above); the checkbox and the actions cell are controls,
  * not data. A setting that can make a screen useless is not a setting.
  */
+/**
+ * `col` is the key in the width catalogue. A column without one cannot be
+ * dragged: the company cell flexes to fill whatever the rest leave, and the
+ * trailing actions cell is a control. The Tailwind `w-*` on a resizable column
+ * is the width before anything is stored — an inline width from the catalogue
+ * overrides it, and the class is what renders where there is no provider, on
+ * the shared pipeline and the print page.
+ */
 const COLUMNS: {
   key: ListSort | null;
   label: string;
   className: string;
   field: string | null;
+  col?: string;
 }[] = [
   { key: "company", label: "Company", className: "flex-1 min-w-0", field: null },
-  { key: "stage", label: "Stage", className: "w-32 shrink-0", field: null },
-  { key: "followUp", label: "Follow-up", className: "w-28 shrink-0", field: "followUp" },
-  { key: "waiting", label: "Waiting", className: "w-20 shrink-0 text-right", field: "waiting" },
+  { key: "stage", label: "Stage", className: "w-32 shrink-0", field: null, col: "stage" },
+  {
+    key: "followUp",
+    label: "Follow-up",
+    className: "w-28 shrink-0",
+    field: "followUp",
+    col: "followUp",
+  },
+  {
+    key: "waiting",
+    label: "Waiting",
+    className: "w-20 shrink-0 text-right",
+    field: "waiting",
+    col: "waiting",
+  },
   {
     key: "quiet",
     label: "Quiet",
     className: "w-20 shrink-0 text-right hidden md:block",
     field: "quiet",
+    col: "quiet",
   },
-  { key: "salary", label: "Salary", className: "w-32 shrink-0 hidden lg:block", field: "salary" },
-  { key: null, label: "Location", className: "w-32 shrink-0 hidden xl:block", field: "location" },
+  {
+    key: "salary",
+    label: "Salary",
+    className: "w-32 shrink-0 hidden lg:block",
+    field: "salary",
+    col: "salary",
+  },
+  {
+    key: null,
+    label: "Location",
+    className: "w-32 shrink-0 hidden xl:block",
+    field: "location",
+    col: "location",
+  },
   {
     key: null,
     label: "Log",
     className: "w-10 shrink-0 text-right hidden sm:block",
     field: "activity",
+    col: "activity",
   },
   {
     key: "updated",
     label: "Touched",
     className: "w-20 shrink-0 text-right hidden sm:block",
     field: "updated",
+    col: "updated",
   },
   {
     key: null,
     label: "Excitement",
     className: "w-24 shrink-0 text-right hidden xl:block",
     field: "excitement",
+    col: "excitement",
   },
   { key: null, label: "", className: "w-8 shrink-0", field: null },
 ];
+
+/**
+ * A body cell at the dragged width.
+ *
+ * `className` keeps the Tailwind `w-*` it replaces, so the cell still has a
+ * width where there is no provider — the shared pipeline and the print page
+ * render these rows with nothing to drag.
+ */
+function Body({
+  col,
+  className,
+  title,
+  children,
+}: {
+  col: string;
+  className?: string;
+  title?: string;
+  children: React.ReactNode;
+}) {
+  const style = useColumnStyle(col);
+  return (
+    <div className={className} style={style} title={title}>
+      {children}
+    </div>
+  );
+}
+
+/** One header or body cell, at whatever width the catalogue says. */
+function Cell({
+  column,
+  children,
+  className,
+}: {
+  column: (typeof COLUMNS)[number];
+  children?: React.ReactNode;
+  className?: string;
+}) {
+  const style = useColumnStyle(column.col ?? "");
+  return (
+    <div className={cn(column.className, className)} style={style}>
+      {children}
+    </div>
+  );
+}
 
 export function PipelineList({
   rows,
   sort,
   desc,
   fields,
+  widths,
 }: {
   rows: ListRow[];
   sort: ListSort;
   desc: boolean;
   /** Which optional columns to draw. Structural ones are always drawn. */
   fields: string[];
+  /** Stored column widths, already parsed and clamped by the server. */
+  widths: StoredWidths;
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const params = useSearchParams();
@@ -131,55 +222,77 @@ export function PipelineList({
   }
 
   return (
-    <div className="space-y-2">
-      {chosen.length > 0 && (
-        <BulkBar ids={chosen} onDone={() => setSelected(new Set())} />
-      )}
+    <ResizableColumns list="pipeline" stored={widths}>
+      <div className="space-y-2">
+        {chosen.length > 0 && (
+          <BulkBar ids={chosen} onDone={() => setSelected(new Set())} />
+        )}
 
-      <div className="bg-card shadow-card overflow-hidden rounded-xl">
-        <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
-          <div className="flex w-5 shrink-0 items-center">
-            <Checkbox
-              checked={chosen.length === visibleIds.length}
-              onCheckedChange={toggleAll}
-              aria-label="Select every row"
-            />
-          </div>
-          {columns.map((column) => (
-            <div key={column.label} className={column.className}>
-              {column.key ? (
-                <Link
-                  href={sortHref(column.key, sort, desc, params)}
-                  className="hover:text-foreground touch-target inline-flex min-h-11 items-center gap-1 transition-colors duration-150 md:min-h-0"
-                >
-                  {column.label}
-                  {sort === column.key &&
-                    (desc ? (
-                      <ArrowDownIcon className="size-2.5" />
-                    ) : (
-                      <ArrowUpIcon className="size-2.5" />
-                    ))}
-                </Link>
-              ) : (
-                column.label
-              )}
-            </div>
-          ))}
+        {/* Sorting, reachable on a phone. Half these keys have no heading to
+            click below `md`, and the toolbar above is shared with the board and
+            the calendar, where a sort key means nothing — so it lives here,
+            with the table it sorts. */}
+        <div className="flex justify-end">
+          <SortMenu
+            active={sort}
+            desc={desc}
+            ariaLabel="Sort the pipeline table"
+            options={SORTS.map(({ key, label }) => ({
+              key,
+              label,
+              href: sortHref(key, sort, desc, params),
+              ascHref: dirHref(key, false, params),
+              descHref: dirHref(key, true, params),
+            }))}
+          />
         </div>
 
-        <ul className="divide-y">
-          {rows.map((row) => (
-            <Row
-              key={row.id}
-              row={row}
-              columns={columns}
-              selected={selected.has(row.id)}
-              onSelect={() => toggle(row.id)}
-            />
-          ))}
-        </ul>
+        <div className="bg-card shadow-card overflow-hidden rounded-xl">
+          <div className="eyebrow bg-inset flex items-center gap-3 px-4 py-2">
+            <div className="flex w-5 shrink-0 items-center">
+              <Checkbox
+                checked={chosen.length === visibleIds.length}
+                onCheckedChange={toggleAll}
+                aria-label="Select every row"
+              />
+            </div>
+            {columns.map((column) => (
+              <Cell key={column.label} column={column} className="relative">
+                {column.col && <ColumnGrip column={column.col} />}
+                {column.key ? (
+                  <Link
+                    href={sortHref(column.key, sort, desc, params)}
+                    className="hover:text-foreground touch-target inline-flex min-h-11 items-center gap-1 transition-colors duration-150 md:min-h-0"
+                  >
+                    {column.label}
+                    {sort === column.key &&
+                      (desc ? (
+                        <ArrowDownIcon className="size-2.5" />
+                      ) : (
+                        <ArrowUpIcon className="size-2.5" />
+                      ))}
+                  </Link>
+                ) : (
+                  column.label
+                )}
+              </Cell>
+            ))}
+          </div>
+
+          <ul className="divide-y">
+            {rows.map((row) => (
+              <Row
+                key={row.id}
+                row={row}
+                columns={columns}
+                selected={selected.has(row.id)}
+                onSelect={() => toggle(row.id)}
+              />
+            ))}
+          </ul>
+        </div>
       </div>
-    </div>
+    </ResizableColumns>
   );
 }
 
@@ -265,7 +378,7 @@ function Row({
         </div>
       </Link>
 
-      <div className="w-32 shrink-0">
+      <Body col="stage" className="w-32 shrink-0">
         <Select
           value={values.stage}
           onValueChange={(value) =>
@@ -288,10 +401,10 @@ function Row({
             ))}
           </SelectContent>
         </Select>
-      </div>
+      </Body>
 
       {shows("followUp") && (
-        <div className="w-28 shrink-0">
+        <Body col="followUp" className="w-28 shrink-0">
           <DateCell
             value={values.nextFollowUpAt}
             label={`Follow-up date for ${row.company}`}
@@ -302,13 +415,14 @@ function Row({
               )
             }
           />
-        </div>
+        </Body>
       )}
 
       {/* Read-only: this is a measurement, not a field. Dashes on a closed
           application because "waiting 40 days" is meaningless once it is over. */}
       {shows("waiting") && (
-        <div
+        <Body
+          col="waiting"
           className={cn(
             "nums w-20 shrink-0 text-right text-[12px]",
             !closed && row.daysInStage >= 21 ? "text-destructive" : "text-faint",
@@ -316,13 +430,14 @@ function Row({
           title={closed ? undefined : `In ${STAGE_LABEL[values.stage]} for ${row.daysInStage} days`}
         >
           {closed ? "—" : `${row.daysInStage}d`}
-        </div>
+        </Body>
       )}
 
       {/* The other measurement, and the one chasing is decided on: days since
           anything at all happened, not days since it last moved. */}
       {shows("quiet") && (
-        <div
+        <Body
+          col="quiet"
           className={cn(
             "nums hidden w-20 shrink-0 text-right text-[12px] md:block",
             hasGoneQuiet(values.stage, row.quietDays, TERMINAL_STAGES)
@@ -332,11 +447,11 @@ function Row({
           title={quiet === null ? undefined : `Nothing logged for ${row.quietDays} days`}
         >
           {quiet === null ? "—" : `${quiet}d`}
-        </div>
+        </Body>
       )}
 
       {shows("salary") && (
-        <div className="hidden w-32 shrink-0 lg:block">
+        <Body col="salary" className="hidden w-32 shrink-0 lg:block">
         <CellInput
           value={values.salaryRange}
           placeholder="—"
@@ -345,11 +460,11 @@ function Row({
           onLocalChange={(value) => setValues((c) => ({ ...c, salaryRange: value }))}
           className="nums"
         />
-        </div>
+        </Body>
       )}
 
       {shows("location") && (
-        <div className="hidden w-32 shrink-0 xl:block">
+        <Body col="location" className="hidden w-32 shrink-0 xl:block">
           <CellInput
             value={values.location}
             placeholder="—"
@@ -357,25 +472,25 @@ function Row({
             onBlurValue={(value) => commitText("location", value)}
             onLocalChange={(value) => setValues((c) => ({ ...c, location: value }))}
           />
-        </div>
+        </Body>
       )}
 
       {shows("activity") && (
-        <div className="nums text-faint hidden w-10 shrink-0 text-right text-[12px] sm:block">
+        <Body col="activity" className="nums text-faint hidden w-10 shrink-0 text-right text-[12px] sm:block">
           {row.activityCount || "—"}
-        </div>
+        </Body>
       )}
 
       {shows("updated") && (
-        <div className="nums text-faint hidden w-20 shrink-0 text-right text-[12px] sm:block">
+        <Body col="updated" className="nums text-faint hidden w-20 shrink-0 text-right text-[12px] sm:block">
           {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-        </div>
+        </Body>
       )}
 
       {shows("excitement") && (
-        <div className="nums text-faint hidden w-24 shrink-0 text-right text-[12px] xl:block">
+        <Body col="excitement" className="nums text-faint hidden w-24 shrink-0 text-right text-[12px] xl:block">
           {"★".repeat(row.excitement)}
-        </div>
+        </Body>
       )}
 
       {/* The same verbs the board card offers. Two views of one pipeline
@@ -552,6 +667,27 @@ function BulkBar({ ids, onDone }: { ids: string[]; onDone: () => void }) {
  * made a fresh query string, so sorting a filtered list silently threw away
  * the filters, the search and the saved view you were looking through.
  */
+/** The sort keys, for the menu. The headings carry the same set. */
+const SORTS: { key: ListSort; label: string }[] = [
+  { key: "company", label: "Company" },
+  { key: "stage", label: "Stage" },
+  { key: "followUp", label: "Follow-up" },
+  { key: "waiting", label: "Waiting" },
+  { key: "quiet", label: "Quiet" },
+  { key: "salary", label: "Salary" },
+  { key: "updated", label: "Touched" },
+];
+
+/** A direction picked outright, rather than the heading's toggle. */
+function dirHref(key: ListSort, desc: boolean, current: URLSearchParams) {
+  const params = new URLSearchParams(current);
+  params.set("view", "list");
+  params.set("sort", key);
+  if (desc) params.set("dir", "desc");
+  else params.delete("dir");
+  return `/applications?${params}`;
+}
+
 function sortHref(key: ListSort, sort: ListSort, desc: boolean, current: URLSearchParams) {
   const params = new URLSearchParams(current);
   params.set("view", "list");

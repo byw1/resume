@@ -1,18 +1,29 @@
+import type { Stage } from "@prisma/client";
 import { FacetMenu, type FacetGroup } from "@/components/filters/facet-menu";
 import { tagTone } from "@/lib/data/tags";
+import { BOARD_STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
 import { buildPipelineQuery, toggleIn, type PipelineFilters } from "@/lib/pipeline-filters";
 
 export type FilterFacets = {
   tags: { id: string; name: string; color: string; count: number }[];
   companies: { id: string; name: string; count: number }[];
   resumes: { id: string; name: string; count: number }[];
+  /** Per-stage counts, for the Stage dimension. */
+  stages: Record<Stage, number>;
 };
 
 const WAITING = [7, 14, 30];
 const EXCITEMENT = [4, 5];
 
 /**
- * The pipeline's six dimensions, as rows for the shared popover.
+ * The pipeline's dimensions, as rows for the shared popover.
+ *
+ * Stage is one of them now. It spent a release as a row of chips under the
+ * toolbar, which read well at five stages and badly at ten: the row was the
+ * widest thing on the page, it scrolled sideways on a phone, and it sat above
+ * a board whose columns already say what the stages are. Stage is a dimension
+ * like any other, so it lives where the others do — and what is left above the
+ * board is the one cut worth a click, which is what is overdue.
  *
  * The popover itself lives in `src/components/filters/facet-menu.tsx`, because
  * the CRM lists need exactly the same control. What stays here is the part that
@@ -43,7 +54,11 @@ export function FilterMenu({
   const href = (next: PipelineFilters) =>
     buildPipelineQuery({ view, filters: next, sort, dir });
 
+  // Stage counts toward the badge now that it is in here. Overdue does not:
+  // it is still a chip of its own above the board, so counting it would say 1
+  // over a menu with nothing ticked in it.
   const active =
+    filters.stages.length +
     filters.tags.length +
     filters.companies.length +
     filters.resumes.length +
@@ -51,7 +66,37 @@ export function FilterMenu({
     (filters.quiet !== null ? 1 : 0) +
     (filters.excitement !== null ? 1 : 0);
 
+  const closedOn = TERMINAL_STAGES.every((stage) => filters.stages.includes(stage));
+
   const groups: FacetGroup[] = [
+    {
+      heading: "Stage",
+      rows: [
+        ...BOARD_STAGES.map((stage) => ({
+          id: `st-${stage}`,
+          label: STAGE_LABEL[stage],
+          count: facets.stages[stage],
+          on: filters.stages.includes(stage),
+          dot: STAGE_TONE[stage],
+          href: href({ ...filters, stages: toggleIn(filters.stages, stage) as Stage[] }),
+        })),
+        {
+          // The four endings as one row, because "show me the closed ones" is
+          // one question. Subtractive on the way off, so turning it back off
+          // keeps whichever live stages were also on.
+          id: "st-closed",
+          label: "Closed — rejected, ghosted, withdrawn, offer taken",
+          count: TERMINAL_STAGES.reduce((total, stage) => total + facets.stages[stage], 0),
+          on: closedOn,
+          href: href({
+            ...filters,
+            stages: closedOn
+              ? filters.stages.filter((stage) => !TERMINAL_STAGES.includes(stage))
+              : ([...new Set([...filters.stages, ...TERMINAL_STAGES])] as Stage[]),
+          }),
+        },
+      ],
+    },
     {
       heading: "Tags",
       rows: facets.tags.map((tag) => ({
@@ -122,6 +167,7 @@ export function FilterMenu({
       activeCount={active}
       clearHref={href({
         ...filters,
+        stages: [],
         tags: [],
         companies: [],
         resumes: [],
@@ -129,11 +175,11 @@ export function FilterMenu({
         quiet: null,
         excitement: null,
       })}
-      placeholder="Tag, company, resume…"
+      placeholder="Stage, tag, company, resume…"
       ariaLabel="Filter the pipeline"
       note={
         limited
-          ? "The calendar shows dates, so only the stage chips and Needs a nudge narrow it. These apply on the board and the table."
+          ? "The calendar shows dates, so only Stage and Needs a nudge narrow it. The rest apply on the board and the table."
           : undefined
       }
     />

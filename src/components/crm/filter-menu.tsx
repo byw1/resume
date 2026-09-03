@@ -94,7 +94,7 @@ export function CompanyFilterMenu({
     tagGroup("Location", facets.location, "locations", "loc"),
     tagGroup("Tags", facets.tags, "tags", "tag"),
     {
-      heading: "Missing",
+      heading: "Gaps",
       separated: true,
       rows: COMPANY_MISSING.map((gap) => ({
         id: `miss-${gap}`,
@@ -180,7 +180,7 @@ export function ContactFilterMenu({
       })) as FacetRow[],
     },
     {
-      heading: "Missing",
+      heading: "Gaps",
       rows: CONTACT_MISSING.map((gap) => ({
         id: `miss-${gap}`,
         label: MISSING_CONTACT_LABEL[gap],

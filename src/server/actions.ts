@@ -42,6 +42,7 @@ import { listAudit, recordAudit } from "@/lib/data/audit";
 import { recordSystemEvent, sweepSystemEvents } from "@/lib/data/system";
 import * as archive from "@/lib/data/archive";
 import type { PipelineView } from "@/lib/pipeline-fields";
+import type { ColumnList } from "@/lib/column-widths";
 import { sweepArchive } from "@/lib/data/archive";
 
 /**
@@ -1155,6 +1156,22 @@ export async function setPipelineFieldsAction(view: PipelineView, fields: string
   const result = await me.setPipelineFields(user.id, view, fields);
   revalidatePath("/applications");
   return result;
+}
+
+/**
+ * Save a column width after a drag.
+ *
+ * No revalidatePath: the table already has the new width on screen — it has
+ * been rendering it since the pointer moved — so refreshing the route would
+ * repaint the whole list to arrive at the layout it is already showing.
+ */
+export async function setColumnWidthsAction(
+  list: ColumnList,
+  widths: Record<string, number>,
+  options?: { reset?: boolean },
+) {
+  const user = await requireUser();
+  return me.setColumnWidths(user.id, list, widths, options);
 }
 
 export async function createContactAction(input: {

@@ -56,11 +56,15 @@ just *talk* to it.
   know someone, to the people whose ping is due — while the search box matches any label.
   Both lists filter properly now: industry, size, location and tags on companies, tags,
   company and how long since you logged anything on people, plus the gaps worth fixing in one
-  sitting ("no website", "no email", "filed under nothing"). Dimensions AND with each other
-  and OR inside themselves, every count is counted against what the other filters left, and
-  every column that has an answer sorts. Tick rows to tag a batch, put a batch on the chase
-  list, delete a batch, or export just those; each list exports to CSV on its own, honouring
-  whatever you have narrowed it to.
+  sitting ("no website", "no email", "filed under nothing"). The Filter button opens on the
+  dimensions rather than on every value at once — pick Industry, then pick from industries —
+  and typing searches across all of them together. Dimensions AND with each other and OR
+  inside themselves, every count is counted against what the other filters left, and every
+  column that has an answer sorts, from its heading or from a Sort control that still works
+  on a phone. Drag the divider between two columns to set their widths, which follow you
+  between devices. Tick rows to tag a batch, put a batch on the chase list, delete a batch,
+  or export just those; each list exports to CSV on its own, honouring whatever you have
+  narrowed it to.
   Contacts attach to applications straight from the CRM rather than being retyped, and
   removing one from an application never deletes the person. A person keeps every way you
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
@@ -73,7 +77,7 @@ just *talk* to it.
   before it does it. Names fold case, so `linkedin` lands on the `LinkedIn` you already
   have rather than minting a twin.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  115 tools any MCP client can call (145 if you're an admin). Claude, Claude Code, ChatGPT,
+  117 tools any MCP client can call (147 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's career history, resumes or applications. Admin lives
@@ -248,7 +252,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 115, or 145 if you're an admin.
+would, then tells you how many tools answered — 117, or 147 if you're an admin.
 
 #### One connection per client
 
@@ -419,7 +423,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-115 tools. One hundred and seven of them are the data tools across the four areas, the
+117 tools. One hundred and nine of them are the data tools across the four areas, the
 archive that cuts through all of them, your Gmail and Calendar, and your account; the other
 eight are the workflows below, published as tools as well as prompts, because prompt support
 is optional in MCP clients and tool support isn't. Call one and it hands back a step-by-step
@@ -490,8 +494,9 @@ tasks — `list_tasks`, `create_task`, `update_task`, `complete_task`, `delete_t
 what's overdue, `list_schedule` for a whole window of dated work at once, `pipeline_stats` for
 the shape of your search, and `diagnose_search`, which reads the funnel and tells you which
 step is losing people rather than handing you six numbers to interpret. `export_csv` returns
-any of the three lists as a spreadsheet, and `get_pipeline_fields` / `set_pipeline_fields`
-choose how much each view shows before you open anything.
+any of the three lists as a spreadsheet, `get_pipeline_fields` / `set_pipeline_fields` choose
+how much each view shows before you open anything, and `get_column_widths` /
+`set_column_widths` are the same idea for how wide each table column is.
 
 **CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /

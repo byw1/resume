@@ -13,6 +13,7 @@ import { listResumeNames } from "@/lib/data/resumes";
 import { listTags } from "@/lib/data/tags";
 import { archiveCounts } from "@/lib/data/archive";
 import { getProfile } from "@/lib/data/me";
+import { parseWidths } from "@/lib/column-widths";
 import { FieldsMenu } from "@/components/pipeline/fields-menu";
 import { Button } from "@/components/ui/button";
 import { DownloadIcon } from "lucide-react";
@@ -141,7 +142,9 @@ export default async function ApplicationsPage({
         application.nextFollowUpAt !== null &&
         application.nextFollowUpAt.getTime() <= now,
     ).length,
-    closed: forStages.filter((application) => TERMINAL_STAGES.includes(application.stage)).length,
+    // Relaxed on stages, so a stage row counts what turning it on would show
+    // rather than what is already through the stage filter. It feeds the Stage
+    // dimension in the Filter menu, which is where the stages went.
     byStage: Object.fromEntries(
       STAGES.map((stage) => [stage, forStages.filter((a) => a.stage === stage).length]),
     ) as Record<Stage, number>,
@@ -184,6 +187,7 @@ export default async function ApplicationsPage({
         ? [{ id: "none", name: "No resume attached", count: resumeTally.get("none") ?? 0 }]
         : []),
     ],
+    stages: counts.byStage,
   };
 
   const chrome = (content: React.ReactNode) => (
@@ -317,6 +321,7 @@ export default async function ApplicationsPage({
         sort={sort}
         desc={desc}
         fields={[...visibleFields("list", profile.listFields)]}
+        widths={parseWidths(profile.columnWidths)}
       />,
     );
   }

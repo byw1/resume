@@ -18,6 +18,14 @@ import {
   visibleFields,
 } from "@/lib/pipeline-fields";
 import {
+  COLUMNS,
+  COLUMN_LISTS,
+  LIST_LABEL,
+  columnKeys,
+  parseWidths,
+  widthsFor,
+} from "@/lib/column-widths";
+import {
   exportApplicationsCsv,
   exportCompaniesCsv,
   exportContactsCsv,
@@ -260,6 +268,7 @@ const SORT_DIRECTIONS = ["asc", "desc"] as const;
 const COMPANY_MISSING = ["website", "industry", "location"] as const;
 const CONTACT_MISSING = ["email", "tags"] as const;
 const PIPELINE_VIEW_VALUES = ["board", "list", "calendar"] as const;
+const COLUMN_LIST_VALUES = ["pipeline", "companies", "contacts"] as const;
 
 /**
  * The profile as a tool should see it.
@@ -2702,6 +2711,103 @@ export const tools: McpTool[] = [
         showing: [...visibleFields(view, fields)],
         onDefaults: fields.length === 0,
         stored,
+      };
+    },
+  },
+  {
+    name: "get_column_widths",
+    title: "How wide each list's columns are",
+    description:
+      "The column widths on the three tables you can resize — the pipeline's table view, the companies list and the contacts list — with each column's default, its minimum and its maximum beside the width it is actually drawing at. Reach for it when somebody says a column is too narrow to read, wants their layout described, or before set_column_widths, which needs the keys. Each list also has a name column that flexes to fill whatever the others leave; it is not in the catalogue and has no width, because widening a fixed column is what makes the name narrower. `onDefaults` is true for a list nothing has been stored for. Read-only.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => {
+      const profile = await me.getProfile(ctx.userId);
+      const stored = parseWidths(profile.columnWidths);
+      return COLUMN_LISTS.map((list) => ({
+        list,
+        label: LIST_LABEL[list],
+        onDefaults: stored[list] === undefined,
+        columns: COLUMNS[list].map((column) => ({
+          key: column.key,
+          label: column.label,
+          width: widthsFor(list, stored)[column.key],
+          default: column.width,
+          min: column.min,
+          max: column.max,
+        })),
+      }));
+    },
+  },
+  {
+    name: "set_column_widths",
+    title: "Resize a list's columns",
+    description:
+      "Set how wide one or more columns are on one list, in pixels. MERGES rather than replaces: a column you leave out keeps the width it had, which is the opposite of set_pipeline_fields and is deliberate — 'make Salary wider' should not reset every other column on the way past. Pass reset: true with no widths to put the whole list back on its defaults, which also means it picks up the catalogue's width for any column added later. A width outside a column's min and max is clamped to the nearest end rather than refused, because the useful reading of 'make it as wide as it goes' is the maximum, not an error; a key that is not a column on that list IS refused, because that one is a typo. Call get_column_widths first for the keys and the limits. This is a display preference and changes no data.",
+    inputSchema: object(
+      {
+        list: {
+          type: "string",
+          enum: [...COLUMN_LIST_VALUES],
+          description: "pipeline | companies | contacts",
+        },
+        widths: {
+          type: "object",
+          description:
+            "Column key to width in pixels, e.g. { \"salary\": 180 }. Omit with reset: true.",
+          additionalProperties: { type: "number" },
+        },
+        reset: bool("Put the whole list back on its default widths"),
+      },
+      ["list"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const list = enumArg(args, "list", COLUMN_LIST_VALUES);
+      if (!list) throw new Error('Missing required string argument "list"');
+      const reset = b(args, "reset") ?? false;
+      const raw = args.widths;
+      const widths: Record<string, number> = {};
+      if (raw !== undefined) {
+        if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+          throw new Error('"widths" must be an object of column key to pixel width.');
+        }
+        const known = new Set(columnKeys(list));
+        for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
+          // A typo is refused; an out-of-range number is clamped downstream.
+          // Those are different mistakes and deserve different answers.
+          if (!known.has(key)) {
+            throw new Error(
+              `"${key}" is not a column on the ${list} list. Use one of: ${columnKeys(list).join(", ")}.`,
+            );
+          }
+          if (typeof value !== "number" || !Number.isFinite(value)) {
+            throw new Error(`Width for "${key}" must be a number of pixels.`);
+          }
+          widths[key] = value;
+        }
+      }
+      if (!reset && Object.keys(widths).length === 0) {
+        throw new Error("Pass widths to set, or reset: true to go back to the defaults.");
+      }
+      const stored = await me.setColumnWidths(ctx.userId, list, widths, { reset });
+      const drawn = widthsFor(list, stored);
+      return {
+        list,
+        onDefaults: stored[list] === undefined,
+        // What it actually drew at, not what was asked for: the difference is
+        // the clamp, and reporting the request back would hide it.
+        columns: COLUMNS[list].map((column) => ({ key: column.key, width: drawn[column.key] })),
       };
     },
   },
