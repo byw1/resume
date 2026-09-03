@@ -138,8 +138,12 @@ export function CompaniesList({
                   selected.has(company.id) && "bg-accent/40",
                 )}
               >
-                {/* Above the stretched link, so ticking a row never navigates. */}
-                <div className="relative">
+                {/* Above the stretched link, so ticking a row never navigates.
+                    `relative` alone is not enough: the overlay is the Link's
+                    ::before, the Link comes later in the DOM, and two
+                    positioned things with no z-index are painted in DOM
+                    order — so the overlay swallowed every click on the box. */}
+                <div className="relative z-[1]">
                   <Checkbox
                     checked={selected.has(company.id)}
                     onCheckedChange={() => toggle(company.id)}

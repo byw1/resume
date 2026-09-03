@@ -129,7 +129,10 @@ export function ContactsList({
                   selected.has(contact.id) && "bg-accent/40",
                 )}
               >
-                <div className="relative pl-4">
+                {/* z-[1], not just relative: the stretched link's ::before
+                    comes later in the DOM and would otherwise paint over the
+                    checkbox and eat the click. */}
+                <div className="relative z-[1] pl-4">
                   <Checkbox
                     checked={selected.has(contact.id)}
                     onCheckedChange={() => toggle(contact.id)}
