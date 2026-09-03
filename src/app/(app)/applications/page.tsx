@@ -13,7 +13,7 @@ import { listResumeNames } from "@/lib/data/resumes";
 import { listTags } from "@/lib/data/tags";
 import { PipelineBoard } from "@/components/pipeline/board";
 import { PipelineList } from "@/components/pipeline/list";
-import { parseSort, sortRows, type ListRow } from "@/lib/pipeline-list";
+import { parseSort, sortRows, toListRow, type ListRow } from "@/lib/pipeline-list";
 import {
   PipelineCalendar,
   monthWindow,
@@ -266,22 +266,9 @@ export default async function ApplicationsPage({
   );
 
   if (view === "list") {
-    const rows: ListRow[] = visible.map((application) => ({
-      id: application.id,
-      company: application.company.name,
-      roleTitle: application.roleTitle,
-      stage: application.stage,
-      location: application.location,
-      salaryRange: application.salaryRange,
-      excitement: application.excitement,
-      nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
-      activityCount: application._count.activities,
-      updatedAt: application.updatedAt.toISOString(),
-      daysInStage: application.daysInStage,
-      quietDays: application.quietDays,
-      jobUrl: application.jobUrl,
-      domain: domainFor(application),
-    }));
+    const rows: ListRow[] = visible.map((application) =>
+      toListRow(application, domainFor(application)),
+    );
     const sort = parseSort(one("sort"));
     const desc = one("dir") === "desc";
     return chrome(<PipelineList rows={sortRows(rows, sort, desc)} sort={sort} desc={desc} />);

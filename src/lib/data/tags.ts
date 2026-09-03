@@ -227,6 +227,36 @@ export function flattenTags<T extends { tags: { tag: TagRef }[] }>(
   return { ...row, tags: row.tags.map((link) => link.tag) };
 }
 
+/**
+ * Every one of these ids must be this person's, and of one of these kinds.
+ *
+ * The guard exists for the bulk paths. All four of a company's lists share one
+ * join table, so nothing at the database level stops an APPLICATION tag being
+ * attached to a company — and once it is, no screen renders it and no picker
+ * can take it back off. One click across a selection of forty would write
+ * forty rows nobody can ever see or remove.
+ */
+export async function assertOwnedTagIds(
+  userId: string,
+  ids: string[],
+  kinds: TagKind[],
+): Promise<string[]> {
+  const unique = [...new Set(ids)];
+  if (unique.length === 0) return [];
+  const owned = await db.tag.findMany({
+    where: { id: { in: unique }, userId, kind: { in: kinds } },
+    select: { id: true },
+  });
+  const found = new Set(owned.map((row) => row.id));
+  const missing = unique.filter((id) => !found.has(id));
+  if (missing.length > 0) {
+    throw new Error(
+      `No ${kinds.map((kind) => kind.toLowerCase()).join(" or ")} tag with id ${missing[0]}`,
+    );
+  }
+  return unique;
+}
+
 /** The one list a row wears, cut down to a single kind. */
 export function tagsOfKind<T extends { kind: TagKind }>(tags: T[], kind: TagKind): T[] {
   return tags.filter((tag) => tag.kind === kind);

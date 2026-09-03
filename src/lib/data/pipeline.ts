@@ -3,8 +3,31 @@ import { db } from "@/lib/db";
 import { pick } from "@/lib/data/patch";
 import { DAY, hasGoneQuiet, lastTouchAt, quietDaysFor } from "@/lib/quiet";
 import { readQuickLog } from "@/lib/quick-log";
-import { TagKind, type TagRef, flattenTags, resolveTagIds, tagInclude } from "@/lib/data/tags";
+import {
+  TagKind,
+  type TagRef,
+  assertOwnedTagIds,
+  flattenTags,
+  resolveTagIds,
+  tagInclude,
+} from "@/lib/data/tags";
 import { archiveRecords } from "@/lib/data/archive";
+import {
+  type CompanyFilters,
+  type CompanyMissing,
+  type CompanySort,
+  type ContactFilters,
+  type ContactMissing,
+  type ContactSort,
+  EMPTY_COMPANY_FILTERS,
+  EMPTY_CONTACT_FILTERS,
+  companyDesc,
+  contactDesc,
+  matchesCompany,
+  matchesContact,
+  sortCompanies,
+  sortContacts,
+} from "@/lib/crm-filters";
 import { loadPosting, type ParsedPosting } from "@/lib/posting";
 
 /** Like me.ts: userId is the required first argument on every query. */
@@ -199,29 +222,34 @@ const CONTACT_COLUMNS = [
 ] as const;
 
 /** Cuts of the company list that keep coming up as questions. */
-export type CompanyFilter = "active" | "applied" | "never-applied" | "with-contacts";
+/** The cut list lives in crm-filters.ts, so there is one of it. */
+export type { CompanyCut as CompanyFilter } from "@/lib/crm-filters";
 
+/**
+ * Every company, cut and ordered.
+ *
+ * The filtering happens in `matchesCompany` over the rows this fetches rather
+ * than in the Prisma `where`, and that is deliberate: a faceted count is "how
+ * many would survive if I relaxed this one dimension", which needs the
+ * unfiltered set in hand. Doing it in SQL for the list and again in a predicate
+ * for the counts would be two definitions of one rule — the fork invariant 2
+ * exists to prevent. It costs one full read of a personal-sized table.
+ */
 export async function listCompanies(
   userId: string,
-  options?: { search?: string; filter?: CompanyFilter; tagIds?: string[] },
+  options?: {
+    search?: string;
+    filter?: CompanyFilters["cut"];
+    tagIds?: string[];
+    industryIds?: string[];
+    sizeIds?: string[];
+    locationIds?: string[];
+    missing?: CompanyMissing[];
+    sort?: CompanySort;
+    dir?: "asc" | "desc";
+  },
 ) {
   const where: Prisma.CompanyWhereInput = { userId, archivedAt: null };
-  if (options?.search) {
-    where.OR = [
-      { name: { contains: options.search, mode: "insensitive" } },
-      { notes: { contains: options.search, mode: "insensitive" } },
-      // Industry and location were columns and are tags now, so searching for
-      // "fintech" has to reach through the join to keep working.
-      { tags: { some: { tag: { name: { contains: options.search, mode: "insensitive" } } } } },
-    ];
-  }
-  if (options?.tagIds && options.tagIds.length > 0) {
-    where.tags = { some: { tagId: { in: options.tagIds } } };
-  }
-  if (options?.filter === "active") where.applications = { some: { stage: { notIn: TERMINAL_STAGES } } };
-  if (options?.filter === "applied") where.applications = { some: { appliedAt: { not: null } } };
-  if (options?.filter === "never-applied") where.applications = { none: { appliedAt: { not: null } } };
-  if (options?.filter === "with-contacts") where.contacts = { some: {} };
 
   const rows = await db.company.findMany({
     where,
@@ -236,7 +264,7 @@ export async function listCompanies(
   // "When did I last apply here" and "is anything still live" are the two
   // questions a company list gets asked; answer them on every row rather than
   // making callers fetch each company.
-  return rows.map(({ applications, ...company }) => ({
+  const mapped = rows.map(({ applications, ...company }) => ({
     ...flattenTags(company),
     lastAppliedAt: applications.reduce<Date | null>(
       (latest, application) =>
@@ -249,6 +277,23 @@ export async function listCompanies(
       (application) => !TERMINAL_STAGES.includes(application.stage),
     ).length,
   }));
+
+  const filters: CompanyFilters = {
+    ...EMPTY_COMPANY_FILTERS,
+    cut: options?.filter ?? null,
+    industries: options?.industryIds ?? [],
+    sizes: options?.sizeIds ?? [],
+    locations: options?.locationIds ?? [],
+    tags: options?.tagIds ?? [],
+    missing: options?.missing ?? [],
+    search: options?.search ?? "",
+  };
+  const sort = options?.sort ?? "name";
+  return sortCompanies(
+    mapped.filter((company) => matchesCompany(company, filters)),
+    sort,
+    companyDesc(sort, options?.dir),
+  );
 }
 
 export async function getCompany(userId: string, id: string) {
@@ -1156,6 +1201,102 @@ export async function moveApplicationsStage(userId: string, ids: string[], stage
   return { moved, skipped, stage };
 }
 
+/**
+ * Add or remove tags across a selection, in one act.
+ *
+ * Add and remove rather than replace: a bulk write that replaces would mean
+ * "tag these nine as fintech" quietly stripping the size and location off
+ * every one of them. The kind allowlist is what stops an APPLICATION tag
+ * landing on a company, where nothing would ever render it and no picker could
+ * take it back off.
+ *
+ * Ids that are not this person's are skipped, the same rule
+ * moveApplicationsStage follows.
+ */
+export async function tagCompanies(
+  userId: string,
+  ids: string[],
+  change: { add?: string[]; remove?: string[] },
+) {
+  const add = await assertOwnedTagIds(userId, change.add ?? [], [
+    TagKind.INDUSTRY,
+    TagKind.SIZE,
+    TagKind.LOCATION,
+    TagKind.COMPANY,
+  ]);
+  const remove = await assertOwnedTagIds(userId, change.remove ?? [], [
+    TagKind.INDUSTRY,
+    TagKind.SIZE,
+    TagKind.LOCATION,
+    TagKind.COMPANY,
+  ]);
+  const owned = await db.company.findMany({
+    where: { id: { in: [...new Set(ids)] }, userId, archivedAt: null },
+    select: { id: true },
+  });
+  const companyIds = owned.map((row) => row.id);
+  if (remove.length > 0) {
+    await db.companyTag.deleteMany({
+      where: { companyId: { in: companyIds }, tagId: { in: remove } },
+    });
+  }
+  if (add.length > 0) {
+    await db.companyTag.createMany({
+      data: companyIds.flatMap((companyId) => add.map((tagId) => ({ companyId, tagId }))),
+      skipDuplicates: true,
+    });
+  }
+  return { changed: companyIds, skipped: ids.filter((id) => !companyIds.includes(id)) };
+}
+
+export async function tagContacts(
+  userId: string,
+  ids: string[],
+  change: { add?: string[]; remove?: string[] },
+) {
+  const add = await assertOwnedTagIds(userId, change.add ?? [], [TagKind.CONTACT]);
+  const remove = await assertOwnedTagIds(userId, change.remove ?? [], [TagKind.CONTACT]);
+  const owned = await db.contact.findMany({
+    where: { id: { in: [...new Set(ids)] }, userId, archivedAt: null },
+    select: { id: true },
+  });
+  const contactIds = owned.map((row) => row.id);
+  if (remove.length > 0) {
+    await db.contactTag.deleteMany({
+      where: { contactId: { in: contactIds }, tagId: { in: remove } },
+    });
+  }
+  if (add.length > 0) {
+    await db.contactTag.createMany({
+      data: contactIds.flatMap((contactId) => add.map((tagId) => ({ contactId, tagId }))),
+      skipDuplicates: true,
+    });
+  }
+  return { changed: contactIds, skipped: ids.filter((id) => !contactIds.includes(id)) };
+}
+
+/**
+ * Put a whole selection on the chase list for one date.
+ *
+ * The date is validated HERE rather than handed to `toDate`, which returns null
+ * for anything it cannot read. "next Tuesday" is a plausible thing for an
+ * assistant to send, and through toDate it would silently clear the ping date
+ * on every person in the batch instead of failing.
+ */
+export async function scheduleContactPings(userId: string, ids: string[], date: string | null) {
+  let when: Date | null = null;
+  if (date !== null && date !== "") {
+    const parsed = new Date(date);
+    if (Number.isNaN(parsed.getTime())) throw new Error(`"${date}" is not a date I can read`);
+    when = parsed;
+  }
+  const { count } = await db.contact.updateMany({
+    where: { id: { in: [...new Set(ids)] }, userId, archivedAt: null },
+    data: { nextFollowUpAt: when },
+  });
+  return { changed: count, cleared: when === null };
+}
+
 /** Into the archive, with its timeline and its tasks. Nothing is destroyed. */
 export async function deleteApplication(userId: string, id: string) {
   const { archived, skipped } = await archiveRecords(userId, "application", [id]);
@@ -1463,45 +1604,36 @@ const contactInclude = {
   },
 } satisfies Prisma.ContactInclude;
 
-/** Cuts of the contact list: who is owed a ping, who is tied to a live thread. */
-export type ContactFilter = "ping-due" | "with-application" | "no-company";
+/** The cut list lives in crm-filters.ts, so there is one of it. */
+export type { ContactCut as ContactFilter } from "@/lib/crm-filters";
 
+/**
+ * Every person, cut and ordered. Same shape as listCompanies, same reason.
+ *
+ * `applicationId` stays in the SQL because it scopes WHOSE contacts these are
+ * rather than being a dimension of the screen. Everything else is a dimension,
+ * and dimensions AND — which fixes a quiet bug in the version this replaces,
+ * where passing `companyId` alongside the `no-company` cut had the second
+ * assignment silently overwrite the first.
+ */
 export async function listContacts(
   userId: string,
   options?: {
     applicationId?: string;
     companyId?: string;
+    companyIds?: string[];
     search?: string;
-    filter?: ContactFilter;
+    filter?: ContactFilters["cut"];
     tagIds?: string[];
+    quietDays?: number;
+    missing?: ContactMissing[];
+    sort?: ContactSort;
+    dir?: "asc" | "desc";
   },
 ) {
   const where: Prisma.ContactWhereInput = { userId, archivedAt: null };
   if (options?.applicationId) where.applicationId = options.applicationId;
-  if (options?.companyId) where.companies = { some: { companyId: options.companyId } };
-  if (options?.tagIds && options.tagIds.length > 0) {
-    where.tags = { some: { tagId: { in: options.tagIds } } };
-  }
-  if (options?.filter === "ping-due") where.nextFollowUpAt = { lte: new Date() };
-  if (options?.filter === "with-application") where.applicationId = { not: null };
-  if (options?.filter === "no-company") where.companies = { none: {} };
-  if (options?.search) {
-    where.OR = [
-      { name: { contains: options.search, mode: "insensitive" } },
-      { title: { contains: options.search, mode: "insensitive" } },
-      { email: { contains: options.search, mode: "insensitive" } },
-      { relationship: { contains: options.search, mode: "insensitive" } },
-      { notes: { contains: options.search, mode: "insensitive" } },
-      {
-        companies: {
-          some: { company: { name: { contains: options.search, mode: "insensitive" } } },
-        },
-      },
-      // Same as companies: a tag is a word you filed someone under, so it has
-      // to be a word you can find them by.
-      { tags: { some: { tag: { name: { contains: options.search, mode: "insensitive" } } } } },
-    ];
-  }
+
   const contacts = await db.contact.findMany({
     where,
     orderBy: { name: "asc" },
@@ -1511,7 +1643,29 @@ export async function listContacts(
       activities: { select: { occurredAt: true }, orderBy: { occurredAt: "desc" as const }, take: 1 },
     },
   });
-  return contacts.map((contact) => ({ ...contact, ...contactShape(contact) }));
+  const mapped = contacts.map((contact) => ({ ...contact, ...contactShape(contact) }));
+
+  const filters: ContactFilters = {
+    ...EMPTY_CONTACT_FILTERS,
+    cut: options?.filter ?? null,
+    // The single-company shorthand folds into the dimension rather than
+    // fighting it.
+    companies: [...(options?.companyIds ?? []), ...(options?.companyId ? [options.companyId] : [])],
+    tags: options?.tagIds ?? [],
+    quiet: options?.quietDays ?? null,
+    missing: options?.missing ?? [],
+    search: options?.search ?? "",
+  };
+  // One `now` for the whole call, so "ping due" cannot answer differently for
+  // the first row and the last.
+  const now = Date.now();
+  const sort = options?.sort ?? "name";
+  return sortContacts(
+    mapped.filter((contact) => matchesContact(contact, filters, now)),
+    sort,
+    contactDesc(sort, options?.dir),
+    now,
+  );
 }
 
 export async function getContact(userId: string, id: string) {
