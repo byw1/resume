@@ -36,32 +36,74 @@ import { cn, relativeDay } from "@/lib/utils";
  * rest of the app, which has no save button anywhere.
  */
 
-const COLUMNS: { key: ListSort | null; label: string; className: string }[] = [
-  { key: "company", label: "Company", className: "flex-1 min-w-0" },
-  { key: "stage", label: "Stage", className: "w-32 shrink-0" },
-  { key: "followUp", label: "Follow-up", className: "w-28 shrink-0" },
-  { key: "waiting", label: "Waiting", className: "w-20 shrink-0 text-right" },
-  { key: "quiet", label: "Quiet", className: "w-20 shrink-0 text-right hidden md:block" },
-  { key: "salary", label: "Salary", className: "w-32 shrink-0 hidden lg:block" },
-  { key: null, label: "Location", className: "w-32 shrink-0 hidden xl:block" },
-  { key: null, label: "Log", className: "w-10 shrink-0 text-right hidden sm:block" },
-  { key: "updated", label: "Touched", className: "w-20 shrink-0 text-right hidden sm:block" },
-  { key: null, label: "", className: "w-8 shrink-0" },
+/**
+ * The columns, and which of them can be turned off.
+ *
+ * `field: null` means structural. Company is what a row IS; Stage is the inline
+ * editor the table exists for (it writes straight through to the board, see
+ * the header comment above); the checkbox and the actions cell are controls,
+ * not data. A setting that can make a screen useless is not a setting.
+ */
+const COLUMNS: {
+  key: ListSort | null;
+  label: string;
+  className: string;
+  field: string | null;
+}[] = [
+  { key: "company", label: "Company", className: "flex-1 min-w-0", field: null },
+  { key: "stage", label: "Stage", className: "w-32 shrink-0", field: null },
+  { key: "followUp", label: "Follow-up", className: "w-28 shrink-0", field: "followUp" },
+  { key: "waiting", label: "Waiting", className: "w-20 shrink-0 text-right", field: "waiting" },
+  {
+    key: "quiet",
+    label: "Quiet",
+    className: "w-20 shrink-0 text-right hidden md:block",
+    field: "quiet",
+  },
+  { key: "salary", label: "Salary", className: "w-32 shrink-0 hidden lg:block", field: "salary" },
+  { key: null, label: "Location", className: "w-32 shrink-0 hidden xl:block", field: "location" },
+  {
+    key: null,
+    label: "Log",
+    className: "w-10 shrink-0 text-right hidden sm:block",
+    field: "activity",
+  },
+  {
+    key: "updated",
+    label: "Touched",
+    className: "w-20 shrink-0 text-right hidden sm:block",
+    field: "updated",
+  },
+  {
+    key: null,
+    label: "Excitement",
+    className: "w-24 shrink-0 text-right hidden xl:block",
+    field: "excitement",
+  },
+  { key: null, label: "", className: "w-8 shrink-0", field: null },
 ];
 
 export function PipelineList({
   rows,
   sort,
   desc,
+  fields,
 }: {
   rows: ListRow[];
   sort: ListSort;
   desc: boolean;
+  /** Which optional columns to draw. Structural ones are always drawn. */
+  fields: string[];
 }) {
   const [selected, setSelected] = useState<Set<string>>(new Set());
   const params = useSearchParams();
 
   const visibleIds = useMemo(() => rows.map((row) => row.id), [rows]);
+  // Structural columns are never in the catalogue, so they are never dropped.
+  const columns = useMemo(() => {
+    const on = new Set(fields);
+    return COLUMNS.filter((column) => column.field === null || on.has(column.field));
+  }, [fields]);
   const chosen = useMemo(
     () => visibleIds.filter((id) => selected.has(id)),
     [visibleIds, selected],
@@ -103,7 +145,7 @@ export function PipelineList({
               aria-label="Select every row"
             />
           </div>
-          {COLUMNS.map((column) => (
+          {columns.map((column) => (
             <div key={column.label} className={column.className}>
               {column.key ? (
                 <Link
@@ -130,6 +172,7 @@ export function PipelineList({
             <Row
               key={row.id}
               row={row}
+              columns={columns}
               selected={selected.has(row.id)}
               onSelect={() => toggle(row.id)}
             />
@@ -142,13 +185,18 @@ export function PipelineList({
 
 function Row({
   row,
+  columns,
   selected,
   onSelect,
 }: {
   row: ListRow;
+  columns: typeof COLUMNS;
   selected: boolean;
   onSelect: () => void;
 }) {
+  // One lookup rather than a Set per cell: a row draws ten cells and there are
+  // as many rows as the person has applications.
+  const shows = (field: string) => columns.some((column) => column.field === field);
   const openPanel = useOpenApplication();
   const router = useRouter();
   const [, startTransition] = useTransition();
@@ -242,46 +290,53 @@ function Row({
         </Select>
       </div>
 
-      <div className="w-28 shrink-0">
-        <DateCell
-          value={values.nextFollowUpAt}
-          label={`Follow-up date for ${row.company}`}
-          overdue={overdue}
-          onChange={(value) =>
-            save({ nextFollowUpAt: value }, () =>
-              updateApplicationAction(row.id, { nextFollowUpAt: value || null }),
-            )
-          }
-        />
-      </div>
+      {shows("followUp") && (
+        <div className="w-28 shrink-0">
+          <DateCell
+            value={values.nextFollowUpAt}
+            label={`Follow-up date for ${row.company}`}
+            overdue={overdue}
+            onChange={(value) =>
+              save({ nextFollowUpAt: value }, () =>
+                updateApplicationAction(row.id, { nextFollowUpAt: value || null }),
+              )
+            }
+          />
+        </div>
+      )}
 
       {/* Read-only: this is a measurement, not a field. Dashes on a closed
           application because "waiting 40 days" is meaningless once it is over. */}
-      <div
-        className={cn(
-          "nums w-20 shrink-0 text-right text-[12px]",
-          !closed && row.daysInStage >= 21 ? "text-destructive" : "text-faint",
-        )}
-        title={closed ? undefined : `In ${STAGE_LABEL[values.stage]} for ${row.daysInStage} days`}
-      >
-        {closed ? "—" : `${row.daysInStage}d`}
-      </div>
+      {shows("waiting") && (
+        <div
+          className={cn(
+            "nums w-20 shrink-0 text-right text-[12px]",
+            !closed && row.daysInStage >= 21 ? "text-destructive" : "text-faint",
+          )}
+          title={closed ? undefined : `In ${STAGE_LABEL[values.stage]} for ${row.daysInStage} days`}
+        >
+          {closed ? "—" : `${row.daysInStage}d`}
+        </div>
+      )}
 
       {/* The other measurement, and the one chasing is decided on: days since
           anything at all happened, not days since it last moved. */}
-      <div
-        className={cn(
-          "nums hidden w-20 shrink-0 text-right text-[12px] md:block",
-          hasGoneQuiet(values.stage, row.quietDays, TERMINAL_STAGES)
-            ? "text-[var(--warning)] font-medium"
-            : "text-faint",
-        )}
-        title={quiet === null ? undefined : `Nothing logged for ${row.quietDays} days`}
-      >
-        {quiet === null ? "—" : `${quiet}d`}
-      </div>
+      {shows("quiet") && (
+        <div
+          className={cn(
+            "nums hidden w-20 shrink-0 text-right text-[12px] md:block",
+            hasGoneQuiet(values.stage, row.quietDays, TERMINAL_STAGES)
+              ? "text-[var(--warning)] font-medium"
+              : "text-faint",
+          )}
+          title={quiet === null ? undefined : `Nothing logged for ${row.quietDays} days`}
+        >
+          {quiet === null ? "—" : `${quiet}d`}
+        </div>
+      )}
 
-      <div className="hidden w-32 shrink-0 lg:block">
+      {shows("salary") && (
+        <div className="hidden w-32 shrink-0 lg:block">
         <CellInput
           value={values.salaryRange}
           placeholder="—"
@@ -290,25 +345,38 @@ function Row({
           onLocalChange={(value) => setValues((c) => ({ ...c, salaryRange: value }))}
           className="nums"
         />
-      </div>
+        </div>
+      )}
 
-      <div className="hidden w-32 shrink-0 xl:block">
-        <CellInput
-          value={values.location}
-          placeholder="—"
-          aria-label={`Location for ${row.company}`}
-          onBlurValue={(value) => commitText("location", value)}
-          onLocalChange={(value) => setValues((c) => ({ ...c, location: value }))}
-        />
-      </div>
+      {shows("location") && (
+        <div className="hidden w-32 shrink-0 xl:block">
+          <CellInput
+            value={values.location}
+            placeholder="—"
+            aria-label={`Location for ${row.company}`}
+            onBlurValue={(value) => commitText("location", value)}
+            onLocalChange={(value) => setValues((c) => ({ ...c, location: value }))}
+          />
+        </div>
+      )}
 
-      <div className="nums text-faint hidden w-10 shrink-0 text-right text-[12px] sm:block">
-        {row.activityCount || "—"}
-      </div>
+      {shows("activity") && (
+        <div className="nums text-faint hidden w-10 shrink-0 text-right text-[12px] sm:block">
+          {row.activityCount || "—"}
+        </div>
+      )}
 
-      <div className="nums text-faint hidden w-20 shrink-0 text-right text-[12px] sm:block">
-        {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
-      </div>
+      {shows("updated") && (
+        <div className="nums text-faint hidden w-20 shrink-0 text-right text-[12px] sm:block">
+          {new Date(row.updatedAt).toLocaleDateString("en-US", { month: "short", day: "numeric" })}
+        </div>
+      )}
+
+      {shows("excitement") && (
+        <div className="nums text-faint hidden w-24 shrink-0 text-right text-[12px] xl:block">
+          {"★".repeat(row.excitement)}
+        </div>
+      )}
 
       {/* The same verbs the board card offers. Two views of one pipeline
           should not disagree about what you can do to a row. */}

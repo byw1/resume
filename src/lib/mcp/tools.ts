@@ -12,6 +12,12 @@ import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
 import * as archive from "@/lib/data/archive";
 import {
+  FIELDS,
+  NO_FIELDS,
+  PIPELINE_VIEWS,
+  visibleFields,
+} from "@/lib/pipeline-fields";
+import {
   exportApplicationsCsv,
   exportCompaniesCsv,
   exportContactsCsv,
@@ -155,6 +161,13 @@ const b = (args: Json, key: string) => (typeof args[key] === "boolean" ? (args[k
 const a = (args: Json, key: string) =>
   Array.isArray(args[key]) ? (args[key] as string[]).map(String) : undefined;
 
+/** Like requiredArray, but an empty list is a meaningful answer here. */
+function requiredArrayAllowingEmpty(args: Json, key: string): string[] {
+  const value = a(args, key);
+  if (!value) throw new Error(`Missing required array argument "${key}"`);
+  return value;
+}
+
 function requiredArray(args: Json, key: string): string[] {
   const value = a(args, key);
   if (!value || value.length === 0) {
@@ -238,6 +251,7 @@ const CONTACT_SORTS = ["name", "company", "ping", "touch"] as const;
 const SORT_DIRECTIONS = ["asc", "desc"] as const;
 const COMPANY_MISSING = ["website", "industry", "location"] as const;
 const CONTACT_MISSING = ["email", "tags"] as const;
+const PIPELINE_VIEW_VALUES = ["board", "list", "calendar"] as const;
 
 /**
  * The profile as a tool should see it.
@@ -2529,6 +2543,84 @@ export const tools: McpTool[] = [
             ids,
           }),
         ),
+      };
+    },
+  },
+  {
+    name: "get_pipeline_fields",
+    title: "What each pipeline view shows",
+    description:
+      "Which optional fields the board, the table and the calendar draw before you open anything, and everything each one COULD draw. Reach for it when somebody asks what their board shows, says it is too busy or too bare, or wants to know why a field is not on a card. Returns one entry per view: the catalogue of fields with a label each, and which are on. Three things are never in a catalogue and are always drawn — the company, the role title and the stage — because a card without them is not shorter, it is unreadable, and on the table the stage cell is the editor the table exists for. A view whose list comes back empty is on its defaults, which is not the same as showing nothing. Read-only.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => {
+      const profile = await me.getProfile(ctx.userId);
+      const stored = {
+        board: profile.boardFields,
+        list: profile.listFields,
+        calendar: profile.calendarFields,
+      };
+      return PIPELINE_VIEWS.map((view) => ({
+        view,
+        showing: [...visibleFields(view, stored[view])],
+        onDefaults: stored[view].length === 0,
+        available: FIELDS[view].map((field) => ({
+          key: field.key,
+          label: field.label,
+          inDefaults: field.standard,
+        })),
+      }));
+    },
+  },
+  {
+    name: "set_pipeline_fields",
+    title: "Choose what a pipeline view shows",
+    description:
+      "Set which optional fields one pipeline view draws. REPLACES that view's whole list, so call get_pipeline_fields first, decide the full set, and send it — sending one key turns off everything else on that view. One view per call: the board, the table and the calendar have different catalogues and there is no field they all share. Pass an empty list to put that view back on its defaults, which also means it picks up any field added to the catalogue later; pass ['none'] to mean genuinely nothing, which is a different thing and is why the empty list cannot mean it. A key that is not in that view's catalogue is refused rather than ignored. This is a display preference and changes no data — nothing here archives, deletes or edits an application.",
+    inputSchema: object(
+      {
+        view: {
+          type: "string",
+          enum: [...PIPELINE_VIEW_VALUES],
+          description: "board | list | calendar",
+        },
+        fields: strArray(
+          "The whole set for that view, from get_pipeline_fields. Empty for the defaults, ['none'] for nothing.",
+        ),
+      },
+      ["view", "fields"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      // enumArg, not a computed key: a mistyped view would otherwise be dropped
+      // by `pick` and reported back as a success over a board that never moved.
+      const view = enumArg(args, "view", PIPELINE_VIEW_VALUES);
+      if (!view) throw new Error('Missing required string argument "view"');
+      const fields = requiredArrayAllowingEmpty(args, "fields");
+      const known = new Set(FIELDS[view].map((field) => field.key));
+      for (const key of fields) {
+        if (key !== NO_FIELDS && !known.has(key)) {
+          throw new Error(
+            `"${key}" is not a field the ${view} draws. Use one of: ${[...known].join(", ")}, or "none".`,
+          );
+        }
+      }
+      const stored = await me.setPipelineFields(ctx.userId, view, fields);
+      return {
+        view,
+        showing: [...visibleFields(view, fields)],
+        onDefaults: fields.length === 0,
+        stored,
       };
     },
   },

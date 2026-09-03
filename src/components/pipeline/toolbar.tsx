@@ -62,6 +62,8 @@ export function PipelineToolbar({
   action,
   views,
   share,
+  fields,
+  exportLink,
 }: {
   view: PipelineView;
   filters: PipelineFilters;
@@ -72,6 +74,14 @@ export function PipelineToolbar({
   action: React.ReactNode;
   views: React.ReactNode;
   share: React.ReactNode;
+  /** Which optional fields this view draws. */
+  fields: React.ReactNode;
+  /**
+   * Export what this screen is showing. Absent on the calendar, following the
+   * `limited` precedent below: a calendar has no rows, so "export what's shown"
+   * has no honest answer.
+   */
+  exportLink?: React.ReactNode;
 }) {
   const href = (next: PipelineFilters, nextView: PipelineView = view) =>
     buildPipelineQuery({ view: nextView, filters: next, sort, dir });
@@ -125,8 +135,10 @@ export function PipelineToolbar({
           limited={view === "calendar"}
         />
 
+        {fields}
         {views}
         {share}
+        {exportLink}
 
         <div className="ml-auto">{action}</div>
       </div>

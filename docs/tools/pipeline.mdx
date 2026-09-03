@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Thirty-three tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Thirty-five tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -448,3 +448,24 @@ One of the three lists as a spreadsheet file, returned as CSV text you can hand 
 | `ids` | string[] | Only these rows, by id. Omit for everything the filters leave. |
 | `search` | string | For companies and contacts: the same search list_companies takes |
 | `query` | string | For applications: a pipeline query string, e.g. "f=SCREEN,INTERVIEW&src=<tagId>" — the same one the app puts in its URL |
+
+### `get_pipeline_fields`
+
+_What each pipeline view shows_
+
+Which optional fields the board, the table and the calendar draw before you open anything, and everything each one COULD draw. Reach for it when somebody asks what their board shows, says it is too busy or too bare, or wants to know why a field is not on a card. Returns one entry per view: the catalogue of fields with a label each, and which are on. Three things are never in a catalogue and are always drawn — the company, the role title and the stage — because a card without them is not shorter, it is unreadable, and on the table the stage cell is the editor the table exists for. A view whose list comes back empty is on its defaults, which is not the same as showing nothing. Read-only.
+
+No arguments.
+
+### `set_pipeline_fields`
+
+_Choose what a pipeline view shows_
+
+Set which optional fields one pipeline view draws. REPLACES that view's whole list, so call get_pipeline_fields first, decide the full set, and send it — sending one key turns off everything else on that view. One view per call: the board, the table and the calendar have different catalogues and there is no field they all share. Pass an empty list to put that view back on its defaults, which also means it picks up any field added to the catalogue later; pass ['none'] to mean genuinely nothing, which is a different thing and is why the empty list cannot mean it. A key that is not in that view's catalogue is refused rather than ignored. This is a display preference and changes no data — nothing here archives, deletes or edits an application.
+
+**Overwrites or deletes.**
+
+| Argument | Type | |
+| --- | --- | --- |
+| `view` | enum | **required** — board \| list \| calendar  `board` · `list` · `calendar` |
+| `fields` | string[] | **required** — The whole set for that view, from get_pipeline_fields. Empty for the defaults, ['none'] for nothing. |

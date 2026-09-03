@@ -12,6 +12,11 @@ import {
 import { listResumeNames } from "@/lib/data/resumes";
 import { listTags } from "@/lib/data/tags";
 import { archiveCounts } from "@/lib/data/archive";
+import { getProfile } from "@/lib/data/me";
+import { FieldsMenu } from "@/components/pipeline/fields-menu";
+import { Button } from "@/components/ui/button";
+import { DownloadIcon } from "lucide-react";
+import { visibleFields } from "@/lib/pipeline-fields";
 import { ArchiveNote } from "@/components/archive/archive-note";
 import { PipelineBoard } from "@/components/pipeline/board";
 import { PipelineList } from "@/components/pipeline/list";
@@ -89,6 +94,9 @@ export default async function ApplicationsPage({
       listApplications(user.id, { includeClosed: true }),
     ]);
   const bin = await archiveCounts(user.id);
+  // Every view's field set on every load, so the Fields menu paints the change
+  // immediately rather than after a round trip.
+  const profile = await getProfile(user.id);
   const share = await getPipelineShare(user.id);
   const shareBase = `${headerProto}://${headerHost}`;
 
@@ -213,6 +221,30 @@ export default async function ApplicationsPage({
               }
             />
           }
+          fields={
+            <FieldsMenu
+              view={view}
+              visible={[
+                ...visibleFields(
+                  view,
+                  view === "board"
+                    ? profile.boardFields
+                    : view === "list"
+                      ? profile.listFields
+                      : profile.calendarFields,
+                ),
+              ]}
+            />
+          }
+          exportLink={
+            view === "calendar" ? undefined : (
+              <Button asChild variant="outline" size="sm" className="shrink-0">
+                <a href={`/api/export/applications?${currentQuery}`} download>
+                  <DownloadIcon /> Export
+                </a>
+              </Button>
+            )
+          }
           views={
             <SavedViews
               views={savedViews.map((v) => ({ id: v.id, name: v.name, query: v.query }))}
@@ -250,6 +282,8 @@ export default async function ApplicationsPage({
       id: entry.id,
       day: entry.date.toISOString().slice(0, 10),
       title: entry.title,
+      detail: entry.detail,
+      stage: entry.stage,
       applicationId: entry.applicationId,
       contactId: entry.contactId,
       done: entry.done,
@@ -260,6 +294,7 @@ export default async function ApplicationsPage({
         month={month}
         entries={entries}
         today={new Date().toISOString().slice(0, 10)}
+        fields={[...visibleFields("calendar", profile.calendarFields)]}
       />,
     );
   }
@@ -275,7 +310,14 @@ export default async function ApplicationsPage({
     );
     const sort = parseSort(one("sort"));
     const desc = one("dir") === "desc";
-    return chrome(<PipelineList rows={sortRows(rows, sort, desc)} sort={sort} desc={desc} />);
+    return chrome(
+      <PipelineList
+        rows={sortRows(rows, sort, desc)}
+        sort={sort}
+        desc={desc}
+        fields={[...visibleFields("list", profile.listFields)]}
+      />,
+    );
   }
 
   const toCard = (application: (typeof everyApplication)[number]) => ({
@@ -292,6 +334,7 @@ export default async function ApplicationsPage({
     quietDays: application.quietDays,
     jobUrl: application.jobUrl,
     domain: domainFor(application),
+    tags: application.tags,
   });
 
   // Which columns the board draws. Filtering to one stage should show that one
@@ -310,6 +353,7 @@ export default async function ApplicationsPage({
       open={visible.filter((a) => !TERMINAL_STAGES.includes(a.stage)).map(toCard)}
       closed={visible.filter((a) => TERMINAL_STAGES.includes(a.stage)).map(toCard)}
       columns={columns}
+      fields={[...visibleFields("board", profile.boardFields)]}
     />,
   );
 }

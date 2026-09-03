@@ -319,6 +319,14 @@ model Profile {
   /// database so no self-hosted instance needs a migration to follow along.
   summary    String   @default("")
   background String   @default("") @map("brainDump")
+  /// Which optional fields each pipeline view draws. Empty means "the default
+  /// set for that view" rather than "nothing", so an account that has never
+  /// touched this looks exactly as it did — and a field added to a catalogue
+  /// later shows up for everybody instead of hiding behind a stored list that
+  /// predates it. Scalar string lists, like Role.skills and Highlight.tags.
+  boardFields    String[] @default([])
+  listFields     String[] @default([])
+  calendarFields String[] @default([])
   /// A square headshot, held as a data URI ("data:image/jpeg;base64,..."). It
   /// lives in the row rather than an object store so self-hosting still needs
   /// one environment variable, and so a published resume renders the picture

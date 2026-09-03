@@ -40,6 +40,7 @@ import {
 import { listAudit, recordAudit } from "@/lib/data/audit";
 import { recordSystemEvent, sweepSystemEvents } from "@/lib/data/system";
 import * as archive from "@/lib/data/archive";
+import type { PipelineView } from "@/lib/pipeline-fields";
 import { sweepArchive } from "@/lib/data/archive";
 
 /**
@@ -1063,6 +1064,19 @@ export async function scheduleContactPingsAction(ids: string[], date: string) {
   revalidatePath("/crm/contacts");
   revalidatePath("/tasks");
   revalidatePath("/");
+  return result;
+}
+
+/**
+ * Which optional fields a pipeline view draws.
+ *
+ * The view is positional and typed, not a key in a patch bag: a mistyped one
+ * would otherwise be silently dropped and reported as saved.
+ */
+export async function setPipelineFieldsAction(view: PipelineView, fields: string[]) {
+  const user = await requireUser();
+  const result = await me.setPipelineFields(user.id, view, fields);
+  revalidatePath("/applications");
   return result;
 }
 

@@ -1,5 +1,6 @@
 import type { NoteKind } from "@prisma/client";
 import { db } from "@/lib/db";
+import type { PipelineView } from "@/lib/pipeline-fields";
 import { pick } from "@/lib/data/patch";
 import { resolvePhoto } from "@/lib/photo";
 
@@ -34,6 +35,33 @@ export async function getProfile(userId: string) {
   const existing = await db.profile.findUnique({ where: { userId } });
   if (existing) return existing;
   return db.profile.create({ data: { userId } });
+}
+
+/**
+ * Which optional fields each pipeline view draws, for this person.
+ *
+ * A separate writer rather than a key on ProfilePatch, and deliberately: that
+ * type is also what `importResume` accepts for its `profile` argument, and an
+ * assistant filling in somebody's details off a CV has no business reshaping
+ * their board. It also takes the view positionally, so a mistyped one is a
+ * compile error rather than a key `pick` silently drops.
+ */
+export async function setPipelineFields(
+  userId: string,
+  view: PipelineView,
+  fields: string[],
+): Promise<{ boardFields: string[]; listFields: string[]; calendarFields: string[] }> {
+  const column = { board: "boardFields", list: "listFields", calendar: "calendarFields" } as const;
+  const profile = await db.profile.upsert({
+    where: { userId },
+    create: { userId, [column[view]]: fields },
+    update: { [column[view]]: fields },
+  });
+  return {
+    boardFields: profile.boardFields,
+    listFields: profile.listFields,
+    calendarFields: profile.calendarFields,
+  };
 }
 
 export type ProfilePatch = Partial<{

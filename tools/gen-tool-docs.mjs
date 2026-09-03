@@ -48,7 +48,7 @@ const SECTIONS = [
   { file: "resumes.mdx", first: "get_resume_format", last: "preview_resume_text",
     title: "Resumes", icon: "file-lines",
     blurb: "writing documents, previewing them, publishing, exporting." },
-  { file: "pipeline.mdx", first: "pipeline_stats", last: "export_csv",
+  { file: "pipeline.mdx", first: "pipeline_stats", last: "set_pipeline_fields",
     title: "Pipeline", icon: "list-check",
     blurb: "applications, stages, timeline, tasks, follow-ups, views, sharing, diagnosis." },
   { file: "crm.mdx", first: "list_companies", last: "schedule_contact_pings",
@@ -147,6 +147,7 @@ const CONTACT_SORTS = ["name", "company", "ping", "touch"];
 const SORT_DIRECTIONS = ["asc", "desc"];
 const COMPANY_MISSING = ["website", "industry", "location"];
 const CONTACT_MISSING = ["email", "tags"];
+const PIPELINE_VIEW_VALUES = ["board", "list", "calendar"];
 
 for (const [name, values] of [
   ["ACTIVITY_VALUES", ACTIVITY_VALUES],
@@ -161,6 +162,7 @@ for (const [name, values] of [
   ["SORT_DIRECTIONS", SORT_DIRECTIONS],
   ["COMPANY_MISSING", COMPANY_MISSING],
   ["CONTACT_MISSING", CONTACT_MISSING],
+  ["PIPELINE_VIEW_VALUES", PIPELINE_VIEW_VALUES],
 ]) {
   const declared = new RegExp(`${name}[^=]*=\\s*\\[([\\s\\S]*?)\\]`).exec(src);
   if (!declared) throw new Error(`tools.ts no longer declares ${name}`);
@@ -183,7 +185,7 @@ const scope = {
   str, num, bool, strArray, object,
   STAGE_VALUES, ACTIVITY_VALUES, COMPANY_FILTERS, CONTACT_FILTERS, TAG_COLORS, TAG_KINDS,
   ARCHIVE_KIND_VALUES, EXPORT_KINDS, COMPANY_SORTS, CONTACT_SORTS, SORT_DIRECTIONS,
-  COMPANY_MISSING, CONTACT_MISSING,
+  COMPANY_MISSING, CONTACT_MISSING, PIPELINE_VIEW_VALUES,
 };
 const scopeKeys = Object.keys(scope);
 const scopeValues = Object.values(scope);
