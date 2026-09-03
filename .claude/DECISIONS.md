@@ -3740,6 +3740,59 @@ local instance, and the row read back out of `WaitlistSignup`.
 
 ---
 
+## 2026-09-03 — A parity and vocabulary audit after the resume batch, the rename and Gmail
+
+Ran the parity check over `src/server/actions.ts` against the tools array, and swept the
+MCP surface and the manual for anything the last few features left inconsistent.
+
+**`delete_note` did not exist, and notes are the one thing where that hurts.** Every other
+collection has its delete tool; notes had list, create and update only, so the UI could
+remove one and a conversation could not. The sharp version: a note with `kind: GUARDRAIL`
+is a standing rule injected into the briefing *every* client receives on connect, so an
+assistant could write a rule that shapes all future work and then had no way to withdraw
+it. A note has no `archived` state either, unlike a highlight, so deletion is the only
+removal — the description says so. Verified over a live connection: create a guardrail,
+see it in `initialize`'s instructions, delete it, see it gone.
+
+**The Me rename missed the `title` fields.** The merge that took the rename swept
+descriptions and left "Import a resume into the brain" as `import_resume`'s title, plus
+"the imported brain" in an argument and "career material in the brain" in
+`get_setup_status`. Titles are user-visible — clients show them in approval UI, and
+`gen-tool-docs` quotes them verbatim into the published manual, which is where they were
+found. The lesson is mechanical: a vocabulary rename is `grep -in '<old word>'` over the
+whole of `tools.ts`, not a pass over the fields you happen to be editing.
+
+**The briefing had no line about tags.** They cut across every area — where an application
+came from, a company's industry, size and location, how a person is filed — and an
+assistant that never calls `list_tags` invents near-duplicate labels. `list_tags`' own
+description is good; the briefing is what gets read *before* any tool, so the rule that
+matters ("call list_tags first; a name that exists matches rather than twinning") belongs
+there too. Its opening line also still said "Four areas:" above six bullets.
+
+**A backtick inside the briefing template literal would have ended the string.** The tags
+line was first written with `` `sources` `` in it, inside a JS template literal — caught
+before commit, but it typechecks as a *different* program rather than failing, so nothing
+downstream would have said so. Prose edited inside a template literal takes plain quotes.
+
+**Own-account writes stay UI-only, deliberately.** `updateOwnAccountAction` (name, email),
+`changeOwnPasswordAction` and unlinking a Google *sign-in* have no tools and should not:
+a connection URL is a credential with full read and write over the workspace, and letting
+it change the account's email or password turns a leaked URL into account takeover. Note
+this is a different thing from `disconnect_google`, which drops the Gmail/Calendar grant
+and does have a tool. `testConnectionAction` and the quick-log parser are also UI-only —
+the parser exists precisely because the browser has no language model, and both halves of
+what it commits are already covered by `log_activity` and `move_application_stage`.
+
+**Everything else was already in step**, which is worth recording so the next audit can
+skip it: the generated tool pages, the three hand-carried README counts (the Gmail commit
+bumped them; `delete_note` moved them again to 104/134), `docs/app.mdx` after the resumes
+move, and the product-facing `skills/` tree, which carries no retired vocabulary.
+
+**Applies to:** `src/lib/mcp/tools.ts`, `src/lib/mcp/handler.ts`, `README.md`,
+`docs/tools/{me,connections,overview}.mdx`.
+
+---
+
 ## 2026-09-03 — The landing page, second pass
 
 **The hero lost the mark it had just been given.** One page down it read as a logo asking

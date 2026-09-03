@@ -761,6 +761,20 @@ export const tools: McpTool[] = [
       ),
   },
   {
+    name: "delete_note",
+    title: "Delete a note",
+    description:
+      "Permanently delete a note. This is the only way to remove one — a note has no archived state, unlike a highlight. It matters most for standing rules: a GUARDRAIL is carried in the briefing every AI client receives on connect, so a rule that no longer holds keeps shaping work until it is deleted. Read it back with list_notes and say which one you are about to remove, because the text is not recoverable.",
+    inputSchema: object({ id: str("Note id") }, ["id"]),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => me.deleteNote(ctx.userId, required(args, "id")),
+  },
+  {
     name: "list_extras",
     title: "List education / projects / skills / certifications",
     description:
@@ -1002,7 +1016,7 @@ export const tools: McpTool[] = [
   },
   {
     name: "import_resume",
-    title: "Import a resume into the brain",
+    title: "Import a resume into Me",
     description:
       "Turn an existing resume, LinkedIn export or any pasted career history into a filled-in Me in ONE call. This is the first tool to reach for when the workspace is empty and the user has a document — it is the difference between starting from their real history and starting from nothing, so offer it before asking them to talk through their life. You do the reading: parse the pasted text yourself into the structured payload — profile facts, one entry per role with its bullets, education, projects, skills, certifications. Copy what the document actually says and NEVER invent, upgrade or round anything: no employers, titles, dates or metrics the text does not state, and a field the document is silent on stays absent. Include startDate on every role — it is part of a role's identity, and two stints at the same company import as two roles only when their dates differ. Everything is additive and re-import is safe: profile fields fill only where currently empty; a role already on file at the same company+title and start date, an education entry with the same school+degree+field, or a project/certification with the same name is SKIPPED, never overwritten; a skill group with an existing name has its skills unioned in. Each role's bullets are saved as highlights and land in its background for search_me to mine. Returns exactly what was created and what was skipped — report that to the user, and for skipped roles add new material with append_role_background instead. Pass create_base_resume: true to also build their first draft from what was imported; it reuses a resume already named 'Base resume' rather than minting another, so repeating the whole call is safe. Offer it — a resume is usually why they pasted one.",
     inputSchema: object(
@@ -1115,7 +1129,7 @@ export const tools: McpTool[] = [
           ),
         },
         create_base_resume: bool(
-          "Also build a first draft resume from the imported brain, named 'Base resume'. Offer this — it is usually why they pasted a resume.",
+          "Also build a first draft resume from what was imported, named 'Base resume'. Offer this — it is usually why they pasted a resume.",
         ),
       },
       [],
@@ -1207,7 +1221,7 @@ export const tools: McpTool[] = [
       if (b(args, "create_base_resume")) {
         // Reuse before create, so a retried or repeated call cannot mint
         // "Base resume" twice — the idempotent hint has to hold for the
-        // whole call, not just the brain half.
+        // whole call, not just the Me half.
         const existing = (await resumes.listResumes(ctx.userId)).find(
           (resume) => resume.name === "Base resume",
         );
@@ -3020,7 +3034,7 @@ export const tools: McpTool[] = [
     name: "get_setup_status",
     title: "How far into setup this workspace is",
     description:
-      "Three things a workspace needs before it does anything: something connected over MCP, some career material in the brain, and one job in the pipeline. Returns which are done and what each is waiting for. Worth calling when someone new asks what to do first, or when a read comes back empty and you are deciding whether that is an empty account or a wrong query — an empty brain with nothing tracked is a workspace nobody has filled yet, not a failure.",
+      "Three things a workspace needs before it does anything: something connected over MCP, some career material in Me, and one job in the pipeline. Returns which are done and what each is waiting for. Worth calling when someone new asks what to do first, or when a read comes back empty and you are deciding whether that is an empty account or a wrong query — an empty Me with nothing tracked is a workspace nobody has filled yet, not a failure.",
     inputSchema: object({}),
     annotations: {
       readOnlyHint: true,
