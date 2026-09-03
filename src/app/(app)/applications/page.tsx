@@ -7,8 +7,8 @@ import {
   STAGE_LABEL,
   TERMINAL_STAGES,
   listApplications,
-  listSchedule,
 } from "@/lib/data/pipeline";
+import { listSchedule } from "@/lib/data/schedule";
 import { listResumeNames } from "@/lib/data/resumes";
 import { listTags } from "@/lib/data/tags";
 import { PipelineBoard } from "@/components/pipeline/board";

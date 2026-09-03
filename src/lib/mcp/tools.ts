@@ -13,6 +13,7 @@ import * as waitlist from "@/lib/data/waitlist";
 import * as connections from "@/lib/data/connections";
 import * as onboarding from "@/lib/data/onboarding";
 import * as accountsData from "@/lib/data/accounts";
+import * as schedule from "@/lib/data/schedule";
 import {
   getSettings,
   updateSettings,
@@ -2368,7 +2369,7 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      pipeline.listSchedule(ctx.userId, required(args, "from"), endOfDay(required(args, "to"))),
+      schedule.listSchedule(ctx.userId, required(args, "from"), endOfDay(required(args, "to"))),
   },
   {
     name: "list_tasks",

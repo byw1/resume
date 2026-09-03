@@ -3821,6 +3821,12 @@ servers first, so a wrong password is an error in the form rather than a broken 
 Stored as issued, like every other credential here. `connect_imap_account` exists as a tool
 because MCP-first means it must, and its description says never to repeat the password.
 
+**A hostname in a form is a request the server makes.** `assertReachableHost` refuses
+loopback, link-local (where cloud metadata lives), unspecified and multicast targets for
+both IMAP and CalDAV, resolving names so an A record at 127.0.0.1 is refused like the
+literal. Private ranges are allowed on purpose: a mail server on a home LAN is a real
+reason to self-host, and loopback and metadata are where the damage is.
+
 **No SMTP.** The app never sends on anyone's behalf; read-only is what makes handing over an
 inbox safe. Sending is a product decision to make on purpose, not a side effect of "support
 IMAP".

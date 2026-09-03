@@ -13,6 +13,7 @@ import { refreshAccessToken, revokeToken } from "@/lib/accounts/google";
 import { refreshMicrosoftToken } from "@/lib/accounts/microsoft";
 import { verifyImap } from "@/lib/accounts/imap";
 import { verifyCaldav } from "@/lib/accounts/caldav";
+import { assertReachableHost, caldavHost } from "@/lib/accounts/net";
 import {
   PROVIDER_LABEL,
   calendarReaderFor,
@@ -211,11 +212,13 @@ export async function connectImapAccount(userId: string, input: ImapConnectInput
   const features: AccountFeature[] = [];
   if (imapHost) {
     if (!imapPassword) throw new Error("The IMAP server needs a password — an app password, not the account one.");
+    await assertReachableHost(imapHost);
     await verifyImap({ host: imapHost, port: imapPort, username: imapUsername, password: imapPassword, accountEmail: email });
     features.push("mail");
   }
   if (caldavUrl) {
     if (!caldavPassword) throw new Error("The CalDAV server needs a password — an app password, not the account one.");
+    await assertReachableHost(caldavHost(caldavUrl));
     await verifyCaldav({ url: caldavUrl, username: caldavUsername, password: caldavPassword });
     features.push("calendar");
   }
