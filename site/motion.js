@@ -39,6 +39,71 @@
   }
 
   // -------------------------------------------------------------------------
+  // One pointer, one frame
+  //
+  // A dozen things on this page answer the cursor: two marks, the bento cards,
+  // the primary buttons, the two files. Each used to attach its own
+  // `pointermove` and read a bounding box inside it, and a read that happens
+  // after somebody else's write is a forced layout — so moving the mouse cost
+  // twelve of them, every event, which is exactly the kind of thing that makes
+  // a page feel like it is dragging.
+  //
+  // They share one listener and one frame now: every rect is read together,
+  // then every style is written together. One layout per frame, whatever is
+  // watching.
+  // -------------------------------------------------------------------------
+
+  var watchers = [];
+  var cursor = { x: 0, y: 0, near: false };
+  var pointerFrame = 0;
+
+  function runWatchers() {
+    pointerFrame = 0;
+    // Reads first, all of them.
+    for (var i = 0; i < watchers.length; i++) {
+      watchers[i].box = watchers[i].el.getBoundingClientRect();
+    }
+    // Then the writes, which cannot invalidate a read that has already happened.
+    for (var j = 0; j < watchers.length; j++) {
+      watchers[j].apply(watchers[j].box, cursor);
+    }
+  }
+
+  function schedule() {
+    if (!pointerFrame) pointerFrame = requestAnimationFrame(runWatchers);
+  }
+
+  /** Answer the pointer. `apply` is handed the element's rect and the cursor. */
+  function follows(el, apply) {
+    if (calm) return;
+    watchers.push({ el: el, apply: apply, box: null });
+    if (watchers.length === 1) {
+      window.addEventListener(
+        "pointermove",
+        function (event) {
+          cursor.x = event.clientX;
+          cursor.y = event.clientY;
+          cursor.near = true;
+          schedule();
+        },
+        { passive: true }
+      );
+      window.addEventListener("pointerleave", function () {
+        cursor.near = false;
+        schedule();
+      });
+    }
+  }
+
+  /** -1..1 across a box grown by `reach` times its own size. */
+  function offset(box, point, axis, reach) {
+    var mid = axis === "x" ? box.left + box.width / 2 : box.top + box.height / 2;
+    var span = (axis === "x" ? box.width : box.height) * (reach || 1);
+    if (!span) return 0;
+    return Math.max(-1, Math.min(1, (point - mid) / span));
+  }
+
+  // -------------------------------------------------------------------------
   // The mark, built out into an object
   //
   // The markup ships the flat SVG. This puts a preserve-3d stage beside it and
@@ -103,23 +168,15 @@
     // The field is the mark's own region grown by four times its size, so the
     // cursor is answered well before it arrives rather than only on top of the
     // 24px target itself.
-    if (!calm) {
-      window.addEventListener(
-        "pointermove",
-        function (event) {
-          var box = host.getBoundingClientRect();
-          if (!box.width) return;
-          var reach = box.width * 4;
-          var dx = Math.max(-1, Math.min(1, (event.clientX - (box.left + box.width / 2)) / reach));
-          var dy = Math.max(-1, Math.min(1, (event.clientY - (box.top + box.height / 2)) / reach));
-          stage.style.setProperty("--ry", -23 + dx * 14 + "deg");
-          stage.style.setProperty("--rx", 12 - dy * 14 + "deg");
-          glass.style.setProperty("--gx", 34 - dx * 30 + "%");
-          glass.style.setProperty("--gy", 24 - dy * 22 + "%");
-        },
-        { passive: true }
-      );
-    }
+    follows(host, function (box, point) {
+      if (!box.width) return;
+      var dx = point.near ? offset(box, point.x, "x", 4) : 0;
+      var dy = point.near ? offset(box, point.y, "y", 4) : 0;
+      stage.style.setProperty("--ry", -23 + dx * 14 + "deg");
+      stage.style.setProperty("--rx", 12 - dy * 14 + "deg");
+      glass.style.setProperty("--gx", 34 - dx * 30 + "%");
+      glass.style.setProperty("--gy", 24 - dy * 22 + "%");
+    });
 
     once(host, function (target) { target.classList.add("in"); });
   }
@@ -175,42 +232,71 @@
   // the one rect, and neither runs at all for anyone who asked for calm.
   // -------------------------------------------------------------------------
 
-  if (!calm) {
-    $$("[data-spot]").forEach(function (card) {
-      card.addEventListener(
-        "pointermove",
-        function (event) {
-          var box = card.getBoundingClientRect();
-          card.style.setProperty("--mx", event.clientX - box.left + "px");
-          card.style.setProperty("--my", event.clientY - box.top + "px");
-        },
-        { passive: true }
-      );
-    });
+  $$("[data-spot]").forEach(function (card) {
+    /* A card that leans towards the cursor. Two degrees is the whole range:
+       enough that it reads as an object being looked at, not enough for a
+       paragraph on it to start keystoning. The axis is perpendicular to the
+       direction of the cursor, which is what makes it lean *towards* it rather
+       than about one edge — and it goes on `rotate`, not `transform`, because
+       the reveal owns `transform` on these elements. */
+    var leans = card.hasAttribute("data-lean");
 
-    $$("[data-magnet]").forEach(function (button) {
-      var pull = Number(button.getAttribute("data-magnet")) || 5;
-      window.addEventListener(
-        "pointermove",
-        function (event) {
-          var box = button.getBoundingClientRect();
-          if (!box.width) return;
-          var cx = box.left + box.width / 2;
-          var cy = box.top + box.height / 2;
-          var reach = box.width;
-          var dx = (event.clientX - cx) / reach;
-          var dy = (event.clientY - cy) / reach;
-          // Outside the reach it sits still. A button that leans towards a
-          // cursor on the other side of the page is a button that is never
-          // still, which is the opposite of the point.
-          var near = Math.abs(dx) < 1.1 && Math.abs(dy) < 1.6;
-          button.style.setProperty("--mgx", near ? dx * pull + "px" : "0px");
-          button.style.setProperty("--mgy", near ? dy * pull + "px" : "0px");
-        },
-        { passive: true }
-      );
+    follows(card, function (box, point) {
+      card.style.setProperty("--mx", point.x - box.left + "px");
+      card.style.setProperty("--my", point.y - box.top + "px");
+      if (!leans || !box.width) return;
+
+      var over =
+        point.near &&
+        point.x >= box.left && point.x <= box.right &&
+        point.y >= box.top && point.y <= box.bottom;
+
+      if (!over) {
+        card.style.rotate = "";
+        card.style.translate = "";
+        return;
+      }
+
+      var dx = (point.x - (box.left + box.width / 2)) / (box.width / 2);
+      var dy = (point.y - (box.top + box.height / 2)) / (box.height / 2);
+      var reach = Math.min(1, Math.sqrt(dx * dx + dy * dy));
+      // Dead centre there is no direction to lean in, and an axis of zero
+      // length is not a rotation the browser can make sense of.
+      card.style.rotate = reach < 0.02 ? "none" : -dy + " " + dx + " 0 " + (reach * 2).toFixed(2) + "deg";
+      card.style.translate = "0 -2px";
     });
-  }
+  });
+
+  /* A card that leans very slightly towards the cursor. Two and a half degrees
+     is the whole range: enough that the card reads as an object being looked
+     at, not so much that a paragraph on it starts to keystone. */
+  $$("[data-tilt]").forEach(function (host) {
+    var stage = host.firstElementChild;
+    if (!stage) return;
+    var lean = Number(host.getAttribute("data-tilt")) || 6;
+    follows(host, function (box, point) {
+      if (!box.width) return;
+      var dx = point.near ? offset(box, point.x, "x", 1.6) : 0;
+      var dy = point.near ? offset(box, point.y, "y", 1.6) : 0;
+      stage.style.setProperty("--ry", -9 + dx * lean + "deg");
+      stage.style.setProperty("--rx", 5 - dy * lean + "deg");
+    });
+  });
+
+  $$("[data-magnet]").forEach(function (button) {
+    var pull = Number(button.getAttribute("data-magnet")) || 5;
+    follows(button, function (box, point) {
+      if (!box.width) return;
+      var dx = (point.x - (box.left + box.width / 2)) / box.width;
+      var dy = (point.y - (box.top + box.height / 2)) / box.height;
+      // Outside its own reach it sits still. A button that leans towards a
+      // cursor on the other side of the page is a button that is never still,
+      // which is the opposite of the point.
+      var near = point.near && Math.abs(dx) < 1.1 && Math.abs(dy) < 1.6;
+      button.style.setProperty("--mgx", near ? dx * pull + "px" : "0px");
+      button.style.setProperty("--mgy", near ? dy * pull * 0.6 + "px" : "0px");
+    });
+  });
 
   // -------------------------------------------------------------------------
   // Reveals
@@ -288,24 +374,22 @@
   // -------------------------------------------------------------------------
   // Smoothed scrolling
   //
-  // A mouse wheel is a series of jumps. This turns each notch into a short
-  // glide towards a target the wheel moves, so the page arrives rather than
-  // teleports.
+  // Every wheel notch and every key press moves a target; the page eases
+  // towards it. Trackpads included — an earlier pass left them alone on the
+  // theory that a precision device is already smooth, and the result was a page
+  // that behaved differently depending on what you happened to be holding.
+  // One behaviour, tuned once.
   //
   // Deliberately NOT the usual implementation of this, which translates a
-  // wrapper element and leaves the document's real scroll offset at zero. Three
+  // wrapper element and leaves the document's real scroll offset at zero. Four
   // things here read that offset — the sticky tour chapters, the progress bar
-  // and the two scroll timelines — and a transformed wrapper breaks all of
-  // them. So the scroll is real: window.scrollTo, once a frame, towards a
-  // target. Everything that watches the scrollbar goes on working, including
-  // the browser's own find-on-page and the back button.
+  // and two scroll timelines — and a transformed wrapper breaks all of them. So
+  // the scroll is real: window.scrollTo, once a frame, towards a target.
+  // Find-on-page, the back button and the scrollbar all go on working.
   //
-  // Three things are left alone, on purpose:
-  //   - touch, where the platform's momentum is better than anything here;
-  //   - precision devices, because a trackpad already emits a smooth stream and
-  //     easing on top of it only adds lag — the small-delta test below is what
-  //     tells the two apart;
-  //   - a pane with its own scrollbar, which should scroll itself.
+  // Two things are left alone, on purpose: touch, where the platform's own
+  // momentum is better than anything written here, and a pane with its own
+  // scrollbar, which should scroll itself.
   // -------------------------------------------------------------------------
 
   if (!calm && window.matchMedia("(pointer: fine)").matches) {
@@ -316,9 +400,10 @@
       var gliding = false;
       var root = document.documentElement;
 
-      /* Below this, a wheel event came from a trackpad or a precision mouse and
-         is already smooth. Above it, it is a notch. */
-      var NOTCH = 40;
+      /* How much of the remaining distance is closed every 16.7ms. Lower is
+         longer and glassier; higher is tighter and more like the browser. This
+         is the one number worth arguing with. */
+      var EASE = 0.115;
 
       function limit() {
         return Math.max(0, root.scrollHeight - window.innerHeight);
@@ -331,15 +416,14 @@
         var current = window.scrollY;
         var left = target - current;
 
-        if (Math.abs(left) < 0.5) {
+        if (Math.abs(left) < 0.4) {
           window.scrollTo(0, target);
           stop();
           return;
         }
 
-        // Frame-rate independent, so 120Hz does not arrive twice as fast.
-        var t = 1 - Math.pow(1 - 0.2, gap / 16.67);
-        window.scrollTo(0, current + left * t);
+        // Frame-rate independent, or 120Hz arrives twice as fast as 60.
+        window.scrollTo(0, current + left * (1 - Math.pow(1 - EASE, gap / 16.67)));
         frame = requestAnimationFrame(step);
       }
 
@@ -350,10 +434,30 @@
         root.style.scrollBehavior = "";
       }
 
-      /* Anything that moves the page other than this — a scrollbar drag, Page
-         Down, an anchor, the browser restoring a position — becomes the new
-         target, or the next notch would yank the page back to where the glide
-         had been heading. */
+      function begin() {
+        if (gliding) return;
+        target = window.scrollY;
+        gliding = true;
+        last = performance.now();
+        // A CSS smooth scroll on every frame of our own would fight this.
+        root.style.scrollBehavior = "auto";
+      }
+
+      function push(amount) {
+        begin();
+        target = Math.max(0, Math.min(limit(), target + amount));
+        if (!frame) frame = requestAnimationFrame(step);
+      }
+
+      function goto(where) {
+        begin();
+        target = Math.max(0, Math.min(limit(), where));
+        if (!frame) frame = requestAnimationFrame(step);
+      }
+
+      /* Anything that moves the page other than this — a scrollbar drag, an
+         anchor, the browser restoring a position — becomes the new target, or
+         the next notch would yank it back to where the glide was heading. */
       function resync() {
         if (!gliding) target = window.scrollY;
       }
@@ -376,7 +480,6 @@
         function (event) {
           if (event.ctrlKey || event.defaultPrevented) return;
           if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
-          if (event.deltaMode === 0 && Math.abs(event.deltaY) < NOTCH) return;
           if (ownScroller(event.target)) return;
 
           var amount =
@@ -385,20 +488,42 @@
           if (!amount) return;
 
           event.preventDefault();
-
-          if (!gliding) {
-            target = window.scrollY;
-            gliding = true;
-            last = performance.now();
-            // A CSS smooth scroll on every frame of our own would fight this.
-            root.style.scrollBehavior = "auto";
-          }
-
-          target = Math.max(0, Math.min(limit(), target + amount));
-          if (!frame) frame = requestAnimationFrame(step);
+          push(amount);
         },
         { passive: false }
       );
+
+      /* The keys that scroll, so a page turned with the keyboard arrives the
+         same way one turned with the wheel does. Anything with its own idea of
+         what these keys mean — a field, a button, a <summary> — keeps it. */
+      var TYPING = /^(input|textarea|select)$/;
+
+      window.addEventListener("keydown", function (event) {
+        if (event.defaultPrevented || event.ctrlKey || event.metaKey || event.altKey) return;
+
+        var on = event.target;
+        if (on && (TYPING.test((on.tagName || "").toLowerCase()) || on.isContentEditable)) return;
+        if (on && on.closest && on.closest("button, summary, a, [tabindex], [role='button']")) return;
+        if (ownScroller(on)) return;
+
+        var page = window.innerHeight * 0.88;
+        var line = 90;
+        var by = null;
+        var to = null;
+
+        if (event.key === "PageDown") by = page;
+        else if (event.key === "PageUp") by = -page;
+        else if (event.key === " " || event.key === "Spacebar") by = event.shiftKey ? -page : page;
+        else if (event.key === "ArrowDown") by = line;
+        else if (event.key === "ArrowUp") by = -line;
+        else if (event.key === "Home") to = 0;
+        else if (event.key === "End") to = limit();
+        else return;
+
+        event.preventDefault();
+        if (to !== null) goto(to);
+        else push(by);
+      });
     })();
   }
 

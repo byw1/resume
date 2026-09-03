@@ -327,21 +327,68 @@
      ========================================================================== -->
 <section class="band">
   <div class="wrap">
-    <div class="section-head" data-reveal>
-      <p class="eyebrow">Why it exists</p>
-      <h2 class="h-section">They have a system. You have a folder called <span class="accent">final_v3</span>.</h2>
-      <p class="lede">
-        On their side of the application is software that has been keeping score since the
-        first time you applied: what you sent, when, against which req, and what the recruiter
-        typed afterwards. On your side there's a resume written from memory, a spreadsheet you
-        stopped updating in March, and three years of work you can no longer describe in
-        detail. Nobody loses a job to a better candidate as often as they lose it to that gap.
-      </p>
+    <div class="why">
+      <div class="section-head" data-reveal>
+        <p class="eyebrow">Why it exists</p>
+        <h2 class="h-section">They keep a file on you. You keep it all <span class="accent">in your head</span>.</h2>
+        <p class="lede">
+          The moment you apply you are inside software that has been keeping score since the
+          first thing you ever sent in: what you applied for, when, which version of your
+          resume went with it, and what the recruiter wrote about you afterwards. You never
+          see any of it. On your side there is a resume rebuilt from memory every time, a
+          spreadsheet you stopped updating in March, and three years of work you can no
+          longer describe in any detail. People lose jobs to that gap far more often than
+          they lose them to a better candidate.
+        </p>
+      </div>
+
+      <!-- The two files, as objects. Theirs sits further back and is thicker and
+           fuller; yours is in front, thin and half empty. They are on one
+           preserve-3d stage at different depths, so tilting the stage moves them
+           past each other — the parallax is what makes them read as two things in
+           a space rather than two rectangles on a page.
+
+           Decoration, and marked as such: everything it says is said in the
+           paragraph beside it. -->
+      <div class="files" data-tilt="9" data-reveal="scale" style="--i:1" aria-hidden="true">
+        <div class="files-stage">
+          <div class="file file-theirs">
+            <p class="file-cap">
+              <svg width="12" height="12" viewBox="0 0 24 24"><use href="#i-lock"/></svg>
+              Their file on you
+            </p>
+            <div class="file-rows">
+              <span style="--w:100%; --i:0"></span>
+              <span style="--w:84%; --i:1"></span>
+              <span style="--w:95%; --i:2"></span>
+              <span style="--w:72%; --i:3"></span>
+              <span style="--w:100%; --i:4"></span>
+              <span style="--w:88%; --i:5"></span>
+              <span style="--w:96%; --i:6"></span>
+              <span style="--w:64%; --i:7"></span>
+              <span style="--w:92%; --i:8"></span>
+              <span style="--w:78%; --i:9"></span>
+            </div>
+            <p class="file-foot">6 years<span class="roomy"> &middot; 41 applications</span></p>
+          </div>
+
+          <div class="file file-yours">
+            <p class="file-cap">Your file on them</p>
+            <div class="file-rows">
+              <span style="--w:76%; --i:0"></span>
+              <span class="none" style="--w:100%; --i:1"></span>
+              <span style="--w:48%; --i:2"></span>
+              <span class="none" style="--w:100%; --i:3"></span>
+            </div>
+            <p class="file-foot">whatever you can still remember</p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="figures" style="margin-top:44px">
       <div class="figure" data-reveal style="--i:1">
-        <div class="n"><span data-count="73">73</span></div>
+        <div class="n"><span data-count="104">104</span></div>
         <div class="l">Things it can do on your say-so</div>
         <div class="h">Each one named, so it can be asked for exactly</div>
       </div>
@@ -400,7 +447,7 @@
            are diagrams rather than screenshots: the tour below has the real
            screens, and a shrunken screenshot up here would be unreadable at
            both jobs. -->
-      <div class="cell b-hero" data-spot data-reveal style="--tone:var(--stage-applied); --i:1">
+      <div class="cell b-hero" data-spot data-lean data-reveal style="--tone:var(--stage-applied); --i:1">
         <div class="cell-body">
           <div class="cell-dot" aria-hidden="true"></div>
           <h3>Me</h3>
@@ -430,7 +477,7 @@
         </div>
       </div>
 
-      <div class="cell b-third" data-spot data-reveal style="--tone:var(--stage-screen); --i:2">
+      <div class="cell b-third" data-spot data-lean data-reveal style="--tone:var(--stage-screen); --i:2">
         <div class="cell-body">
           <div class="cell-dot" aria-hidden="true"></div>
           <h3>Resumes</h3>
@@ -456,7 +503,7 @@
         </div>
       </div>
 
-      <div class="cell b-third" data-spot data-reveal style="--tone:var(--stage-final); --i:3">
+      <div class="cell b-third" data-spot data-lean data-reveal style="--tone:var(--stage-final); --i:3">
         <div class="cell-body">
           <div class="cell-dot" aria-hidden="true"></div>
           <h3>Pipeline</h3>
@@ -480,7 +527,7 @@
         </div>
       </div>
 
-      <div class="cell b-third" data-spot data-reveal style="--tone:var(--stage-offer); --i:4">
+      <div class="cell b-third" data-spot data-lean data-reveal style="--tone:var(--stage-offer); --i:4">
         <div class="cell-body">
           <div class="cell-dot" aria-hidden="true"></div>
           <h3>People and prep</h3>

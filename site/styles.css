@@ -3193,3 +3193,230 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   .plan-switch button { padding: 7px 11px; gap: 6px; font-size: 12.5px; }
   .plan-switch .off { font-size: 9px; padding: 2px 5px; letter-spacing: 0.02em; }
 }
+
+/* ===========================================================================
+   THE TWO FILES
+
+   The section's argument, as a thing rather than a sentence: their record of
+   you, thick and full and shut; yours of them, thin and half empty. Two cards
+   on one preserve-3d stage at different depths, so tilting the stage slides
+   them past each other. The parallax is what does the work — an extrusion on a
+   flat card reads as a drop shadow, but two objects that move at different
+   rates read as a space with things in it.
+
+   The tilt follows the pointer, which is the page's third kind of motion: no
+   duration, no direction of its own, and gone when the cursor leaves. The rows
+   filling in play once on entry, like everything else.
+   =========================================================================== */
+
+.why { display: grid; grid-template-columns: minmax(0, 1fr); gap: 32px; }
+
+@media (min-width: 940px) {
+  .why {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 460px);
+    gap: 48px;
+    align-items: center;
+  }
+}
+
+/* A card pushed towards the viewer is drawn larger, so the stage needs room
+   at the edges or the front one grows out of its own column. */
+.files { perspective: 1400px; padding: 10px 14px; }
+
+.files-stage {
+  position: relative;
+  height: 330px;
+  transform-style: preserve-3d;
+  transform: rotateX(var(--rx, 5deg)) rotateY(var(--ry, -9deg));
+  transition: transform 0.5s var(--settle);
+}
+
+.file {
+  position: absolute;
+  border-radius: var(--r-panel);
+  background: var(--card);
+  padding: 16px 18px;
+  /* The stacked offsets are the slab's side. They are painted in the card's own
+     space, so they turn with it — a real extrusion for the price of a shadow. */
+  box-shadow:
+    var(--shadow-card),
+    7px 8px 0 -1px var(--inset),
+    14px 16px 0 -2px color-mix(in oklch, var(--inset) 70%, var(--rim));
+}
+
+/* Theirs: further back, wider, and full to the edges. */
+.file-theirs {
+  left: 0;
+  top: 0;
+  width: 72%;
+  transform: translateZ(-42px);
+}
+
+/* Yours: in front, smaller, and mostly gaps. */
+.file-yours {
+  right: 0;
+  bottom: 0;
+  width: 58%;
+  transform: translateZ(28px);
+}
+
+.file-cap {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  font-family: var(--mono);
+  font-size: 10px;
+  letter-spacing: 0.07em;
+  text-transform: uppercase;
+  color: var(--faint);
+  margin-bottom: 12px;
+}
+
+.file-theirs .file-cap { color: var(--muted); }
+.file-cap svg { color: var(--faint); }
+
+.file-rows { display: flex; flex-direction: column; gap: 7px; }
+
+.file-rows span {
+  display: block;
+  height: 6px;
+  width: var(--w, 100%);
+  border-radius: 3px;
+  background: var(--rim);
+  transform-origin: left center;
+}
+
+/* Theirs is written in ink; yours is what you can still remember. */
+.file-theirs .file-rows span {
+  background: color-mix(in oklch, var(--stage-applied) 26%, var(--rim));
+}
+
+/* The line that was never written down. */
+.file-rows span.none {
+  height: 6px;
+  background: none;
+  box-shadow: inset 0 0 0 1px var(--rim);
+  border-radius: 3px;
+}
+
+.file-foot {
+  margin-top: 13px;
+  font-size: 11.5px;
+  color: var(--faint);
+}
+
+.js .files .file-rows span {
+  scale: 0 1;
+  transition: scale 0.55s var(--enter);
+  transition-delay: calc(var(--i, 0) * 55ms + 220ms);
+}
+
+.js .files.in .file-rows span { scale: 1 1; }
+
+/* Each card arrives from its own depth, so the space is established before
+   anything is written into it. */
+.js .files .file {
+  opacity: 0;
+  transition:
+    opacity 0.7s var(--enter),
+    translate 0.9s var(--enter);
+}
+
+.js .files .file-theirs { translate: -14px -10px; }
+.js .files .file-yours { translate: 18px 14px; transition-delay: 0.12s; }
+.js .files.in .file { opacity: 1; translate: 0 0; }
+
+@media (max-width: 939px) {
+  .files-stage { height: 300px; max-width: 460px; margin-inline: auto; }
+}
+
+/* The front card overlaps the back one, which is the point — but not far
+   enough into its footer to cut a word in half. On a narrow stage there is
+   only room for the short version. */
+@media (max-width: 700px) {
+  .file-theirs .file-foot .roomy { display: none; }
+}
+
+@media (max-width: 460px) {
+  .files-stage { height: 268px; }
+  .file { padding: 13px 14px; }
+  .file-theirs { width: 78%; }
+  .file-yours { width: 66%; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .files-stage { transition: none; }
+  .js .files .file-rows span { scale: none !important; }
+  .js .files .file { opacity: 1 !important; translate: 0 0 !important; }
+}
+
+/* ===========================================================================
+   CARDS THAT ANSWER THE CURSOR
+
+   Three things, all of them reflections of where the pointer is and all of them
+   gone the moment it leaves: a light inside the card (above), a light along its
+   edge, and a lean of about two degrees towards the cursor.
+
+   The lean is written to the `rotate` property rather than to `transform`,
+   because `transform` on these cards already belongs to the reveal — it is what
+   slides them up on entry — and two owners of one property is a bug waiting for
+   whoever edits the other one. `rotate` composes with it instead.
+   =========================================================================== */
+
+.bento { perspective: 1600px; }
+
+[data-lean] {
+  transition:
+    rotate 0.45s var(--settle),
+    translate 0.45s var(--settle),
+    box-shadow 0.25s var(--settle);
+}
+
+/* The edge, lit from wherever the cursor is. A ring rather than a glow: the
+   card already has an inside light, and two glows on one object is fog. */
+[data-spot]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  border-radius: inherit;
+  padding: 1.5px;
+  pointer-events: none;
+  background: radial-gradient(
+    300px circle at var(--mx, 50%) var(--my, 0%),
+    color-mix(in oklch, var(--tone, var(--primary)) 92%, transparent),
+    color-mix(in oklch, var(--tone, var(--primary)) 30%, transparent) 34%,
+    transparent 64%
+  );
+  -webkit-mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask:
+    linear-gradient(#000 0 0) content-box,
+    linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  opacity: 0;
+  transition: opacity 0.3s var(--settle);
+}
+
+[data-spot]:hover::after { opacity: 1; }
+
+/* A couple of the drawings acknowledge the hover too, in the smallest way that
+   still says the card is live: the pulled-out bullet lifts a little further off
+   the notes it came from, and the card that just moved stage sits up. */
+.cell:hover .vz-pull { translate: 0 -2px; box-shadow: var(--shadow-raised); }
+.vz-pull { transition: translate 0.3s var(--settle), box-shadow 0.3s var(--settle); }
+
+.cell:hover .vz-col i.vz-moved { box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-interview); }
+.cell:hover .vz-who.due { box-shadow: var(--shadow-raised); }
+.vz-who { transition: box-shadow 0.3s var(--settle); }
+
+@media (prefers-reduced-motion: reduce) {
+  [data-lean] { rotate: none !important; translate: 0 0 !important; }
+}
+
+/* A tilt needs a pointer to tilt towards. */
+@media (hover: none) {
+  [data-spot]::after { display: none; }
+}

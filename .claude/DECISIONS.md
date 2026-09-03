@@ -3876,3 +3876,60 @@ browser's own smooth scroll, not this); the billing switch swaps both the figure
 terms; and every in-page anchor in the file still resolves to an id that exists.
 
 **Applies to:** `site/{index.html,styles.css,motion.js}`, `tools/build-site.mjs`.
+
+---
+
+## 2026-09-03 — Why it exists, said without a filename
+
+**`final_v3` was a joke for people who name files.** It was the headline of the section
+that has to land first, and it asked the reader to already know what a version-suffixed
+filename is. The section now says the asymmetry straight: *They keep a file on you. You
+keep it all in your head.* The paragraph lost "req" for the same reason — that is recruiter
+vocabulary, and the person reading this has never been on that side of it.
+
+**The gap is now an object, because two objects at different depths is what reads as 3D.**
+Their file sits back, thick and full and shut; yours sits in front, thin and half empty,
+half of its lines never written. One `preserve-3d` stage, one card at `translateZ(-42px)`
+and one at `+28px`, and the whole thing leans towards the pointer — so moving the cursor
+slides them past each other. That parallax is the entire effect. An extrusion on a single
+flat card reads as a drop shadow no matter how many layers it has; two things moving at
+different rates read as a space with things in it, which is the thing the extruded mark
+had to work much harder for.
+
+**A card pushed towards the viewer is drawn larger.** The front file grew out of its own
+column until the stage got padding. Obvious in hindsight, invisible until a screenshot at
+1360 showed the corner clipped.
+
+**Scrolling now behaves the same whatever you are holding.** The first pass exempted
+precision devices on the theory that a trackpad is already smooth, and the result was a
+page that felt different depending on the hardware — which is worse than either behaviour
+on its own. One easing for everything, longer than before (0.115 a frame, about six hundred
+milliseconds to settle), plus the keys that scroll, so a page turned with PageDown arrives
+the way one turned with the wheel does. A field, a button or a `<summary>` keeps its own
+idea of what a key means.
+
+**The real cause of "not smooth" was probably not the easing.** A dozen elements answered
+the pointer and each one attached its own `pointermove` and read a bounding box inside it.
+A read after somebody else's write is a forced layout, so moving the mouse cost twelve of
+them per event. They share one listener and one frame now — every rect read together, then
+every style written together — which is one layout per frame however many things are
+watching. That is the fix; the easing tune is the part you notice.
+
+**The bento cards lean on `rotate`, not `transform`.** `transform` on those elements
+already belongs to the reveal, and two owners of one property is a bug waiting for whoever
+edits the other. The independent `rotate` property composes with it. The axis is
+perpendicular to the direction of the cursor, which is what makes the card lean *towards*
+it rather than pivot about an edge — and dead centre there is no direction at all, so a
+zero-length axis has to be caught or the browser normalises it to something arbitrary.
+
+**Two degrees, and an edge lit from where the cursor is.** More lean than that and a
+paragraph starts to keystone. The edge is the standard masked-ring trick — a padded
+pseudo-element, `mask-composite: exclude` — and at 1px and 62% it was invisible in a
+screenshot; 1.5px and 92% is the difference between an effect and a rumour of one.
+
+**The tool count on this page had gone stale, exactly as CLAUDE.md warns.** It said 73;
+`tools/list` returns 104 for a member. Corrected by hand, which is the same thing that will
+go wrong again — the generator owns every count in the manual but not the ones on the
+landing page.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`.
