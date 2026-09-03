@@ -442,13 +442,15 @@
         </div>
 
         <!-- Raw material going in, one polished bullet coming back out. -->
-        <div class="viz viz-record" aria-hidden="true">
+        <div class="viz viz-record" data-live aria-hidden="true">
           <div class="vz-head">Meridian Logistics · background</div>
           <div class="vz-note">
             <i style="--w:94%; --i:0"></i><i style="--w:78%; --i:1"></i><i style="--w:52%; --i:2"></i>
           </div>
           <div class="vz-note">
             <i style="--w:88%; --i:3"></i><i style="--w:66%; --i:4"></i>
+            <!-- The line that arrives while you watch. -->
+            <i class="vz-fresh" style="--w:82%; --i:5"></i>
           </div>
           <div class="vz-pull">
             <span class="vz-dot"></span>
@@ -471,13 +473,17 @@
         </div>
 
         <!-- The document assembling itself, one column, no graphics. -->
-        <div class="viz viz-page" aria-hidden="true">
+        <div class="viz viz-page" data-live aria-hidden="true">
           <div class="vz-paper">
             <i class="vz-nm" style="--i:0"></i>
             <i class="vz-rule" style="--i:1"></i>
-            <i style="--w:96%; --i:2"></i><i style="--w:88%; --i:3"></i>
-            <i class="vz-gap" style="--w:34%; --i:4"></i>
-            <i style="--w:92%; --i:5"></i><i style="--w:74%; --i:6"></i>
+            <!-- `--alt` is what each line becomes when the document is rebuilt
+                 for a different posting: same evidence, different selection. -->
+            <i class="vz-body" style="--w:96%; --alt:0.72; --i:2"></i>
+            <i class="vz-body" style="--w:88%; --alt:1;    --i:3"></i>
+            <i class="vz-gap"  style="--w:34%; --alt:1.9;  --i:4"></i>
+            <i class="vz-body" style="--w:92%; --alt:0.8;  --i:5"></i>
+            <i class="vz-body" style="--w:74%; --alt:1.25; --i:6"></i>
           </div>
           <span class="vz-badge" style="--i:9">1 page</span>
         </div>
@@ -498,11 +504,15 @@
         <!-- One card lands a column further along. It is drawn where it ends up
              and animated from where it was, so there is no JS and nothing to
              re-measure when the card wraps. -->
-        <div class="viz viz-board" aria-hidden="true">
-          <div class="vz-col" style="--tone:var(--stage-applied)"><b></b><i></i><i></i></div>
-          <div class="vz-col" style="--tone:var(--stage-screen)"><b></b><i></i><i></i></div>
-          <div class="vz-col" style="--tone:var(--stage-interview)"><b></b><i class="vz-moved"></i></div>
+        <div class="viz viz-board" data-live aria-hidden="true">
+          <div class="vz-col" style="--tone:var(--stage-applied)"><b></b><i></i></div>
+          <div class="vz-col" style="--tone:var(--stage-screen)"><b></b><i></i></div>
+          <div class="vz-col" style="--tone:var(--stage-interview)"><b></b><i></i></div>
           <div class="vz-col" style="--tone:var(--stage-offer)"><b></b><i></i></div>
+          <!-- The one that is moving. It sits in a row of its own under the
+               four columns and steps one column at a time, so nothing has to be
+               measured and nothing reflows. -->
+          <span class="vz-trip"></span>
         </div>
       </div>
 
@@ -519,11 +529,13 @@
         </div>
 
         <!-- Three people on one thread, and the one who is due. -->
-        <div class="viz viz-people" aria-hidden="true">
+        <!-- Each row carries both of its states; the one that is due walks
+             down the list, which is what a follow-up list actually does. -->
+        <div class="viz viz-people" data-live aria-hidden="true">
           <span class="vz-thread"></span>
-          <div class="vz-who" style="--i:0"><span class="vz-face">RK</span><span class="vz-bars"><i style="--w:56%"></i><i style="--w:78%"></i></span><span class="vz-when">2w</span></div>
-          <div class="vz-who" style="--i:1"><span class="vz-face">JM</span><span class="vz-bars"><i style="--w:64%"></i><i style="--w:44%"></i></span><span class="vz-when">6d</span></div>
-          <div class="vz-who due" style="--i:2"><span class="vz-face">AO</span><span class="vz-bars"><i style="--w:48%"></i><i style="--w:70%"></i></span><span class="vz-when">due</span></div>
+          <div class="vz-who" style="--i:0"><span class="vz-face">RK</span><span class="vz-bars"><i style="--w:56%"></i><i style="--w:78%"></i></span><span class="vz-when"><b>2w</b><em>due</em></span></div>
+          <div class="vz-who" style="--i:1"><span class="vz-face">JM</span><span class="vz-bars"><i style="--w:64%"></i><i style="--w:44%"></i></span><span class="vz-when"><b>6d</b><em>due</em></span></div>
+          <div class="vz-who" style="--i:2"><span class="vz-face">AO</span><span class="vz-bars"><i style="--w:48%"></i><i style="--w:70%"></i></span><span class="vz-when"><b>3d</b><em>due</em></span></div>
         </div>
       </div>
     </div>

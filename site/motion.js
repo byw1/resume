@@ -299,6 +299,36 @@
   });
 
   // -------------------------------------------------------------------------
+  // Drawings that keep going
+  //
+  // The four drawings in the bento used to play once on entry and hold, which
+  // made them illustrations of a thing rather than the thing happening. They
+  // loop now — a line filed and a highlight pulled out of it, a document
+  // rebuilt for a different posting, a card walking the board, a follow-up
+  // coming due.
+  //
+  // This is a deliberate exception to "nothing loops", and it is bounded three
+  // ways. Every cycle begins and ends at the drawing's resting state, so a
+  // paused one is indistinguishable from a still one. Nothing runs unless it is
+  // on screen — the class goes on when the drawing enters and comes off when it
+  // leaves, so four animations are not burning a phone's battery while somebody
+  // reads the FAQ five sections down. And `calm` never adds the class at all,
+  // which leaves the finished picture exactly as it was.
+  // -------------------------------------------------------------------------
+
+  if (!calm && "IntersectionObserver" in window) {
+    var living = new IntersectionObserver(
+      function (entries) {
+        entries.forEach(function (entry) {
+          entry.target.classList.toggle("live", entry.isIntersecting);
+        });
+      },
+      { threshold: 0.2 }
+    );
+    $$("[data-live]").forEach(function (el) { living.observe(el); });
+  }
+
+  // -------------------------------------------------------------------------
   // Reveals
   // -------------------------------------------------------------------------
 

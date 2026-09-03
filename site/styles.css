@@ -1254,7 +1254,9 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   transition-delay: calc(var(--i, 0) * 70ms + 180ms);
 }
 
-.js .cell.in .viz i { scale: 1 1; }
+/* Every bar except the one the loop owns outright — see the fresh line
+   below, which starts at nothing and is brought in by its cycle. */
+.js .cell.in .viz i:not(.vz-fresh) { scale: 1 1; }
 
 /* --- Me: raw material in, one polished bullet out ------------------------- */
 
@@ -1389,21 +1391,18 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   scale: none;
 }
 
-/* The moved card is drawn in the column it ends up in and starts a column to
-   the left, which is the same trick the real board plays on a drop: the card
-   lands where you put it before anything is confirmed. */
-.js .vz-col i.vz-moved {
-  transform: translate(calc(-100% - 8px), 22px) rotate(3deg);
-  box-shadow: var(--shadow-overlay);
-  transition:
-    transform 0.85s var(--enter),
-    box-shadow 0.85s var(--enter);
-  transition-delay: 0.55s;
-}
-
-.js .cell.in .vz-col i.vz-moved {
-  transform: none;
-  box-shadow: var(--shadow-hairline), inset 2px 0 0 var(--stage-interview);
+/* The card that is moving. It lives in a row of its own beneath the four
+   columns, one column wide, so a step is one translate and nothing in the
+   board has to reflow or be measured. */
+.vz-trip {
+  display: block;
+  grid-column: 1;
+  height: 17px;
+  width: 100%;
+  border-radius: 5px;
+  background: var(--card);
+  box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-applied);
+  scale: none;
 }
 
 /* --- People: three on one thread, and the one who is due ------------------ */
@@ -1472,18 +1471,6 @@ body.show-slots .shot { outline: 1px dashed color-mix(in oklch, var(--primary) 5
   color: var(--faint);
 }
 
-/* The one that is due says so in the colour the app uses for exactly that. */
-.vz-who.due { box-shadow: var(--shadow-card); }
-.vz-who.due .vz-face { color: var(--warning); background: color-mix(in oklch, var(--warning) 14%, transparent); }
-.vz-who.due .vz-when {
-  color: var(--warning);
-  background: color-mix(in oklch, var(--warning) 14%, transparent);
-  padding: 3px 7px;
-  border-radius: var(--r-chip);
-  text-transform: uppercase;
-  font-size: 9.5px;
-  letter-spacing: 0.06em;
-}
 
 @media (prefers-reduced-motion: reduce) {
   .js .viz i,
@@ -3122,7 +3109,6 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
 .vz-pull { transition: translate 0.3s var(--settle), box-shadow 0.3s var(--settle); }
 
 .cell:hover .vz-col i.vz-moved { box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-interview); }
-.cell:hover .vz-who.due { box-shadow: var(--shadow-raised); }
 .vz-who { transition: box-shadow 0.3s var(--settle); }
 
 @media (prefers-reduced-motion: reduce) {
@@ -3162,4 +3148,208 @@ footer { position: relative; isolation: isolate; overflow: hidden; padding-block
   font-size: 13.5px;
   color: var(--faint);
   text-wrap: balance;
+}
+
+/* ===========================================================================
+   THE DRAWINGS, RUNNING
+
+   The four bento drawings used to play once on entry and hold. That made them
+   illustrations of a thing rather than the thing happening, which is the whole
+   reason they are there. They loop now.
+
+   That is a deliberate exception to this file's own "nothing loops" rule, and
+   it is bounded three ways:
+
+   1. Every cycle starts and ends at the drawing's resting state — the state
+      the entry animation leaves it in. So a paused cycle, a cycle that never
+      starts, and no cycle at all are all the same picture. That is what makes
+      the rest of this safe.
+   2. Nothing runs off screen. `.live` is added by an observer when the drawing
+      comes into view and taken off when it leaves (see motion.js), so a phone
+      is not compositing four loops while somebody reads the FAQ.
+   3. `calm` never adds `.live`, so anyone who asked their system to settle
+      down gets the still picture and nothing else.
+
+   Everything below animates `transform`, `scale` and `opacity` only, so all of
+   it runs on the compositor. The delays hold each loop back until the entry
+   reveal has finished, and the four periods are deliberately coprime-ish so the
+   section never falls into step with itself and starts reading as a metronome.
+   =========================================================================== */
+
+/* --- Me: a line is filed, and a highlight comes out of it ------------------ */
+
+/* The line that arrives. Not part of the entry stagger — it belongs to the
+   loop, so it starts at nothing and the loop brings it in. */
+.js .viz-record .vz-fresh { scale: 0 1; }
+.js .cell.in .viz-record .vz-fresh { scale: 0 1; }
+
+.js .viz-record.live .vz-fresh {
+  animation: file-a-line 9s var(--settle) 1.6s infinite both;
+}
+
+@keyframes file-a-line {
+  0%, 10% { scale: 0 1; }
+  20%, 74% { scale: 1 1; }
+  84%, 100% { scale: 0 1; }
+}
+
+/* The bullet that gets pulled out of it, a beat later. */
+.js .viz-record.live .vz-pull {
+  animation: pull-a-bullet 9s var(--settle) 1.6s infinite both;
+}
+
+@keyframes pull-a-bullet {
+  0%, 24% { transform: none; }
+  34%, 70% { transform: translateY(-4px); }
+  82%, 100% { transform: none; }
+}
+
+.js .viz-record.live .vz-tag {
+  animation: tag-lands 9s var(--settle) 1.6s infinite both;
+}
+
+@keyframes tag-lands {
+  0%, 26% { opacity: 0.45; scale: 0.94; }
+  36%, 70% { opacity: 1; scale: 1; }
+  84%, 100% { opacity: 0.45; scale: 0.94; }
+}
+
+/* --- Resumes: the same evidence, rebuilt for a different posting ----------- */
+
+/* Each body line collapses and comes back at `--alt` of its own length, so the
+   document is visibly re-selected rather than merely redrawn. The name and the
+   rule under it never move: it is the same person either way. */
+.js .viz-page.live .vz-body,
+.js .viz-page.live .vz-gap {
+  animation: retailor 10s var(--enter) 1.8s infinite both;
+  animation-delay: calc(1.8s + var(--i, 0) * 40ms);
+}
+
+@keyframes retailor {
+  0%, 14% { scale: 1 1; }
+  26%, 30% { scale: 0 1; }
+  42%, 68% { scale: var(--alt, 1) 1; }
+  78%, 82% { scale: 0 1; }
+  94%, 100% { scale: 1 1; }
+}
+
+.js .viz-page.live .vz-badge {
+  animation: badge-blink 10s var(--settle) 1.8s infinite both;
+}
+
+@keyframes badge-blink {
+  0%, 40% { opacity: 1; transform: none; }
+  46% { opacity: 0.35; transform: translateY(2px); }
+  56%, 100% { opacity: 1; transform: none; }
+}
+
+/* --- Pipeline: one card walks the board ----------------------------------- */
+
+/* One column plus one gap. Written once here so the four steps below cannot
+   drift apart from the grid they are stepping across. */
+.viz-board { --step: calc(100% + 8px); }
+
+.js .viz-board.live .vz-trip {
+  animation: walk-the-board 11s var(--settle) 1.4s infinite both;
+}
+
+@keyframes walk-the-board {
+  /* `opacity` has to be pinned here and at 84%, not only where it changes: a
+     property that first appears at 90% is interpolated all the way from 0%,
+     which is a ninety-per-cent-long fade to nothing rather than a card. */
+  0%, 12% {
+    opacity: 1;
+    transform: none;
+    box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-applied);
+  }
+  /* Lifted mid-move, the way a card looks between two columns. */
+  18% { transform: translateX(calc(var(--step) * 0.5)) translateY(-2px); box-shadow: var(--shadow-overlay), inset 2px 0 0 var(--stage-screen); }
+  24%, 34% { transform: translateX(var(--step)); box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-screen); }
+  40% { transform: translateX(calc(var(--step) * 1.5)) translateY(-2px); box-shadow: var(--shadow-overlay), inset 2px 0 0 var(--stage-interview); }
+  46%, 56% { transform: translateX(calc(var(--step) * 2)); box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-interview); }
+  62% { transform: translateX(calc(var(--step) * 2.5)) translateY(-2px); box-shadow: var(--shadow-overlay), inset 2px 0 0 var(--stage-offer); }
+  68%, 84% { opacity: 1; transform: translateX(calc(var(--step) * 3)); box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-offer); }
+  /* Offered, and off the board. The next one starts at the beginning. */
+  90%, 96% { transform: translateX(calc(var(--step) * 3)) scale(0.9); opacity: 0; box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-offer); }
+  97% { transform: none; opacity: 0; box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-applied); }
+  100% { transform: none; opacity: 1; box-shadow: var(--shadow-card), inset 2px 0 0 var(--stage-applied); }
+}
+
+/* --- People: the follow-up that comes due --------------------------------- */
+
+/* Both labels sit in the same box, so nothing moves when one replaces the
+   other and the row never changes width. */
+.vz-when { position: relative; display: inline-grid; }
+.vz-when > b,
+.vz-when > em {
+  grid-area: 1 / 1;
+  font-style: normal;
+  font-weight: inherit;
+  white-space: nowrap;
+}
+
+.vz-when > em {
+  opacity: 0;
+  color: var(--warning);
+  background: color-mix(in oklch, var(--warning) 14%, transparent);
+  padding: 3px 7px;
+  margin: -3px -7px;
+  border-radius: var(--r-chip);
+  text-transform: uppercase;
+  font-size: 9.5px;
+  letter-spacing: 0.06em;
+}
+
+/* Each row takes its turn, a third of the cycle apart. */
+.js .viz-people.live .vz-who {
+  animation: comes-due 12s var(--settle) infinite both;
+  animation-delay: calc(1.5s + var(--i, 0) * 4s);
+}
+
+.js .viz-people.live .vz-who > .vz-when > em {
+  animation: due-mark 12s var(--settle) infinite both;
+  animation-delay: calc(1.5s + var(--i, 0) * 4s);
+}
+
+.js .viz-people.live .vz-who > .vz-face {
+  animation: due-face 12s var(--settle) infinite both;
+  animation-delay: calc(1.5s + var(--i, 0) * 4s);
+}
+
+.js .viz-people.live .vz-who > .vz-when > b {
+  animation: due-swap 12s var(--settle) infinite both;
+  animation-delay: calc(1.5s + var(--i, 0) * 4s);
+}
+
+@keyframes comes-due {
+  0%, 3% { box-shadow: var(--shadow-hairline); }
+  8%, 26% { box-shadow: var(--shadow-card); }
+  31%, 100% { box-shadow: var(--shadow-hairline); }
+}
+
+@keyframes due-mark {
+  0%, 4% { opacity: 0; }
+  9%, 25% { opacity: 1; }
+  30%, 100% { opacity: 0; }
+}
+
+@keyframes due-face {
+  0%, 4% { color: var(--muted); background: var(--inset); }
+  9%, 25% { color: var(--warning); background: color-mix(in oklch, var(--warning) 14%, transparent); }
+  30%, 100% { color: var(--muted); background: var(--inset); }
+}
+
+@keyframes due-swap {
+  0%, 4% { opacity: 1; }
+  9%, 25% { opacity: 0; }
+  30%, 100% { opacity: 1; }
+}
+
+/* `.live` is never added for anyone who asked their system to calm down, so
+   none of the above can start. This is the belt to that pair of braces — and it
+   puts the one element the loop owns outright back where it belongs. */
+@media (prefers-reduced-motion: reduce) {
+  .js .viz-record .vz-fresh,
+  .js .cell.in .viz-record .vz-fresh { scale: 1 1 !important; }
+  .viz, .viz * { animation: none !important; }
 }

@@ -3992,3 +3992,52 @@ how many env vars — in the middle of the one emotional section on the page. "1
 can do on your say-so" is a sentence for somebody who has already decided.
 
 **Applies to:** `site/{index.html,styles.css,motion.js}`.
+
+---
+
+## 2026-09-03 — The four bento drawings run
+
+The drawings in "What's in it" played once on entry and then held. That made each one an
+illustration of a thing rather than the thing happening, which is the only reason they are
+on the page. They loop now: a line arrives in the record and a highlight is pulled out of
+it, a resume's body re-tailors itself and the page count holds at one, a card walks the
+four pipeline stages, and "due" moves down the three people in turn.
+
+**This reverses `motion.js`'s own "nothing loops" rule, on purpose, and the reversal is
+bounded three ways.** Written into the CSS header so the next person does not have to
+reconstruct it:
+
+1. **Every cycle starts and ends at rest** — the state the entry reveal leaves the drawing
+   in. A paused cycle, a cycle that never starts and no cycle at all are the same picture,
+   which is what makes the other two bounds cheap rather than load-bearing.
+2. **Nothing runs off screen.** One `IntersectionObserver` toggles `.live` on
+   `[data-live]`, so a phone reading the FAQ is compositing nothing. At 390px only one
+   drawing is ever live, because they stack.
+3. **`calm` never adds `.live`**, and a `prefers-reduced-motion` block is the belt to that
+   pair of braces — it also puts back the one element the loop owns outright.
+
+Everything animates `transform`, `scale` and `opacity` only, so all of it is on the
+compositor. The four periods (9s, 10s, 11s, 12s) are deliberately not multiples of each
+other, or the section falls into step with itself and starts reading as a metronome.
+
+**Three bugs worth writing down, because each cost more than the feature did:**
+
+**A property that first appears at 90% is interpolated from 0%.** `walk-the-board` set
+`opacity: 0` at 90% to fade the traveller out, and the browser correctly read that as "fade
+from 1 to 0 across the whole cycle" — a DOM probe measured 0.77, 0.32, 0.12, 0.04, 0.01. A
+keyframed property has to be pinned at the frames where it should not be moving, not only
+at the frames where it should.
+
+**`.vz-trip` was an `<i>` and `.viz i` is a rule.** It inherited `height: 5px`,
+`background: var(--rim)` and `scale: 0 1` and rendered as a thin grey line rather than a
+card. Changed to a `<span>` with `display: block`. The `.viz` drawings use bare `i` and `b`
+as their primitives, so anything added to one that is *not* a line or a label needs a
+different element, not an override.
+
+**The entry reveal and the loop fought over the same element.**
+`.js .cell.in .viz i { scale: 1 1 }` beat the loop's own resting `scale: 0 1`, so the line
+that is supposed to arrive was already there. It is now `i:not(.vz-fresh)`: an element a
+loop owns outright has to be excluded from the entry stagger rather than fixed up
+afterwards.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`.
