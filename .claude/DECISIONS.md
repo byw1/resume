@@ -3518,3 +3518,105 @@ in `gen-tool-docs.mjs` spell the count and rewrite the first word of each `descr
 `src/lib/data/pipeline.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
 `src/lib/social.ts`, `src/lib/pipeline-filters.ts`, `src/components/tags/`,
 `src/components/tasks/`, `src/components/crm/`, `src/app/(app)/tasks/`, and the manual.
+
+
+---
+
+## 2026-09-03 — Delete becomes reversible, and the CRM lists grow up
+
+Five asks in one batch: real filters and sorting on both CRM lists, multi-select with bulk
+changes, an export per list, an archive that deleting goes through with a 30-day sweep, and a
+per-view choice of which fields the pipeline shows.
+
+**The archive covers three models, and that number is the design.** Company, Contact,
+Application. Not resumes, not roles, not notes, not tasks, not tags, not saved views. The
+reason is the one thing a soft delete cannot buy you: every read of an archivable model has
+to exclude archived rows, and nothing in this toolchain catches one that forgets. I checked
+whether a Prisma client extension could make it the default and it cannot — measured, not
+assumed: an extension on `findMany`/`findFirst`/`count` works and the caller's own `where`
+survives, but a nested `include` and a nested `_count` both come back unfiltered. That is
+worse than no net at all, because it teaches you to stop checking exactly where it stops
+working. So every read is explicit, seven deliberate exceptions carry a comment saying why,
+and the scope stays small enough to audit by hand.
+
+**`archiveKey`, not a partial unique index.** `Company @@unique([userId, name])` would have
+let an archived "Stripe" block tracking a new job at Stripe. Postgres says that as
+`CREATE UNIQUE INDEX … WHERE archived_at IS NULL`; Prisma cannot model one, so every future
+`migrate dev` would offer to drop it as drift, and drift a tool offers to fix is worse than a
+column. So: `""` while live, the row's own id once archived, and the constraint becomes
+`(userId, name, archiveKey)`. Among live rows that is exactly the old constraint. Proven in
+SQL before any code was written — archived Stripe, new live Stripe, second archived Stripe,
+and a second LIVE Stripe still refused.
+
+**`upsertCompanyByName` matches only live rows.** It could have resurrected the archived one,
+and that reading is defensible, but it would mean tracking a new job at Stripe silently
+un-deleting every application that went into the bin with the old record. Restoring the old
+one afterwards is refused by name and points at `merge_companies`, which is the tool for
+deciding what one record says.
+
+**Two bugs a real database found that the compiler could not.** `writeCompanyTags` was
+written and never called, so company tags were silently dropped on every write; and
+`updateCompany` decided "no such company" from `updateMany`'s count, which is zero for a
+patch that touches no columns — so saving only tags threw. Both are the same lesson the tags
+entry already recorded: a write path with no round trip through a real database is a write
+path nobody has run.
+
+**Filtering moved out of the Prisma `where`.** A faceted count is "how many would survive if
+I relaxed this one dimension", which only has an answer while you hold the unfiltered set.
+Keeping the cut in SQL for the list and a predicate for the counts would have been two
+definitions of one rule. It costs one full read of a personal-sized table. Two bugs fell out
+of the rewrite: passing a company id alongside the `no-company` cut had the second `where`
+assignment silently overwrite the first, and `ping-due` took a fresh `new Date()` inside the
+query so a long list could answer differently for its first row and its last.
+
+**Bulk tagging adds and removes; it does not replace.** Replace would mean "tag these nine as
+fintech" stripping the size and location off all nine. And ids go through a kind allowlist
+first: all four of a company's lists share one join table, so nothing at the database level
+stops an APPLICATION tag landing on a company, where no screen renders it and no picker can
+take it back off — one click across forty rows would write forty invisible, unremovable rows.
+
+**`scheduleContactPings` validates its date rather than handing it to `toDate`.** `toDate`
+returns null for anything it cannot read, so "next Tuesday" — a plausible thing for an
+assistant to send — would have cleared the ping date on every person in the batch instead of
+failing.
+
+**The selection bar lives inside the list component.** The obvious split — server page renders
+the table, client component renders the bar — breaks on the one path that matters: filter
+down to no matches and the table subtree unmounts, taking the selection with it. The bar and
+the empty state are now siblings inside one client component, and when what you ticked is off
+screen it says so.
+
+**The export always includes closed applications.** `listApplications` hides them by default,
+and somebody exporting before a clear-out wants the rejections most of all — a file that
+silently dropped them would look complete and be wrong at the only moment it mattered. CSV
+cells beginning `=`, `+`, `-` or `@` are prefixed, because a note beginning "=2+2" is a
+formula to Excel.
+
+**The purge has no cron, and the entry should say so honestly.** There is no worker in this
+app. `sweepArchive` runs at boot, at sign-in, from the MCP token resolver's existing
+once-a-minute throttle, and `purgeExpiredFor` runs whenever somebody archives something — the
+act that fills the bin trims it. It throttles through a Setting row rather than a process
+timer, because the transport is stateless and may be more than one replica. The honest gap:
+an instance nobody restarts, nobody signs into and nobody archives anything on purges
+nothing. The direction is over-retention, never over-deletion, and the screen states each
+row's own purge date rather than the header promising a guarantee the app cannot keep.
+
+**Archived records read as gone by id, not just in lists.** `getCompany`, `getContact` and
+`getApplication` return null for an archived row, so a bookmarked URL 404s. The alternative —
+render the page with a banner and every control disabled — is a lot of surface for a state
+whose one useful action (restore) is on a screen built for it. A clean not-found is what "I
+deleted this" should look like.
+
+**Field visibility is stored, and empty means the defaults.** Three `String[]` columns on
+Profile. An empty list is "I have never chosen", which is what keeps every existing account
+looking as it did and what makes a field added to a catalogue later appear for everybody;
+meaning genuinely nothing needed its own sentinel. The view is a positional, enum-validated
+argument rather than a key in a patch bag — through `pick` a mistyped view would have been
+dropped and reported back as a success over a board that never moved.
+
+**Applies to:** `prisma/schema.prisma` + `20250126000000_archive` + `20250127000000_pipeline_fields`,
+`src/lib/data/{archive,export,pipeline,tags,me,resumes,pipeline-share,onboarding,users}.ts`,
+`src/lib/{crm-filters,pipeline-fields,pipeline-list,settings,auth,bootstrap}.ts`,
+`src/lib/mcp/{tools,handler}.ts`, `src/server/actions.ts`, `src/components/{archive,crm,filters,pipeline}/`,
+`src/app/(app)/{archive,crm,applications}/`, `src/app/api/export/`, `tools/gen-tool-docs.mjs`,
+and the manual.

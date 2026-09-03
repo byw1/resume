@@ -32,6 +32,15 @@ just *talk* to it.
   read-only link shares the board with whoever is helping you — a friend, a coach, a former
   manager — showing companies, roles, stages and follow-up dates, and never your salaries,
   notes, contacts or job descriptions.
+- **Nothing is deleted by accident** — pressing Delete on a company, a person or an
+  application puts it in an archive rather than destroying it. It leaves every list, board,
+  picker, filter and count immediately, and waits thirty days — an instance setting, or zero
+  to keep everything — before it is deleted for good. Archiving a company takes its
+  applications with it and brings exactly those back on restore, leaving one you binned
+  separately where you put it; the people stay, because somebody is a founder at one company
+  and an advisor at another. Every delete offers an Undo, each list says when that kind has
+  something in the bin, and the two acts that really do destroy something can only reach what
+  is already in there — so nothing in this app can be destroyed in one step.
 - **Tasks** — everything you owe on one page. The things you wrote down, grouped by overdue,
   today, the next seven days, later and no date, each rewordable and re-datable in place and
   attachable to the role it's about; and beside them the chase list, the follow-ups and pings
@@ -45,6 +54,13 @@ just *talk* to it.
   job listings, each one a click from the posting it came from. The company list says when
   you last applied and what's still live, and both lists filter — to the companies where you
   know someone, to the people whose ping is due — while the search box matches any label.
+  Both lists filter properly now: industry, size, location and tags on companies, tags,
+  company and how long since you logged anything on people, plus the gaps worth fixing in one
+  sitting ("no website", "no email", "filed under nothing"). Dimensions AND with each other
+  and OR inside themselves, every count is counted against what the other filters left, and
+  every column that has an answer sorts. Tick rows to tag a batch, put a batch on the chase
+  list, delete a batch, or export just those; each list exports to CSV on its own, honouring
+  whatever you have narrowed it to.
   Contacts attach to applications straight from the CRM rather than being retyped, and
   removing one from an application never deletes the person. A person keeps every way you
   can reach them — LinkedIn, X, Instagram, GitHub, their own site, and anything else you
@@ -444,13 +460,21 @@ tasks — `list_tasks`, `create_task`, `update_task`, `complete_task`, `delete_t
 `list_follow_ups` for
 what's overdue, `list_schedule` for a whole window of dated work at once, `pipeline_stats` for
 the shape of your search, and `diagnose_search`, which reads the funnel and tells you which
-step is losing people rather than handing you six numbers to interpret.
+step is losing people rather than handing you six numbers to interpret. `export_csv` returns
+any of the three lists as a spreadsheet, and `get_pipeline_fields` / `set_pipeline_fields`
+choose how much each view shows before you open anything.
 
 **CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /
 `delete_contact` for the people at them, each carrying every way to reach them rather than
 just a LinkedIn URL. A company's `website` is what puts their logo on your
 pipeline. Deleting one refuses while applications still point at it.
+
+**Archive** — `list_archive` says what has been deleted and when each thing is due to go,
+`restore_records` brings it back, and `delete_archived` and `empty_archive` are the only two
+acts on the server that cannot be undone. Neither can reach anything that is not already in
+the archive, and `empty_archive` refuses unless you pass back the count `list_archive` just
+reported — which forces reading the bin to somebody before emptying it.
 
 **Tags** — `list_tags`, `create_tag`, `update_tag`, `delete_tag` and `seed_tags` manage the
 one catalogue behind all of it. A tag's `kind` says which list it belongs to — where an
