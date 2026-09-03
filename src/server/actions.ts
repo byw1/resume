@@ -978,6 +978,92 @@ export async function scheduleContactPingAction(id: string, date: string) {
   revalidatePath(`/crm/contacts/${id}`);
 }
 
+// ---------------------------------------------------------------------------
+// The archive
+// ---------------------------------------------------------------------------
+
+/** Everywhere a record could have been showing before it moved. */
+function revalidateEverywhere() {
+  revalidatePath("/");
+  revalidatePath("/archive");
+  revalidatePath("/applications");
+  revalidatePath("/crm/companies");
+  revalidatePath("/crm/contacts");
+  revalidatePath("/tasks");
+}
+
+export async function archiveRecordsAction(kind: archive.ArchiveKind, ids: string[]) {
+  const user = await requireUser();
+  const result = await archive.archiveRecords(user.id, kind, ids);
+  // The act that fills the bin is the act that should trim it, which is what
+  // bounds it on an instance nobody restarts and nobody signs out of.
+  void archive.purgeExpiredFor(user.id).catch(() => {});
+  revalidateEverywhere();
+  return result;
+}
+
+export async function restoreRecordsAction(kind: archive.ArchiveKind, ids: string[]) {
+  const user = await requireUser();
+  const result = await archive.restoreRecords(user.id, kind, ids);
+  revalidateEverywhere();
+  return result;
+}
+
+export async function deleteArchivedAction(kind: archive.ArchiveKind, ids: string[]) {
+  const user = await requireUser();
+  const result = await archive.deleteArchived(user.id, kind, ids);
+  revalidateEverywhere();
+  return result;
+}
+
+/**
+ * No expectCount here, unlike the tool.
+ *
+ * The dialog states the number and the click IS the confirmation. The count
+ * guard exists for the assistant, which has no dialog and can only be stopped
+ * by being made to say back what it read.
+ */
+export async function emptyArchiveAction(kind?: archive.ArchiveKind) {
+  const user = await requireUser();
+  const result = await archive.emptyArchive(user.id, kind ? { kind } : undefined);
+  revalidateEverywhere();
+  return result;
+}
+
+// ---------------------------------------------------------------------------
+// Bulk changes from the CRM lists
+// ---------------------------------------------------------------------------
+
+export async function tagCompaniesAction(
+  ids: string[],
+  change: { add?: string[]; remove?: string[] },
+) {
+  const user = await requireUser();
+  const result = await pipeline.tagCompanies(user.id, ids, change);
+  revalidatePath("/crm/companies");
+  revalidatePath("/applications");
+  return result;
+}
+
+export async function tagContactsAction(
+  ids: string[],
+  change: { add?: string[]; remove?: string[] },
+) {
+  const user = await requireUser();
+  const result = await pipeline.tagContacts(user.id, ids, change);
+  revalidatePath("/crm/contacts");
+  return result;
+}
+
+export async function scheduleContactPingsAction(ids: string[], date: string) {
+  const user = await requireUser();
+  const result = await pipeline.scheduleContactPings(user.id, ids, date);
+  revalidatePath("/crm/contacts");
+  revalidatePath("/tasks");
+  revalidatePath("/");
+  return result;
+}
+
 export async function createContactAction(input: {
   name: string;
   title?: string;

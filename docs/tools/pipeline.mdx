@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Thirty-two tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Thirty-three tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -222,9 +222,9 @@ Advance or close an application. Automatically logs the change to the timeline a
 
 ### `delete_application`
 
-_Delete an application_
+_Archive an application_
 
-Permanently delete an application and its timeline.
+Put an application in the archive. It leaves the board, the list, the calendar and the funnel, taking its timeline and its tasks with it, and restore_records brings the lot back for a set number of days — 30 by default — before it is deleted for good. Nothing is destroyed here. Still reach for move_application_stage with REJECTED, WITHDRAWN or GHOSTED whenever the thread actually ended: the funnel and diagnose_search are built from applications that ended, and archiving one takes it out of that record entirely. Archive is for something that should never have been tracked; a stage is for something that ended.
 
 **Overwrites or deletes.**
 
@@ -435,3 +435,16 @@ Remove a task outright. Use complete_task instead when it actually got done — 
 | Argument | Type | |
 | --- | --- | --- |
 | `id` | string | **required** — Task id |
+
+### `export_csv`
+
+_Export a list as CSV_
+
+One of the three lists as a spreadsheet file, returned as CSV text you can hand straight to somebody. 'companies' and 'contacts' take the same filters, search and sort as list_companies and list_contacts, so 'export every fintech company I have never applied to' is one call; 'applications' takes the pipeline's own filters through the same query string the app puts in its URL. Every export ALWAYS includes closed applications — somebody exporting before a clear-out wants the rejections, and a file that quietly dropped them would look complete and be wrong at the only moment it mattered. Pass ids to export just those rows instead. Archived records are never included; use list_archive for those. Read-only: it writes nothing and changes nothing.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `kind` | enum | **required** — companies \| contacts \| applications  `companies` · `contacts` · `applications` |
+| `ids` | string[] | Only these rows, by id. Omit for everything the filters leave. |
+| `search` | string | For companies and contacts: the same search list_companies takes |
+| `query` | string | For applications: a pipeline query string, e.g. "f=SCREEN,INTERVIEW&src=<tagId>" — the same one the app puts in its URL |

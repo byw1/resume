@@ -10,6 +10,14 @@ import * as system from "@/lib/data/system";
 import * as pipelineShare from "@/lib/data/pipeline-share";
 import * as users from "@/lib/data/users";
 import * as waitlist from "@/lib/data/waitlist";
+import * as archive from "@/lib/data/archive";
+import {
+  exportApplicationsCsv,
+  exportCompaniesCsv,
+  exportContactsCsv,
+  exportFilename,
+} from "@/lib/data/export";
+import { parsePipelineFilters } from "@/lib/pipeline-filters";
 import * as connections from "@/lib/data/connections";
 import * as onboarding from "@/lib/data/onboarding";
 import {
@@ -147,6 +155,14 @@ const b = (args: Json, key: string) => (typeof args[key] === "boolean" ? (args[k
 const a = (args: Json, key: string) =>
   Array.isArray(args[key]) ? (args[key] as string[]).map(String) : undefined;
 
+function requiredArray(args: Json, key: string): string[] {
+  const value = a(args, key);
+  if (!value || value.length === 0) {
+    throw new Error(`Missing required array argument "${key}"`);
+  }
+  return value;
+}
+
 function required(args: Json, key: string): string {
   const value = args[key];
   if (typeof value !== "string" || !value.trim()) {
@@ -195,10 +211,33 @@ function enumArg<T extends string>(args: Json, key: string, allowed: readonly T[
   throw new Error(`Unknown ${key} "${value}". Use one of: ${allowed.join(", ")}.`);
 }
 
+/** The same rule for a list: one bad entry fails the call rather than narrowing nothing. */
+function enumArrayArg<T extends string>(
+  args: Json,
+  key: string,
+  allowed: readonly T[],
+): T[] | undefined {
+  const values = a(args, key);
+  if (values === undefined) return undefined;
+  for (const value of values) {
+    if (!(allowed as readonly string[]).includes(value)) {
+      throw new Error(`Unknown ${key} "${value}". Use one of: ${allowed.join(", ")}.`);
+    }
+  }
+  return values as T[];
+}
+
 const TAG_COLORS = ["slate", "blue", "teal", "green", "amber", "red", "violet", "pink"] as const;
 const TAG_KINDS = ["APPLICATION", "COMPANY", "CONTACT", "INDUSTRY", "SIZE", "LOCATION"] as const;
 const COMPANY_FILTERS = ["active", "applied", "never-applied", "with-contacts"] as const;
 const CONTACT_FILTERS = ["ping-due", "with-application", "no-company"] as const;
+const ARCHIVE_KIND_VALUES = ["company", "contact", "application"] as const;
+const EXPORT_KINDS = ["companies", "contacts", "applications"] as const;
+const COMPANY_SORTS = ["name", "applied", "apps", "people"] as const;
+const CONTACT_SORTS = ["name", "company", "ping", "touch"] as const;
+const SORT_DIRECTIONS = ["asc", "desc"] as const;
+const COMPANY_MISSING = ["website", "industry", "location"] as const;
+const CONTACT_MISSING = ["email", "tags"] as const;
 
 /**
  * The profile as a tool should see it.
@@ -2033,8 +2072,9 @@ export const tools: McpTool[] = [
   },
   {
     name: "delete_application",
-    title: "Delete an application",
-    description: "Permanently delete an application and its timeline.",
+    title: "Archive an application",
+    description:
+      "Put an application in the archive. It leaves the board, the list, the calendar and the funnel, taking its timeline and its tasks with it, and restore_records brings the lot back for a set number of days — 30 by default — before it is deleted for good. Nothing is destroyed here. Still reach for move_application_stage with REJECTED, WITHDRAWN or GHOSTED whenever the thread actually ended: the funnel and diagnose_search are built from applications that ended, and archiving one takes it out of that record entirely. Archive is for something that should never have been tracked; a stage is for something that ended.",
     inputSchema: object({ id: str("Application id") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -2433,20 +2473,93 @@ export const tools: McpTool[] = [
     },
     handler: async (args, ctx) => pipeline.deleteTask(ctx.userId, required(args, "id")),
   },
+  {
+    name: "export_csv",
+    title: "Export a list as CSV",
+    description:
+      "One of the three lists as a spreadsheet file, returned as CSV text you can hand straight to somebody. 'companies' and 'contacts' take the same filters, search and sort as list_companies and list_contacts, so 'export every fintech company I have never applied to' is one call; 'applications' takes the pipeline's own filters through the same query string the app puts in its URL. Every export ALWAYS includes closed applications — somebody exporting before a clear-out wants the rejections, and a file that quietly dropped them would look complete and be wrong at the only moment it mattered. Pass ids to export just those rows instead. Archived records are never included; use list_archive for those. Read-only: it writes nothing and changes nothing.",
+    inputSchema: object(
+      {
+        kind: {
+          type: "string",
+          enum: [...EXPORT_KINDS],
+          description: "companies | contacts | applications",
+        },
+        ids: strArray("Only these rows, by id. Omit for everything the filters leave."),
+        search: str("For companies and contacts: the same search list_companies takes"),
+        query: str(
+          "For applications: a pipeline query string, e.g. \"f=SCREEN,INTERVIEW&src=<tagId>\" — the same one the app puts in its URL",
+        ),
+      },
+      ["kind"],
+    ),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const kind = enumArg(args, "kind", EXPORT_KINDS) ?? "companies";
+      const ids = a(args, "ids");
+      if (kind === "companies") {
+        return {
+          filename: exportFilename("companies"),
+          csv: await exportCompaniesCsv(ctx.userId, defined({ search: s(args, "search"), ids })),
+        };
+      }
+      if (kind === "contacts") {
+        return {
+          filename: exportFilename("contacts"),
+          csv: await exportContactsCsv(ctx.userId, defined({ search: s(args, "search"), ids })),
+        };
+      }
+      const query = s(args, "query");
+      return {
+        filename: exportFilename("applications"),
+        csv: await exportApplicationsCsv(
+          ctx.userId,
+          defined({
+            filters: query
+              ? parsePipelineFilters(
+                  (key) => new URLSearchParams(query).get(key) ?? undefined,
+                  pipeline.STAGES,
+                )
+              : undefined,
+            ids,
+          }),
+        ),
+      };
+    },
+  },
   // --- CRM: companies and the people at them -------------------------------
   {
     name: "list_companies",
     title: "List companies",
     description:
-      "Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Use this to answer 'who have I applied to', to find a companyId before calling get_company, or to spot companies missing a website — the website is what makes their logo appear in the pipeline. Every row carries its tags: industry, size, location and anything else, all as labels rather than the single strings they used to be. Pass search to match on name, notes or a tag; pass tagIds to cut to the ones wearing a particular label; pass filter to cut the list: 'active' = something still in flight, 'applied' = ever applied, 'never-applied' = researched but never sent anything, 'with-contacts' = you know someone there.",
+      "Every company on file, with how many applications and contacts each one has, plus lastAppliedAt (when you last applied there) and openApplications (how many are still live). Reach for this to answer 'who have I applied to', to find a companyId before get_company, or to cut the list down to something specific before working through it. Every row carries its tags: industry, size, location and free tags, all as labels rather than the single strings they used to be. Everything below ANDs, so one call asks for 'fintech, remote, never applied'. search matches the name, the website, your notes and any tag name. filter is one cut and only one. industryIds, sizeIds and locationIds each take tag ids of that kind from list_tags and match a company wearing ANY id in the group — so a group ORs inside itself and ANDs with the others. tagIds is the loose one: it matches a tag of any kind, which is what to use when you have an id and do not care which list it came from. missing finds the gaps worth fixing in one sitting, and those AND with each other. sort is name, applied, apps or people; every sort but name defaults to most-first, and companies you have never applied to sort last whichever way 'applied' points, because that is a question about the others. Ids only — call list_tags first to turn 'fintech' into an id; a name here would narrow nothing and hand you every company as if that were the answer. Archived companies are never returned; list_archive is where those are. Read-only: it saves nothing and creates no tags.",
     inputSchema: object({
-      search: str("Match name, notes or any tag — industry and location included"),
-      tagIds: strArray("Only companies wearing one of these tags. Ids from list_tags."),
+      search: str("Match name, website, notes or any tag — industry and location included"),
+      tagIds: strArray("Only companies wearing one of these tags, of any kind. Ids from list_tags."),
+      industryIds: strArray("Tag ids of kind INDUSTRY. Matches a company wearing any of them."),
+      sizeIds: strArray("Tag ids of kind SIZE."),
+      locationIds: strArray("Tag ids of kind LOCATION."),
+      missing: {
+        type: "array",
+        items: { type: "string", enum: [...COMPANY_MISSING] },
+        description: "Fields that are blank: website | industry | location. These AND with each other.",
+      },
       filter: {
         type: "string",
         enum: [...COMPANY_FILTERS],
         description: "Cut the list: active | applied | never-applied | with-contacts",
       },
+      sort: {
+        type: "string",
+        enum: [...COMPANY_SORTS],
+        description: "name | applied | apps | people. Default name.",
+      },
+      dir: { type: "string", enum: [...SORT_DIRECTIONS], description: "asc | desc" },
     }),
     annotations: {
       readOnlyHint: true,
@@ -2455,11 +2568,20 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      pipeline.listCompanies(ctx.userId, {
-        search: s(args, "search"),
-        tagIds: a(args, "tagIds"),
-        filter: enumArg(args, "filter", COMPANY_FILTERS),
-      }),
+      pipeline.listCompanies(
+        ctx.userId,
+        defined({
+          search: s(args, "search"),
+          tagIds: a(args, "tagIds"),
+          industryIds: a(args, "industryIds"),
+          sizeIds: a(args, "sizeIds"),
+          locationIds: a(args, "locationIds"),
+          missing: enumArrayArg(args, "missing", COMPANY_MISSING),
+          filter: enumArg(args, "filter", COMPANY_FILTERS),
+          sort: enumArg(args, "sort", COMPANY_SORTS),
+          dir: enumArg(args, "dir", SORT_DIRECTIONS),
+        }),
+      ),
   },
   {
     name: "get_company",
@@ -2574,9 +2696,9 @@ export const tools: McpTool[] = [
   },
   {
     name: "delete_company",
-    title: "Delete a company",
+    title: "Archive a company",
     description:
-      "Remove a company record. Refuses while applications still point at it — move or delete those first, so tidying up a company can never take an application with it. Contacts survive and simply lose their employer.",
+      "Put a company in the archive. It leaves the CRM, every picker, every filter and the pipeline, and restore_records brings it back for a set number of days — 30 by default — before it is deleted for good. Nothing is destroyed here. Every application still pointing at it goes into the archive with it and comes back with it; this used to refuse while those existed and no longer needs to. The people who represent it are NOT archived: somebody is a founder at one company and an advisor at another, so they keep every other company and simply lose this one. Returns how many applications went with it. To fold a duplicate employer into the one you are keeping without archiving anything, use merge_companies.",
     inputSchema: object({ id: str("Company id") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -2632,17 +2754,30 @@ export const tools: McpTool[] = [
     name: "list_contacts",
     title: "List contacts",
     description:
-      "Recruiters, hiring managers and referrals. Narrow by application, by company, by a search across name, title, relationship, email, notes, employer and tags, or by filter: 'ping-due' = their follow-up date has arrived, 'with-application' = attached to an application, 'no-company' = nowhere on file. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — their `tags`, and the application they are attached to. companyId matches anyone linked to that company, not only those whose main job it is.",
+      "Recruiters, hiring managers, referrals and the friend who might put in a word. Reach for this to find a contactId before get_contact or update_contact, to see who you already know somewhere before an interview, or to build the list you are about to work through. Returns each person with `companies` — a list, because someone can be a founder at one place and an advisor at another — their `tags`, their next ping date, the application they are attached to, and their most recent logged activity. Everything below ANDs. search matches name, title, relationship, email, notes, employer names and tag names. filter is one cut and only one. companyIds matches anyone linked to ANY of those companies — linked, not employed by, so an advisor at one of them counts; companyId is the single-company shorthand for the same thing. tagIds takes CONTACT tag ids from list_tags. quietDays is the networking question: everyone you have logged nothing against for at least that many days, counting from the day you added somebody you have never logged anything against at all, so people you filed and forgot come back rather than hiding behind a blank. missing finds the gaps: 'email' means nobody you can write to, 'tags' means filed under nothing so no tag filter will ever find them. sort is name, company (people with nobody on file last), ping (soonest first, no date last) or touch (longest since you logged anything, first). log_activity with a contactId is what moves the last-touch date; update_contact's nextFollowUpAt is what schedules the next ping. Archived people are never returned; list_archive is where those are. Read-only; it saves nothing.",
     inputSchema: object({
       applicationId: str("Limit to one application"),
       companyId: str("Limit to people linked to one company"),
+      companyIds: strArray("Limit to people linked to any of these companies"),
       search: str("Match name, title, relationship, email, notes, company or tag"),
       tagIds: strArray("Only people wearing one of these tags. Ids from list_tags, kind CONTACT."),
+      quietDays: num("Only people with nothing logged for at least this many days"),
+      missing: {
+        type: "array",
+        items: { type: "string", enum: [...CONTACT_MISSING] },
+        description: "Fields that are blank: email | tags. These AND with each other.",
+      },
       filter: {
         type: "string",
         enum: [...CONTACT_FILTERS],
         description: "Cut the list: ping-due | with-application | no-company",
       },
+      sort: {
+        type: "string",
+        enum: [...CONTACT_SORTS],
+        description: "name | company | ping | touch. Default name.",
+      },
+      dir: { type: "string", enum: [...SORT_DIRECTIONS], description: "asc | desc" },
     }),
     annotations: {
       readOnlyHint: true,
@@ -2651,15 +2786,21 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) =>
-      pipeline.listContacts(ctx.userId, {
-        ...defined({
+      pipeline.listContacts(
+        ctx.userId,
+        defined({
           applicationId: s(args, "applicationId"),
           companyId: s(args, "companyId"),
+          companyIds: a(args, "companyIds"),
           search: s(args, "search"),
           tagIds: a(args, "tagIds"),
+          quietDays: n(args, "quietDays"),
+          missing: enumArrayArg(args, "missing", CONTACT_MISSING),
           filter: enumArg(args, "filter", CONTACT_FILTERS),
+          sort: enumArg(args, "sort", CONTACT_SORTS),
+          dir: enumArg(args, "dir", SORT_DIRECTIONS),
         }),
-      }),
+      ),
   },
   {
     name: "get_contact",
@@ -2752,9 +2893,9 @@ export const tools: McpTool[] = [
   },
   {
     name: "delete_contact",
-    title: "Delete a contact",
+    title: "Archive a contact",
     description:
-      "Remove a person. The companies they represented and any application they were attached to stay.",
+      "Put a person in the archive with their whole timeline — every call, coffee and reply logged against them. Nothing is destroyed, and restore_records brings all of it back for a set number of days, 30 by default. The companies they represent and the application they were attached to are untouched; they simply stop appearing on either. To take somebody off one application without archiving them, use update_contact with an empty applicationId.",
     inputSchema: object({ id: str("Contact id") }, ["id"]),
     annotations: {
       readOnlyHint: false,
@@ -2827,6 +2968,239 @@ export const tools: McpTool[] = [
           applicationId: s(args, "applicationId"),
         }),
       }),
+  },
+  {
+    name: "tag_companies",
+    title: "Tag companies in bulk",
+    description:
+      "Add or remove tags across a set of companies in one act — 'these nine are all fintech', 'take Dream list off these four'. ADD and REMOVE, never replace: a bulk write that replaced the set would mean tagging nine companies as fintech quietly stripping the size, location and everything else off every one of them. Ids only, from list_tags, and each must be a tag of kind INDUSTRY, SIZE, LOCATION or COMPANY — a tag of any other kind is refused rather than attached, because nothing in the app renders an application tag on a company and no picker could ever take it back off. Ids that are not this person's, or are in the archive, are skipped rather than failing the call. Returns which companies changed and which were skipped. Use update_company when you are setting one company's lists deliberately; this is for a selection.",
+    inputSchema: object(
+      {
+        ids: strArray("Company ids to change"),
+        add: strArray("Tag ids to attach. Kind INDUSTRY, SIZE, LOCATION or COMPANY."),
+        remove: strArray("Tag ids to take off"),
+      },
+      ["ids"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.tagCompanies(ctx.userId, requiredArray(args, "ids"), {
+        add: a(args, "add"),
+        remove: a(args, "remove"),
+      }),
+  },
+  {
+    name: "tag_contacts",
+    title: "Tag people in bulk",
+    description:
+      "Add or remove CONTACT tags across a set of people in one act — 'these six are all referrals'. ADD and REMOVE, never replace, for the same reason tag_companies does not replace: a bulk overwrite loses every other label somebody already carries. Ids only, from list_tags with kind CONTACT; a tag of any other kind is refused. Ids that are not this person's, or are in the archive, are skipped rather than failing the call. Use update_contact when you are setting one person's tags deliberately.",
+    inputSchema: object(
+      {
+        ids: strArray("Contact ids to change"),
+        add: strArray("Tag ids to attach. Kind CONTACT."),
+        remove: strArray("Tag ids to take off"),
+      },
+      ["ids"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      pipeline.tagContacts(ctx.userId, requiredArray(args, "ids"), {
+        add: a(args, "add"),
+        remove: a(args, "remove"),
+      }),
+  },
+  {
+    name: "schedule_contact_pings",
+    title: "Put people on the chase list",
+    description:
+      "Set one next-ping date across a set of people — 'chase everyone I met at the conference in two weeks'. Takes an ISO date; an empty string clears the date instead, taking all of them off the chase list. A date it cannot read is REFUSED rather than treated as empty, so a vague 'next Tuesday' fails loudly instead of silently unscheduling everybody in the batch. Due pings surface in list_follow_ups and list_schedule alongside due applications. Ids that are not this person's, or are in the archive, are skipped. Use update_contact's nextFollowUpAt for one person.",
+    inputSchema: object(
+      {
+        ids: strArray("Contact ids"),
+        date: str("ISO date to ping them, or an empty string to clear it"),
+      },
+      ["ids", "date"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      // Not `required`, which refuses an empty string — and an empty string is
+      // the documented way to take everyone off the chase list.
+      const date = args["date"];
+      if (typeof date !== "string") {
+        throw new Error('Missing required string argument "date"');
+      }
+      return pipeline.scheduleContactPings(ctx.userId, requiredArray(args, "ids"), date);
+    },
+  },
+
+  // --- ARCHIVE: what has been deleted -------------------------------------
+  {
+    name: "list_archive",
+    title: "What is in the archive",
+    description:
+      "Everything this person has deleted and can still get back. Deleting a company, a person or an application in Hired does not destroy it: it lands in the archive and is deleted for good a set number of days later — 30 unless this instance changed it, and this tool reports the figure in force. Reach for it when they ask where something went, say they deleted something by mistake, or want to know what is about to disappear. Returns one row per item with its kind, id, what it was called, a one-line subtitle, when it was archived, and purgeAt — the moment it goes for good, or null when this instance keeps things forever. Each row also says what would come back with it, so you can say 'restoring Stripe brings 3 applications back' before doing it, and flags a company whose name a live company has since taken, which is the one thing that can make a restore fail. Pass the kind and ids to restore_records, or to delete_archived to finish the job now. Read-only: it saves nothing and it purges nothing.",
+    inputSchema: object({
+      kind: {
+        type: "string",
+        enum: [...ARCHIVE_KIND_VALUES],
+        description: "Only this kind: company | contact | application",
+      },
+      search: str("Match the name, or a role title and its company"),
+      limit: num("How many of each kind at most. Default 200."),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      archive.listArchive(
+        ctx.userId,
+        defined({
+          kind: enumArg(args, "kind", ARCHIVE_KIND_VALUES),
+          search: s(args, "search"),
+          limit: n(args, "limit"),
+        }),
+      ),
+  },
+  {
+    name: "archive_records",
+    title: "Delete, reversibly",
+    description:
+      "Delete records the reversible way: they leave every list, board, picker, filter and count in the app and land in the archive, where restore_records brings them back for a set number of days — 30 by default — before they are deleted for good. This is what to use whenever somebody says to delete or remove a company, a person or an application; delete_company, delete_contact and delete_application do exactly this for one at a time. Takes ONE kind and the ids of that kind. Archiving a company takes every application still pointing at it, with their timelines and their tasks, and brings them all back together on restore — it no longer refuses while applications exist, because nothing is destroyed here. The people who represent a company are NOT archived with it: somebody is a founder at one place and an advisor at another, so they keep every other company and simply lose this one. Ids that are not this person's, or are already in the archive, are skipped rather than failing the call. Nothing here is permanent — delete_archived is.",
+    inputSchema: object(
+      {
+        kind: {
+          type: "string",
+          enum: [...ARCHIVE_KIND_VALUES],
+          description: "company | contact | application",
+        },
+        ids: strArray("Ids of that kind"),
+      },
+      ["kind", "ids"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      archive.archiveRecords(
+        ctx.userId,
+        enumArg(args, "kind", ARCHIVE_KIND_VALUES) ?? "company",
+        requiredArray(args, "ids"),
+      ),
+  },
+  {
+    name: "restore_records",
+    title: "Bring archived records back",
+    description:
+      "Take records out of the archive and put them back in the app. Call list_archive first for the kind and the ids. Restoring a company also restores every application that went into the archive WITH it — but not one the person had binned separately beforehand, which stays where they put it. Restoring an application whose company is still archived brings the company back too, because an application with no company is a row nothing can draw. Ids that are not in the archive are skipped rather than failing, so restoring a list twice is harmless. The one thing that can genuinely fail is a name: company names are unique per person, so restoring 'Stripe' while a live 'Stripe' exists is refused for that company alone and reported in skipped with the reason — everything else in the same call still comes back, and preview_company_merge and merge_companies are how to fold the two together afterwards. Returns what was restored, what came back alongside it, and what was skipped and why.",
+    inputSchema: object(
+      {
+        kind: {
+          type: "string",
+          enum: [...ARCHIVE_KIND_VALUES],
+          description: "company | contact | application",
+        },
+        ids: strArray("Ids of that kind, from list_archive"),
+      },
+      ["kind", "ids"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      archive.restoreRecords(
+        ctx.userId,
+        enumArg(args, "kind", ARCHIVE_KIND_VALUES) ?? "company",
+        requiredArray(args, "ids"),
+      ),
+  },
+  {
+    name: "delete_archived",
+    title: "Destroy archived records now",
+    description:
+      "Destroy archived records immediately, without waiting for the retention window. IRREVERSIBLE, with nothing behind it: no second bin, no undo, no copy anywhere. It only reaches records that are ALREADY in the archive, which is what makes it impossible to destroy anything in this app in a single step and means this can never surprise somebody who has not already deleted the thing once. Destroying a company also destroys every application archived with it, timelines and tasks included; a company that still has a LIVE application is refused outright rather than taking it down too. Call list_archive first, tell the person exactly what will go and in what numbers, and get a plain yes before calling this. Most of the time there is nothing to do here: the archive clears itself when the window runs out, so the only reason to reach for this is something somebody wants gone now.",
+    inputSchema: object(
+      {
+        kind: {
+          type: "string",
+          enum: [...ARCHIVE_KIND_VALUES],
+          description: "company | contact | application",
+        },
+        ids: strArray("Ids of that kind, from list_archive"),
+      },
+      ["kind", "ids"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) =>
+      archive.deleteArchived(
+        ctx.userId,
+        enumArg(args, "kind", ARCHIVE_KIND_VALUES) ?? "company",
+        requiredArray(args, "ids"),
+      ),
+  },
+  {
+    name: "empty_archive",
+    title: "Empty the archive",
+    description:
+      "Empty the archive completely, or one kind of it. Everything in it is destroyed immediately and none of it comes back. This is the most destructive tool on this server — it can take years of applications, interview timelines and the people behind them in one call — so never reach for it because somebody said 'clean up', 'tidy my pipeline' or 'get rid of the old stuff'. It REFUSES unless expectCount matches the number of items in the archive right now: call list_archive, tell the person how many things are about to go and what they are, and pass back the count it reported. If anything changed in between, the call fails rather than deleting more than you told them about. Use delete_archived when they mean specific things rather than all of it. Returns how many of each kind were destroyed — destroying a company takes the applications archived with it, so the number can be larger than the count of rows they saw.",
+    inputSchema: object(
+      {
+        expectCount: num("How many items list_archive just reported. The call fails if it moved."),
+        kind: {
+          type: "string",
+          enum: [...ARCHIVE_KIND_VALUES],
+          description: "Only this kind. Omit to empty the whole archive.",
+        },
+      },
+      ["expectCount"],
+    ),
+    annotations: {
+      readOnlyHint: false,
+      destructiveHint: true,
+      idempotentHint: false,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const kind = enumArg(args, "kind", ARCHIVE_KIND_VALUES);
+      const expected = n(args, "expectCount");
+      if (expected === undefined) throw new Error('Missing required number argument "expectCount"');
+      const { total, counts } = await archive.listArchive(ctx.userId, defined({ kind }));
+      const actual = kind ? counts[kind] : total;
+      if (actual !== expected) {
+        throw new Error(
+          `The archive holds ${actual} ${kind ? `${kind} ` : ""}item(s), not ${expected}. Read it back with list_archive and confirm what is about to go.`,
+        );
+      }
+      return archive.emptyArchive(ctx.userId, defined({ kind }));
+    },
   },
 
   // -------------------------------------------------------------------------

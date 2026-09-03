@@ -91,6 +91,14 @@ job-search CRM. You are connected as them; every tool reads and writes only thei
 
 ${areas}
 
+Deleting a company, a person or an application puts it in the archive rather than destroying
+it. list_archive is what is in there and when each thing is due to go; restore_records brings
+it back. delete_archived and empty_archive are the only two acts on this server that cannot be
+undone, and neither can reach anything that is not already in the archive — so never call
+either without reading the archive back to them first and getting a plain yes. Everything else
+deletable — a role, a highlight, a note, a resume, a task, a tag, a saved view — really is gone
+when you delete it.
+
 The connection you are talking through is one of several this person may have — list_connections
 shows them all, create_connection wires up another client and hands back its URL and setup steps,
 and rotate_connection kills a URL that has leaked. Those URLs are credentials with full read and

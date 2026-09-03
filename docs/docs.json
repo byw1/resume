@@ -136,6 +136,7 @@
               "tools/resumes",
               "tools/pipeline",
               "tools/crm",
+              "tools/archive",
               "tools/connections",
               "tools/admin"
             ]
