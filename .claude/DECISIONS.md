@@ -3737,3 +3737,89 @@ local instance, and the row read back out of `WaitlistSignup`.
 **Applies to:** `src/components/{hired-mark-3d,auth-shell,login-form,setup-form,accept-invite-form}.tsx`,
 `src/app/globals.css`, `src/app/{login,setup,invite/[token]}/page.tsx`,
 `site/{index.html,styles.css,motion.js,join.js}`, `tools/build-site.mjs`.
+
+---
+
+## 2026-09-03 — The landing page, second pass
+
+**The hero lost the mark it had just been given.** One page down it read as a logo asking
+to be admired rather than a headline making an argument, and it pushed the transcript —
+which is the actual evidence — below the fold on a laptop. The object stays in the nav,
+where it is a label, and on /coming-soon/, where it is the only thing above the form.
+
+**"What's in it" is one landscape card and three portrait ones, not four squares.** Two
+plus two was tried first and the problem was structural, not aesthetic: in a row of two,
+the taller card sets the height and the shorter one opens a hole under itself, and the
+hole moved around as the text rewrapped. A full-width card has no neighbour to be
+stretched by, and three cards with the same bullet count come out the same height on their
+own. Me gets the big one because the other three are built out of it.
+
+**Each card carries a diagram, animated off the card's own `.in`.** The reveal observer
+already puts that class there, so four drawings cost no JavaScript and no second observer —
+`.js .cell.in .viz i { scale: 1 1 }` is the whole mechanism. They are diagrams and not
+screenshots on purpose: the tour below has the real screens at the width the app is used
+at, and the same screenshot shrunk to 280px is illegible as a screenshot and useless as a
+diagram. The pipeline card's moving card is drawn in the column it ends up in and animated
+*from* where it was, which needs no measuring and no JS, and is the same trick the real
+board plays on a drop.
+
+**The conversation section shows a conversation, including the part where it is working.**
+A screenshot of a chat can show a question and an answer; it cannot show the four seconds
+in between, which is the only part that demonstrates anything is happening at all. So
+`playTape` grew a `data-think` phase: the step shows a working state, the tool chips land
+and go green one at a time, and only then is the reply typed.
+
+**That working state is laid over the answer, not stacked above it.** Stacked, it added
+its own height and the panel grew by eighty pixels the moment it appeared. `.answer` is
+the shared box; the skeleton sits in the space the finished reply has already reserved.
+
+**And the reply's height is now actually reserved.** `motion.js` has claimed since it was
+written that emptying a line "does not hide the layout it occupies". It did: clearing
+`textContent` collapses the box, so every tape grew a line at a time while somebody was
+reading it and everything below walked down the page. It measures the finished line, holds
+that height, then empties it — and measures again on `document.fonts.ready`, because Inter
+is wider than the fallback and a height reserved against the wrong face is the wrong
+height. Only for a tape that has not started; re-measuring one mid-type would throw away
+what it had written.
+
+**Two exceptions to "nothing loops", and both are the same exception.** The typing caret
+already blinked forever and the file said why: it indicates something in progress and it
+stops when that thing does. The thinking dots and the skeleton sweep are that, with an
+iteration count so they run out even if the script that hides them never ran.
+
+**Monthly and annual, with both figures in the markup.** The annual pair ships `hidden`
+and the control ships `hidden`, so a page with no scripting is the monthly price and no
+buttons that do nothing — the monthly figure being the one anybody comparing starts from.
+`$120` a year is two months off, said on the button rather than in a footnote, and it
+shrinks rather than disappears on a phone: a toggle with no stated benefit is a toggle
+nobody presses. The figure is a placeholder in four places now — the card, the fine print,
+the FAQ answer, and the FAQ answer again inside the FAQPage block — and they move together.
+
+**`.tier .price span` was catching the price.** It styles the "/ month" beside the figure
+at 13px and faint, and the figure had just become a span too. Ten minutes of a $12 that
+looked like a footnote.
+
+**The self-host band is gone and every link that pointed at it points at the manual.** It
+was the answer to "what happens if you lose interest", which is a real question, but it
+was a compose file three scrolls below a page whose primary action is a signup form. The
+pricing card's free column still says the whole thing out loud; the argument for it belongs
+at docs.hired.tools, which is written for someone who has already decided.
+
+**Smoothed scrolling that keeps the real scroll position.** The usual implementation
+translates a wrapper and leaves `scrollY` at zero. Three things on this page read
+`scrollY` — the sticky tour chapters, the progress bar and two scroll timelines — and a
+transformed wrapper breaks all of them, so this is `window.scrollTo` once a frame towards
+a target the wheel moves. Frame-rate independent, or 120Hz arrives twice as fast. Left
+alone: touch, because the platform's momentum is better than anything written here; a pane
+with its own scrollbar; and precision devices, which already emit a smooth stream that
+easing only adds lag to — a wheel delta under 40px in pixel mode is a trackpad and is not
+touched. Anything that moves the page other than the wheel becomes the new target, or the
+next notch yanks it back.
+
+**Verified in a browser at 1360 and 390:** one notch eases 0 → 195 → 316 → … → 399 over
+about four hundred milliseconds; a 12px delta is not intercepted and a 120px one is; the
+nav's anchors still land (they take about 1.5s for thirteen thousand pixels, which is the
+browser's own smooth scroll, not this); the billing switch swaps both the figure and the
+terms; and every in-page anchor in the file still resolves to an id that exists.
+
+**Applies to:** `site/{index.html,styles.css,motion.js}`, `tools/build-site.mjs`.

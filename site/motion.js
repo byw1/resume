@@ -286,6 +286,123 @@
   onScroll();
 
   // -------------------------------------------------------------------------
+  // Smoothed scrolling
+  //
+  // A mouse wheel is a series of jumps. This turns each notch into a short
+  // glide towards a target the wheel moves, so the page arrives rather than
+  // teleports.
+  //
+  // Deliberately NOT the usual implementation of this, which translates a
+  // wrapper element and leaves the document's real scroll offset at zero. Three
+  // things here read that offset — the sticky tour chapters, the progress bar
+  // and the two scroll timelines — and a transformed wrapper breaks all of
+  // them. So the scroll is real: window.scrollTo, once a frame, towards a
+  // target. Everything that watches the scrollbar goes on working, including
+  // the browser's own find-on-page and the back button.
+  //
+  // Three things are left alone, on purpose:
+  //   - touch, where the platform's momentum is better than anything here;
+  //   - precision devices, because a trackpad already emits a smooth stream and
+  //     easing on top of it only adds lag — the small-delta test below is what
+  //     tells the two apart;
+  //   - a pane with its own scrollbar, which should scroll itself.
+  // -------------------------------------------------------------------------
+
+  if (!calm && window.matchMedia("(pointer: fine)").matches) {
+    (function () {
+      var target = 0;
+      var frame = 0;
+      var last = 0;
+      var gliding = false;
+      var root = document.documentElement;
+
+      /* Below this, a wheel event came from a trackpad or a precision mouse and
+         is already smooth. Above it, it is a notch. */
+      var NOTCH = 40;
+
+      function limit() {
+        return Math.max(0, root.scrollHeight - window.innerHeight);
+      }
+
+      function step(now) {
+        var gap = Math.min(64, now - last);
+        last = now;
+
+        var current = window.scrollY;
+        var left = target - current;
+
+        if (Math.abs(left) < 0.5) {
+          window.scrollTo(0, target);
+          stop();
+          return;
+        }
+
+        // Frame-rate independent, so 120Hz does not arrive twice as fast.
+        var t = 1 - Math.pow(1 - 0.2, gap / 16.67);
+        window.scrollTo(0, current + left * t);
+        frame = requestAnimationFrame(step);
+      }
+
+      function stop() {
+        frame = 0;
+        gliding = false;
+        // Hand the anchors back their smooth scrolling.
+        root.style.scrollBehavior = "";
+      }
+
+      /* Anything that moves the page other than this — a scrollbar drag, Page
+         Down, an anchor, the browser restoring a position — becomes the new
+         target, or the next notch would yank the page back to where the glide
+         had been heading. */
+      function resync() {
+        if (!gliding) target = window.scrollY;
+      }
+      window.addEventListener("scroll", resync, { passive: true });
+      window.addEventListener("resize", resync, { passive: true });
+
+      function ownScroller(node) {
+        while (node && node.nodeType === 1 && node !== document.body) {
+          var style = window.getComputedStyle(node);
+          if (/(auto|scroll)/.test(style.overflowY) && node.scrollHeight > node.clientHeight + 1) {
+            return true;
+          }
+          node = node.parentNode;
+        }
+        return false;
+      }
+
+      window.addEventListener(
+        "wheel",
+        function (event) {
+          if (event.ctrlKey || event.defaultPrevented) return;
+          if (Math.abs(event.deltaX) > Math.abs(event.deltaY)) return;
+          if (event.deltaMode === 0 && Math.abs(event.deltaY) < NOTCH) return;
+          if (ownScroller(event.target)) return;
+
+          var amount =
+            event.deltaY *
+            (event.deltaMode === 1 ? 40 : event.deltaMode === 2 ? window.innerHeight : 1);
+          if (!amount) return;
+
+          event.preventDefault();
+
+          if (!gliding) {
+            target = window.scrollY;
+            gliding = true;
+            last = performance.now();
+            // A CSS smooth scroll on every frame of our own would fight this.
+            root.style.scrollBehavior = "auto";
+          }
+
+          target = Math.max(0, Math.min(limit(), target + amount));
+          if (!frame) frame = requestAnimationFrame(step);
+        },
+        { passive: false }
+      );
+    })();
+  }
+
+  // -------------------------------------------------------------------------
   // The transcript
   //
   // The text is already on the page; this retypes it. Each turn waits for the
@@ -334,7 +451,15 @@
       var body = $("[data-type]", step) || step;
       var calls = $$(".call", step);
 
-      // Chips land while the sentence is still being written.
+      /* A step can spend a moment working before it says anything, which is
+         what a client connected over MCP actually does: the calls go out, they
+         come back, and only then is there an answer to write. `data-think` is
+         how long that takes; the element it shows ships hidden, so a page
+         without this file has the answer and no spinner. */
+      var think = Number(step.getAttribute("data-think")) || 0;
+      var thinking = $("[data-thinking]", step);
+
+      // Chips land while it is still working, and go green as each returns.
       calls.forEach(function (call, i) {
         setTimeout(function () {
           call.classList.add("in");
@@ -343,9 +468,20 @@
       });
 
       step.classList.add("in");
-      typeInto(body, function () {
-        setTimeout(function () { next(index + 1); }, Number(step.getAttribute("data-pause")) || 480);
-      });
+
+      function speak() {
+        if (thinking) thinking.hidden = true;
+        typeInto(body, function () {
+          setTimeout(function () { next(index + 1); }, Number(step.getAttribute("data-pause")) || 480);
+        });
+      }
+
+      if (think && thinking) {
+        thinking.hidden = false;
+        setTimeout(speak, think);
+      } else {
+        speak();
+      }
     }
 
     next(0);
@@ -355,15 +491,44 @@
     if (calm) {
       $$(".call", tape).forEach(function (c) { c.classList.add("in", "done"); });
       $$("[data-step]", tape).forEach(function (s) { s.classList.add("in"); });
+      $$("[data-thinking]", tape).forEach(function (t) { t.hidden = true; });
       return;
     }
-    // Hide the answer text until its turn comes, without hiding the layout it
-    // occupies — the panel must not change height while it plays.
-    $$("[data-type]", tape).forEach(function (el) {
-      el.setAttribute("data-text", el.textContent);
-      el.textContent = "";
-    });
-    once(tape, playTape, "0px 0px -20% 0px");
+    /* Hide the answer text until its turn comes, without hiding the layout it
+       occupies — the panel must not change height while it plays, or every
+       section below it walks down the page a line at a time while somebody is
+       reading. Measure the finished line, hold that height, then empty it.
+
+       Measured again once the webfont has landed, because Inter is wider than
+       the fallback and a height reserved against the wrong face is the wrong
+       height. Only for a tape that has not started: re-measuring one mid-type
+       would throw away what it had written. */
+    var lines = $$("[data-type]", tape);
+
+    function reserve() {
+      lines.forEach(function (el) {
+        var full = el.getAttribute("data-text");
+        var showing = el.textContent;
+        el.style.minHeight = "";
+        el.textContent = full;
+        el.style.minHeight = el.getBoundingClientRect().height + "px";
+        el.textContent = showing;
+      });
+    }
+
+    lines.forEach(function (el) { el.setAttribute("data-text", el.textContent); });
+    reserve();
+    lines.forEach(function (el) { el.textContent = ""; });
+
+    var started = false;
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(function () { if (!started) reserve(); });
+    }
+
+    once(tape, function (target) {
+      started = true;
+      playTape(target);
+    }, "0px 0px -20% 0px");
   });
 
   // -------------------------------------------------------------------------
@@ -564,6 +729,39 @@
     if (input) input.addEventListener("input", apply);
     apply();
   }
+
+  // -------------------------------------------------------------------------
+  // Monthly or annual
+  //
+  // Both figures are in the markup and the annual one ships hidden, so the page
+  // without this file is the monthly price and the control is not there to
+  // press. All this does is swap which of the two pairs is showing.
+  // -------------------------------------------------------------------------
+
+  $$("[data-plans]").forEach(function (group) {
+    var buttons = $$("button[data-period]", group);
+    var swappable = $$("[data-when]");
+    if (!buttons.length || !swappable.length) return;
+
+    group.hidden = false;
+
+    function show(period) {
+      buttons.forEach(function (button) {
+        var on = button.getAttribute("data-period") === period;
+        button.classList.toggle("on", on);
+        button.setAttribute("aria-pressed", on ? "true" : "false");
+      });
+      swappable.forEach(function (el) {
+        el.hidden = el.getAttribute("data-when") !== period;
+      });
+    }
+
+    buttons.forEach(function (button) {
+      button.addEventListener("click", function () {
+        show(button.getAttribute("data-period"));
+      });
+    });
+  });
 
   // -------------------------------------------------------------------------
   // Connection recipes
