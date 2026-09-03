@@ -4240,3 +4240,45 @@ are an operator looking at what is on disk, and a row in somebody's archive is s
 
 **Applies to:** `src/lib/data/{google,tags,users}.ts`, `.claude/DECISIONS.md`, `README.md`,
 `docs/docs.json`, `docs/tools/overview.mdx`, `tools/gen-tool-docs.mjs`.
+
+## 2026-09-03 — The parity and docs pass after the merge
+
+A tool audit and a manual audit over the merged tree. Parity came back clean: 145 tools,
+30 admin-only, every server action covered except four that are deliberately not.
+
+**The four uncovered actions, and why three of them should stay that way.**
+`loginAction`, `setupAction` and `acceptInviteAction` are how you get a connection in the
+first place — a tool for them would be authenticating over a channel that is already
+authenticated. `testConnectionAction` calls the server's own endpoint and counts what
+answers, which over MCP is `tools/list`. `changeOwnPasswordAction` is the deliberate one: a
+password typed into a chat is a password in a transcript. The one worth revisiting is
+`updateOwnAccountAction` — `update_profile` writes the Profile row's email, which is the one
+printed on a resume, and there is no tool for the User row's name and email, which is the one
+you sign in with. Two fields called `email` that mean different things, and only one is
+reachable by conversation. Left alone here because it is not this batch's, and noted so the
+next person does not have to work it out again.
+
+**The manual was stale in five places and the product skills in more.** The pipeline concepts
+page still said `delete_company` refuses while applications point at it, and still said the
+stage is never optional, one page after the calendar made it optional. Neither page said that
+deleting an application archives it — the CRM page said it for companies and nothing said it
+for the pipeline's own record. Me's "a highlight can be archived rather than deleted" now
+collides with a screen called Archive, so it says which it means.
+
+The product-facing skills in `skills/` mattered more than any of that, because they are what
+a person's assistant actually loads. `hired` opened with "there is no draft copy and no undo",
+which stopped being true the day the archive shipped, and its replace-versus-append table —
+the whole reason the skill exists — had no row for the bulk tools, where the rule inverts.
+`run-the-search` never mentioned that an ending is a stage rather than a deletion, which is
+the confusion that costs somebody their funnel.
+
+**The server briefing gained two rules of thumb, not a feature tour.** `handler.ts` is read
+by every client before any tool call, so the bar for adding to it is a trap rather than a
+capability. Two qualified: the bulk tools invert the replace rule that the briefing already
+teaches, and `export_csv` is what "send me a spreadsheet" means. Field visibility did not —
+it is a display preference, and a client that has to be told about it will find it in
+`tools/list` anyway.
+
+**Applies to:** `src/lib/mcp/handler.ts`, `skills/{hired,run-the-search}/SKILL.md`,
+`docs/concepts/{pipeline,me}.mdx`, `docs/reference/{faq,security}.mdx`,
+`docs/guides/what-to-say.mdx`, `docs/skills.mdx`.

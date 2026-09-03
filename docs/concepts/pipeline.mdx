@@ -58,6 +58,19 @@ advances — steel, blue, violet, pink, then gold at the offer — so two chips 
 "further along" without you knowing which label is which. The endings sit outside that
 rotation, because they mean something other than progress.
 
+### An ending is not a deletion
+
+`REJECTED`, `GHOSTED` and `WITHDRAWN` close an application and keep it: it drops off the
+board, stays in the funnel, and `list_applications` returns it with `includeClosed`. That is
+what you want for almost everything that ends, because a rejection you cannot count is a
+rejection you cannot learn from.
+
+Deleting is the other thing, and it is reversible. `delete_application` puts the row in the
+[archive](/tools/archive), where it leaves every list, board, picker, filter and count and
+waits — thirty days by default — before it is deleted for good. `restore_records` brings it
+back. If you want it out of the way but still counted, close it; if you want it gone, delete
+it and the archive holds the door open.
+
 ## Capturing something
 
 <CardGroup cols={2}>
@@ -98,9 +111,10 @@ Tags are records you own, not free text: each one is a name and a colour, and `l
 `create_tag`, `update_tag` and `delete_tag` manage them. The same table holds the labels on
 companies and people — `kind` says which list a tag belongs to, so a location called
 `Remote` never collides with a way of working called `Remote`. Deleting a tag takes it off
-everything that carried it and leaves those records otherwise untouched — unlike
-`delete_company`, which refuses. A label you cannot remove is worse than one you delete by
-mistake.
+everything that carried it and leaves those records otherwise untouched — and unlike a
+company, a person or an application, a tag really is gone rather than going to the archive.
+A label is not a record with a history: what wore it is untouched apart from no longer
+wearing it, and a label you cannot remove is worse than one you delete by mistake.
 
 Write them by `tagIds` when you have them, or by name in `tags`. Names are matched
 case-insensitively against what exists — `linkedin` lands on your existing `LinkedIn` — and
@@ -278,9 +292,11 @@ on one panel.
 Every view also decides how much it shows before you open anything. The **Fields** button
 picks per view — a board card, a table row and a calendar chip have nothing in common except
 that all three can be too busy — and the choice follows you between devices rather than
-living in the URL, because a saved view is a cut of the data and this is not. The company,
-the role title and the stage are never in the list: a card without them is not shorter, it
-is unreadable, and in the table the stage cell is the editor the table exists for.
+living in the URL, because a saved view is a cut of the data and this is not. On the board
+and in the table, the company, the role title and the stage are never in the list: a card
+without them is not shorter, it is unreadable, and in the table the stage cell is the editor
+the table exists for. The calendar is the exception, and only for stage — a chip is one line
+of an entry's own title, so the stage is genuinely extra there, and it is off by default.
 
 **Tasks** is the page you clear the list from, and the dashboard's five-line version links
 to it. Two columns, deliberately not merged: the things you wrote down, grouped by overdue,

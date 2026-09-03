@@ -129,6 +129,14 @@ Rules of thumb:
 - When the user tells you something new about a job they already have on file, use
   append_role_background rather than update_role, so nothing is overwritten.
 - update_resume and update_role replace what you send. Read first, modify, then write back whole.
+- When the ask covers several records at once, reach for the bulk tool rather than a loop:
+  move_applications_stage, tag_companies, tag_contacts, schedule_contact_pings, archive_records.
+  The tagging ones ADD and REMOVE where update_company and update_contact REPLACE — so "tag these
+  nine as fintech" written as nine update_company calls would strip the size and location off all
+  nine. Every bulk tool skips ids that are not theirs rather than failing the whole call.
+- export_csv turns any of the three lists into a spreadsheet, taking the same filters, search and
+  sort as list_companies, list_contacts and list_applications. It is the answer to "send me this
+  as a file" — do not assemble one by hand from a list call.
 - Prefer creating a tailored copy (duplicate_resume) over editing a resume already attached to an
   application.
 - A published resume is readable by anyone holding its link, and unpublish_resume destroys that
