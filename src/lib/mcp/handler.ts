@@ -88,7 +88,7 @@ async function instructionsFor(user: User) {
   application stands: the pipeline's timeline only knows what was logged by hand. search_email
   and search_calendar cover questions that are not about one record. Every one of these is
   read-only — nothing can send, accept or delete. When they are not connected, say how
-  (Settings → Google) rather than guessing at their mail.`;
+  (Settings → Connections) rather than guessing at their mail.`;
 
   // Outside `areas` deliberately: this is about the connection, not about
   // content, so it is just as true of a workspace with nothing in it — and a

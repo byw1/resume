@@ -415,7 +415,7 @@ export function ConfigurationPanel({
 /** What each section is for, in one line, above its fields. */
 const GROUP_BLURB: Record<string, string> = {
   Instance: "What this instance is called and where it lives. Every invitation link, published resume and webhook URL is built from the public URL.",
-  "Sign-in": "Everyone can always sign in with an email and password. Adding a Google client turns on a Continue with Google button as well — existing members and anyone holding an invitation can use it straight away. The same client is what lets each person connect their own Gmail and Calendar under Settings → Google.",
+  "Sign-in": "Everyone can always sign in with an email and password. Adding a Google client turns on a Continue with Google button as well — existing members and anyone holding an invitation can use it straight away. The same client is what lets each person connect their own Gmail and Calendar under Settings → Connections.",
   Email: "Invitations go out through Resend. Everything works without it — creating an invite just gives you a link to send yourself.",
   Billing: "Optional, for hosting other people here for a fee. Someone who pays through your Stripe payment link is invited automatically; a lapsed subscription suspends them, data kept, and paying again turns them back on.",
   Custom: "Variables added by hand. Nothing in the app reads these unless something was written to look for them.",
