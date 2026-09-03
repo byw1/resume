@@ -345,6 +345,23 @@ function purgeAt(archivedAt: Date, retention: number): Date | null {
 }
 
 /**
+ * How many of each kind are in the bin.
+ *
+ * Its own query rather than a field on listArchive, because the four list
+ * screens want the number without wanting the rows.
+ */
+export async function archiveCounts(
+  userId: string,
+): Promise<Record<ArchiveKind, number> & { total: number }> {
+  const [company, contact, application] = await Promise.all([
+    db.company.count({ where: { userId, archivedAt: { not: null } } }),
+    db.contact.count({ where: { userId, archivedAt: { not: null } } }),
+    db.application.count({ where: { userId, archivedAt: { not: null } } }),
+  ]);
+  return { company, contact, application, total: company + contact + application };
+}
+
+/**
  * What is in the bin, newest first.
  *
  * Every row carries its own purge date, computed from `archivedAt` plus the

@@ -1,6 +1,8 @@
 import {
+  type CompanyCut,
   type CompanyMissing,
   type CompanySort,
+  type ContactCut,
   type ContactMissing,
   type ContactSort,
 } from "@/lib/crm-filters";
@@ -72,7 +74,7 @@ const onlyIds = <T extends { id: string }>(rows: T[], ids?: string[]) => {
 
 export type CompanyExportOptions = {
   search?: string;
-  filter?: Parameters<typeof listCompanies>[1] extends { filter?: infer F } ? F : never;
+  filter?: CompanyCut;
   tagIds?: string[];
   industryIds?: string[];
   sizeIds?: string[];
@@ -120,7 +122,7 @@ export async function exportCompaniesCsv(userId: string, options?: CompanyExport
 
 export type ContactExportOptions = {
   search?: string;
-  filter?: Parameters<typeof listContacts>[1] extends { filter?: infer F } ? F : never;
+  filter?: ContactCut;
   tagIds?: string[];
   companyIds?: string[];
   quietDays?: number;

@@ -13,6 +13,7 @@ import {
   KanbanIcon,
   LayoutDashboardIcon,
   ListChecksIcon,
+  Trash2Icon,
   LogOutIcon,
   MenuIcon,
   PanelLeftCloseIcon,
@@ -461,6 +462,7 @@ function MobileNav({
   // anybody to pick between two answers to one question. It lives on another
   // origin, so it opens in its own tab and the arrow says so.
   const secondary = [
+    { href: "/archive", label: "Archive", icon: Trash2Icon, external: false },
     { href: MANUAL_URL, label: "Docs", icon: BookOpenIcon, external: true },
     { href: "/settings", label: "Settings", icon: SettingsIcon, external: false },
     ...(canAdmin
@@ -629,6 +631,11 @@ function ProfileMenu({ user, canAdmin }: { user: ShellUser; canAdmin: boolean })
         {/* Docs is docs.hired.tools. It is on another origin, hence the arrow
             and the tab; the skills it used to carry are on Settings, because
             those files are served by this instance and nothing else can. */}
+        <DropdownMenuItem asChild>
+          <Link href="/archive">
+            <Trash2Icon /> Archive
+          </Link>
+        </DropdownMenuItem>
         <DropdownMenuItem asChild>
           <a href={MANUAL_URL} target="_blank" rel="noreferrer">
             <BookOpenIcon /> Docs

@@ -11,6 +11,8 @@ import {
 } from "@/lib/data/pipeline";
 import { listResumeNames } from "@/lib/data/resumes";
 import { listTags } from "@/lib/data/tags";
+import { archiveCounts } from "@/lib/data/archive";
+import { ArchiveNote } from "@/components/archive/archive-note";
 import { PipelineBoard } from "@/components/pipeline/board";
 import { PipelineList } from "@/components/pipeline/list";
 import { parseSort, sortRows, toListRow, type ListRow } from "@/lib/pipeline-list";
@@ -86,6 +88,7 @@ export default async function ApplicationsPage({
       listTags(user.id, "APPLICATION"),
       listApplications(user.id, { includeClosed: true }),
     ]);
+  const bin = await archiveCounts(user.id);
   const share = await getPipelineShare(user.id);
   const shareBase = `${headerProto}://${headerHost}`;
 
@@ -218,6 +221,7 @@ export default async function ApplicationsPage({
           }
         />
         {content}
+        <ArchiveNote kind="application" count={bin.application} />
       </PageShell>
     </ApplicationPanelProvider>
   );

@@ -12,6 +12,7 @@ import {
   FileTextIcon,
   KanbanIcon,
   ListChecksIcon,
+  Trash2Icon,
   LayoutDashboardIcon,
   PlusIcon,
   SettingsIcon,
@@ -238,6 +239,9 @@ export function CommandPalette({
               </CommandItem>
               <CommandItem value="go-contacts" onSelect={() => go("/crm/contacts")}>
                 <UsersIcon /> Contacts
+              </CommandItem>
+              <CommandItem value="go-archive trash bin deleted" onSelect={() => go("/archive")}>
+                <Trash2Icon /> Archive
               </CommandItem>
               <CommandItem value="go-settings" onSelect={() => go("/settings")}>
                 <SettingsIcon /> Settings

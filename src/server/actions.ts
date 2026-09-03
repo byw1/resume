@@ -904,11 +904,13 @@ export async function moveStageAction(id: string, stage: Stage) {
   revalidatePath("/");
 }
 
+/** Archives, now. The name stays because the button still says Delete. */
 export async function deleteApplicationAction(id: string) {
   const user = await requireUser();
-  await pipeline.deleteApplication(user.id, id);
-  revalidatePath("/applications");
-  revalidatePath("/");
+  const result = await pipeline.deleteApplication(user.id, id);
+  void archive.purgeExpiredFor(user.id).catch(() => {});
+  revalidateEverywhere();
+  return result;
 }
 
 export async function addActivityAction(input: {
@@ -1241,10 +1243,13 @@ export async function mergeCompaniesAction(keepId: string, mergeId: string) {
   return { id: survivor.id, name: survivor.name, merged: survivor.merged };
 }
 
+/** Archives, now. The name stays because the button still says Delete. */
 export async function deleteCompanyAction(id: string) {
   const user = await requireUser();
-  await pipeline.deleteCompany(user.id, id);
-  revalidatePath("/crm/companies");
+  const result = await pipeline.deleteCompany(user.id, id);
+  void archive.purgeExpiredFor(user.id).catch(() => {});
+  revalidateEverywhere();
+  return result;
 }
 
 export async function saveContactAction(
@@ -1305,11 +1310,13 @@ export async function setContactCompaniesAction(id: string, companyIds: string[]
   }));
 }
 
+/** Archives, now. The name stays because the button still says Delete. */
 export async function deleteCrmContactAction(id: string) {
   const user = await requireUser();
-  await pipeline.deleteContact(user.id, id);
-  revalidatePath("/crm/contacts");
-  revalidatePath("/crm/companies");
+  const result = await pipeline.deleteContact(user.id, id);
+  void archive.purgeExpiredFor(user.id).catch(() => {});
+  revalidateEverywhere();
+  return result;
 }
 
 /**
