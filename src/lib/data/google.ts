@@ -161,12 +161,12 @@ async function accessTokenFor(userId: string, feature: GoogleFeature) {
   const row = await db.googleAccount.findUnique({ where: { userId } });
   if (!row) {
     throw new GoogleNotConnectedError(
-      "Google is not connected. Connect Gmail and Calendar under Settings → Google in the app, then try again.",
+      "Google is not connected. Connect Gmail and Calendar under Settings → Connections in the app, then try again.",
     );
   }
   if (!row.scopes.includes(GOOGLE_DATA_SCOPES[feature])) {
     throw new GoogleNotConnectedError(
-      `${feature === "mail" ? "Gmail" : "Google Calendar"} was not allowed when Google was connected. Reconnect under Settings → Google and tick it on the consent screen.`,
+      `${feature === "mail" ? "Gmail" : "Google Calendar"} was not allowed when Google was connected. Reconnect under Settings → Connections and tick it on the consent screen.`,
     );
   }
 
@@ -197,7 +197,7 @@ async function accessTokenFor(userId: string, feature: GoogleFeature) {
     });
     if (error instanceof GoogleApiError && error.revoked) {
       throw new GoogleNotConnectedError(
-        "Google has revoked this connection — usually because access was removed from the Google account, or the instance's OAuth client changed. Reconnect under Settings → Google.",
+        "Google has revoked this connection — usually because access was removed from the Google account, or the instance's OAuth client changed. Reconnect under Settings → Connections.",
       );
     }
     throw error;

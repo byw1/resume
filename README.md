@@ -75,7 +75,7 @@ just *talk* to it.
   is still calling the webhook, then lists what has failed in the last thirty days. Ask an
   assistant for `admin_health` and you get the same answer without opening a browser.
 - **Your inbox and calendar, on the record** — connect your own Gmail and Google Calendar
-  under Settings → Google and every contact, company and application shows the real threads
+  under Settings → Connections and every contact, company and application shows the real threads
   and meetings behind it, under the timeline of what you logged. Interviews you accepted in
   Google Calendar land on the pipeline's calendar view. Read-only and live: nothing from
   your account is copied to the server, and an assistant asked where an application stands
@@ -355,7 +355,7 @@ By conversation: `admin_get_google_config`, `admin_set_google_config`.
 ### Gmail and Calendar (optional, per person)
 
 The same OAuth client lets each person connect their own Gmail and Google Calendar under
-**Settings → Google**. Google asks for read-only access to both; either can be left
+**Settings → Connections**. Google asks for read-only access to both; either can be left
 unticked. From then on a contact's page shows the threads with their address and the
 meetings they are invited to, a company's page shows everything from its domain, an
 application's page shows both under its timeline, and the pipeline's calendar view carries

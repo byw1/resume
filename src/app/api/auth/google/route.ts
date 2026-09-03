@@ -32,11 +32,11 @@ export async function GET(request: NextRequest) {
   const wantsData = request.nextUrl.searchParams.get("data") === "1";
   const signedIn = wantsLink || wantsData ? await getCurrentUser() : null;
   if (wantsData && !signedIn) {
-    return NextResponse.redirect(new URL("/login?next=/settings?tab=google", request.url));
+    return NextResponse.redirect(new URL("/login?next=/settings?tab=connections", request.url));
   }
   const state = newStateValues(
     request.nextUrl.searchParams.get("next") ??
-      (signedIn ? (wantsData ? "/settings?tab=google" : "/settings") : null),
+      (signedIn ? "/settings?tab=connections" : null),
     Boolean(signedIn) && !wantsData,
     Boolean(signedIn) && wantsData,
   );

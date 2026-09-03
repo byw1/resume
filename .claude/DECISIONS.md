@@ -3342,7 +3342,6 @@ both halves — main's renamed `me.mdx` page, this branch's `last: "import_resum
 **Applies to:** the merge commit, `src/lib/data/me.ts`, `src/lib/mcp/{tools,handler}.ts`,
 `src/lib/data/resumes.ts`, `src/app/(app)/resumes/page.tsx`, `tools/gen-tool-docs.mjs`,
 `docs/tools/`.
-<<<<<<< HEAD
 ---
 
 ## 2026-09-01 — Eleven improvements, and what the review found in them
@@ -3569,7 +3568,33 @@ any of them.
 `src/lib/data/{google,pipeline,system}.ts`, `src/app/api/auth/google/`, `src/lib/mcp/{tools,handler}.ts`,
 `src/server/actions.ts`, `src/components/google/`, `src/components/settings/google-panel.tsx`,
 the four detail screens, the pipeline calendar, `tools/gen-tool-docs.mjs`, and the manual.
-=======
+
+## 2026-09-02 — Google is a tile on Connections, not a tab
+
+**One screen for both directions of wiring.** Assistants read and write the workspace;
+Google is the workspace reading you. They were a tab apart for one release, and the
+question a person brings to either is the same — what is connected, is it working, how do
+I add or cut one — so they share a grid now: brand mark on a tile, a one-line status,
+the whole tile is the button. The Google "G" lives in `CLIENT_MARKS` for that reason
+even though it is not a client; a second map for one entry would be a second thing to
+keep in step.
+
+**A tile is a summary; the slide-over is the record.** The old row-with-accordion put
+the URL, the nine client chips and the setup guide inline under each connection, which
+made three connections a page of config snippets. Everything you can do to a
+connection — reveal, copy, test, rename, re-pick the client, rotate, disconnect — is in a
+Sheet opened from its tile, and picking a client to add is a Sheet too, with the marks
+and taglines rather than a dropdown of names.
+
+**Old addresses still work.** `?tab=google` is mapped to Connections with the Google
+tile opened, and the OAuth callback lands on `?tab=connections&google=<code>` with the
+tile opened the same way, so the outcome is in front of the person rather than a click
+away. Every "Settings → Google" in tool descriptions, errors and the manual now reads
+"Settings → Connections".
+
+**Applies to:** `src/components/settings/{connections-panel,google-panel}.tsx`,
+`src/lib/mcp/marks.ts`, `src/app/(app)/settings/page.tsx`, `src/app/api/auth/google/`,
+and the copy in `src/lib/{data/google,mcp/tools,mcp/handler}.ts` and `docs/`.
 
 ---
 
@@ -3625,4 +3650,3 @@ bugs in the output.
 (new), `src/app/(app)/resumes/page.tsx` (deleted), `next.config.ts`,
 `src/components/shell.tsx`, `src/components/command-palette.tsx`, `src/app/(app)/page.tsx`,
 `src/components/resume/resume-editor.tsx`, `src/server/actions.ts`, `docs/app.mdx`.
->>>>>>> b9d4dfa (Move the resume grid onto Me, and make Me's tabs addresses)

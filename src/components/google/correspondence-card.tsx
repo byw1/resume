@@ -76,8 +76,8 @@ export function CorrespondenceCard({
     <p className="text-muted-foreground text-[13px]">
       {state.error}{" "}
       {state.notConnected && (
-        <Link href="/settings?tab=google" className="text-primary underline underline-offset-2">
-          Open Settings → Google
+        <Link href="/settings?tab=connections" className="text-primary underline underline-offset-2">
+          Open Settings → Connections
         </Link>
       )}
     </p>
@@ -130,7 +130,7 @@ function NotConnected() {
         here, read live from Gmail and Calendar. Nothing is copied to this server.
       </p>
       <Button asChild variant="outline" size="sm">
-        <Link href="/settings?tab=google">Connect Google</Link>
+        <Link href="/settings?tab=connections">Connect Google</Link>
       </Button>
     </div>
   );
@@ -168,7 +168,7 @@ function LoadedView({ data, access }: { data: Loaded; access: NonNullable<Corres
           {!access.mail ? (
             <Hint>
               Gmail was not allowed when Google was connected.{" "}
-              <Link href="/settings?tab=google" className="text-primary underline underline-offset-2">
+              <Link href="/settings?tab=connections" className="text-primary underline underline-offset-2">
                 Reconnect
               </Link>{" "}
               and tick it.
@@ -190,7 +190,7 @@ function LoadedView({ data, access }: { data: Loaded; access: NonNullable<Corres
           {!access.calendar ? (
             <Hint>
               Calendar was not allowed when Google was connected.{" "}
-              <Link href="/settings?tab=google" className="text-primary underline underline-offset-2">
+              <Link href="/settings?tab=connections" className="text-primary underline underline-offset-2">
                 Reconnect
               </Link>{" "}
               and tick it.
