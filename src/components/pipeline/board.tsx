@@ -21,7 +21,6 @@ import {
   ChevronsLeftRightIcon,
   ChevronsRightLeftIcon,
   FileTextIcon,
-  FlameIcon,
   MapPinIcon,
   MessageSquareIcon,
   MoonIcon,
@@ -47,7 +46,6 @@ export type Card = {
   stage: Stage;
   location: string;
   salaryRange: string;
-  excitement: number;
   nextFollowUpAt: string | null;
   resumeName: string | null;
   activityCount: number;
@@ -423,9 +421,6 @@ function ApplicationCard({ card, overlay = false }: { card: Card; overlay?: bool
           </div>
           <div className="text-faint truncate text-[12px]">{card.roleTitle}</div>
         </div>
-        {shows.has("excitement") && card.excitement >= 4 && (
-          <FlameIcon className="mt-0.5 size-3 shrink-0 text-[var(--warning)]" />
-        )}
       </div>
 
       {((shows.has("location") && card.location) ||

@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Thirty-seven tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Thirty-eight tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -148,15 +148,13 @@ Track a new job. Paste the full posting into jobDescription — it is what you w
 | `stage` | enum | Starting stage. Default WISHLIST.  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
 | `jobUrl` | string | Link to the posting |
 | `jobDescription` | string | The full job posting text |
-| `location` | string | Job location |
-| `workMode` | string | Remote \| Hybrid \| On-site |
+| `location` | string | Job location. Free text — call list_field_values first and reuse a spelling already in use. |
+| `workMode` | string | Remote, Hybrid, On-site, or however they say it. Free text: list_field_values has the ones already in use. |
 | `salaryRange` | string | Advertised or expected compensation |
 | `tagIds` | string[] | Tag ids from list_tags, kind APPLICATION. Exact; wins over tags. |
 | `tags` | string[] | How to file it, by NAME, and several at once is normal: ['LinkedIn', 'Referral'] for a posting a friend also flagged. Matched case-insensitively against the tags that exist and created only when nothing matches, so call list_tags first. |
 | `sources` | string[] | What tags used to be called. Still works; tags wins. |
 | `source` | string | The old single-value spelling. Ignored when tags or sources is passed. |
-| `excitement` | number | 1-5 how much they want this |
-| `fit` | number | 1-5 how strong a fit they are |
 | `notes` | string | Any notes |
 | `appliedAt` | string | ISO date they applied |
 | `nextFollowUpAt` | string | ISO date to follow up. Auto-set from the stage if omitted. |
@@ -179,15 +177,13 @@ Update fields on an application. Changing `stage` here also writes a timeline en
 | `stage` | enum | New stage  `WISHLIST` · `APPLIED` · `SCREEN` · `INTERVIEW` · `FINAL` · `OFFER` · `ACCEPTED` · `REJECTED` · `WITHDRAWN` · `GHOSTED` |
 | `jobUrl` | string | Posting link |
 | `jobDescription` | string | Job posting text |
-| `location` | string | Location |
-| `workMode` | string | Remote \| Hybrid \| On-site |
+| `location` | string | Location. Free text — list_field_values first, and an empty string clears it. |
+| `workMode` | string | Work mode. Free text — list_field_values first, and an empty string clears it. |
 | `salaryRange` | string | Compensation |
 | `tagIds` | string[] | Tag ids. Exact; wins over tags. REPLACES the whole set. |
 | `tags` | string[] | Tag names — REPLACES the whole set, matched or created as above |
 | `sources` | string[] | What tags used to be called. REPLACES the whole set; tags wins. |
 | `source` | string | The old single-value spelling. WARNING: this also REPLACES the entire set with just this one value — read the current list from get_application first, or use tags to write the full list. Ignored when tags or sources is passed. |
-| `excitement` | number | 1-5 |
-| `fit` | number | 1-5 |
 | `notes` | string | Notes |
 | `appliedAt` | string | ISO date applied |
 | `nextFollowUpAt` | string | ISO date of next follow-up, or empty string to clear |
@@ -341,7 +337,7 @@ No arguments.
 
 _Save a pipeline view under a name_
 
-Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated tag ids from list_tags); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); x (minimum excitement, 1-5); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and tag names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.
+Name a cut of the pipeline so it can be reopened in one click. The query is the pipeline URL's own parameters without the leading '?', and every filter combines with every other: view (board | list | calendar); f (comma-separated stages, plus 'overdue' as a flag that ANDs rather than replacing the stages, and 'closed' which expands to the four endings); src (comma-separated tag ids from list_tags); co (company ids); cv (resume ids, or 'none' for applications with no resume attached); w (minimum days sitting in the current stage); qd (minimum days since anything at all was logged — the chasing question, which is not the same as w); sort (followUp | company | stage | updated | salary | waiting | quiet) and dir; q (search across company, role, notes, location, work mode, the posting text and tag names); month (YYYY-MM, calendar only). Example: name 'Referrals gone quiet', query 'view=list&f=APPLIED,SCREEN&qd=14&sort=quiet&dir=desc'. Saving under a name that already exists REPLACES that view rather than creating a second one, which is how you edit one. Anything outside those parameters is dropped. co and cv hold ids, so a view naming a company later folded away by merge_companies simply stops matching it.
 
 **Overwrites or deletes.**
 
@@ -377,7 +373,7 @@ Everything with a date attached between two dates, merged into one list sorted e
 
 _List tasks_
 
-To-dos, each optionally attached to an application and with a due date. Open ones first, soonest due first. This is what someone means by 'what do I need to do' — pair it with list_follow_ups, which covers the chasing this list deliberately does not: an application's follow-up date and a person's ping are not tasks and never appear here.
+To-dos, each with a due date and — at most — one thing it is about: an application, a company, a person, a resume, a role in Me, or a note, whichever is set. Open ones first, soonest due first. This is what someone means by 'what do I need to do' — pair it with list_follow_ups, which covers the chasing this list deliberately does not: an application's follow-up date and a person's ping are not tasks and never appear here.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -388,14 +384,19 @@ To-dos, each optionally attached to an application and with a due date. Open one
 
 _Create a task_
 
-Add a to-do, optionally attached to an application and with a due date.
+Add a to-do, with a due date and — at most — one thing it is about. A task can hang off an application, a company, a person, a resume, a role in Me, or a note; pass the id of whichever ONE it concerns, and none of them for a task that is about nothing in particular. Passing two is refused rather than guessed at. Attaching it matters: the task shows on that record's own screen, and it goes with it if the record is ever deleted. `detail` is the room for what the task actually involves, which the title should not have to carry. Ids that are not this person's, or are in the archive, are refused.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `title` | string | **required** — What needs doing |
-| `detail` | string | Any extra detail |
+| `detail` | string | The longer version — what it involves, who said it, what to reference |
 | `dueAt` | string | ISO date it is due |
 | `applicationId` | string | Attach to this application |
+| `companyId` | string | Or to a company |
+| `contactId` | string | Or to a person |
+| `resumeId` | string | Or to a resume |
+| `roleId` | string | Or to a role in Me |
+| `noteId` | string | Or to a note |
 
 ### `complete_task`
 
@@ -414,15 +415,20 @@ Mark a task done, or reopen it with done: false.
 
 _Update a task_
 
-Reword a task, move its due date, or hook it to a different application. Only the fields you pass change; each REPLACES what was there. Pass an empty string for dueAt to clear the date, or for applicationId to unhook it. Use complete_task to tick it off — done is not settable here.
+Reword a task, move its due date, or hook it to something different. Only the fields you pass change; each REPLACES what was there. Pass an empty string for dueAt to clear the date, or for any of the subject ids to unhook it. Setting one subject CLEARS the others, because a task is about at most one thing — so moving a task from an application to a person is one call with contactId, not two. Use complete_task to tick it off; done is not settable here.
 
 | Argument | Type | |
 | --- | --- | --- |
 | `id` | string | **required** — Task id |
 | `title` | string | What needs doing |
-| `detail` | string | Any extra detail — replaces what is there |
+| `detail` | string | The longer version — replaces what is there |
 | `dueAt` | string | ISO date it is due, or empty string to clear it |
-| `applicationId` | string | Application to attach to, or empty string to unhook |
+| `applicationId` | string | Attach to this application, or empty string to unhook |
+| `companyId` | string | Or to a company |
+| `contactId` | string | Or to a person |
+| `resumeId` | string | Or to a resume |
+| `roleId` | string | Or to a role in Me |
+| `noteId` | string | Or to a note |
 
 ### `delete_task`
 
@@ -479,6 +485,14 @@ Set which optional fields one pipeline view draws. REPLACES that view's whole li
 | --- | --- | --- |
 | `view` | enum | **required** — board \| list \| calendar  `board` · `list` · `calendar` |
 | `fields` | string[] | **required** — The whole set for that view, from get_pipeline_fields. Empty for the defaults, ['none'] for nothing. |
+
+### `list_field_values`
+
+_Locations and work modes already in use_
+
+Every location and every work mode already on one of this person's live applications, most-used first with a count each. Call it BEFORE writing either field on create_application or update_application: both are free text and always will be — 'Remote (US, PST overlap)' is a real answer no list survives — but writing 'remote' next to an existing 'Remote' leaves two values that never group together, and this is the cheap way not to. Match case-insensitively against what comes back and reuse that spelling; a genuinely new value is still just a string, so send it. Archived applications do not contribute. Read-only.
+
+No arguments.
 
 ### `get_column_widths`
 

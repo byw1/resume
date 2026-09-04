@@ -39,6 +39,7 @@ import { DiagnosisCard } from "@/components/dashboard/diagnosis";
 import { SetupStrip } from "@/components/dashboard/setup-strip";
 import { setupStatus } from "@/lib/data/onboarding";
 import { QuickLog } from "@/components/dashboard/quick-log";
+import { taskSubjectOf } from "@/lib/task-subject";
 
 export const dynamic = "force-dynamic";
 
@@ -205,9 +206,9 @@ export default async function DashboardPage() {
                       title: task.title,
                       due: task.dueAt ? relativeDay(task.dueAt) : "",
                       overdue: task.dueAt ? task.dueAt < new Date() : false,
-                      context: task.application
-                        ? `${task.application.company.name}`
-                        : "",
+                      // Whatever it is about, not only an application: a task
+                      // hung on a person used to show a blank line here.
+                      context: taskSubjectOf(task)?.label ?? "",
                     }))}
                   />
                 </CardContent>

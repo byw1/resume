@@ -10,9 +10,14 @@ import {
   contactFollowUpsDue,
   followUpsDue,
   listApplications,
+  listCompanies,
   listContacts,
   listTasks,
 } from "@/lib/data/pipeline";
+import { listResumeNames } from "@/lib/data/resumes";
+import { listRoles, listNotes } from "@/lib/data/me";
+import { taskSubjectOf } from "@/lib/task-subject";
+import type { SubjectOption } from "@/components/tasks/subject-picker";
 import { relativeDay } from "@/lib/utils";
 import type { Stage } from "@prisma/client";
 
@@ -29,15 +34,59 @@ export const dynamic = "force-dynamic";
  */
 export default async function TasksPage() {
   const user = await requireUser();
-  const [tasks, applications, followUps, contactPings, contacts] = await Promise.all([
-    listTasks(user.id, { limit: 300 }),
-    listApplications(user.id),
-    // A week out, not just today: this is the page you plan from, and a list
-    // that only ever shows what is already late plans nothing.
-    followUpsDue(user.id, 7),
-    contactFollowUpsDue(user.id, 7),
-    listContacts(user.id),
-  ]);
+  const [tasks, applications, followUps, contactPings, contacts, companies, resumeNames, roles, notes] =
+    await Promise.all([
+      listTasks(user.id, { limit: 300 }),
+      listApplications(user.id),
+      // A week out, not just today: this is the page you plan from, and a list
+      // that only ever shows what is already late plans nothing.
+      followUpsDue(user.id, 7),
+      contactFollowUpsDue(user.id, 7),
+      listContacts(user.id),
+      listCompanies(user.id),
+      listResumeNames(user.id),
+      listRoles(user.id),
+      listNotes(user.id),
+    ]);
+
+  // Everything a task can be about, in one list for the picker. Built here
+  // rather than in the client so the six reads happen once per page rather
+  // than once per popover.
+  const subjects: SubjectOption[] = [
+    ...applications.map((application) => ({
+      kind: "application" as const,
+      id: application.id,
+      label: application.roleTitle,
+      hint: application.company.name,
+    })),
+    ...contacts.map((contact) => ({
+      kind: "contact" as const,
+      id: contact.id,
+      label: contact.name,
+      hint: contact.title || undefined,
+    })),
+    ...companies.map((company) => ({
+      kind: "company" as const,
+      id: company.id,
+      label: company.name,
+    })),
+    ...resumeNames.map((resume) => ({
+      kind: "resume" as const,
+      id: resume.id,
+      label: resume.name,
+    })),
+    ...roles.map((role) => ({
+      kind: "role" as const,
+      id: role.id,
+      label: role.title,
+      hint: role.company || undefined,
+    })),
+    ...notes.map((note) => ({
+      kind: "note" as const,
+      id: note.id,
+      label: note.title || "Untitled note",
+    })),
+  ];
 
   const now = new Date();
   const chase = [
@@ -84,21 +133,13 @@ export default async function TasksPage() {
             tasks={tasks.map((task) => ({
               id: task.id,
               title: task.title,
+              detail: task.detail,
               dueISO: task.dueAt?.toISOString() ?? "",
               dueDate: task.dueAt ? task.dueAt.toISOString().slice(0, 10) : "",
               done: task.done,
-              application: task.application
-                ? {
-                    id: task.application.id,
-                    roleTitle: task.application.roleTitle,
-                    company: task.application.company.name,
-                  }
-                : null,
+              subject: taskSubjectOf(task),
             }))}
-            roles={applications.map((application) => ({
-              id: application.id,
-              label: `${application.roleTitle} · ${application.company.name}`,
-            }))}
+            subjects={subjects}
           />
 
           <div className="space-y-4">

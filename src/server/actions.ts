@@ -1005,27 +1005,40 @@ export async function addActivityAction(input: {
   revalidatePath("/");
 }
 
-export async function createTaskAction(input: {
-  title: string;
-  detail?: string;
-  dueAt?: string | null;
-  applicationId?: string | null;
-}) {
+export async function createTaskAction(
+  input: {
+    title: string;
+    detail?: string;
+    dueAt?: string | null;
+  } & pipeline.TaskSubjectInput,
+) {
   const user = await requireUser();
   await pipeline.createTask(user.id, input);
   revalidatePath("/");
   revalidatePath("/tasks");
-  if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
+  // The subject's own screen shows its tasks, so it has to be refreshed too.
+  revalidateSubject(input);
 }
 
 export async function updateTaskAction(
   id: string,
-  patch: { title?: string; detail?: string; dueAt?: string | null; applicationId?: string | null },
+  patch: { title?: string; detail?: string; dueAt?: string | null } & pipeline.TaskSubjectInput,
 ) {
   const user = await requireUser();
   await pipeline.updateTask(user.id, id, patch);
   revalidatePath("/");
   revalidatePath("/tasks");
+  revalidateSubject(patch);
+}
+
+/** The detail page of whatever a task was just hung on, if it has one. */
+function revalidateSubject(input: pipeline.TaskSubjectInput) {
+  if (input.applicationId) revalidatePath(`/applications/${input.applicationId}`);
+  if (input.companyId) revalidatePath(`/crm/companies/${input.companyId}`);
+  if (input.contactId) revalidatePath(`/crm/contacts/${input.contactId}`);
+  if (input.resumeId) revalidatePath(`/resumes/${input.resumeId}`);
+  if (input.roleId) revalidatePath(`/me/${input.roleId}`);
+  if (input.noteId) revalidatePath("/me");
 }
 
 export async function toggleTaskAction(id: string, done: boolean) {
@@ -1436,7 +1449,7 @@ export async function deleteCrmContactAction(id: string) {
  */
 export async function getApplicationForPanelAction(id: string) {
   const user = await requireUser();
-  const [application, resumeList, tagOptions, companies, settings, googleConnection] =
+  const [application, resumeList, tagOptions, companies, settings, googleConnection, fieldValues] =
     await Promise.all([
       pipeline.getApplication(user.id, id),
       resumes.listResumeNames(user.id),
@@ -1444,6 +1457,7 @@ export async function getApplicationForPanelAction(id: string) {
       pipeline.listCompanies(user.id),
       getSettings(),
       google.getGoogleConnection(user.id),
+      pipeline.applicationFieldValues(user.id),
     ]);
   if (!application) throw new Error("That application is gone.");
   // Only when one is attached — the document carries the owner's photo as a
@@ -1464,8 +1478,6 @@ export async function getApplicationForPanelAction(id: string) {
       workMode: application.workMode,
       salaryRange: application.salaryRange,
       tags: application.tags,
-      excitement: application.excitement,
-      fit: application.fit,
       notes: application.notes,
       appliedAt: application.appliedAt?.toISOString() ?? null,
       nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
@@ -1493,6 +1505,7 @@ export async function getApplicationForPanelAction(id: string) {
     })),
     resumes: resumeList.map((resume) => ({ id: resume.id, name: resume.name })),
     tagOptions: tagOptions.map(asOption),
+    fieldValues,
     company: {
       id: application.companyId,
       name: application.company.name,

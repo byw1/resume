@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { scheduleContactPingsAction } from "@/server/actions";
+import { DateField } from "@/components/ui/date-field";
 
 /**
  * One ping date across a selection — "chase everyone I met at the conference
@@ -49,12 +50,12 @@ export function PingSelected({ ids, onDone }: { ids: string[]; onDone: () => voi
       </PopoverTrigger>
       <PopoverContent align="start" className="w-60 space-y-2 p-3">
         <p className="text-[12.5px]">Chase all {ids.length} of them on</p>
-        <Input
-          type="date"
+        <DateField
           value={date}
-          onChange={(event) => setDate(event.target.value)}
-          className="h-9 text-[13px] md:h-8"
-          aria-label="When to ping them"
+          onChange={setDate}
+          ariaLabel="When to ping them"
+          placeholder="Pick a day"
+          clearable={false}
         />
         <div className="flex gap-1.5">
           <Button size="sm" className="flex-1" disabled={pending || !date} onClick={() => save(date)}>

@@ -77,7 +77,7 @@ just *talk* to it.
   before it does it. Names fold case, so `linkedin` lands on the `LinkedIn` you already
   have rather than minting a twin.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  117 tools any MCP client can call (147 if you're an admin). Claude, Claude Code, ChatGPT,
+  118 tools any MCP client can call (148 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's career history, resumes or applications. Admin lives
@@ -252,7 +252,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 117, or 147 if you're an admin.
+would, then tells you how many tools answered — 118, or 148 if you're an admin.
 
 #### One connection per client
 
@@ -423,7 +423,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-117 tools. One hundred and nine of them are the data tools across the four areas, the
+118 tools. One hundred and ten of them are the data tools across the four areas, the
 archive that cuts through all of them, your Gmail and Calendar, and your account; the other
 eight are the workflows below, published as tools as well as prompts, because prompt support
 is optional in MCP clients and tool support isn't. Call one and it hands back a step-by-step
@@ -489,14 +489,18 @@ applications it went out with, how many reached an interview, how many reached a
 
 **Pipeline** — `capture_job_posting` turns a posting URL into a tracked application in one
 move, company and description included. Then applications and stages, an activity timeline,
-tasks — `list_tasks`, `create_task`, `update_task`, `complete_task`, `delete_task` —
+tasks — `list_tasks`, `create_task`, `update_task`, `complete_task`, `delete_task`, each
+task about at most one thing and that thing being an application, a company, a person, a
+resume, a role in Me, a note, or nothing at all —
 `list_follow_ups` for
 what's overdue, `list_schedule` for a whole window of dated work at once, `pipeline_stats` for
 the shape of your search, and `diagnose_search`, which reads the funnel and tells you which
 step is losing people rather than handing you six numbers to interpret. `export_csv` returns
 any of the three lists as a spreadsheet, `get_pipeline_fields` / `set_pipeline_fields` choose
-how much each view shows before you open anything, and `get_column_widths` /
-`set_column_widths` are the same idea for how wide each table column is.
+how much each view shows before you open anything, `get_column_widths` /
+`set_column_widths` are the same idea for how wide each table column is, and
+`list_field_values` says which locations and work modes you already use, so a new application
+does not become the third spelling of Remote.
 
 **CRM** — `list_companies` / `get_company` / `create_company` / `update_company` /
 `delete_company` for the companies you're talking to, and `get_contact` / `update_contact` /

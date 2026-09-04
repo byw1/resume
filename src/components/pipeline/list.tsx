@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useMemo, useState, useTransition } from "react";
-import { ArrowDownIcon, ArrowUpIcon, FlameIcon, XIcon } from "lucide-react";
+import { ArrowDownIcon, ArrowUpIcon, XIcon } from "lucide-react";
 import { toast } from "sonner";
 import type { Stage } from "@prisma/client";
 import { STAGES, STAGE_LABEL, STAGE_TONE, TERMINAL_STAGES } from "@/lib/data/pipeline";
@@ -14,6 +14,9 @@ import { CompanyAvatar } from "@/components/pipeline/company-avatar";
 import { useOpenApplication } from "@/components/pipeline/application-panel";
 import { Button } from "@/components/ui/button";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { parseISODate, toISODate } from "@/components/ui/date-field";
 import {
   Select,
   SelectContent,
@@ -116,13 +119,6 @@ const COLUMNS: {
     className: "w-20 shrink-0 text-right hidden sm:block",
     field: "updated",
     col: "updated",
-  },
-  {
-    key: null,
-    label: "Excitement",
-    className: "w-24 shrink-0 text-right hidden xl:block",
-    field: "excitement",
-    col: "excitement",
   },
   { key: null, label: "", className: "w-8 shrink-0", field: null },
 ];
@@ -370,10 +366,7 @@ function Row({
       >
         <CompanyAvatar name={row.company} domain={row.domain} size={26} />
         <div className="min-w-0">
-          <div className="flex items-center gap-1.5">
-            <span className="truncate text-[13px] font-medium">{row.company}</span>
-            {row.excitement >= 4 && <FlameIcon className="text-warning size-3 shrink-0" />}
-          </div>
+          <span className="block truncate text-[13px] font-medium">{row.company}</span>
           <div className="text-faint truncate text-[12px]">{row.roleTitle}</div>
         </div>
       </Link>
@@ -487,12 +480,6 @@ function Row({
         </Body>
       )}
 
-      {shows("excitement") && (
-        <Body col="excitement" className="nums text-faint hidden w-24 shrink-0 text-right text-[12px] xl:block">
-          {"★".repeat(row.excitement)}
-        </Body>
-      )}
-
       {/* The same verbs the board card offers. Two views of one pipeline
           should not disagree about what you can do to a row. */}
       <div className="flex w-8 shrink-0 justify-end">
@@ -530,31 +517,56 @@ function DateCell({
   overdue: boolean;
   onChange: (value: string) => void;
 }) {
-  const [editing, setEditing] = useState(false);
-
-  if (!value && !editing) {
-    return (
-      <button
-        type="button"
-        aria-label={label}
-        onClick={() => setEditing(true)}
-        className="text-faint hover:border-input hover:bg-inset h-7 w-full rounded-control border border-transparent px-1.5 text-left text-[12px] transition-colors duration-150"
-      >
-        —
-      </button>
-    );
-  }
+  const [open, setOpen] = useState(false);
+  const selected = parseISODate(value);
 
   return (
-    <CellInput
-      type="date"
-      autoFocus={editing && !value}
-      value={value}
-      aria-label={label}
-      onChange={onChange}
-      onBlurValue={() => setEditing(false)}
-      className={cn("nums", overdue && "text-destructive font-medium")}
-    />
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className={cn(
+            "nums hover:border-input hover:bg-inset h-7 w-full rounded-control border border-transparent px-1.5 text-left text-[12px] transition-colors duration-150",
+            !selected && "text-faint",
+            overdue && selected && "text-destructive font-medium",
+          )}
+        >
+          {selected
+            ? selected.toLocaleDateString(undefined, { month: "short", day: "numeric" })
+            : "—"}
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-2">
+        <Calendar
+          mode="single"
+          selected={selected}
+          defaultMonth={selected}
+          captionLayout="dropdown"
+          autoFocus
+          onSelect={(next) => {
+            onChange(next ? toISODate(next) : "");
+            setOpen(false);
+          }}
+        />
+        {/* The one act the grid cannot express. Clearing by clicking the
+            selected day again is real but undiscoverable, so it is also a
+            row under the calendar. */}
+        {selected && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="text-muted-foreground hover:text-destructive mt-1 w-full"
+            onClick={() => {
+              onChange("");
+              setOpen(false);
+            }}
+          >
+            <XIcon /> Clear
+          </Button>
+        )}
+      </PopoverContent>
+    </Popover>
   );
 }
 
@@ -565,21 +577,16 @@ function DateCell({
  */
 function CellInput({
   value,
-  type,
   placeholder,
   className,
-  onChange,
   onBlurValue,
   onLocalChange,
   ...props
 }: {
   value: string;
-  type?: string;
   placeholder?: string;
   className?: string;
   autoFocus?: boolean;
-  /** Commit as soon as it changes — right for a date picker. */
-  onChange?: (value: string) => void;
   /** Commit on blur — right for free text, which is not done until you leave. */
   onBlurValue?: (value: string) => void;
   onLocalChange?: (value: string) => void;
@@ -588,13 +595,9 @@ function CellInput({
   return (
     <input
       {...props}
-      type={type}
       value={value}
       placeholder={placeholder}
-      onChange={(event) => {
-        onLocalChange?.(event.target.value);
-        onChange?.(event.target.value);
-      }}
+      onChange={(event) => onLocalChange?.(event.target.value)}
       onBlur={(event) => onBlurValue?.(event.target.value)}
       onKeyDown={(event) => {
         if (event.key === "Enter") event.currentTarget.blur();

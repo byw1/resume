@@ -335,26 +335,26 @@ model WaitlistSignup {
 // ---------------------------------------------------------------------------
 
 model Profile {
-  id         String   @id @default(cuid())
-  userId     String   @unique
-  user       User     @relation(fields: [userId], references: [id], onDelete: Cascade)
-  fullName   String   @default("")
-  headline   String   @default("")
-  email      String   @default("")
-  phone      String   @default("")
-  location   String   @default("")
-  website    String   @default("")
-  linkedin   String   @default("")
-  github     String   @default("")
-  twitter    String   @default("")
+  id             String   @id @default(cuid())
+  userId         String   @unique
+  user           User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  fullName       String   @default("")
+  headline       String   @default("")
+  email          String   @default("")
+  phone          String   @default("")
+  location       String   @default("")
+  website        String   @default("")
+  linkedin       String   @default("")
+  github         String   @default("")
+  twitter        String   @default("")
   /// Long-form "about me" background: values, working style, career narrative,
   /// what you want next, salary expectations, non-negotiables, etc.
   ///
   /// The column is still called brainDump — the concept was renamed to "me"
   /// and its raw text to "background", and @map keeps that rename off the
   /// database so no self-hosted instance needs a migration to follow along.
-  summary    String   @default("")
-  background String   @default("") @map("brainDump")
+  summary        String   @default("")
+  background     String   @default("") @map("brainDump")
   /// Which optional fields each pipeline view draws. Empty means "the default
   /// set for that view" rather than "nothing", so an account that has never
   /// touched this looks exactly as it did — and a field added to a catalogue
@@ -381,8 +381,8 @@ model Profile {
   /// one environment variable, and so a published resume renders the picture
   /// with no second request to fetch it. The browser downscales before upload
   /// and the server refuses anything over PHOTO_MAX_BYTES.
-  photo      String   @default("")
-  updatedAt  DateTime @updatedAt
+  photo          String   @default("")
+  updatedAt      DateTime @updatedAt
 }
 
 model Role {
@@ -408,6 +408,7 @@ model Role {
   updatedAt      DateTime @updatedAt
 
   highlights Highlight[]
+  tasks      Task[]
 
   @@index([userId, sortOrder])
 }
@@ -518,6 +519,7 @@ model Note {
   pinned    Boolean  @default(false)
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  tasks     Task[]
 
   @@index([userId])
   @@index([userId, kind])
@@ -579,6 +581,7 @@ model Resume {
   variants     Resume[] @relation("ResumeLineage")
 
   applications Application[]
+  tasks        Task[]
 
   @@index([userId])
   @@index([baseResumeId])
@@ -647,6 +650,7 @@ model Company {
   /// were three String columns, which meant one value each, no way to correct
   /// a typo everywhere at once, and no way to ask "who else is fintech".
   tags         CompanyTag[]
+  tasks        Task[]
 
   @@unique([userId, name, archiveKey])
   @@index([userId])
@@ -672,10 +676,6 @@ model Application {
   /// recoloured and — the point — deleted. The data layer flattens the join
   /// rows back to { id, name, color } before anything else sees them.
   tags           ApplicationTag[]
-  /// 1-5 how much you want this
-  excitement     Int              @default(3)
-  /// 1-5 how strong a fit you are
-  fit            Int              @default(3)
   notes          String           @default("")
   appliedAt      DateTime?
   nextFollowUpAt DateTime?
@@ -829,6 +829,7 @@ model Contact {
   archivedAt     DateTime?
   createdAt      DateTime         @default(now())
   updatedAt      DateTime         @default(now()) @updatedAt
+  tasks          Task[]
 
   @@index([userId])
   @@index([userId, updatedAt])
@@ -897,6 +898,17 @@ model SavedView {
   @@index([userId, name])
 }
 
+/// A task is about at most one thing, and the thing can be almost anything.
+///
+/// Five nullable foreign keys rather than a `subjectKind` + `subjectId` pair,
+/// because the pair has no referential integrity: delete a resume and the task
+/// keeps pointing at an id nothing can resolve, forever, with nothing in the
+/// database to stop it. These cascade, so a subject going takes its tasks with
+/// it — which is what `applicationId` already did and what people expect.
+///
+/// At most one is set. Nothing in Postgres enforces that; `taskSubject` in
+/// src/lib/data/pipeline.ts does, on the way in, and the reader takes the first
+/// one it finds so a hand-written row can never render two subjects.
 model Task {
   id            String       @id @default(cuid())
   userId        String
@@ -908,7 +920,22 @@ model Task {
   doneAt        DateTime?
   applicationId String?
   application   Application? @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  companyId     String?
+  company       Company?     @relation(fields: [companyId], references: [id], onDelete: Cascade)
+  contactId     String?
+  contact       Contact?     @relation(fields: [contactId], references: [id], onDelete: Cascade)
+  resumeId      String?
+  resume        Resume?      @relation(fields: [resumeId], references: [id], onDelete: Cascade)
+  roleId        String?
+  role          Role?        @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  noteId        String?
+  note          Note?        @relation(fields: [noteId], references: [id], onDelete: Cascade)
   createdAt     DateTime     @default(now())
 
   @@index([userId, done, dueAt])
+  @@index([companyId])
+  @@index([contactId])
+  @@index([resumeId])
+  @@index([roleId])
+  @@index([noteId])
 }

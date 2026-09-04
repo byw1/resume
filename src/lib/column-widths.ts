@@ -47,7 +47,6 @@ export const PIPELINE_COLUMNS: ColumnDef[] = [
   { key: "location", label: "Location", width: 128, min: 80, max: MAX },
   { key: "activity", label: "Log", width: 40, min: 36, max: 96 },
   { key: "updated", label: "Touched", width: 80, min: MIN, max: 160 },
-  { key: "excitement", label: "Excitement", width: 96, min: 72, max: 160 },
 ];
 
 export const COMPANY_COLUMNS: ColumnDef[] = [

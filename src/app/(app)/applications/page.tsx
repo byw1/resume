@@ -2,6 +2,7 @@ import { headers } from "next/headers";
 import type { Stage } from "@prisma/client";
 import { PageHeader, PageShell } from "@/components/page-header";
 import {
+  applicationFieldValues,
   BOARD_STAGES,
   STAGES,
   STAGE_LABEL,
@@ -99,6 +100,7 @@ export default async function ApplicationsPage({
   // immediately rather than after a round trip.
   const profile = await getProfile(user.id);
   const share = await getPipelineShare(user.id);
+  const fieldValues = await applicationFieldValues(user.id);
   const shareBase = `${headerProto}://${headerHost}`;
 
   // Normalised the same way a view is saved, so "is this the view I am looking
@@ -207,6 +209,7 @@ export default async function ApplicationsPage({
           dir={one("dir")}
           action={
             <NewApplicationDialog
+              fieldValues={fieldValues}
               resumes={resumes.map((resume) => ({ id: resume.id, name: resume.name }))}
               tagOptions={tagOptions.map((tag) => ({
                 id: tag.id,
@@ -333,7 +336,6 @@ export default async function ApplicationsPage({
     stage: application.stage,
     location: application.location,
     salaryRange: application.salaryRange,
-    excitement: application.excitement,
     nextFollowUpAt: application.nextFollowUpAt ? application.nextFollowUpAt.toISOString() : null,
     resumeName: application.resume?.name ?? null,
     activityCount: application._count.activities,

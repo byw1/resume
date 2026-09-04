@@ -186,8 +186,9 @@ weeks" lives. In the app, both land on **Tasks**.
     activity already logged. The right call for "what does my week look like".
   </Card>
   <Card title="list_tasks" icon="square-check">
-    To-dos, with or without a due date, optionally attached to an application.
-    `update_task` moves one, `complete_task` ticks it off, `delete_task` removes it.
+    To-dos, with or without a due date, and about at most one thing: an application, a
+    company, a person, a resume, a role in Me, a note — or nothing at all. `update_task`
+    moves one, `complete_task` ticks it off, `delete_task` removes it.
   </Card>
 </CardGroup>
 
@@ -236,6 +237,11 @@ they are a dimension like any other and they live in the menu now. What is overd
 the dashboard leads with it and the tasks page is built around it, so it stays one click
 from anywhere.
 
+Location and work mode are free text and stay that way — "Remote (US, PST overlap)" is a
+real answer no list survives — but the field offers what you have already used, most-used
+first, so a workspace does not end up with three spellings of Remote. `list_field_values`
+is the same list over MCP, and it is the call to make before writing either field.
+
 The table edits in place: stage, follow-up, salary and location are the cells themselves,
 and selecting rows closes a batch out in one action. Two columns count days: **Waiting** is
 days in the current stage, **Quiet** is days since anything was logged. A call you noted
@@ -257,7 +263,6 @@ view=list&f=APPLIED,SCREEN&sort=waiting&dir=desc
 | `co` | Comma-separated company ids |
 | `cv` | Comma-separated resume ids, or `none` for the ones with no resume attached |
 | `w` | Minimum days sitting in the current stage |
-| `x` | Minimum excitement, 1-5 |
 | `sort`, `dir` | Column and direction |
 | `q` | Search text — company, role, notes, location, work mode, the posting, and tag names |
 | `month` | `YYYY-MM`, for the calendar view |

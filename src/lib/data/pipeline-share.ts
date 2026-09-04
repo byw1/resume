@@ -108,7 +108,6 @@ export async function getSharedPipeline(slug: string) {
       roleTitle: true,
       stage: true,
       location: true,
-      excitement: true,
       appliedAt: true,
       nextFollowUpAt: true,
       updatedAt: true,

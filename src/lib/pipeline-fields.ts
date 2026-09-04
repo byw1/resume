@@ -43,7 +43,6 @@ export const BOARD_FIELDS: FieldDef[] = [
   { key: "quiet", label: "Quiet for", standard: true },
   { key: "resume", label: "Resume sent", standard: true },
   { key: "activity", label: "Activity count", standard: true },
-  { key: "excitement", label: "Excitement", standard: false },
   { key: "tags", label: "Tags", standard: false },
 ];
 
@@ -55,7 +54,6 @@ export const LIST_FIELDS: FieldDef[] = [
   { key: "location", label: "Location", standard: true, wide: true },
   { key: "activity", label: "Log", standard: true, wide: true },
   { key: "updated", label: "Touched", standard: true, wide: true },
-  { key: "excitement", label: "Excitement", standard: false, wide: true },
 ];
 
 /**

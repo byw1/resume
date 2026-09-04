@@ -4355,3 +4355,60 @@ Cursor?" is the question that screen exists to answer.
 `src/components/lists/`, `src/components/filters/facet-menu.tsx`,
 `src/components/{pipeline,crm,settings}/`, `src/app/(app)/{applications,crm}/`,
 `tools/gen-tool-docs.mjs`, and the manual.
+
+## 2026-09-04 — Two ratings out, a calendar in, and a task about anything
+
+**Excitement and fit are dropped, not hidden.** Two 1-5 ratings on every application,
+defaulted to 3, which made a pipeline of thirty into thirty threes — a number that looks like
+data, sorts, filters and says nothing. They reached sixteen files each: a board field, a table
+column, a filter ("Want it at least"), the `x` parameter in every saved view's query, the CSV
+export, the shared pipeline's select, and four tool arguments. Hiding them would have left two
+columns an assistant could still write that no screen shows, which is the kind of thing that
+rots. The migration drops both; the rating widget went with them.
+
+**Location and mode stay free text and gained a memory.** "Remote (US, PST overlap)" is a real
+answer and no enum survives it, so the fields are still strings. What free text costs is
+consistency — three spellings of Remote, none of which group — so the field now lists what is
+already on your applications, most-used first with a count, and typing something new is still
+just typing. Folding is case-insensitive with the first spelling winning, and archived
+applications do not vote: a value only they carry is not a value you use. `list_field_values`
+is the same list over MCP, and both write tools' argument descriptions now point at it.
+
+**The calendar replaced every `input[type=date]`.** The native control was doing the job four
+different ways — three segments in the browser's locale, a text box on Firefox for Linux, a
+wheel on iOS — and printing "mm/dd/yyyy" in grey on every empty one, which in a column of
+follow-up dates was louder than the dates actually set. react-day-picker 9, wrapped as given.
+
+The subtle part is the string, not the widget: **these are civil dates, not instants.** A
+follow-up on the 14th is the 14th wherever you open it, so `parseISODate`/`toISODate` split and
+rebuild by local parts. `new Date("2026-03-14")` parses as UTC midnight and renders as the 13th
+for anyone west of Greenwich, and a date picker that silently moves a date back a day is worse
+than no date picker. Verified against a real database: clicking the 22nd stored
+`2026-09-22 00:00:00`.
+
+**An opened application has tabs.** Overview, Timeline, Posting, Notes — everything here is
+about one application but not at the same moment, and stacked, the posting and the notes sat
+three scrolls under the thing you came for. The details rail stays OUT of the tabs: stage,
+follow-up and salary are the answer to "where is this", which is true on every tab.
+
+**A task is about at most one thing, and the thing can be almost anything.** Five nullable
+foreign keys beside the existing `applicationId` rather than a `subjectKind` + `subjectId`
+pair. The pair has no referential integrity — delete a resume and the task points at an id
+nothing resolves, forever, with nothing in the database to stop it. These cascade, which is
+what `applicationId` already did and what a person expects.
+
+Nothing in Postgres enforces "at most one": a CHECK across five columns is a constraint every
+future subject has to remember to extend. `taskSubject` enforces it on the way in — refusing
+two rather than guessing, checking ownership rather than trusting the foreign key, and
+clearing the others when one is set — and `taskSubjectOf` takes the first it finds on the way
+out, so a hand-written row can never render in two places.
+
+`LIVE_TASK_PARENT` grew from one leg to three. Three of the six subjects are archivable, and
+each needs BOTH legs of its own OR: a task about a company has `applicationId: null` and would
+have sailed through a single-legged application filter. Measured: archiving a person hides its
+two tasks and restoring brings them back, and deleting a note takes its task with it.
+
+**Applies to:** `prisma/schema.prisma` + `20250129000000_drop_ratings` +
+`20250130000000_task_subjects`, `src/lib/task-subject.ts`, `src/lib/data/pipeline.ts`,
+`src/lib/mcp/tools.ts`, `src/server/actions.ts`, `src/components/ui/{calendar,date-field}.tsx`,
+`src/components/{pipeline,tasks}/`, `src/app/(app)/{applications,tasks}/`, and the manual.

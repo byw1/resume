@@ -34,7 +34,6 @@ export type ListRow = {
   stage: Stage;
   location: string;
   salaryRange: string;
-  excitement: number;
   nextFollowUpAt: string | null;
   activityCount: number;
   updatedAt: string;
@@ -59,7 +58,6 @@ export type ListSource = {
   stage: Stage;
   location: string;
   salaryRange: string;
-  excitement: number;
   nextFollowUpAt: Date | null;
   updatedAt: Date;
   daysInStage: number;
@@ -77,7 +75,6 @@ export function toListRow(application: ListSource, domain: string | null): ListR
     stage: application.stage,
     location: application.location,
     salaryRange: application.salaryRange,
-    excitement: application.excitement,
     nextFollowUpAt: application.nextFollowUpAt?.toISOString() ?? null,
     activityCount: application._count.activities,
     updatedAt: application.updatedAt.toISOString(),

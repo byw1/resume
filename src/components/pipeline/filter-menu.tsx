@@ -13,7 +13,6 @@ export type FilterFacets = {
 };
 
 const WAITING = [7, 14, 30];
-const EXCITEMENT = [4, 5];
 
 /**
  * The pipeline's dimensions, as rows for the shared popover.
@@ -64,7 +63,7 @@ export function FilterMenu({
     filters.resumes.length +
     (filters.waiting !== null ? 1 : 0) +
     (filters.quiet !== null ? 1 : 0) +
-    (filters.excitement !== null ? 1 : 0);
+    0;
 
   const closedOn = TERMINAL_STAGES.every((stage) => filters.stages.includes(stage));
 
@@ -150,15 +149,6 @@ export function FilterMenu({
         href: href({ ...filters, quiet: filters.quiet === days ? null : days }),
       })),
     },
-    {
-      heading: "Want it at least",
-      rows: EXCITEMENT.map((score) => ({
-        id: `x-${score}`,
-        label: score === 5 ? "5 — the dream" : "4 or more",
-        on: filters.excitement === score,
-        href: href({ ...filters, excitement: filters.excitement === score ? null : score }),
-      })),
-    },
   ];
 
   return (
@@ -173,7 +163,6 @@ export function FilterMenu({
         resumes: [],
         waiting: null,
         quiet: null,
-        excitement: null,
       })}
       placeholder="Stage, tag, company, resume…"
       ariaLabel="Filter the pipeline"

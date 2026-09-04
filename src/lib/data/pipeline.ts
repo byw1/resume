@@ -705,8 +705,6 @@ export type ApplicationInput = {
   sourceIds?: string[];
   sources?: string[];
   source?: string;
-  excitement?: number;
-  fit?: number;
   notes?: string;
   appliedAt?: Date | string | null;
   nextFollowUpAt?: Date | string | null;
@@ -890,6 +888,46 @@ async function assertOwnsResume(userId: string, resumeId: string) {
   if (!resume) throw new Error(`No resume with id ${resumeId}`);
 }
 
+/**
+ * The location and work-mode values already on this person's applications.
+ *
+ * Both are free text and always will be — "Remote (US, PST overlap)" is a real
+ * answer and no enum survives it. What free text costs is consistency: three
+ * spellings of Remote, none of which filter or group together. So the field
+ * offers what you have used before, with a count each, and typing something new
+ * is still just typing.
+ *
+ * Case-insensitive on the way in, first spelling wins on the way out: "remote"
+ * typed after "Remote" folds into the one already on file rather than adding a
+ * near-duplicate to the list. Archived applications do not vote — a value only
+ * they carry is not a value you use.
+ */
+export async function applicationFieldValues(
+  userId: string,
+): Promise<{ location: { value: string; count: number }[]; workMode: { value: string; count: number }[] }> {
+  const rows = await db.application.findMany({
+    where: { userId, archivedAt: null },
+    select: { location: true, workMode: true },
+  });
+
+  const tally = (pick: (row: (typeof rows)[number]) => string) => {
+    const seen = new Map<string, { value: string; count: number }>();
+    for (const row of rows) {
+      const value = pick(row).trim();
+      if (!value) continue;
+      const key = value.toLowerCase();
+      const existing = seen.get(key);
+      if (existing) existing.count += 1;
+      else seen.set(key, { value, count: 1 });
+    }
+    return [...seen.values()].sort(
+      (a, b) => b.count - a.count || a.value.localeCompare(b.value),
+    );
+  };
+
+  return { location: tally((row) => row.location), workMode: tally((row) => row.workMode) };
+}
+
 export async function createApplication(userId: string, input: ApplicationInput) {
   const company = await upsertCompanyByName(
     userId,
@@ -916,8 +954,6 @@ export async function createApplication(userId: string, input: ApplicationInput)
           (tagId) => ({ tagId }),
         ),
       },
-      excitement: clamp(input.excitement ?? 3, 1, 5),
-      fit: clamp(input.fit ?? 3, 1, 5),
       notes: input.notes ?? "",
       appliedAt,
       nextFollowUpAt: toDate(input.nextFollowUpAt) ?? defaultFollowUp(stage),
@@ -1011,8 +1047,6 @@ export async function updateApplication(
     data.tags = { deleteMany: {}, create: tagIds.map((tagId) => ({ tagId })) };
   }
   if (patch.notes !== undefined) data.notes = patch.notes;
-  if (patch.excitement !== undefined) data.excitement = clamp(patch.excitement, 1, 5);
-  if (patch.fit !== undefined) data.fit = clamp(patch.fit, 1, 5);
   if (patch.sortOrder !== undefined) data.sortOrder = patch.sortOrder;
   if (patch.appliedAt !== undefined) data.appliedAt = toDate(patch.appliedAt);
   if (patch.nextFollowUpAt !== undefined) data.nextFollowUpAt = toDate(patch.nextFollowUpAt);
@@ -1389,9 +1423,115 @@ export async function readQuickLogAgainstPipeline(userId: string, text: string) 
  * Not `as const`: that would make the OR a readonly tuple, and Prisma's `OR`
  * is a mutable array, so it would not compile where it is spread.
  */
+/**
+ * A task whose subject is not in the archive.
+ *
+ * Three of the six things a task can be about are archivable, and each needs
+ * BOTH legs: a task about a company has `applicationId: null`, so a
+ * single-legged application filter would wave it straight through. Resumes,
+ * roles and notes are not archivable — deleting one really deletes it, and the
+ * foreign key takes the task with it — so they need no clause here.
+ *
+ * The AND is what makes this composable: every archivable subject gets its own
+ * "unset, or alive" pair, and adding a fourth means adding a fourth pair rather
+ * than reasoning about the whole expression again.
+ */
 const LIVE_TASK_PARENT: Prisma.TaskWhereInput = {
-  OR: [{ applicationId: null }, { application: { archivedAt: null } }],
+  AND: [
+    { OR: [{ applicationId: null }, { application: { archivedAt: null } }] },
+    { OR: [{ companyId: null }, { company: { archivedAt: null } }] },
+    { OR: [{ contactId: null }, { contact: { archivedAt: null } }] },
+  ],
 };
+
+/** Everything a task can be about, and the column each one lives in. */
+export const TASK_SUBJECTS = [
+  "application",
+  "company",
+  "contact",
+  "resume",
+  "role",
+  "note",
+] as const;
+export type TaskSubject = (typeof TASK_SUBJECTS)[number];
+
+const SUBJECT_COLUMN: Record<TaskSubject, string> = {
+  application: "applicationId",
+  company: "companyId",
+  contact: "contactId",
+  resume: "resumeId",
+  role: "roleId",
+  note: "noteId",
+};
+
+/**
+ * Check that a subject is this person's, and turn it into columns to write.
+ *
+ * At most one subject: passing two is a caller that has not decided, and
+ * silently keeping one of them would put a task on a thing nobody chose.
+ * Ownership is checked here rather than trusted from the foreign key, because
+ * the key only says the row exists — not that it belongs to the person writing.
+ * An archived company or person is refused too: attaching a reminder to
+ * something already in the bin makes a task nothing will ever show.
+ */
+export async function taskSubject(
+  userId: string,
+  input: Partial<Record<`${TaskSubject}Id`, string | null>>,
+): Promise<Record<string, string | null>> {
+  const named = TASK_SUBJECTS.filter((kind) => input[`${kind}Id`]);
+  if (named.length > 1) {
+    throw new Error(
+      `A task is about one thing. You passed ${named.length}: ${named.join(", ")}.`,
+    );
+  }
+
+  const columns: Record<string, string | null> = {};
+  for (const kind of TASK_SUBJECTS) {
+    const value = input[`${kind}Id`];
+    // Absent means "leave it"; null means "unhook it"; a string means "set it".
+    if (value === undefined) continue;
+    columns[SUBJECT_COLUMN[kind]] = value ?? null;
+  }
+  // Setting one subject clears the others, so a task never carries two.
+  if (named.length === 1) {
+    for (const kind of TASK_SUBJECTS) {
+      if (kind !== named[0]) columns[SUBJECT_COLUMN[kind]] = null;
+    }
+  }
+
+  const kind = named[0];
+  if (!kind) return columns;
+  const id = input[`${kind}Id`] as string;
+
+  const found = await (async () => {
+    switch (kind) {
+      case "application":
+        return db.application.findFirst({ where: { id, userId, archivedAt: null } });
+      case "company":
+        return db.company.findFirst({ where: { id, userId, archivedAt: null } });
+      case "contact":
+        return db.contact.findFirst({ where: { id, userId, archivedAt: null } });
+      case "resume":
+        return db.resume.findFirst({ where: { id, userId } });
+      case "role":
+        return db.role.findFirst({ where: { id, userId } });
+      case "note":
+        return db.note.findFirst({ where: { id, userId } });
+    }
+  })();
+  if (!found) throw new Error(`No ${kind} with id ${id}`);
+  return columns;
+}
+
+/** What a task hands back about its subject, whichever kind it turned out to be. */
+const taskSubjectInclude = {
+  application: { include: { company: { select: { name: true } } } },
+  company: { select: { id: true, name: true } },
+  contact: { select: { id: true, name: true } },
+  resume: { select: { id: true, name: true } },
+  role: { select: { id: true, title: true, company: true } },
+  note: { select: { id: true, title: true } },
+} satisfies Prisma.TaskInclude;
 
 /**
  * An activity belongs to an application OR a contact — exactly one, enforced
@@ -1419,29 +1559,28 @@ export async function listActivities(userId: string, applicationId?: string, lim
   });
 }
 
+export type TaskSubjectInput = Partial<Record<`${TaskSubject}Id`, string | null>>;
+
 export async function createTask(
   userId: string,
   input: {
     title: string;
     detail?: string;
     dueAt?: Date | string | null;
-    applicationId?: string | null;
-  },
+  } & TaskSubjectInput,
 ) {
-  if (input.applicationId) {
-    const application = await db.application.findFirst({
-      where: { id: input.applicationId, userId, archivedAt: null },
-    });
-    if (!application) throw new Error(`No application with id ${input.applicationId}`);
-  }
+  const title = input.title.trim();
+  if (!title) throw new Error("A task needs a title");
+  const subject = await taskSubject(userId, input);
   return db.task.create({
     data: {
       userId,
-      title: input.title,
+      title,
       detail: input.detail ?? "",
       dueAt: toDate(input.dueAt) ?? null,
-      applicationId: input.applicationId ?? null,
+      ...subject,
     },
+    include: taskSubjectInclude,
   });
 }
 
@@ -1454,7 +1593,7 @@ export async function listTasks(userId: string, options?: { done?: boolean; limi
     },
     orderBy: [{ done: "asc" }, { dueAt: "asc" }, { createdAt: "desc" }],
     take: options?.limit ?? 100,
-    include: { application: { include: { company: true } } },
+    include: taskSubjectInclude,
   });
 }
 
@@ -1473,8 +1612,7 @@ export async function updateTask(
     title?: string;
     detail?: string;
     dueAt?: Date | string | null;
-    applicationId?: string | null;
-  },
+  } & TaskSubjectInput,
 ) {
   // Read first, write by id: the same shape as updateContact, and the only way
   // to write a relation — updateMany cannot connect one.
@@ -1489,21 +1627,15 @@ export async function updateTask(
   }
   if (patch.detail !== undefined) data.detail = patch.detail;
   if (patch.dueAt !== undefined) data.dueAt = toDate(patch.dueAt);
-  if (patch.applicationId !== undefined) {
-    if (patch.applicationId) {
-      const application = await db.application.findFirst({
-        where: { id: patch.applicationId, userId, archivedAt: null },
-      });
-      if (!application) throw new Error(`No application with id ${patch.applicationId}`);
-      data.application = { connect: { id: patch.applicationId } };
-    } else {
-      data.application = { disconnect: true };
-    }
-  }
+  const subject = await taskSubject(userId, patch);
   return db.task.update({
     where: { id },
-    data,
-    include: { application: { include: { company: true } } },
+    // Scalar foreign keys rather than connect/disconnect: `taskSubject` already
+    // returns every column it means to move, including the ones it is clearing,
+    // and expressing five of those as relation ops is five times the code for
+    // the same UPDATE.
+    data: { ...data, ...subject },
+    include: taskSubjectInclude,
   });
 }
 
