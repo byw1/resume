@@ -47,7 +47,7 @@ import {
   deleteVariable,
 } from "@/lib/settings";
 import { billedUserCount, linkBillingCustomer, syncAllBilling } from "@/lib/billing";
-import { sendEmail, testEmail } from "@/lib/email";
+import { renderEmailTemplate, sendEmail } from "@/lib/email";
 import { isAdmin, createEphemeralSession, destroySession, SESSION_COOKIE } from "@/lib/auth";
 import { parseResumeDoc, RESUME_DOC_SHAPE } from "@/lib/resume-schema";
 import { diffResumeDocs } from "@/lib/resume-diff";
@@ -4255,8 +4255,12 @@ export const tools: McpTool[] = [
   {
     name: "admin_send_test_email",
     title: "Send a test email",
-    description: "Proves the Resend configuration actually delivers. Returns the exact error if it does not.",
-    inputSchema: object({ to: str("Where to send it. Defaults to your own address.") }),
+    description:
+      "Proves the Resend configuration actually delivers, and doubles as the way to look at what this instance's mail actually looks like. Returns the exact error if it does not send. `template` picks which of the three designs to send: `test` (the default, a short confirmation), `invite` (the real invitation email filled with placeholder material) or `waitlist` (the notice the owner gets when a stranger asks for access). The samples are marked [Sample] in the subject and their links go nowhere, so proofreading an invitation costs nobody a real invitation token.",
+    inputSchema: object({
+      to: str("Where to send it. Defaults to your own address."),
+      template: str("Which email to send: test, invite or waitlist. Defaults to test."),
+    }),
     annotations: {
       readOnlyHint: false,
       destructiveHint: false,
@@ -4267,10 +4271,11 @@ export const tools: McpTool[] = [
     handler: async (args, ctx) => {
       const settings = await getSettings();
       const to = s(args, "to") || ctx.user.email;
-      const result = await sendEmail({ to, ...testEmail(settings.instanceName), settings });
+      const template = s(args, "template") || "test";
+      const result = await sendEmail({ to, ...renderEmailTemplate(template, settings), settings });
       return result.ok
-        ? { ok: true, to, id: result.id }
-        : { ok: false, to, error: result.error };
+        ? { ok: true, to, template, id: result.id }
+        : { ok: false, to, template, error: result.error };
     },
   },
   {

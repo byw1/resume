@@ -338,8 +338,15 @@ won't let a caller omit.
 4. Save, then **Send test** to prove it works — if it fails you get Resend's exact reason,
    which is almost always an unverified domain.
 
+Three emails leave an instance: the invitation somebody gets when you add them, the notice you
+get when a stranger asks for access, and that test. They carry the instance name and the mark,
+and they follow the same near-monochrome palette as the app, dark theme included. **Send test**
+picks which one goes out, so you can read the invitation in your own inbox before anyone else
+gets it — the sample is the real design with placeholder details and a link that goes nowhere,
+so proofreading it costs nobody a real invitation.
+
 You can do all of this by talking to Claude instead: *"is email set up? configure Resend with
-this key and send a test."*
+this key, then send me the invitation email so I can see it."*
 
 ### Signing in with Google (optional)
 
