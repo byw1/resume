@@ -4044,6 +4044,69 @@ afterwards.
 
 ---
 
+## 2026-09-04 — The front door is always light
+
+`/login`, `/setup` and `/invite/[token]` no longer follow the app's theme. They are reached
+from the marketing site, which is paper, and they are what a stranger sees before there is
+a person here with a preference — a dark card at the end of a light page reads as a
+different product. The theme inside the app is untouched: signing in lands you in whatever
+you had set.
+
+**Done as a class, not as `forcedTheme`.** `next-themes` decides the theme in an effect, so
+a nested provider with `forcedTheme` paints the dark card for a frame and then flips. A
+flash on the first screen a stranger sees is worse than the dark card would have been.
+`.theme-light` on the shell is in the server-rendered HTML and applies on the first style
+pass.
+
+**The mechanism is that a custom property set on an element beats one inherited from an
+ancestor, whatever that ancestor's selector.** So the light token block simply gained a
+second and third selector — `:root, .theme-light, body:has(> .auth-field.theme-light)` —
+and nothing is duplicated. This only works because the front door is written entirely in
+tokens; the check that made it safe was that there is not one `dark:` utility anywhere in
+`src/components/ui/` or on the three pages (the whole app has two, both in
+`client-mark.tsx`).
+
+**Three things a subtree of tokens does not cover, and they are the whole lesson:**
+
+**`color`.** `body { color: var(--foreground) }` resolved before the subtree got a say, and
+what inherits down is the answer, not the question — near-white ink on a paper card. Caught
+by probing computed styles under `html.dark` and comparing against `html.light`; every
+other value already matched. Any inherited property set from a token above the door has to
+be re-stated on `.theme-light`. `color` is the only one in this file. `* { border-color }`
+is not one, because a universal selector re-resolves at every element.
+
+**`color-scheme`, and `accent-color` with it.** The browser paints its own furniture —
+autofill, scrollbars, the "keep me signed in" checkbox — and would paint it for a dark page
+behind light fields.
+
+**The canvas.** A subtree cannot reach the element the browser paints the page background
+from, so a rubber-band overscroll on a phone showed a near-black sliver above paper. Hence
+the `body:has(> .auth-field.theme-light)` selector. The child combinator is deliberate: it
+keeps this a cheap `:has()` for every other page, one the engine re-checks only when body's
+own children change. If the tree above the door gains a wrapper this stops matching and the
+overscroll gutter goes dark again — cosmetic, not broken.
+
+**`@custom-variant dark` gained `:not(.theme-light *)`,** so a `dark:` utility added to the
+door later cannot fire against light tokens. It changes nothing today and is the guard that
+makes the class name honest.
+
+**`themeColor` is per page now.** The root layout sets it from `prefers-color-scheme`, which
+is right for every page that follows the theme and wrong for these three — a phone in dark
+mode painted the bar above a paper page near-black, which is the exact seam the root
+layout's own comment is about. `authViewport` is exported beside `AuthShell` and re-exported
+by each of the three pages, because Next only reads that export from a page or a layout.
+
+**Verified without a database.** There is no Postgres in the environment these sessions run
+in, so the door was rendered from the compiled stylesheet and the real class strings, under
+`html.dark` with the OS in dark mode, and probed: field, card ink, input, mark tokens and
+aurora opacity all identical to the light-theme render. The same probe with the door removed
+confirms body goes back to `oklch(0.165 …)` — the app is untouched.
+
+**Applies to:** `src/app/globals.css`, `src/components/auth-shell.tsx`,
+`src/app/{login,setup,invite/[token]}/page.tsx`.
+
+---
+
 ## 2026-09-04 — The three emails got a design, and tables came back
 
 An instance sends exactly three emails: the invitation (`inviteEmail`), the notice to the
@@ -4083,6 +4146,12 @@ make for someone.
 element is in it — without that, a short email leaves a light band under the content in
 Apple Mail. Gmail forces its own inversion and ignores the query; the design survives it
 because the surface is a near-neutral grey either way.
+
+**This does not contradict the entry above about the front door being light.** A page can
+decide it is paper; an email cannot. Apple Mail and Outlook invert a message whether or not
+it asked to be inverted, so the choice is not light-or-dark, it is *a dark theme I designed*
+or *a dark theme the client invents by flipping my greys*. Do not "fix" these templates to
+match `/login` by deleting the media query — that only hands the decision to the client.
 
 **`admin_send_test_email` now takes a `template`.** A design nobody can look at is a design
 nobody checks, and the only way to see the invitation used to be to invite a real person —
