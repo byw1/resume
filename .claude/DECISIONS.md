@@ -4104,3 +4104,71 @@ confirms body goes back to `oklch(0.165 …)` — the app is untouched.
 
 **Applies to:** `src/app/globals.css`, `src/components/auth-shell.tsx`,
 `src/app/{login,setup,invite/[token]}/page.tsx`.
+
+---
+
+## 2026-09-04 — The three emails got a design, and tables came back
+
+An instance sends exactly three emails: the invitation (`inviteEmail`), the notice to the
+owner when a stranger asks for access (`waitlistNoticeEmail`), and the test from
+Admin → Configuration → Email (`testEmail`). All three shared one `shell()` of divs with
+hex greys picked by hand and no relationship to the app. They now share a rebuilt one.
+
+**Tables carry the layout now, which reverses the comment that used to sit above these
+templates.** That comment said "plain, table-free HTML so it survives every mail client",
+and it was aimed at the right goal by the wrong means: Outlook on Windows renders through
+Word, Word has no `max-width`, so the centred `<div>` became full-bleed on the one client a
+hiring manager is most likely to be reading an invitation in. The layout is now a centring
+table plus an MSO ghost table, which is the boring standard answer. Everything inside is
+still inline-styled — the tables are structure, not decoration.
+
+**The palette is the app's tokens converted to hex, not new colours.** A mail client cannot
+read `globals.css`, so `C` (light) and `D` (dark) in `email.ts` repeat `--canvas`, `--card`,
+`--foreground`, `--muted-foreground`, `--faint`, `--border` and `--primary` as hex. The one
+value that is not a straight conversion is the dark primary: `--primary` in `.dark` is
+`oklch(0.65 0.17 252)`, which still disappears against a dark card at button size in mail,
+so `D.primary` is lifted to `#4ea1f5`. If a token in `globals.css` moves, this block is the
+thing that silently stops matching.
+
+**The mark is drawn out of a table cell and three coloured strips.** Not an `<img>`: images
+are off by default in a lot of inboxes and a broken-image icon where the logo goes is worse
+than no logo. Not inline SVG: Gmail strips it. The geometry is the same 64-unit grid as
+`hired-mark.tsx` scaled to 40px and rounded to whole pixels — bars 8/14/20 wide, 4 tall, 3
+apart, 10 from the left, tile radius 9. Outlook drops the corner radii and gets square bars
+in a square tile, which is still legibly the mark.
+
+**No webfont.** Inter is named first in case it is installed locally, then the system stack.
+Loading it from Google would tell a third party the moment an email was opened, and this
+product already has a switch (`company_logos`) that exists because that trade is not ours to
+make for someone.
+
+**Dark mode is a `prefers-color-scheme` block over inline light values**, and the `html`
+element is in it — without that, a short email leaves a light band under the content in
+Apple Mail. Gmail forces its own inversion and ignores the query; the design survives it
+because the surface is a near-neutral grey either way.
+
+**This does not contradict the entry above about the front door being light.** A page can
+decide it is paper; an email cannot. Apple Mail and Outlook invert a message whether or not
+it asked to be inverted, so the choice is not light-or-dark, it is *a dark theme I designed*
+or *a dark theme the client invents by flipping my greys*. Do not "fix" these templates to
+match `/login` by deleting the media query — that only hands the decision to the client.
+
+**`admin_send_test_email` now takes a `template`.** A design nobody can look at is a design
+nobody checks, and the only way to see the invitation used to be to invite a real person —
+which mints a token that *is* the credential for accepting. The tool (and the Send test row
+in the admin UI, which reads the same `EMAIL_TEMPLATES` list) sends any of the three filled
+with placeholder material, subject prefixed `[Sample]`, links pointing nowhere.
+`EMAIL_TEMPLATES` lives in `email.ts`, which reaches the database, so the admin panel is a
+client component that receives `{key, label}` as a prop rather than importing it.
+
+**`tools/gen-tool-docs.mjs` evaluates each `inputSchema` expression with nothing else in
+scope.** The `template` argument's description originally interpolated
+`EMAIL_TEMPLATES.map(...)`; the generator died with `EMAIL_TEMPLATES is not defined`. Any
+schema expression has to be self-contained — the helpers and literals only.
+
+**Verified** by rendering all three to files and screenshotting them in Chromium at 700px
+and 375px, light and dark. Typecheck and build clean, tool docs regenerated.
+
+**Applies to:** `src/lib/email.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
+`src/components/admin/configuration-panel.tsx`, `src/app/(app)/settings/admin/page.tsx`,
+`docs/tools/admin.mdx`, `README.md`.
