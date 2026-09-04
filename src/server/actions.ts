@@ -27,7 +27,7 @@ import {
 } from "@/lib/auth";
 import { deleteVariable, getSettings, setVariables } from "@/lib/settings";
 import { unlinkGoogleFromUser } from "@/lib/google";
-import { sendEmail, testEmail } from "@/lib/email";
+import { renderEmailTemplate, sendEmail } from "@/lib/email";
 import { syncAllBilling } from "@/lib/billing";
 import { loadPosting } from "@/lib/posting";
 import { dateRange } from "@/lib/utils";
@@ -533,12 +533,12 @@ export async function syncBillingAction(email?: string) {
   }
 }
 
-export async function sendTestEmailAction(to?: string) {
+export async function sendTestEmailAction(to?: string, template?: string) {
   const actor = await requireAdmin();
   const settings = await getSettings();
   const result = await sendEmail({
     to: to?.trim() || actor.email,
-    ...testEmail(settings.instanceName),
+    ...renderEmailTemplate(template, settings),
     settings,
   });
   return result.ok
