@@ -154,10 +154,9 @@ export function PipelineToolbar({
           The stages used to sit here as a row you scrolled sideways, above a
           board whose columns are the stages. They are a dimension like tags or
           companies and they live in the Filter menu now. What is left is the
-          one cut worth a click from anywhere: what is overdue. The dashboard
-          leads with it, the tasks page is built around it, and burying it
-          three clicks deep to tidy this row would have cost more than the row
-          did. "Everything" stays beside it because a filter you cannot see the
+          one cut worth a click from anywhere: what is overdue. The front page
+          is built around it, the bell counts it, and burying it three clicks
+          deep to tidy this row would have cost more than the row did. "Everything" stays beside it because a filter you cannot see the
           way out of is a trap. */}
       <div className="flex items-center gap-1">
         <Chip href={href({ ...filters, stages: [], overdue: false })} active={nothingOn} count={counts.all}>

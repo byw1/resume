@@ -895,10 +895,10 @@ export async function duplicateResumeAction(id: string, name?: string) {
  * just renamed should not still read the old way on the page they came from.
  */
 function revalidateTags() {
+  revalidatePath("/");
   revalidatePath("/applications");
   revalidatePath("/crm/companies");
   revalidatePath("/crm/contacts");
-  revalidatePath("/tasks");
 }
 
 const asOption = (tag: {
@@ -1015,7 +1015,6 @@ export async function createTaskAction(
   const user = await requireUser();
   await pipeline.createTask(user.id, input);
   revalidatePath("/");
-  revalidatePath("/tasks");
   // The subject's own screen shows its tasks, so it has to be refreshed too.
   revalidateSubject(input);
 }
@@ -1027,7 +1026,6 @@ export async function updateTaskAction(
   const user = await requireUser();
   await pipeline.updateTask(user.id, id, patch);
   revalidatePath("/");
-  revalidatePath("/tasks");
   revalidateSubject(patch);
 }
 
@@ -1045,7 +1043,6 @@ export async function toggleTaskAction(id: string, done: boolean) {
   const user = await requireUser();
   await pipeline.setTaskDone(user.id, id, done);
   revalidatePath("/");
-  revalidatePath("/tasks");
   revalidatePath("/applications");
 }
 
@@ -1053,7 +1050,6 @@ export async function deleteTaskAction(id: string) {
   const user = await requireUser();
   await pipeline.deleteTask(user.id, id);
   revalidatePath("/");
-  revalidatePath("/tasks");
 }
 
 /**
@@ -1067,7 +1063,6 @@ export async function scheduleContactPingAction(id: string, date: string) {
   const user = await requireUser();
   await pipeline.updateContact(user.id, id, { nextFollowUpAt: date || null });
   revalidatePath("/");
-  revalidatePath("/tasks");
   revalidatePath("/crm/contacts");
   revalidatePath(`/crm/contacts/${id}`);
 }
@@ -1079,11 +1074,11 @@ export async function scheduleContactPingAction(id: string, date: string) {
 /** Everywhere a record could have been showing before it moved. */
 function revalidateEverywhere() {
   revalidatePath("/");
+  revalidatePath("/analytics");
   revalidatePath("/archive");
   revalidatePath("/applications");
   revalidatePath("/crm/companies");
   revalidatePath("/crm/contacts");
-  revalidatePath("/tasks");
 }
 
 export async function archiveRecordsAction(kind: archive.ArchiveKind, ids: string[]) {
@@ -1153,7 +1148,6 @@ export async function scheduleContactPingsAction(ids: string[], date: string) {
   const user = await requireUser();
   const result = await pipeline.scheduleContactPings(user.id, ids, date);
   revalidatePath("/crm/contacts");
-  revalidatePath("/tasks");
   revalidatePath("/");
   return result;
 }

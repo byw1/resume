@@ -6,11 +6,11 @@ import { motion } from "framer-motion";
 import {
   ArrowUpRightIcon,
   BookOpenIcon,
+  ChartNoAxesColumnIcon,
   CircleUserRoundIcon,
   Building2Icon,
   ChevronDownIcon,
   KanbanIcon,
-  LayoutDashboardIcon,
   ListChecksIcon,
   Trash2Icon,
   LogOutIcon,
@@ -43,6 +43,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HiredMark } from "@/components/hired-mark";
+import { Notifications, type Notice } from "@/components/notifications";
 import { UserAvatar } from "@/components/user-avatar";
 import { logoutAction } from "@/server/actions";
 import { MANUAL_URL } from "@/lib/links";
@@ -60,12 +61,12 @@ import { MANUAL_URL } from "@/lib/links";
 type NavItem = {
   href: string;
   label: string;
-  icon: typeof LayoutDashboardIcon;
+  icon: typeof KanbanIcon;
   children?: { href: string; label: string }[];
 };
 
 const NAV: NavItem[] = [
-  { href: "/", label: "Dashboard", icon: LayoutDashboardIcon },
+  { href: "/", label: "Today", icon: ListChecksIcon },
   { href: "/me", label: "Me", icon: CircleUserRoundIcon },
   {
     href: "/crm",
@@ -77,7 +78,7 @@ const NAV: NavItem[] = [
     ],
   },
   { href: "/applications", label: "Pipeline", icon: KanbanIcon },
-  { href: "/tasks", label: "Tasks", icon: ListChecksIcon },
+  { href: "/analytics", label: "Analytics", icon: ChartNoAxesColumnIcon },
 ];
 
 // The rail remembers whether you collapsed it. Read after mount so the server
@@ -91,11 +92,11 @@ export type ShellUser = { name: string; email: string; role: string; photo: stri
 
 export function Shell({
   children,
-  followUpCount,
+  notices,
   user,
 }: {
   children: React.ReactNode;
-  followUpCount: number;
+  notices: Notice[];
   user: ShellUser;
 }) {
   const canAdmin = user.role === "ADMIN" || user.role === "SUPER_ADMIN";
@@ -272,15 +273,6 @@ export function Shell({
                   )}
                 />
                 {!collapsed && <span className="relative">{item.label}</span>}
-                {item.href === "/applications" &&
-                  followUpCount > 0 &&
-                  (collapsed ? (
-                    <span className="bg-primary absolute right-2.5 top-1.5 size-1.5 rounded-full" />
-                  ) : (
-                    <span className="bg-muted text-muted-foreground relative ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-                      {followUpCount}
-                    </span>
-                  ))}
               </Link>
             );
 
@@ -288,10 +280,7 @@ export function Shell({
               return (
                 <Tooltip key={item.href}>
                   <TooltipTrigger asChild>{link}</TooltipTrigger>
-                  <TooltipContent side="right">
-                    {item.label}
-                    {item.href === "/applications" && followUpCount > 0 && ` · ${followUpCount} due`}
-                  </TooltipContent>
+                  <TooltipContent side="right">{item.label}</TooltipContent>
                 </Tooltip>
               );
             }
@@ -383,6 +372,7 @@ export function Shell({
             >
               <SearchIcon />
             </Button>
+            <Notifications items={notices} />
             <ProfileMenu user={user} canAdmin={canAdmin} />
           </div>
         </header>
@@ -391,7 +381,6 @@ export function Shell({
           open={drawerOpen}
           onOpenChange={setDrawerOpen}
           isActive={isActive}
-          followUpCount={followUpCount}
           canAdmin={canAdmin}
           branchOpen={branchOpen}
           onToggleBranch={toggleBranch}
@@ -439,7 +428,6 @@ function MobileNav({
   open,
   onOpenChange,
   isActive,
-  followUpCount,
   canAdmin,
   onSearch,
   branchOpen,
@@ -448,7 +436,6 @@ function MobileNav({
   open: boolean;
   onOpenChange: (open: boolean) => void;
   isActive: (href: string) => boolean;
-  followUpCount: number;
   canAdmin: boolean;
   onSearch: () => void;
   /** Shared with the rail so the drawer and the sidebar never disagree. */
@@ -511,11 +498,6 @@ function MobileNav({
                   >
                     <item.icon className={cn("size-4 shrink-0", active && "text-primary")} />
                     <span>{item.label}</span>
-                    {item.href === "/applications" && followUpCount > 0 && (
-                      <span className="bg-muted text-muted-foreground ml-auto rounded-full px-1.5 py-0.5 text-[11px] font-medium tabular-nums">
-                        {followUpCount}
-                      </span>
-                    )}
                   </Link>
                   {item.children && (
                     <button

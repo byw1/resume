@@ -4543,3 +4543,76 @@ and 375px, light and dark. Typecheck and build clean, tool docs regenerated.
 **Applies to:** `src/lib/email.ts`, `src/lib/mcp/tools.ts`, `src/server/actions.ts`,
 `src/components/admin/configuration-panel.tsx`, `src/app/(app)/settings/admin/page.tsx`,
 `docs/tools/admin.mdx`, `README.md`.
+
+---
+
+## 2026-09-04 — Tasks is the front door, Analytics is its own screen, and the funnel is a picture you can post
+
+**The dashboard was the wrong front door.** You open this app to do the next thing, not to
+read your own statistics — and a screen of numbers you click past every morning is a tax.
+So `/` is the tasks page now and everything that was on the dashboard moved to
+`/analytics`. `/tasks` stays as a redirect: it is in people's history, in the command
+palette's muscle memory, and in two places the manual has been publishing.
+
+**"Needs you now" became a bell in the top bar.** A card on one page only tells you what is
+owed if you happen to be on that page. `dueNow(userId, withinDays = 0)` in
+`src/lib/data/pipeline.ts` merges the three kinds of dated debt — an application's
+follow-up, a person's ping, a task past its date — and the shell renders one count from it
+on every screen. Deliberately *not* dismissable: an item leaves that list by being dealt
+with, and a dismissable notification lets the bell go quiet while the work stays undone.
+The rail's old follow-up badge on Pipeline is gone with it — two numbers in one chrome for
+the same idea, with different scopes, is worse than one.
+
+**`list_follow_ups` returns the tasks too**, so the bell and an assistant cannot disagree
+about what is owed. It calls `dueNow` for that third list while keeping the rich
+application and contact rows the two existing reads return. That is four queries where
+three would do; the duplication buys one definition of "due" rather than two, and it is a
+tool a person calls a few times a day, not a hot path.
+
+**The Sankey is `reached` for arithmetic, `visited` for honesty.** An application that went
+interview → offer has passed the final-round rung's depth, which is what makes the sums
+close at every rung. Drawing a column for it would put "Final round 1" on a chart belonging
+to somebody who never had one, and this chart's entire job is to be posted and read by
+strangers. So `funnelFlows` returns both, and `sankeyLayout` skips a rung nobody entered.
+The ribbon still joins: survivors leaving one kept rung equal the depth reached at the next
+kept one, drawn or not.
+
+**One emitter for the picture, and it is a string, not JSX.** Next refuses
+`react-dom/server` anywhere in the app router — the build fails outright — so
+`sankeyBody`/`sankeyDocument` in `src/lib/funnel-sankey.ts` build the markup as text and the
+React component injects it with `dangerouslySetInnerHTML`. That is the *point*, not a
+workaround: two emitters would be two pictures the day somebody edited one. Everything in
+that string is a number counted from the database or a label from a fixed catalogue;
+`esc` guards the day someone passes a `labelFor` that is neither. Do not reintroduce a JSX
+copy of this markup.
+
+**The one thing the page and the file differ on is ribbon opacity.** 34% of a colour reads
+as a pastel on the white sheet and as mud on the app's near-black; the page passes
+`flow: { spine: 0.5, exit: 0.32 }`. Geometry, words and numbers are identical.
+
+**Tones are resolved hex, never `var(--…)`.** The headless Chromium that screenshots the
+SVG loads no stylesheet of ours, so a CSS variable comes out black.
+
+**`EXIT_LANE` exists because the last rung sat on top of its own exits.** Without 120px
+reserved, the offer column landed at x=838 and the exit column at x=844 — the offer block
+was hidden behind "Offer accepted", which is exactly the square somebody wants to see.
+Found by rendering the PNG and looking at it; no assertion would have caught it.
+
+**PNG degrades to SVG, and the route says 503 rather than 500.** Same posture as
+`export_resume_pdf`: the request was fine, this host cannot serve it. `export_funnel_image`
+reports `formats` so an assistant picks one that works instead of guessing.
+
+**Verified** against a real Postgres — `dueNow` counts, the archive taking a task off the
+bell with its parent application, the SVG's structure — plus a production `next start`
+driven in Chromium (login, bell, analytics, the share menu, both themes), the three routes
+fetched from inside the page (svg 200, png 200 image/png 41KB, gif 404 JSON), and all four
+new/changed tools round-tripped over the real MCP transport. Seven unfiltered archivable
+reads before and after, which is the documented set. Typecheck, build, `gen-tool-docs
+--check` and `migrate diff --exit-code` all clean.
+
+**Applies to:** `src/lib/data/pipeline.ts`, `src/lib/funnel-sankey.ts`,
+`src/lib/funnel-image.ts`, `src/components/analytics/`, `src/components/notifications.tsx`,
+`src/components/shell.tsx`, `src/components/command-palette.tsx`,
+`src/app/(app)/page.tsx`, `src/app/(app)/analytics/page.tsx`, `src/app/(app)/tasks/page.tsx`,
+`src/app/(app)/layout.tsx`, `src/app/api/funnel/[format]/route.ts`, `src/lib/mcp/tools.ts`,
+`src/server/actions.ts`, `README.md`, `docs/app.mdx`, `docs/concepts/`.

@@ -41,11 +41,24 @@ just *talk* to it.
   and an advisor at another. Every delete offers an Undo, each list says when that kind has
   something in the bin, and the two acts that really do destroy something can only reach what
   is already in there — so nothing in this app can be destroyed in one step.
-- **Tasks** — everything you owe on one page. The things you wrote down, grouped by overdue,
-  today, the next seven days, later and no date, each rewordable and re-datable in place and
-  attachable to the role it's about; and beside them the chase list, the follow-ups and pings
-  whose dates have come round, where the verbs are "logged it" and "push it out three days".
-  Ticking a task and logging a chase mean different things, so they don't share a column.
+- **Today** — everything you owe, and it is the first thing the app opens to. The things you
+  wrote down, grouped by overdue, today, the next seven days, later and no date, each
+  rewordable and re-datable in place and attachable to the role it's about; and beside them
+  the chase list, the follow-ups and pings whose dates have come round, where the verbs are
+  "logged it" and "push it out three days". Ticking a task and logging a chase mean different
+  things, so they don't share a column. On every other screen a bell in the top bar carries
+  one number — follow-ups due, pings due, tasks past their date — and opens them grouped.
+  Nothing in it can be dismissed: a thing leaves that list by being dealt with.
+- **Analytics** — where the numbers went, because you open this app to do the next thing
+  rather than to read your own statistics. The funnel drawn as a flow chart: applications
+  enter on the left, the survivors carry across to the phone screen, the interview, the
+  final round and the offer, and everything that leaves peels off to where it went —
+  rejected, no response, withdrew, offer accepted, still going. A rejection after two
+  interviews leaks out of the interview rung, not the applied one, because progress is
+  measured by how far it actually got. **Share chart** hands it to you as a PNG or an SVG
+  with no company, role or person named anywhere on it — only the shape — which is what
+  makes it the one thing here that is safe to post. Beside it: response rate, what is in
+  flight, the diagnosis of which step is losing people, and recent activity.
 - **CRM** — companies and the people at them, as records you can visit. A company page holds
   their website, whatever you have learned about them, and their industries, sizes and
   locations as labels rather than text boxes — a company is plausibly both fintech and
@@ -77,7 +90,7 @@ just *talk* to it.
   before it does it. Names fold case, so `linkedin` lands on the `LinkedIn` you already
   have rather than minting a twin.
 - **AI connections** — every person gets their own URL that turns all of the above into
-  118 tools any MCP client can call (148 if you're an admin). Claude, Claude Code, ChatGPT,
+  120 tools any MCP client can call (150 if you're an admin). Claude, Claude Code, ChatGPT,
   Cursor, VS Code and Windsurf all have one-paste setup built into the app.
 - **Multi-user** — invite whoever you like. Each person gets a completely private workspace;
   admins manage accounts but never see anyone's career history, resumes or applications. Admin lives
@@ -252,7 +265,7 @@ config already filled in with your URL, ready to copy.
 | **Anything else** | A standard `streamable-http` entry — or `mcp-remote` if it only speaks stdio |
 
 Hit **Test** next to any connection and the app calls its own endpoint the way a client
-would, then tells you how many tools answered — 118, or 148 if you're an admin.
+would, then tells you how many tools answered — 120, or 150 if you're an admin.
 
 #### One connection per client
 
@@ -430,7 +443,7 @@ By conversation: `admin_list_variables`, `admin_set_variable`, `admin_delete_var
 
 ## What your AI can do once it's connected
 
-118 tools. One hundred and ten of them are the data tools across the four areas, the
+120 tools. One hundred and twelve of them are the data tools across the four areas, the
 archive that cuts through all of them, your Gmail and Calendar, and your account; the other
 eight are the workflows below, published as tools as well as prompts, because prompt support
 is optional in MCP clients and tool support isn't. Call one and it hands back a step-by-step

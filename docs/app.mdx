@@ -8,11 +8,17 @@ Everything in Hired is reachable from a conversation. The web app is where you g
 *look* at the result, adjust it by hand, and do the two jobs a conversation is bad at:
 direct manipulation and rendering.
 
-The left rail holds Dashboard, Me, CRM and Pipeline — the content. Resumes are a tab on
-Me, because a resume is a view of your own record rather than a separate filing cabinet.
+The left rail holds Today, Me, CRM, Pipeline and Analytics — the content. Resumes are a tab
+on Me, because a resume is a view of your own record rather than a separate filing cabinet.
 Docs, this manual, Settings and — for admins — Admin are account actions, so they live in
 the profile menu at the top right instead. `⌘K` / `Ctrl+K` opens a search palette: somewhere to go,
 something to create, and every role, resume and application by name.
+
+Beside the profile menu is a bell. It carries one number — everything with a date that has
+come round: follow-ups due, people you meant to ping, tasks past their date — and opens
+them grouped by which of the three they are. Nothing in it can be dismissed. A thing leaves
+that list by being dealt with, which is the only honest way for a count of what you owe to
+reach zero.
 
 **Your work autosaves.** Me, the resume editor, the pipeline and the CRM have no
 save button anywhere; a small indicator tells you when a change has landed. The settings
@@ -22,16 +28,51 @@ Settings → Account and navigating away loses it.
 Both themes are supported. The toggle is on the **Appearance** tab in Settings, not in the
 top bar.
 
-## Dashboard
+## Today
 
 `/`
 
-What is due and what has gone quiet, ahead of everything else. Stats across the top —
-what is in flight, response rate, what you sent this week, how much is on file —
-then follow-ups due, recent activity and open tasks.
+The front door is the list, not the numbers. Everything you owe, in two columns that stay
+apart on purpose. On the left the things you wrote down, grouped by overdue, today, the
+next seven days, later and no date — click a title to reword it, change its date in the
+row, or drop it. A task carries a detail as well as a title, and hangs off at most one
+thing: an application, a company, a person, a resume, a role in Me, a note, or nothing.
+Whatever you hang it on shows it, and deleting that thing takes the task with it. On the
+right the chase list: the follow-ups and pings whose dates have come round, where the
+verbs are "logged it" and "push it out three days", plus the box that puts someone new on
+it.
 
-It is the screen to open on a Monday, and it answers the same question `list_follow_ups`
-does, laid out rather than listed.
+Ticking a task and logging a chase are not the same act, which is why they are not one
+list. Above both is a line for reporting what just happened, because that is usually why
+you opened the app.
+
+It answers the same question `list_follow_ups` does, laid out rather than listed. `/tasks`
+still works and lands here.
+
+## Analytics
+
+`/analytics`
+
+How the search is going, which is a different question from what you owe today — so it is
+a different screen, and you go to it when you actually want to know.
+
+At the top, the funnel drawn as a flow chart: every application enters on the left as
+"Applied", the survivors carry across to the phone screen, the interview, the final round
+and the offer, and everything that leaves peels off sideways to where it went — rejected,
+no response, withdrew, offer accepted, still going. An application that was rejected after
+two interviews leaks out of the interview rung, not the applied one, because progress is
+measured by how far it actually got. A rung nobody was ever in is not drawn at all.
+
+**Share chart** copies it to the clipboard or downloads it as a PNG or an SVG. There is
+not a company, a role or a person's name on it — only the shape — which is what makes it
+the one thing here that is safe to post. The PNG is rendered server-side by the same
+headless browser the PDF export uses; where an instance has no browser the SVG is offered
+instead and opens anywhere an image does. Over MCP it is `export_funnel_image`, and
+`get_funnel` gives an assistant the numbers behind it.
+
+Below that: what is in flight, response rate, what you sent this week and how much is on
+file; the diagnosis of which step is losing people; what is on the board right now; and
+recent activity.
 
 ## Me
 
@@ -124,22 +165,6 @@ The people you are talking to come first, then the resume you sent — drawn as 
 is, not named in a dropdown — then the timeline. The posting itself is folded away, because
 you pasted it once and it is the thing on that screen you look at least. The employer is a
 chip: click it for their research, their people and the other roles you have there.
-
-## Tasks
-
-`/tasks`
-
-Everything you owe, in two columns that stay apart on purpose. On the left the things you
-wrote down, grouped by overdue, today, the next seven days, later and no date — click a
-title to reword it, change its date in the row, or drop it. A task carries a detail as well
-as a title, and hangs off at most one thing: an application, a company, a person, a resume,
-a role in Me, a note, or nothing. Whatever you hang it on shows it, and deleting that thing
-takes the task with it. On the right
-the chase list: the follow-ups and pings whose dates have come round, where the verbs are
-"logged it" and "push it out three days", plus the box that puts someone new on it.
-
-Ticking a task and logging a chase are not the same act, which is why they are not one
-list. The dashboard's five-line version links here.
 
 ## Archive
 

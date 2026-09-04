@@ -1928,6 +1928,108 @@ export async function contactFollowUpsDue(userId: string, withinDays = 0) {
 }
 
 /**
+ * Everything whose date has come round.
+ *
+ * The bell in the chrome, and the same answer over MCP. Three kinds of dated
+ * thing pass their date and start meaning "do something": an application's next
+ * follow-up, a person's next ping, and a task's due date. Meetings and logged
+ * activities deliberately are not here — a calendar entry is not a debt, and an
+ * activity is a record of something that already happened.
+ *
+ * Grouped rather than merged into one sorted column, because the three ask for
+ * different actions: chase a company, ping a person, tick a thing off. One flat
+ * list of look-alike rows makes you read every row to work out which is which.
+ *
+ * `withinDays` defaults to 0 — today and everything already late.
+ */
+export type DueItem = {
+  kind: "APPLICATION" | "CONTACT" | "TASK";
+  id: string;
+  title: string;
+  detail: string;
+  dueAt: Date | null;
+  /** Past its date rather than due today. The one thing worth colouring. */
+  overdue: boolean;
+};
+
+export async function dueNow(
+  userId: string,
+  withinDays = 0,
+): Promise<{ followUps: DueItem[]; pings: DueItem[]; tasks: DueItem[]; total: number }> {
+  const now = new Date();
+  const cutoff = new Date();
+  cutoff.setDate(cutoff.getDate() + withinDays);
+  cutoff.setHours(23, 59, 59, 999);
+  const late = (date: Date | null) => date !== null && date < now;
+
+  const [applications, contacts, tasks] = await Promise.all([
+    db.application.findMany({
+      where: {
+        userId,
+        archivedAt: null,
+        nextFollowUpAt: { lte: cutoff },
+        stage: { notIn: TERMINAL_STAGES },
+      },
+      orderBy: { nextFollowUpAt: "asc" },
+      include: { company: { select: { name: true } } },
+    }),
+    db.contact.findMany({
+      where: { userId, archivedAt: null, nextFollowUpAt: { lte: cutoff } },
+      orderBy: { nextFollowUpAt: "asc" },
+      include: {
+        companies: {
+          where: { company: { archivedAt: null } },
+          include: { company: { select: { name: true } } },
+          orderBy: { createdAt: "asc" },
+        },
+      },
+    }),
+    db.task.findMany({
+      where: { userId, done: false, dueAt: { lte: cutoff }, ...LIVE_TASK_PARENT },
+      orderBy: { dueAt: "asc" },
+      include: { application: { include: { company: { select: { name: true } } } } },
+    }),
+  ]);
+
+  const followUps: DueItem[] = applications.map((application) => ({
+    kind: "APPLICATION",
+    id: application.id,
+    title: application.company.name,
+    detail: application.roleTitle,
+    dueAt: application.nextFollowUpAt,
+    overdue: late(application.nextFollowUpAt),
+  }));
+
+  const pings: DueItem[] = contacts.map((contact) => ({
+    kind: "CONTACT",
+    id: contact.id,
+    title: contact.name,
+    detail:
+      [contact.title, ...contact.companies.map((link) => link.company.name)]
+        .filter(Boolean)
+        .join(" · ") || "Contact",
+    dueAt: contact.nextFollowUpAt,
+    overdue: late(contact.nextFollowUpAt),
+  }));
+
+  const dueTasks: DueItem[] = tasks.map((task) => ({
+    kind: "TASK",
+    id: task.id,
+    title: task.title,
+    detail: task.application ? task.application.company.name : task.detail,
+    dueAt: task.dueAt,
+    overdue: late(task.dueAt),
+  }));
+
+  return {
+    followUps,
+    pings,
+    tasks: dueTasks,
+    total: followUps.length + pings.length + dueTasks.length,
+  };
+}
+
+/**
  * Everything with a date on it, in one window.
  *
  * Three tables carry dates — an application's next follow-up, a task's due
@@ -2128,6 +2230,133 @@ function median(values: number[]): number | null {
   return sorted.length % 2 === 0
     ? Math.round((sorted[mid - 1] + sorted[mid]) / 2)
     : sorted[mid];
+}
+
+/**
+ * Every application, by how far it got and how it ended.
+ *
+ * This is the Sankey's whole input, and the only place the shape is computed —
+ * the on-screen diagram, the shared image and the tool all read this, so there
+ * is one answer to "how many did I apply to" rather than three.
+ *
+ * **Furthest reached, not currently at.** An application sitting in REJECTED
+ * still went through a screen and two interviews, and a funnel that filed it
+ * under "rejected after applying" would say the search leaks at the top when it
+ * leaks at the end. So the rung comes from the transition history, and the
+ * ending comes from where it is now — the same two-part reading `diagnoseSearch`
+ * already does, which is why `LADDER` is shared rather than re-declared.
+ *
+ * **The wishlist is not in it.** A job you noted and never applied to did not
+ * leak out of the funnel; it never entered. Counting it as "applied, no
+ * response" would be the single easiest way to make this diagram lie.
+ *
+ * Archived applications are out, for the reason pipelineStats gives: half a
+ * population is worse than either.
+ */
+export type FunnelRung = {
+  stage: Stage;
+  /**
+   * How many ever got at least this far — a DEPTH, not a visit count.
+   *
+   * An application that went straight from an interview to an offer got past
+   * the depth a final round sits at without having one, and counting it here is
+   * what makes the arithmetic close: every rung's ins equal its outs, so the
+   * ribbons join up. `visited` is the honest count, and the drawing uses it to
+   * decide whether the column exists at all.
+   */
+  reached: number;
+  /** How many were actually IN this stage — moved into it, or sitting in it. */
+  visited: number;
+  /** How many of those went on to the next rung. */
+  advanced: number;
+  /** How many stopped here, by the ending they stopped with. */
+  ended: { stage: Stage; count: number }[];
+  /** How many are sitting here right now, still live. */
+  open: number;
+};
+
+export async function funnelFlows(userId: string): Promise<{
+  rungs: FunnelRung[];
+  applied: number;
+  /** Everything not yet applied to. Reported, never drawn. */
+  wishlist: number;
+}> {
+  const [applications, transitions] = await Promise.all([
+    db.application.findMany({
+      where: { userId, archivedAt: null },
+      select: { id: true, stage: true, appliedAt: true },
+    }),
+    db.activity.findMany({
+      where: { userId, toStage: { not: null }, application: { archivedAt: null } },
+      select: { applicationId: true, toStage: true },
+    }),
+  ]);
+
+  const best = new Map<string, number>();
+  const rank = (stage: Stage | null) => (stage ? LADDER.indexOf(stage) : -1);
+  // Which rungs each application was genuinely in, as opposed to past.
+  const seen = new Map<string, Set<number>>();
+  for (const transition of transitions) {
+    if (!transition.applicationId) continue;
+    const previous = best.get(transition.applicationId) ?? -1;
+    const index = rank(transition.toStage);
+    best.set(transition.applicationId, Math.max(previous, index));
+    if (index >= 0) {
+      const set = seen.get(transition.applicationId);
+      if (set) set.add(index);
+      else seen.set(transition.applicationId, new Set([index]));
+    }
+  }
+
+  const rungs: FunnelRung[] = LADDER.map((stage) => ({
+    stage,
+    reached: 0,
+    visited: 0,
+    advanced: 0,
+    ended: [],
+    open: 0,
+  }));
+  const endings = LADDER.map(() => new Map<Stage, number>());
+  let wishlist = 0;
+
+  for (const application of applications) {
+    let furthest = Math.max(rank(application.stage), best.get(application.id) ?? -1);
+    // ACCEPTED is not a rung, it is what happens at the top of one.
+    if (application.stage === "ACCEPTED") furthest = Math.max(furthest, LADDER.indexOf("OFFER"));
+    // Applied without a single logged move still applied.
+    if (furthest < 0 && application.appliedAt) furthest = 0;
+    if (furthest < 0) {
+      wishlist += 1;
+      continue;
+    }
+
+    const visits = seen.get(application.id) ?? new Set<number>();
+    // Where it sits now counts as a visit; so does where it started.
+    const here = rank(application.stage);
+    if (here >= 0) visits.add(here);
+    if (application.appliedAt || application.stage !== "WISHLIST") visits.add(0);
+
+    for (let i = 0; i <= furthest; i++) {
+      rungs[i].reached += 1;
+      if (visits.has(i)) rungs[i].visited += 1;
+      if (i < furthest) rungs[i].advanced += 1;
+    }
+    // Where it stopped: an ending if it has one, otherwise it is still open.
+    if (TERMINAL_STAGES.includes(application.stage)) {
+      const map = endings[furthest];
+      map.set(application.stage, (map.get(application.stage) ?? 0) + 1);
+    } else {
+      rungs[furthest].open += 1;
+    }
+  }
+
+  for (const [index, map] of endings.entries()) {
+    rungs[index].ended = [...map.entries()]
+      .map(([stage, count]) => ({ stage, count }))
+      .sort((a, b) => b.count - a.count || a.stage.localeCompare(b.stage));
+  }
+
+  return { rungs, applied: rungs[0]?.reached ?? 0, wishlist };
 }
 
 export async function diagnoseSearch(userId: string): Promise<SearchDiagnosis> {

@@ -2193,7 +2193,7 @@ export const tools: McpTool[] = [
     name: "list_follow_ups",
     title: "List follow-ups that are due",
     description:
-      "The 'who do I need to chase today' tool. Returns two lists: applications whose follow-up date has arrived or passed, and contacts whose ping date has — the people you meant to get back in touch with. Both are due work; plan a day from the pair.",
+      "The 'what has come round' tool, and the same thing the bell in the app counts. Returns three lists: applications whose follow-up date has arrived or passed, contacts whose ping date has — the people you meant to get back in touch with — and tasks that are due or already late. All three are debts with a date on them; plan a day from the set. Each task carries `overdue`, which separates late from due today. Reach for list_tasks when the date does not matter and list_schedule when the question is about a window of time rather than about what is owed now.",
     inputSchema: object({
       withinDays: num("Look ahead this many days. 0 = due now, 7 = due within a week."),
     }),
@@ -2205,11 +2205,15 @@ export const tools: McpTool[] = [
     },
     handler: async (args, ctx) => {
       const withinDays = n(args, "withinDays") ?? 0;
-      const [applications, contacts] = await Promise.all([
+      // The rich rows for the two the caller usually acts on, and dueNow for
+      // the tasks — which is the same function the bell counts from, so the
+      // app and an assistant can never disagree about what is owed.
+      const [applications, contacts, due] = await Promise.all([
         pipeline.followUpsDue(ctx.userId, withinDays),
         pipeline.contactFollowUpsDue(ctx.userId, withinDays),
+        pipeline.dueNow(ctx.userId, withinDays),
       ]);
-      return { applications, contacts };
+      return { applications, contacts, tasks: due.tasks, total: due.total };
     },
   },
   {
@@ -2282,6 +2286,78 @@ export const tools: McpTool[] = [
       openWorldHint: false,
     },
     handler: async (args, ctx) => pipeline.diagnoseSearch(ctx.userId),
+  },
+  {
+    name: "get_funnel",
+    title: "Get the funnel, rung by rung",
+    description:
+      "The numbers behind the flow chart on the analytics page: for each rung of the ladder — applied, phone screen, interview, final round, offer — how many ever got that far, how many went on, how many are still sitting there, and how many left at that exact point and where they went (rejected, ghosted, withdrawn, offer accepted). Progress is measured by the furthest stage an application actually reached, so a rejection after two interviews is counted as leaking out of the interview rung rather than the applied one — which is the whole reason to look at this rather than at raw stage counts. `visited` says how many were genuinely in a rung, `reached` how many got at least that deep; they differ when someone skips a step, and only `visited` is honest about whether a stage happened. Wishlist rows are counted separately and are not in the funnel at all, because nothing was ever sent. Archived applications are excluded. Use export_funnel_image for the picture. Read-only. Says nothing is there yet rather than dividing by zero.",
+    inputSchema: object({}),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (_args, ctx) => pipeline.funnelFlows(ctx.userId),
+  },
+  {
+    name: "export_funnel_image",
+    title: "Export the funnel as an image",
+    description:
+      "Render the funnel — the Sankey flow chart of where every application ended up — as an image file and return a download url. This is the thing people post: it shows the shape of a search without naming a single company, role or person, so it is safe to share in a way almost nothing else here is. Ask for png when it is going into a message, a slide or a post; svg when it wants to stay sharp at any size, or when this instance has no headless browser to make a png with — the tool says which formats it can actually produce and picks svg when png is not on offer. The url opens in the browser they are already signed in to; it is not a public link and nobody else can fetch it. Nothing is saved: the image is drawn fresh from the pipeline each time it is fetched. Refuses when nothing has been applied to yet.",
+    inputSchema: object({
+      format: str("png or svg. Defaults to png where the host can render one, svg otherwise."),
+    }),
+    annotations: {
+      readOnlyHint: true,
+      destructiveHint: false,
+      idempotentHint: true,
+      openWorldHint: false,
+    },
+    handler: async (args, ctx) => {
+      const png = pdfRenderingAvailable();
+      const asked = (s(args, "format") ?? "").toLowerCase();
+      if (asked && asked !== "png" && asked !== "svg") {
+        throw new Error(`Cannot render "${asked}". Ask for png or svg.`);
+      }
+      if (asked === "png" && !png) {
+        throw new Error(
+          "This instance has no headless browser, so it cannot render a PNG. Ask for svg — it opens anywhere an image does.",
+        );
+      }
+
+      const { applied, rungs, wishlist } = await pipeline.funnelFlows(ctx.userId);
+      if (applied === 0) {
+        throw new Error(
+          "Nothing to chart yet — no applications have been sent, so the funnel is empty.",
+        );
+      }
+
+      const format = asked || (png ? "png" : "svg");
+      const url = `${ctx.baseUrl}/api/funnel/${format}`;
+      const stages = rungs.filter((rung) => rung.visited > 0).length;
+      return withLinks(
+        {
+          url,
+          format,
+          applied,
+          wishlist,
+          stages,
+          pngAvailable: png,
+          formats: png ? ["png", "svg"] : ["svg"],
+        },
+        [
+          {
+            type: "resource_link",
+            uri: url,
+            name: `Job search funnel (${format.toUpperCase()})`,
+            description: `${applied} application${applied === 1 ? "" : "s"} across ${stages} stage${stages === 1 ? "" : "s"}. No company or role names on it.`,
+            mimeType: format === "png" ? "image/png" : "image/svg+xml",
+          },
+        ],
+      );
+    },
   },
   {
     name: "share_pipeline",

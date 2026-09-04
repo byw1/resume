@@ -67,11 +67,11 @@ function bucketOf(dueISO: string): BucketKey {
 /**
  * Everything you owe yourself, as one worked list.
  *
- * The dashboard has a five-line version of this and that is all it should
- * have: it is a glance. This is the page you open when you actually mean to
- * clear the list, so a task here can be reworded, re-dated, hooked to a role
- * and deleted — none of which was possible anywhere in the app before, tasks
- * being write-once and tick-once.
+ * The bell in the top bar is the glance — what has come round, five words
+ * each. This is the front page, where you actually mean to clear the list, so
+ * a task here can be reworded, re-dated, hooked to a role and deleted — none
+ * of which was possible anywhere in the app before, tasks being write-once and
+ * tick-once.
  *
  * Grouped by when rather than by what: an overdue thing and a Thursday thing
  * are different problems, and a flat list sorted by date makes you work that

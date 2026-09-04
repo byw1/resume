@@ -1,7 +1,7 @@
 ---
 title: "Pipeline tools"
 sidebarTitle: "Pipeline"
-description: "Thirty-eight tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
+description: "Forty tools over applications, stages, the activity timeline, tasks, follow-ups, saved views, sharing and diagnosis."
 icon: "list-check"
 ---
 
@@ -257,7 +257,7 @@ Recent timeline entries across the whole search, or for one application. Good fo
 
 _List follow-ups that are due_
 
-The 'who do I need to chase today' tool. Returns two lists: applications whose follow-up date has arrived or passed, and contacts whose ping date has — the people you meant to get back in touch with. Both are due work; plan a day from the pair.
+The 'what has come round' tool, and the same thing the bell in the app counts. Returns three lists: applications whose follow-up date has arrived or passed, contacts whose ping date has — the people you meant to get back in touch with — and tasks that are due or already late. All three are debts with a date on them; plan a day from the set. Each task carries `overdue`, which separates late from due today. Reach for list_tasks when the date does not matter and list_schedule when the question is about a window of time rather than about what is owed now.
 
 | Argument | Type | |
 | --- | --- | --- |
@@ -296,6 +296,24 @@ _Diagnose the job search_
 Works out what is actually going wrong with the search, rather than reporting counts. Returns a one-sentence verdict naming which step of the funnel is losing people — no responses at all is a resume or targeting problem, responses that die at the phone screen is a story problem, interviews that do not convert is something else again — plus per-step conversion, median days spent in each stage, weekly volume for the last six weeks, applications that have gone quiet, and the response rate of each resume so you can see which one is working. Progress is measured by the furthest stage an application ever reached, so a rejection after a final round counts as having got that far. Reach for this before giving advice about a search: it is the difference between 'send more applications' and 'stop sending, the resume is the problem'. Says so plainly when there is not enough data yet. Read-only.
 
 No arguments.
+
+### `get_funnel`
+
+_Get the funnel, rung by rung_
+
+The numbers behind the flow chart on the analytics page: for each rung of the ladder — applied, phone screen, interview, final round, offer — how many ever got that far, how many went on, how many are still sitting there, and how many left at that exact point and where they went (rejected, ghosted, withdrawn, offer accepted). Progress is measured by the furthest stage an application actually reached, so a rejection after two interviews is counted as leaking out of the interview rung rather than the applied one — which is the whole reason to look at this rather than at raw stage counts. `visited` says how many were genuinely in a rung, `reached` how many got at least that deep; they differ when someone skips a step, and only `visited` is honest about whether a stage happened. Wishlist rows are counted separately and are not in the funnel at all, because nothing was ever sent. Archived applications are excluded. Use export_funnel_image for the picture. Read-only. Says nothing is there yet rather than dividing by zero.
+
+No arguments.
+
+### `export_funnel_image`
+
+_Export the funnel as an image_
+
+Render the funnel — the Sankey flow chart of where every application ended up — as an image file and return a download url. This is the thing people post: it shows the shape of a search without naming a single company, role or person, so it is safe to share in a way almost nothing else here is. Ask for png when it is going into a message, a slide or a post; svg when it wants to stay sharp at any size, or when this instance has no headless browser to make a png with — the tool says which formats it can actually produce and picks svg when png is not on offer. The url opens in the browser they are already signed in to; it is not a public link and nobody else can fetch it. Nothing is saved: the image is drawn fresh from the pipeline each time it is fetched. Refuses when nothing has been applied to yet.
+
+| Argument | Type | |
+| --- | --- | --- |
+| `format` | string | png or svg. Defaults to png where the host can render one, svg otherwise. |
 
 ### `share_pipeline`
 
